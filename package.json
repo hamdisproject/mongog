@@ -1,0 +1,62 @@
+{
+  "name": "mongog",
+  "productName": "MongoG",
+  "version": "0.0.1",
+  "description": "MongoG - production-grade MongoDB desktop IDE",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@10.8.2",
+  "main": ".vite/build/main.js",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "prestart": "npm run extract:types && npm run build:runtime",
+    "start": "electron-forge start",
+    "build:runtime": "vite build -c vite.runtime.config.mts",
+    "extract:types": "node scripts/extract-mongo-types.mjs",
+    "prepackage": "npm run extract:types && npm run build:runtime",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "spike:safestorage": "electron scripts/spike-safestorage.cjs",
+    "spike:monaco-types": "node scripts/spike-monaco-types.mjs",
+    "test": "vitest run tests/unit",
+    "test:integ": "vitest run tests/integration",
+    "test:all": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src tests"
+  },
+  "dependencies": {
+    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-virtual": "^3.14.8",
+    "@types/better-sqlite3": "^7.6.13",
+    "better-sqlite3": "^12.10.1",
+    "bson": "^7.2.0",
+    "monaco-editor": "^0.56.0",
+    "mongodb": "^7.5.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "zod": "^4.4.3",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "7.11.2",
+    "@electron-forge/maker-dmg": "7.11.2",
+    "@electron-forge/maker-zip": "7.11.2",
+    "@electron-forge/plugin-auto-unpack-natives": "7.11.2",
+    "@electron-forge/plugin-fuses": "7.11.2",
+    "@electron-forge/plugin-vite": "7.11.2",
+    "@electron/fuses": "^1.8.0",
+    "@playwright/test": "^1.61.1",
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.2.0",
+    "electron": "43.2.0",
+    "mongodb-memory-server": "^11.2.0",
+    "typescript": "~5.9.3",
+    "vite": "^7.0.0",
+    "vitest": "^4.1.10"
+  }
+}

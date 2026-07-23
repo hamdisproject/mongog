@@ -1,0 +1,10 @@
+export { Database } from './database.js';
+export type { DbConfig, BackupInfo } from './database.js';
+export { migrateUp } from './migrations.js';
+export { ConnectionProfileRepo } from './repositories/connection-profiles.js';
+export { ConnectionGroupRepo } from './repositories/connection-groups.js';
+export { SecretsRepo } from './repositories/secrets.js';
+export { QueryHistoryRepo } from './repositories/query-history.js';
+export { WorkspaceRepo } from './repositories/workspace.js';
+export { SettingsRepo } from './repositories/settings.js';
+export { SavedScriptsRepo } from './repositories/saved-scripts.js';

@@ -1,0 +1,9 @@
+node_modules/
+.vite/
+out/
+dist/
+coverage/
+*.log
+.DS_Store
+src/renderer/generated/
+.cache/
