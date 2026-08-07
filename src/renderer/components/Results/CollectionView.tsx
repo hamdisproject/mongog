@@ -4,14 +4,32 @@ import type { EjsonEnvelope } from '../../../shared/ejson/index.js';
 import { useConnectionStore } from '../../stores/connections.js';
 import { useSchemaCache } from '../../stores/schema-cache.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
+import { collectionDocumentsOwnerId } from '../../collection-workspace.js';
+import { theme } from '../../theme.js';
+import { QueryEditor } from '../Editor/QueryEditor.js';
+import { ResultsPanel } from './ResultsPanel.js';
 
 const s: Record<string, React.CSSProperties> = {
+  workspace: { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' },
+  contextBar: {
+    minHeight: 36, display: 'flex', alignItems: 'stretch', gap: 4, padding: '0 10px',
+    background: theme.colors.panel, borderBottom: `1px solid ${theme.colors.border}`, flexShrink: 0,
+  },
+  contextNamespace: {
+    color: '#dcdcaa', display: 'flex', alignItems: 'center', marginRight: 12,
+    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12,
+  },
+  viewButton: {
+    border: 0, borderBottom: '2px solid transparent', background: 'transparent',
+    color: theme.colors.textMuted, padding: '0 12px', fontSize: 12, cursor: 'pointer',
+  },
+  viewButtonActive: { color: theme.colors.text, borderBottomColor: theme.colors.accentHover },
+  surface: { flex: 1, minHeight: 0, overflow: 'hidden' },
   container: { display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' },
   toolbar: {
     display: 'flex', gap: 6, padding: '5px 8px', background: '#2d2d2d',
     borderBottom: '1px solid #3c3c3c', alignItems: 'center', flexShrink: 0, fontSize: 12,
   },
-  namespace: { color: '#dcdcaa', whiteSpace: 'nowrap', marginRight: 4 },
   input: {
     background: '#1f1f1f', color: '#ddd', border: '1px solid #555',
     padding: '4px 6px', borderRadius: 2, fontSize: 11, fontFamily: 'monospace', minWidth: 100,
@@ -94,10 +112,40 @@ interface DocumentRow {
 type EditorMode = 'view' | 'edit' | 'new';
 
 export function CollectionView() {
-  const { activeTabId, tabs } = useWorkspaceStore();
+  const { activeTabId, tabs, setCollectionView } = useWorkspaceStore();
   const tab = tabs.find((candidate) => candidate.id === activeTabId);
   if (!tab || tab.kind !== 'collection') return null;
-  return <CollectionBrowser key={tab.id} tab={tab} />;
+  const view = tab.collectionViewMode ?? 'documents';
+  const namespace = `${tab.database ?? 'admin'}.${tab.collection ?? ''}`;
+
+  return (
+    <div style={s.workspace}>
+      <div style={s.contextBar}>
+        <span style={s.contextNamespace}>{namespace}</span>
+        {(['documents', 'query'] as const).map((candidate) => (
+          <button
+            key={candidate}
+            style={{ ...s.viewButton, ...(view === candidate ? s.viewButtonActive : {}) }}
+            aria-pressed={view === candidate}
+            onClick={() => setCollectionView(tab.id, candidate)}
+          >
+            {candidate === 'documents' ? 'Documents' : 'Query'}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ ...s.surface, display: view === 'documents' ? 'flex' : 'none' }}>
+        <CollectionBrowser key={tab.id} tab={tab} />
+      </div>
+
+      {view === 'query' && (
+        <div style={{ ...s.surface, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 1, minHeight: 0 }}><QueryEditor contextLocked /></div>
+          <div style={{ height: '40%', minHeight: 120 }}><ResultsPanel /></div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
@@ -105,6 +153,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const connectionId = tab.connectionId ?? '';
   const database = tab.database ?? 'admin';
   const collection = tab.collection ?? '';
+  const documentsOwnerId = collectionDocumentsOwnerId(tab.id);
   const readOnly = profiles.find((profile) => profile.id === connectionId)?.readOnly ?? true;
 
   const [draftFilter, setDraftFilter] = useState(EMPTY_FILTER);
@@ -155,7 +204,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
         connectionId,
         database,
         collection,
-        tabId: tab.id,
+        tabId: documentsOwnerId,
         filterEjson: criteria.filter || EMPTY_FILTER,
         ...(criteria.sort ? { sortEjson: criteria.sort } : {}),
         ...(criteria.projection ? { projectionEjson: criteria.projection } : {}),
@@ -170,14 +219,14 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     } finally {
       setLoading(false);
     }
-  }, [connectionId, database, collection, tab.id, criteria, pageSize, applyPage]);
+  }, [connectionId, database, collection, documentsOwnerId, criteria, pageSize, applyPage]);
 
   useEffect(() => {
     void loadInitial();
     return () => {
-      if (connectionId) void window.mongog.query.closeOwner(connectionId, tab.id);
+      if (connectionId) void window.mongog.query.closeOwner(connectionId, documentsOwnerId);
     };
-  }, [connectionId, tab.id, loadInitial]);
+  }, [connectionId, documentsOwnerId, loadInitial]);
 
   const applyCriteria = () => {
     const next = {
@@ -325,7 +374,6 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   return (
     <div style={s.container}>
       <div style={s.toolbar}>
-        <span style={s.namespace}>{database}.{collection}</span>
         <input
           style={{ ...s.input, ...s.filterInput }}
           aria-label="Collection filter"

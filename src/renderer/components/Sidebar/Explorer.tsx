@@ -174,6 +174,7 @@ function ProfileNode({ profile, isConnected, isSelected, isExpanded, onSelect, o
       title: `${dbName}.${colName}`,
       database: dbName,
       collection: colName,
+      collectionViewMode: 'documents',
     });
   };
 
@@ -185,7 +186,11 @@ function ProfileNode({ profile, isConnected, isSelected, isExpanded, onSelect, o
         onDoubleClick={onDoubleClick}
         title={isConnected ? 'Double-click to disconnect' : 'Double-click to connect'}
       >
-        <span style={{ fontSize: 10, width: 14, textAlign: 'center' }} onClick={(e) => { e.stopPropagation(); onToggle(); }}>
+        <span
+          style={{ fontSize: 10, width: 14, textAlign: 'center' }}
+          title={isConnected ? (isExpanded ? 'Collapse databases' : 'Expand databases') : undefined}
+          onClick={(e) => { e.stopPropagation(); onToggle(); }}
+        >
           {isConnected ? (isExpanded ? '▼' : '▶') : ''}
         </span>
         <div style={{ ...s.dot, ...(isConnected ? s.dotConnected : s.dotDisconnected), ...(profile.color ? { background: profile.color } : {}) }} />
@@ -205,6 +210,7 @@ function ProfileNode({ profile, isConnected, isSelected, isExpanded, onSelect, o
               <div key={db.name}>
                 <div
                   style={{ ...s.treeItem, paddingLeft: 4, fontSize: 12 }}
+                  title={`${dbExpanded ? 'Collapse' : 'Expand'} database ${db.name}`}
                   onClick={() => toggleDatabase(profile.id, db.name)}
                 >
                   <span style={{ fontSize: 10, width: 12, textAlign: 'center' }}>{dbExpanded ? '▼' : '▶'}</span>

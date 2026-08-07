@@ -11,6 +11,8 @@ export interface WorkspaceTab {
   connectionId: string | null;
   database?: string;
   collection?: string;
+  /** collection tabs: embedded browser/query surface */
+  collectionViewMode?: 'documents' | 'query';
   /** query tabs */
   editorContent?: string;
   mode?: 'query' | 'trusted';

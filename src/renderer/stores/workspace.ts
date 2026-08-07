@@ -8,6 +8,11 @@ import type {
   WorkspaceTab,
 } from '../../shared/domain/index.js';
 import type { AppError, SourceRange } from '../../shared/errors/index.js';
+import {
+  collectionDocumentsOwnerId,
+  collectionQueryTemplate,
+  type CollectionViewMode,
+} from '../collection-workspace.js';
 
 export type ExecutionStatus =
   | 'idle'
@@ -65,6 +70,7 @@ interface WorkspaceState {
   createTab: (kind: WorkspaceTab['kind'], connectionId?: string | null) => string;
   openWelcome: () => string;
   openConnections: (options?: { mode?: 'list' | 'create' | 'edit'; profileId?: string }) => string;
+  setCollectionView: (tabId: string, view: CollectionViewMode) => void;
   detachConnection: (connectionId: string) => void;
   closeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
@@ -127,6 +133,7 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
               : kind,
       connectionId,
       dirty: false,
+      ...(kind === 'collection' ? { collectionViewMode: 'documents' as const } : {}),
     };
     set((state) => ({
       tabs: [...state.tabs, tab],
@@ -176,6 +183,21 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
     return id;
   },
 
+  setCollectionView: (tabId, view) => {
+    set((state) => ({
+      tabs: state.tabs.map((tab) => {
+        if (tab.id !== tabId || tab.kind !== 'collection') return tab;
+        return {
+          ...tab,
+          collectionViewMode: view,
+          ...(view === 'query' && tab.editorContent === undefined && tab.collection
+            ? { editorContent: collectionQueryTemplate(tab.collection) }
+            : {}),
+        };
+      }),
+    }));
+  },
+
   detachConnection: (connectionId) => {
     set((state) => {
       const tabs = state.tabs.map((tab) => {
@@ -194,7 +216,8 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
 
   closeTab: (id) => {
     const execution = get().results[id];
-    const tabConnectionId = get().tabs.find((tab) => tab.id === id)?.connectionId;
+    const closingTab = get().tabs.find((tab) => tab.id === id);
+    const tabConnectionId = closingTab?.connectionId;
     const ownerConnectionId = execution?.connectionId ?? tabConnectionId;
     if (ownerConnectionId && typeof window !== 'undefined' && window.mongog) {
       if (
@@ -206,6 +229,9 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
         void window.mongog.query.cancel(ownerConnectionId, execution.executionId);
       }
       void window.mongog.query.closeOwner(ownerConnectionId, id);
+      if (closingTab?.kind === 'collection') {
+        void window.mongog.query.closeOwner(ownerConnectionId, collectionDocumentsOwnerId(id));
+      }
     }
 
     set((state) => {
@@ -453,14 +479,19 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
   },
 
   restore: (state) => {
-    tabCounter = state.tabs.length;
+    const tabs = state.tabs.map((tab) => (
+      tab.kind === 'collection' && tab.collectionViewMode === undefined
+        ? { ...tab, collectionViewMode: 'documents' as const }
+        : tab
+    ));
+    tabCounter = tabs.length;
     const results: Record<string, TabExecutionState> = {};
-    for (const tab of state.tabs) {
+    for (const tab of tabs) {
       results[tab.id] = emptyExecution();
     }
-    const activeTabId = state.tabs.some((tab) => tab.id === state.activeTabId)
+    const activeTabId = tabs.some((tab) => tab.id === state.activeTabId)
       ? state.activeTabId
-      : state.tabs[0]?.id ?? null;
-    set({ tabs: state.tabs, activeTabId, results });
+      : tabs[0]?.id ?? null;
+    set({ tabs, activeTabId, results });
   },
 }));

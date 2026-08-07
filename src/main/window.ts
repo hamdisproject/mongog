@@ -1,6 +1,7 @@
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { app, BrowserWindow, screen, shell } from 'electron';
+import { app, BrowserWindow, protocol, screen, shell } from 'electron';
 import type { WindowState } from './window-state.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -8,13 +9,62 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
+const rendererScheme = 'mongog';
+const rendererHost = 'bundle';
+const rendererOrigin = `${rendererScheme}://${rendererHost}`;
+
+// Keep the production renderer off file://. Besides matching Electron's
+// security guidance, this is required when GrantFileProtocolExtraPrivileges
+// is fused off in release builds.
+protocol.registerSchemesAsPrivileged([{
+  scheme: rendererScheme,
+  privileges: {
+    standard: true,
+    secure: true,
+    supportFetchAPI: true,
+    codeCache: true,
+  },
+}]);
+
 export function allowedRendererOrigins(): string[] {
   const origins: string[] = [];
   if (typeof MAIN_WINDOW_VITE_DEV_SERVER_URL !== 'undefined' && MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     origins.push(new URL(MAIN_WINDOW_VITE_DEV_SERVER_URL).origin);
   }
-  origins.push('file://');
+  origins.push(rendererOrigin);
   return origins;
+}
+
+export function installRendererProtocol(): void {
+  if (typeof MAIN_WINDOW_VITE_DEV_SERVER_URL !== 'undefined' && MAIN_WINDOW_VITE_DEV_SERVER_URL) return;
+
+  const root = path.join(app.getAppPath(), '.vite', 'renderer', MAIN_WINDOW_VITE_NAME);
+  protocol.handle(rendererScheme, async (request) => {
+    const url = new URL(request.url);
+    if (url.host !== rendererHost) return new Response('Not found', { status: 404 });
+
+    let requestedPath: string;
+    try {
+      requestedPath = decodeURIComponent(url.pathname).replace(/^\/+/, '') || 'index.html';
+    } catch {
+      return new Response('Bad request', { status: 400 });
+    }
+
+    const target = path.resolve(root, requestedPath);
+    const relative = path.relative(root, target);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+      return new Response('Forbidden', { status: 403 });
+    }
+
+    try {
+      const body = await readFile(target);
+      return new Response(new Uint8Array(body), {
+        headers: { 'content-type': contentType(target) },
+      });
+    } catch {
+      return new Response('Not found', { status: 404 });
+    }
+  });
 }
 
 export interface CreateWindowOptions {
@@ -68,16 +118,29 @@ export function createMainWindow(options?: CreateWindowOptions): BrowserWindow {
   if (typeof MAIN_WINDOW_VITE_DEV_SERVER_URL !== 'undefined' && MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     void win.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
-    void win.loadFile(path.join(
-      app.getAppPath(),
-      '.vite',
-      'renderer',
-      MAIN_WINDOW_VITE_NAME,
-      'index.html',
-    ));
+    void win.loadURL(`${rendererOrigin}/index.html`);
   }
 
   return win;
+}
+
+function contentType(filePath: string): string {
+  switch (path.extname(filePath).toLowerCase()) {
+    case '.html': return 'text/html; charset=utf-8';
+    case '.js': return 'text/javascript; charset=utf-8';
+    case '.css': return 'text/css; charset=utf-8';
+    case '.json':
+    case '.map': return 'application/json; charset=utf-8';
+    case '.svg': return 'image/svg+xml';
+    case '.png': return 'image/png';
+    case '.jpg':
+    case '.jpeg': return 'image/jpeg';
+    case '.woff': return 'font/woff';
+    case '.woff2': return 'font/woff2';
+    case '.ttf': return 'font/ttf';
+    case '.wasm': return 'application/wasm';
+    default: return 'application/octet-stream';
+  }
 }
 
 function isVisibleOnAnyDisplay(bounds: { x: number; y: number; width: number; height: number }): boolean {

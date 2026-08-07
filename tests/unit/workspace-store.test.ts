@@ -168,4 +168,58 @@ describe('workspace execution store', () => {
     expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === settings)?.profileId).toBeUndefined();
     expect(useWorkspaceStore.getState().results[query]?.status).toBe('idle');
   });
+
+  it('opens collection tabs in Documents and seeds Query only once', () => {
+    const tabId = useWorkspaceStore.getState().createTab('collection', 'conn-1');
+    useWorkspaceStore.getState().updateTab(tabId, { database: 'db', collection: 'odd"/ü' });
+    expect(useWorkspaceStore.getState().tabs[0]).toMatchObject({ collectionViewMode: 'documents' });
+
+    useWorkspaceStore.getState().setCollectionView(tabId, 'query');
+    expect(useWorkspaceStore.getState().tabs[0]).toMatchObject({
+      collectionViewMode: 'query',
+      editorContent: 'db.collection("odd\\\"/ü").find({}).limit(50);\n',
+    });
+
+    useWorkspaceStore.getState().updateTab(tabId, { editorContent: '' });
+    useWorkspaceStore.getState().setCollectionView(tabId, 'documents');
+    useWorkspaceStore.getState().setCollectionView(tabId, 'query');
+    expect(useWorkspaceStore.getState().tabs[0]?.editorContent).toBe('');
+  });
+
+  it('normalizes restored legacy collection tabs to Documents', () => {
+    useWorkspaceStore.getState().restore({
+      tabs: [{
+        id: 'legacy-collection',
+        kind: 'collection',
+        title: 'db.items',
+        connectionId: 'conn-1',
+        database: 'db',
+        collection: 'items',
+      }],
+      activeTabId: 'legacy-collection',
+    });
+
+    expect(useWorkspaceStore.getState().tabs[0]?.collectionViewMode).toBe('documents');
+  });
+
+  it('restores a collection Query view and its edited source', () => {
+    useWorkspaceStore.getState().restore({
+      tabs: [{
+        id: 'query-collection',
+        kind: 'collection',
+        title: 'db.items',
+        connectionId: 'conn-1',
+        database: 'db',
+        collection: 'items',
+        collectionViewMode: 'query',
+        editorContent: '// retained\ndb.collection("items").countDocuments({});',
+      }],
+      activeTabId: 'query-collection',
+    });
+
+    expect(useWorkspaceStore.getState().tabs[0]).toMatchObject({
+      collectionViewMode: 'query',
+      editorContent: '// retained\ndb.collection("items").countDocuments({});',
+    });
+  });
 });

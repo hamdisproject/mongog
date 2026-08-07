@@ -225,6 +225,7 @@ export const workspaceSaveSchema = z.object({
       connectionId: z.string().nullable(),
       database: z.string().optional(),
       collection: z.string().optional(),
+      collectionViewMode: z.enum(['documents', 'query']).optional(),
       editorContent: z.string().optional(),
       mode: z.enum(['query', 'trusted']).optional(),
       profileId: z.string().optional(),

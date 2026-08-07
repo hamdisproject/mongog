@@ -1,7 +1,8 @@
 # MongoG
 
 Production-grade, cross-platform MongoDB desktop IDE.
-**Status: Phase 5 complete; Phase 6 is next.** See
+**Status: Phase 5.5 complete; Phase 6 is next.** See
+[docs/phase5.5-report.md](docs/phase5.5-report.md),
 [docs/phase5-report.md](docs/phase5-report.md),
 [docs/phase4-report.md](docs/phase4-report.md),
 [docs/phase3-report.md](docs/phase3-report.md),
@@ -48,8 +49,9 @@ version "undefined"` (known Forge env quirk), run once:
 ## Test
 
 ```bash
-npm test            # unit (162)
+npm test            # unit (180)
 npm run test:integ  # integration against real mongod (37) — first run downloads mongod
+npm run test:e2e    # packaged Electron Welcome/Connections/Collection lifecycle (1)
 npm run test:all
 npm run typecheck
 ```
@@ -62,7 +64,7 @@ npm run make        # installers (zip/dmg on macOS)
 ```
 
 Packaged-app self-check:
-`MONGOG_SMOKE=1 out/MongoG-darwin-arm64/MongoG.app/Contents/MacOS/MongoG`.
+`MONGOG_SMOKE=1 out/MongoG-darwin-arm64/MongoG.app/Contents/MacOS/mongog`.
 For its DB path, start mongod externally and also set
 `MONGOG_SMOKE_MONGO_URI`; packaged builds never launch
 `mongodb-memory-server`.
@@ -72,12 +74,12 @@ For its DB path, start mongod externally and also set
 ```
 src/main        Electron main: window, IPC registry, supervisor, vault, smoke
 src/preload     contextBridge typed facade (CJS, sandboxed)
-src/renderer    React IDE shell, Explorer, query/collection/admin workspaces
+src/renderer    React IDE shell, Welcome/Connections, Explorer, hybrid collection/query and admin workspaces
 src/query-runtime  engine, cursor/stream registry, collection/admin operations
 src/features/script-analysis  TS-AST parse/instrument/context (pure, tested)
 src/shared      domain types, zod IPC schemas, errors, redaction, EJSON
 scripts/        type extraction, spike checks
-tests/          unit + integration (helpers/mongo.ts starts real mongod)
+tests/          unit + integration + packaged Electron E2E
 docs/adr        13 architecture decision records
 docs/spikes     phase 0 verification report
 ```
@@ -85,6 +87,7 @@ docs/spikes     phase 0 verification report
 ## Security notes (Phase 0 defaults)
 
 contextIsolation+sandbox+no nodeIntegration · allowlisted zod-validated IPC ·
+renderer assets served only from the bounded `mongog://bundle` protocol ·
 no remote content · secrets only via safeStorage async API · redacted URIs
 everywhere · production fuses configured (RunAsNode off — utilityProcess
 unaffected, ASAR integrity on; NodeCliInspect kept ON for test builds only).

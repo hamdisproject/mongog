@@ -2,10 +2,10 @@
 
 ## What this is
 
-MongoDB desktop IDE (Electron). **Phases 0–5 are COMPLETE and verified** — see
+MongoDB desktop IDE (Electron). **Phases 0–5.5 are COMPLETE and verified** — see
 `docs/spikes/phase0-report.md`, `docs/phase1-report.md`,
 `docs/phase2-report.md`, `docs/phase3-report.md`, `docs/phase4-report.md`, and
-`docs/phase5-report.md`. Phase 6 is next.
+`docs/phase5-report.md` and `docs/phase5.5-report.md`. Phase 6 is next.
 Plan ADRs: `docs/adr/0001-0013`.
 
 ## Non-negotiable rules (from the product plan)
@@ -45,7 +45,7 @@ version "undefined"`: `touch ~/.skip-forge-system-check` (Forge's own skip flag)
 | Area | Path | Notes |
 |---|---|---|
 | Main process | `src/main/main.ts` | ESM entry → `.vite/build/main.js` |
-| Window/security | `src/main/window.ts` | sandbox+contextIsolation; navigation lockdown |
+| Window/security | `src/main/window.ts` | sandbox+contextIsolation; bounded `mongog://bundle` renderer protocol; navigation lockdown |
 | Window state | `src/main/window-state.ts` | persist/restore bounds + maximized |
 | IPC | `src/main/ipc/` | `registry.ts` allowlist+zod; connection/query/cursor handlers |
 | Runtime supervisor | `src/main/runtime/` | 1 utilityProcess per connection; idle GC; crash events |
@@ -63,8 +63,11 @@ version "undefined"`: `touch ~/.skip-forge-system-check` (Forge's own skip flag)
 | Script analysis | `src/features/script-analysis/` | PURE: TS-AST parse/instrument/context — no io |
 | Shared contracts | `src/shared/` | domain, ipc+zod, errors, redaction, ejson |
 | Renderer | `src/renderer/` | React 19 + Zustand 5; Explorer + full query IDE |
+| Welcome | `src/renderer/components/Welcome/WelcomeView.tsx` | startup singleton, recent connections, query shortcuts |
+| Connections UI | `src/renderer/components/Connections/` | searchable master/detail; Basic/Advanced validated drafts |
 | Query editor | `src/renderer/components/Editor/QueryEditor.tsx` | selection/full run, modes, cancel, Monaco errors |
 | Results | `src/renderer/components/Results/ResultsPanel.tsx` | structured EJSON, virtual table, cursor controls |
+| Collection workspace | `src/renderer/components/Results/CollectionView.tsx` | persistent Documents/Query switch with locked namespace context |
 | Workspace store | `src/renderer/stores/workspace.ts` | run correlation, statement/results lifecycle |
 | Zustand store | `src/renderer/stores/connections.ts` | connection state management |
 | Explorer UI | `src/renderer/components/Sidebar/Explorer.tsx` | tree view with groups + profiles + status |
@@ -102,6 +105,9 @@ version "undefined"`: `touch ~/.skip-forge-system-check` (Forge's own skip flag)
    remains a required smoke acceptance test.
 8. `EnableNodeCliInspectArguments` fuse stays ON in test builds (Playwright),
    OFF for production release builds.
+9. Production renderer assets use `mongog://bundle`, not `file://`. Register
+   the privileged scheme before `app.ready`, install its bounded handler after
+   ready, and keep `GrantFileProtocolExtraPrivileges` OFF.
 
 ## Testing conventions
 
@@ -118,6 +124,7 @@ version "undefined"`: `touch ~/.skip-forge-system-check` (Forge's own skip flag)
 Phase 1 (complete): SQLite repositories + connection profiles + explorer +
 window state. Phase 2 (complete): full query IDE UI. Phase 3 (complete): collection
 browser/document editor. Phase 4 (complete): schema-aware completions. Phase 5
-(complete): admin (indexes/explain/global search/change streams/GridFS). Phase 6:
+(complete): admin (indexes/explain/global search/change streams/GridFS). Phase
+5.5 (complete): Welcome and Basic/Advanced connection experience. Phase 6:
 packaging hardening/signing/update.
 Do not jump ahead: UI polish before Phase 2 is out of scope.

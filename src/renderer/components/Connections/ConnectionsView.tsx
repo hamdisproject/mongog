@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   ConnectionProfile,
   TestConnectionResult,
@@ -44,10 +44,15 @@ export function ConnectionsView({ tab }: { tab: WorkspaceTab }) {
   const [busy, setBusy] = useState<'test' | 'save' | 'delete' | null>(null);
   const [result, setResult] = useState<TestConnectionResult | null>(null);
   const [message, setMessage] = useState<{ kind: 'error' | 'success' | 'warning'; text: string } | null>(null);
+  const skipNextProfileSync = useRef(false);
   const selected = profiles.find((profile) => profile.id === tab.profileId);
   const mode = tab.connectionMode ?? (selected ? 'edit' : 'list');
 
   useEffect(() => {
+    if (skipNextProfileSync.current) {
+      skipNextProfileSync.current = false;
+      return;
+    }
     setResult(null);
     setMessage(null);
     setFormMode('basic');
@@ -101,6 +106,10 @@ export function ConnectionsView({ tab }: { tab: WorkspaceTab }) {
         setMessage({ kind: 'error', text: saved.test.error?.message ?? 'The connection could not be validated.' });
         return;
       }
+      // The response already contains the canonical saved profile. Avoid the
+      // profile-selection effect immediately clearing this operation's result
+      // and success/warning feedback.
+      skipNextProfileSync.current = mode !== 'edit' || selected?.id !== saved.profile.id;
       updateTab(tab.id, { profileId: saved.profile.id, connectionMode: 'edit' });
       setForm(draftFromProfile(saved.profile));
       setMessage(saved.connected

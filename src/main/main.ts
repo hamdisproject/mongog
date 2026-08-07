@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { rmSync } from 'node:fs';
 import { app, BrowserWindow, type IpcMainInvokeEvent } from 'electron';
-import { createMainWindow, allowedRendererOrigins } from './window.js';
+import { createMainWindow, allowedRendererOrigins, installRendererProtocol } from './window.js';
 import { registerIpcHandlers } from './ipc/handlers.js';
 import { RuntimeSupervisor } from './runtime/supervisor.js';
 import { Database } from './storage/database.js';
@@ -64,6 +64,7 @@ void app.whenReady().then(async () => {
     return;
   }
 
+  installRendererProtocol();
   supervisor.startSweeper();
 
   registerIpcHandlers(

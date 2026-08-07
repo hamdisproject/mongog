@@ -32,7 +32,7 @@ const coll = db.collection("mycollection");
 coll.find({}).limit(5);
 `;
 
-export function QueryEditor() {
+export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean }) {
   const editorHost = useRef<HTMLDivElement>(null);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const runRef = useRef<() => Promise<void>>(async () => undefined);
@@ -55,6 +55,9 @@ export function QueryEditor() {
   const selectedConnId = activeTab?.connectionId ?? null;
   const selectedDb = activeTab?.database ?? null;
   const execution = activeTab ? results[activeTab.id] : undefined;
+  const querySurfaceActive = activeTab?.kind === 'query' || (
+    activeTab?.kind === 'collection' && activeTab.collectionViewMode === 'query'
+  );
   const isBusy = execution?.status === 'starting' ||
     execution?.status === 'running' ||
     execution?.status === 'cancelling';
@@ -65,7 +68,7 @@ export function QueryEditor() {
   }, [selectedConnId, selectedDb, loadDatabases]);
 
   const handleRun = useCallback(async () => {
-    if (!activeTab || activeTab.kind !== 'query' || !selectedConnId) return;
+    if (!activeTab || !querySurfaceActive || !selectedConnId) return;
     const editor = editorRef.current;
     const model = editor?.getModel();
     if (!editor || !model) return;
@@ -120,6 +123,7 @@ export function QueryEditor() {
     }
   }, [
     activeTab,
+    querySurfaceActive,
     selectedConnId,
     profiles,
     prepareExecution,
@@ -212,7 +216,7 @@ export function QueryEditor() {
   }, [activeTabId, execution?.statementErrors]);
 
   const handleConnectionChange = (connectionId: string) => {
-    if (!activeTab) return;
+    if (!activeTab || contextLocked) return;
     const oldConnectionId = activeTab.connectionId;
     if (oldConnectionId) {
       void window.mongog.query.closeOwner(oldConnectionId, activeTab.id);
@@ -238,7 +242,8 @@ export function QueryEditor() {
           style={s.select}
           value={selectedConnId ?? ''}
           onChange={(event) => handleConnectionChange(event.target.value)}
-          disabled={isBusy}
+          disabled={contextLocked || isBusy}
+          title={contextLocked ? 'Connection is locked to this collection' : undefined}
         >
           <option value="">-- connection --</option>
           {connectedProfiles.map((profile) => (
@@ -251,8 +256,11 @@ export function QueryEditor() {
             aria-label="Database"
             style={s.select}
             value={activeTab?.database ?? 'admin'}
-            onChange={(event) => updateTab(activeTab!.id, { database: event.target.value })}
-            disabled={isBusy}
+            onChange={(event) => {
+              if (!contextLocked) updateTab(activeTab!.id, { database: event.target.value });
+            }}
+            disabled={contextLocked || isBusy}
+            title={contextLocked ? 'Database is locked to this collection' : undefined}
           >
             <option value="admin">admin</option>
             {(databases[selectedConnId] ?? [])
