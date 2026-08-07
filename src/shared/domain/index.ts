@@ -21,11 +21,24 @@ export type {
   WorkspaceTabKind,
   WorkspaceTab,
   WorkspaceState,
+  AdminSection,
   QueryHistoryEntry,
   HistoryQuery,
   ApplicationSettings,
   SavedScript,
 } from './workspace.js';
+
+export type {
+  ExplainVerbosity,
+  IndexDescription,
+  GlobalSearchMatch,
+  GlobalSearchResult,
+  ChangeStreamStartResult,
+  ChangeStreamPollResult,
+  GridFsFileInfo,
+  GridFsUploadResult,
+  GridFsDialogResult,
+} from './admin.js';
 
 export { DEFAULT_WORKSPACE, DEFAULT_SETTINGS } from './workspace.js';
 
@@ -90,6 +103,20 @@ export interface DocumentsPage {
   hasMore: boolean;
   pageIndex: number;
   retainedBytes: number;
+}
+
+/** Initial page returned by the Phase 3 collection browser. */
+export interface CollectionDocumentsPage extends DocumentsPage {
+  cursorId: string;
+  pageSize: number;
+}
+
+export interface CollectionMutationResult {
+  acknowledged: boolean;
+  insertedId?: EjsonEnvelope;
+  matchedCount?: number;
+  modifiedCount?: number;
+  deletedCount?: number;
 }
 
 /** Events emitted by the query engine (runtime -> main -> renderer). */

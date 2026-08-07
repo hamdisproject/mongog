@@ -28,6 +28,7 @@ const kindIcon: Record<string, string> = {
   collection: '{ }',
   history: 'H',
   'connection-settings': 'C',
+  admin: 'A',
 };
 
 export function TabBar() {
@@ -43,6 +44,7 @@ export function TabBar() {
         <Tab key={tab.id} tab={tab} active={tab.id === activeTabId} />
       ))}
       <div onClick={handleNewTab} style={s.newBtn} title="New query tab">+</div>
+      <div onClick={() => createTab('admin', null)} style={{ ...s.newBtn, fontSize: 12 }} title="Open administration">Admin</div>
     </div>
   );
 }

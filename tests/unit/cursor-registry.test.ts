@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   CursorRegistry,
+  type ChangeStreamLike,
   type CursorLike,
 } from '../../src/query-runtime/registry/cursors.js';
 
@@ -23,6 +24,25 @@ function fakeCursor(docs: unknown[]): CursorLike & { closedCount: number } {
     },
   };
   return c;
+}
+
+function fakeStream(events: unknown[]): ChangeStreamLike & { closedCount: number } {
+  let index = 0;
+  const stream = {
+    closed: false,
+    closedCount: 0,
+    async next() {
+      return events[index++];
+    },
+    async tryNext() {
+      return index < events.length ? events[index++] : null;
+    },
+    async close() {
+      stream.closed = true;
+      stream.closedCount += 1;
+    },
+  };
+  return stream;
 }
 
 const owner = { connectionId: 'c1', tabId: 't1' };
@@ -186,5 +206,32 @@ describe('CursorRegistry', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('polls registered change streams in bounded batches and serializes events', async () => {
+    const reg = new CursorRegistry();
+    const stream = fakeStream([{ operationType: 'insert', n: 1 }, { operationType: 'update', n: 2 }]);
+    const streamId = reg.registerStream(stream, owner);
+
+    const first = await reg.pollStream(streamId, 1);
+    expect(first.events).toHaveLength(1);
+    expect(JSON.parse(first.events[0]!.ejson)).toMatchObject({ operationType: 'insert' });
+    const second = await reg.pollStream(streamId, 10);
+    expect(second.events).toHaveLength(1);
+    expect(second.closed).toBe(false);
+
+    expect(await reg.closeAllForOwner(owner)).toBe(1);
+    expect(stream.closedCount).toBe(1);
+    await expect(reg.pollStream(streamId, 1)).rejects.toMatchObject({ category: 'CursorNotFound' });
+  });
+
+  it('expires idle change streams with the same owner lifecycle as cursors', async () => {
+    let now = 100;
+    const reg = new CursorRegistry({ idleTimeoutMS: 50, now: () => now });
+    const stream = fakeStream([]);
+    reg.registerStream(stream, owner);
+    now = 151;
+    expect(await reg.closeIdle()).toBe(1);
+    expect(stream.closedCount).toBe(1);
   });
 });

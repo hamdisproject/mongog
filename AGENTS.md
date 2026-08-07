@@ -2,9 +2,10 @@
 
 ## What this is
 
-MongoDB desktop IDE (Electron). **Phases 0, 1, and 2 are COMPLETE and
-verified** — see `docs/spikes/phase0-report.md`, `docs/phase1-report.md`, and
-`docs/phase2-report.md`. Phase 3 (collection browser/document editor) is next.
+MongoDB desktop IDE (Electron). **Phases 0–5 are COMPLETE and verified** — see
+`docs/spikes/phase0-report.md`, `docs/phase1-report.md`,
+`docs/phase2-report.md`, `docs/phase3-report.md`, `docs/phase4-report.md`, and
+`docs/phase5-report.md`. Phase 6 is next.
 Plan ADRs: `docs/adr/0001-0013`.
 
 ## Non-negotiable rules (from the product plan)
@@ -57,7 +58,8 @@ version "undefined"`: `touch ~/.skip-forge-system-check` (Forge's own skip flag)
 | Preload | `src/preload/preload.ts` | CJS (`preload.cjs`) — sandboxed preloads can't be ESM; exposes full connections API |
 | Query runtime | `src/query-runtime/` | entry `index.ts` → `runtime-dist/query-runtime.cjs` |
 | Engine | `src/query-runtime/engine/` | vm sandbox, capture/classify, policy scans |
-| Cursor registry | `src/query-runtime/registry/cursors.ts` | handles, paging, TTL, owner cleanup |
+| Cursor registry | `src/query-runtime/registry/cursors.ts` | cursor/change-stream handles, paging/polling, TTL, owner cleanup |
+| Admin operations | `src/query-runtime/admin/operations.ts` | indexes, explain, bounded search, change streams, GridFS streaming |
 | Script analysis | `src/features/script-analysis/` | PURE: TS-AST parse/instrument/context — no io |
 | Shared contracts | `src/shared/` | domain, ipc+zod, errors, redaction, ejson |
 | Renderer | `src/renderer/` | React 19 + Zustand 5; Explorer + full query IDE |
@@ -71,6 +73,7 @@ version "undefined"`: `touch ~/.skip-forge-system-check` (Forge's own skip flag)
 | Schema completions | `src/renderer/monaco/completions.ts` | field + method completions; uses `editor-context` store |
 | Editor context | `src/renderer/stores/editor-context.ts` | active editor's connection/database for completions |
 | Schema cache | `src/renderer/stores/schema-cache.ts` | per-conn/db/col cache, TTL 5min |
+| Administration UI | `src/renderer/components/Admin/AdminView.tsx` | indexes, explain, search, streams, GridFS |
 
 ## Build-system landmines (learned the hard way — read before touching configs)
 
@@ -113,7 +116,8 @@ version "undefined"`: `touch ~/.skip-forge-system-check` (Forge's own skip flag)
 ## Phase roadmap
 
 Phase 1 (complete): SQLite repositories + connection profiles + explorer +
-window state. Phase 2 (complete): full query IDE UI. Phase 3 (next): collection
-browser/document editor. 4: schema-aware completions. 5: admin (indexes/explain/global search/
-change streams/GridFS). 6: packaging hardening/signing/update.
+window state. Phase 2 (complete): full query IDE UI. Phase 3 (complete): collection
+browser/document editor. Phase 4 (complete): schema-aware completions. Phase 5
+(complete): admin (indexes/explain/global search/change streams/GridFS). Phase 6:
+packaging hardening/signing/update.
 Do not jump ahead: UI polish before Phase 2 is out of scope.

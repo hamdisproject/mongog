@@ -1,74 +1,154 @@
 import { create } from 'zustand';
-
-interface FieldInfo {
-  path: string;
-  types: Array<{ bsonType: string; proportion: number }>;
-  presence: number;
-}
-
-interface SchemaEntry {
-  fields: FieldInfo[];
-  sampledCount: number;
-  sampleSize: number;
-  takenAt: number;
-}
-
-const TTL_MS = 5 * 60 * 1000;
+import type { SchemaSnapshot } from '../../shared/domain/index.js';
 
 interface SchemaCacheState {
-  cache: Record<string, SchemaEntry>;
+  cache: Record<string, SchemaSnapshot>;
   loading: Record<string, boolean>;
-  getSchema: (connectionId: string, database: string, collection: string) => SchemaEntry | null;
-  loadSchema: (connectionId: string, database: string, collection: string) => Promise<SchemaEntry>;
+  errors: Record<string, string | undefined>;
+  getSchema: (connectionId: string, database: string, collection: string) => SchemaSnapshot | null;
+  loadSchema: (
+    connectionId: string,
+    database: string,
+    collection: string,
+    sampleSize?: number,
+  ) => Promise<SchemaSnapshot>;
   invalidate: (connectionId: string, database: string, collection: string) => void;
+  invalidateConnection: (connectionId: string) => void;
+  clear: () => void;
 }
 
-function cacheKey(connId: string, db: string, col: string): string {
-  return `${connId}:${db}:${col}`;
+interface InFlightSample {
+  generation: number;
+  promise: Promise<SchemaSnapshot>;
+}
+
+const inFlight = new Map<string, InFlightSample>();
+const generations = new Map<string, number>();
+
+export function schemaCacheKey(connectionId: string, database: string, collection: string): string {
+  return JSON.stringify([connectionId, database, collection]);
+}
+
+function generation(key: string): number {
+  return generations.get(key) ?? 0;
+}
+
+function invalidateKey(key: string): void {
+  generations.set(key, generation(key) + 1);
+}
+
+function keyConnectionId(key: string): string | undefined {
+  try {
+    const value = JSON.parse(key) as unknown;
+    return Array.isArray(value) && typeof value[0] === 'string' ? value[0] : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export const useSchemaCache = create<SchemaCacheState>()((set, get) => ({
   cache: {},
   loading: {},
+  errors: {},
 
   getSchema: (connectionId, database, collection) => {
-    const key = cacheKey(connectionId, database, collection);
-    const entry = get().cache[key];
-    if (!entry) return null;
-    if (Date.now() - entry.takenAt > TTL_MS) {
+    const key = schemaCacheKey(connectionId, database, collection);
+    const snapshot = get().cache[key];
+    if (!snapshot) return null;
+    if (Date.now() - snapshot.takenAt >= snapshot.ttlMs) {
       get().invalidate(connectionId, database, collection);
       return null;
     }
-    return entry;
+    return snapshot;
   },
 
-  loadSchema: async (connectionId, database, collection) => {
-    const key = cacheKey(connectionId, database, collection);
-    const existing = get().getSchema(connectionId, database, collection);
-    if (existing) return existing;
+  loadSchema: (connectionId, database, collection, sampleSize) => {
+    const key = schemaCacheKey(connectionId, database, collection);
+    const cached = get().getSchema(connectionId, database, collection);
+    if (cached) return Promise.resolve(cached);
 
-    set((s) => ({ loading: { ...s.loading, [key]: true } }));
+    const requestedGeneration = generation(key);
+    const active = inFlight.get(key);
+    if (active?.generation === requestedGeneration) return active.promise;
 
-    try {
-      const result = await window.mongog.query.sampleSchema(connectionId, database, collection);
-      const entry: SchemaEntry = { ...result, takenAt: Date.now() };
-      set((s) => ({
-        cache: { ...s.cache, [key]: entry },
-        loading: { ...s.loading, [key]: false },
-      }));
-      return entry;
-    } catch {
-      set((s) => ({ loading: { ...s.loading, [key]: false } }));
-      throw new Error('Failed to load schema');
-    }
+    set((state) => ({
+      loading: { ...state.loading, [key]: true },
+      errors: { ...state.errors, [key]: undefined },
+    }));
+
+    const request = window.mongog.query
+      .sampleSchema(connectionId, database, collection, sampleSize)
+      .then((snapshot) => {
+        if (generation(key) === requestedGeneration) {
+          set((state) => ({ cache: { ...state.cache, [key]: snapshot } }));
+        }
+        return snapshot;
+      })
+      .catch((error: unknown) => {
+        const message = errorMessage(error);
+        if (generation(key) === requestedGeneration) {
+          set((state) => ({ errors: { ...state.errors, [key]: message } }));
+        }
+        throw error;
+      })
+      .finally(() => {
+        if (inFlight.get(key)?.promise !== request) return;
+        inFlight.delete(key);
+        set((state) => {
+          const loading = { ...state.loading };
+          delete loading[key];
+          return { loading };
+        });
+      });
+
+    inFlight.set(key, { generation: requestedGeneration, promise: request });
+    return request;
   },
 
   invalidate: (connectionId, database, collection) => {
-    const key = cacheKey(connectionId, database, collection);
-    set((s) => {
-      const c = { ...s.cache };
-      delete c[key];
-      return { cache: c };
+    const key = schemaCacheKey(connectionId, database, collection);
+    invalidateKey(key);
+    set((state) => {
+      const cache = { ...state.cache };
+      const errors = { ...state.errors };
+      delete cache[key];
+      delete errors[key];
+      return { cache, errors };
     });
   },
+
+  invalidateConnection: (connectionId) => {
+    const keys = new Set([
+      ...Object.keys(get().cache),
+      ...Object.keys(get().loading),
+      ...inFlight.keys(),
+    ]);
+    for (const key of keys) {
+      if (keyConnectionId(key) === connectionId) invalidateKey(key);
+    }
+    set((state) => ({
+      cache: Object.fromEntries(
+        Object.entries(state.cache).filter(([, snapshot]) => snapshot.connectionId !== connectionId),
+      ),
+      loading: Object.fromEntries(
+        Object.entries(state.loading).filter(([key]) => keyConnectionId(key) !== connectionId),
+      ),
+      errors: Object.fromEntries(
+        Object.entries(state.errors).filter(([key]) => keyConnectionId(key) !== connectionId),
+      ),
+    }));
+  },
+
+  clear: () => {
+    const keys = new Set([...generations.keys(), ...inFlight.keys(), ...Object.keys(get().cache)]);
+    for (const key of keys) invalidateKey(key);
+    set({ cache: {}, loading: {}, errors: {} });
+  },
 }));
+
+function errorMessage(error: unknown): string {
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String(error.message);
+  }
+  return String(error);
+}

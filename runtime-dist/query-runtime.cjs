@@ -20,6 +20,10 @@ const node_perf_hooks = require("node:perf_hooks");
 const require$$1$3 = require("path");
 const require$$3$2 = require("os");
 const require$$6 = require("inspector");
+const node_fs = require("node:fs");
+const promises$1 = require("node:fs/promises");
+const node_path = require("node:path");
+const promises = require("node:stream/promises");
 function _mergeNamespaces(n, m) {
   for (var i = 0; i < m.length; i++) {
     const e = m[i];
@@ -239916,9 +239920,9 @@ Dynamic files must always be opened with service's current directory or service 
               (s) => this.logger.info(s)
             );
             this.pendingPluginEnablements ?? (this.pendingPluginEnablements = /* @__PURE__ */ new Map());
-            let promises = this.pendingPluginEnablements.get(project);
-            if (!promises) this.pendingPluginEnablements.set(project, promises = []);
-            promises.push(importPromise);
+            let promises2 = this.pendingPluginEnablements.get(project);
+            if (!promises2) this.pendingPluginEnablements.set(project, promises2 = []);
+            promises2.push(importPromise);
             return;
           }
           this.endEnablePlugin(
@@ -239992,8 +239996,8 @@ Dynamic files must always be opened with service's current directory or service 
         async enableRequestedPluginsWorker(pendingPlugins) {
           Debug.assert(this.currentPluginEnablementPromise === void 0);
           let sendProjectsUpdatedInBackgroundEvent = false;
-          await Promise.all(map2(pendingPlugins, async ([project, promises]) => {
-            const results = await Promise.all(promises);
+          await Promise.all(map2(pendingPlugins, async ([project, promises2]) => {
+            const results = await Promise.all(promises2);
             if (project.isClosed() || isProjectDeferredClose(project)) {
               this.logger.info(`Cancelling plugin enabling for ${project.getProjectName()} as it is ${project.isClosed() ? "closed" : "deferred close"}`);
               return;
@@ -250529,10 +250533,35 @@ class CursorRegistry {
       owner,
       stream,
       createdAt: this.now(),
+      lastTouchedAt: this.now(),
       buffered: 0,
       closed: false
     });
     return streamId;
+  }
+  /** Non-blocking, bounded polling for a registered change stream. */
+  async pollStream(streamId, maxEvents) {
+    const entry = this.getOpenStream(streamId);
+    entry.lastTouchedAt = this.now();
+    const events2 = [];
+    try {
+      while (events2.length < maxEvents && !entry.stream.closed) {
+        const event = await entry.stream.tryNext();
+        if (event == null) break;
+        events2.push(serializeToEjsonWithFull(event).preview);
+      }
+    } catch (error2) {
+      if (entry.stream.closed) {
+        await this.closeStream(streamId);
+        return { events: events2, closed: true };
+      }
+      throw appError("MongoDBCommand", `Change stream polling failed: ${error2.message}`, {
+        name: error2.name
+      });
+    }
+    const closed = entry.stream.closed;
+    if (closed) await this.closeStream(streamId);
+    return { events: events2, closed };
   }
   /**
    * Pull up to `pageSize` documents within the byte budget. Documents are
@@ -250687,6 +250716,12 @@ class CursorRegistry {
         count2 += 1;
       }
     }
+    for (const entry of [...this.streams.values()]) {
+      if (now - entry.lastTouchedAt > this.idleTimeoutMS) {
+        await this.closeStream(entry.streamId);
+        count2 += 1;
+      }
+    }
     return count2;
   }
   async dispose() {
@@ -250700,6 +250735,16 @@ class CursorRegistry {
       throw appError("CursorNotFound", `Cursor ${cursorId} is closed or expired.`, {
         name: "CursorNotFound",
         hint: "The cursor may have expired after the idle timeout; re-run the query."
+      });
+    }
+    return entry;
+  }
+  getOpenStream(streamId) {
+    const entry = this.streams.get(streamId);
+    if (!entry || entry.closed) {
+      throw appError("CursorNotFound", `Change stream ${streamId} is closed or expired.`, {
+        name: "CursorNotFound",
+        hint: "Start the change stream again."
       });
     }
     return entry;
@@ -250831,6 +250876,311 @@ function isScalar(value) {
   const t = typeof value;
   return t !== "object" || value._bsontype !== void 0 || value instanceof Date;
 }
+async function findCollectionDocuments(client2, registry2, options) {
+  const filter = parseEjsonDocument(options.filterEjson, "Filter");
+  const sort2 = options.sortEjson ? parseEjsonDocument(options.sortEjson, "Sort") : void 0;
+  const projection = options.projectionEjson ? parseEjsonDocument(options.projectionEjson, "Projection") : void 0;
+  await registry2.closeAllForOwner(options.owner);
+  const collection2 = client2.db(options.database).collection(options.collection);
+  let cursor = collection2.find(filter, {
+    ...projection ? { projection } : {},
+    maxTimeMS: 3e4
+  });
+  if (sort2 && Object.keys(sort2).length > 0) cursor = cursor.sort(sort2);
+  const cursorId = registry2.register(
+    cursor,
+    options.owner,
+    `${options.database}.${options.collection}`
+  );
+  try {
+    const page = await registry2.fetchNext(cursorId, options.pageSize);
+    return { ...page, cursorId, pageSize: options.pageSize };
+  } catch (error2) {
+    await registry2.close(cursorId);
+    throw error2;
+  }
+}
+async function insertCollectionDocument(client2, options) {
+  const document2 = parseEjsonDocument(options.documentEjson, "Document");
+  const result = await client2.db(options.database).collection(options.collection).insertOne(document2);
+  return {
+    acknowledged: result.acknowledged,
+    insertedId: serializeToEjson(result.insertedId)
+  };
+}
+async function replaceCollectionDocument(client2, options) {
+  const original = parseEjsonDocument(options.originalDocumentEjson, "Original document");
+  const replacement = parseEjsonDocument(options.documentEjson, "Document");
+  assertDocumentIdUnchanged(original, replacement);
+  const collection2 = client2.db(options.database).collection(options.collection);
+  const result = await collection2.replaceOne(optimisticFilter(original), replacement);
+  if (result.matchedCount === 0) {
+    await throwMutationConflict(collection2, original);
+  }
+  return {
+    acknowledged: result.acknowledged,
+    matchedCount: result.matchedCount,
+    modifiedCount: result.modifiedCount
+  };
+}
+async function deleteCollectionDocument(client2, options) {
+  const original = parseEjsonDocument(options.originalDocumentEjson, "Original document");
+  assertDocumentHasId(original, "Original document");
+  const collection2 = client2.db(options.database).collection(options.collection);
+  const result = await collection2.deleteOne(optimisticFilter(original));
+  if (result.deletedCount === 0) {
+    await throwMutationConflict(collection2, original);
+  }
+  return {
+    acknowledged: result.acknowledged,
+    deletedCount: result.deletedCount
+  };
+}
+function parseEjsonDocument(ejson, label) {
+  let value;
+  try {
+    value = EJSON.parse(ejson, { relaxed: false });
+  } catch (error2) {
+    throw appError("Validation", `${label} is not valid Extended JSON.`, {
+      name: error2.name,
+      causeMessage: error2.message
+    });
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw appError("Validation", `${label} must be a JSON object.`);
+  }
+  return value;
+}
+function assertDocumentIdUnchanged(original, replacement) {
+  assertDocumentHasId(original, "Original document");
+  assertDocumentHasId(replacement, "Replacement document");
+  if (canonicalValue(original._id) !== canonicalValue(replacement._id)) {
+    throw appError("Validation", "The immutable _id field cannot be changed.");
+  }
+}
+function assertDocumentHasId(document2, label) {
+  if (!Object.hasOwn(document2, "_id")) {
+    throw appError("Validation", `${label} must include an _id field.`);
+  }
+}
+function canonicalValue(value) {
+  return EJSON.stringify(value, void 0, 0, { relaxed: false });
+}
+function optimisticFilter(original) {
+  assertDocumentHasId(original, "Original document");
+  return {
+    _id: original._id,
+    $expr: { $eq: ["$$ROOT", { $literal: original }] }
+  };
+}
+async function throwMutationConflict(collection2, original) {
+  const existing = await collection2.findOne(
+    { _id: original._id },
+    { projection: { _id: 1 } }
+  );
+  if (existing) {
+    throw appError(
+      "StaleDocument",
+      "The document changed after it was loaded. Refresh before applying this operation."
+    );
+  }
+  throw appError("NotFound", "The document no longer exists.");
+}
+async function listIndexes(client2, namespace) {
+  const cursor = client2.db(namespace.database).collection(namespace.collection).listIndexes();
+  const indexes2 = [];
+  try {
+    for (; ; ) {
+      const index2 = await cursor.next();
+      if (!index2) break;
+      indexes2.push(indexDescription(index2));
+    }
+  } finally {
+    await cursor.close().catch(() => void 0);
+  }
+  return indexes2;
+}
+async function createCollectionIndex(client2, options) {
+  const keys = parseEjsonDocument(options.keysEjson, "Index keys");
+  if (Object.keys(keys).length === 0) {
+    throw appError("Validation", "Index keys must contain at least one field.");
+  }
+  const partialFilterExpression = options.partialFilterEjson ? parseEjsonDocument(options.partialFilterEjson, "Partial filter") : void 0;
+  const name = await client2.db(options.database).collection(options.collection).createIndex(
+    keys,
+    {
+      ...options.name ? { name: options.name } : {},
+      ...options.unique !== void 0 ? { unique: options.unique } : {},
+      ...options.sparse !== void 0 ? { sparse: options.sparse } : {},
+      ...options.hidden !== void 0 ? { hidden: options.hidden } : {},
+      ...options.expireAfterSeconds !== void 0 ? { expireAfterSeconds: options.expireAfterSeconds } : {},
+      ...partialFilterExpression ? { partialFilterExpression } : {}
+    }
+  );
+  return { name };
+}
+async function dropCollectionIndex(client2, options) {
+  if (options.name === "_id_") {
+    throw appError("Validation", "The required _id_ index cannot be dropped.");
+  }
+  await client2.db(options.database).collection(options.collection).dropIndex(options.name);
+  return { dropped: options.name };
+}
+async function explainCollectionFind(client2, options) {
+  const filter = parseEjsonDocument(options.filterEjson, "Filter");
+  const sort2 = options.sortEjson ? parseEjsonDocument(options.sortEjson, "Sort") : void 0;
+  const projection = options.projectionEjson ? parseEjsonDocument(options.projectionEjson, "Projection") : void 0;
+  let cursor = client2.db(options.database).collection(options.collection).find(filter, {
+    ...projection ? { projection } : {},
+    maxTimeMS: 3e4
+  });
+  if (sort2 && Object.keys(sort2).length > 0) cursor = cursor.sort(sort2);
+  const result = await cursor.explain(options.verbosity);
+  return serializeToEjson(result, 2 * 1024 * 1024);
+}
+async function globalSearch(client2, options) {
+  const needle = options.text.trim().toLocaleLowerCase();
+  if (!needle) throw appError("Validation", "Search text cannot be empty.");
+  const database = client2.db(options.database);
+  const collectionsCursor = database.listCollections({}, { nameOnly: false });
+  const collectionNames = [];
+  try {
+    while (collectionNames.length < options.maxCollections) {
+      const info = await collectionsCursor.next();
+      if (!info) break;
+      if (info.type === "collection" && !info.name.startsWith("system.")) {
+        collectionNames.push(info.name);
+      }
+    }
+  } finally {
+    await collectionsCursor.close().catch(() => void 0);
+  }
+  const matches = [];
+  let scannedDocuments = 0;
+  let scannedCollections = 0;
+  let truncated = false;
+  for (const collectionName of collectionNames) {
+    scannedCollections += 1;
+    const cursor = database.collection(collectionName).find({}).limit(options.maxDocumentsPerCollection);
+    try {
+      for (; ; ) {
+        const document2 = await cursor.next();
+        if (!document2) break;
+        scannedDocuments += 1;
+        const canonical = EJSON.stringify(document2, void 0, 0, { relaxed: false });
+        if (canonical.toLocaleLowerCase().includes(needle)) {
+          matches.push({ collection: collectionName, document: serializeToEjson(document2) });
+          if (matches.length >= options.maxResults) {
+            truncated = true;
+            break;
+          }
+        }
+      }
+    } finally {
+      await cursor.close().catch(() => void 0);
+    }
+    if (truncated) break;
+  }
+  return {
+    matches,
+    scannedCollections,
+    scannedDocuments,
+    maxDocumentsPerCollection: options.maxDocumentsPerCollection,
+    truncated,
+    sampled: true
+  };
+}
+function startChangeStream(client2, registry2, options) {
+  const pipeline2 = parseEjsonArray(options.pipelineEjson, "Change stream pipeline");
+  const watchOptions = { fullDocument: options.fullDocument, maxAwaitTimeMS: 1e3 };
+  const stream = options.collection ? client2.db(options.database).collection(options.collection).watch(pipeline2, watchOptions) : client2.db(options.database).watch(pipeline2, watchOptions);
+  return { streamId: registry2.registerStream(stream, options.owner) };
+}
+async function pollChangeStream(registry2, streamId, maxEvents) {
+  return registry2.pollStream(streamId, maxEvents);
+}
+async function listGridFsFiles(client2, options) {
+  const bucket = new libExports.GridFSBucket(client2.db(options.database), { bucketName: options.bucketName });
+  const cursor = bucket.find({}).sort({ uploadDate: -1 }).limit(options.limit);
+  const files = [];
+  try {
+    for (; ; ) {
+      const file = await cursor.next();
+      if (!file) break;
+      files.push({
+        id: serializeToEjson(file._id),
+        filename: file.filename,
+        length: Number(file.length),
+        chunkSize: file.chunkSize,
+        uploadDate: file.uploadDate.toISOString(),
+        ...file.metadata ? { metadata: serializeToEjson(file.metadata) } : {}
+      });
+    }
+  } finally {
+    await cursor.close().catch(() => void 0);
+  }
+  return files;
+}
+async function uploadGridFsFile(client2, options) {
+  const metadata = options.metadataEjson ? parseEjsonDocument(options.metadataEjson, "GridFS metadata") : void 0;
+  const bucket = new libExports.GridFSBucket(client2.db(options.database), { bucketName: options.bucketName });
+  const sourceInfo = await promises$1.stat(options.sourcePath);
+  if (!sourceInfo.isFile()) throw appError("Validation", "The selected GridFS source is not a file.");
+  const filename = node_path.basename(options.sourcePath);
+  const upload2 = bucket.openUploadStream(filename, { ...metadata ? { metadata } : {} });
+  await promises.pipeline(node_fs.createReadStream(options.sourcePath), upload2);
+  return { id: serializeToEjson(upload2.id), filename, length: sourceInfo.size };
+}
+async function downloadGridFsFile(client2, options) {
+  const bucket = new libExports.GridFSBucket(client2.db(options.database), { bucketName: options.bucketName });
+  const id = parseObjectId(options.idEjson);
+  await promises.pipeline(bucket.openDownloadStream(id), node_fs.createWriteStream(options.destinationPath));
+  return { downloaded: true };
+}
+async function deleteGridFsFile(client2, options) {
+  const bucket = new libExports.GridFSBucket(client2.db(options.database), { bucketName: options.bucketName });
+  await bucket.delete(parseObjectId(options.idEjson));
+  return { deleted: true };
+}
+function indexDescription(index2) {
+  return {
+    name: index2.name ?? "<unnamed>",
+    key: serializeToEjson(index2.key),
+    unique: index2.unique === true,
+    sparse: index2.sparse === true,
+    hidden: index2.hidden === true,
+    ...typeof index2.expireAfterSeconds === "number" ? { expireAfterSeconds: index2.expireAfterSeconds } : {},
+    ...index2.partialFilterExpression ? { partialFilterExpression: serializeToEjson(index2.partialFilterExpression) } : {}
+  };
+}
+function parseEjsonArray(ejson, label) {
+  let value;
+  try {
+    value = EJSON.parse(ejson, { relaxed: false });
+  } catch (error2) {
+    throw appError("Validation", `${label} is not valid Extended JSON.`, {
+      causeMessage: error2.message
+    });
+  }
+  if (!Array.isArray(value) || value.some((entry) => !entry || typeof entry !== "object" || Array.isArray(entry))) {
+    throw appError("Validation", `${label} must be an array of objects.`);
+  }
+  return value;
+}
+function parseObjectId(ejson) {
+  let value;
+  try {
+    value = EJSON.parse(ejson, { relaxed: false });
+  } catch (error2) {
+    throw appError("Validation", "GridFS file id is not valid Extended JSON.", {
+      causeMessage: error2.message
+    });
+  }
+  if (!(value instanceof ObjectId)) {
+    throw appError("Validation", "GridFS file id must be an ObjectId.");
+  }
+  return value;
+}
 const parentPort = process.parentPort;
 const registry = new CursorRegistry();
 registry.startSweeper();
@@ -250961,8 +251311,169 @@ async function handle(req) {
     }
     case "list-collections": {
       const db2 = requireClient().db(req.database);
-      const cols = await db2.listCollections({}, { nameOnly: true }).toArray();
+      const cursor = db2.listCollections({}, { nameOnly: true });
+      const cols = [];
+      try {
+        for (; ; ) {
+          const collection2 = await cursor.next();
+          if (!collection2) break;
+          cols.push(collection2);
+        }
+      } finally {
+        await cursor.close().catch(() => void 0);
+      }
       reply(req.id, cols);
+      return;
+    }
+    case "collection-find": {
+      const result = await findCollectionDocuments(requireClient(), registry, {
+        database: req.database,
+        collection: req.collection,
+        owner: {
+          connectionId: req.connectionId,
+          tabId: req.tabId
+        },
+        filterEjson: req.filterEjson,
+        ...req.sortEjson ? { sortEjson: req.sortEjson } : {},
+        ...req.projectionEjson ? { projectionEjson: req.projectionEjson } : {},
+        pageSize: req.pageSize
+      });
+      reply(req.id, result);
+      return;
+    }
+    case "collection-insert": {
+      reply(req.id, await insertCollectionDocument(requireClient(), {
+        database: req.database,
+        collection: req.collection,
+        documentEjson: req.documentEjson
+      }));
+      return;
+    }
+    case "collection-replace": {
+      reply(req.id, await replaceCollectionDocument(requireClient(), {
+        database: req.database,
+        collection: req.collection,
+        originalDocumentEjson: req.originalDocumentEjson,
+        documentEjson: req.documentEjson
+      }));
+      return;
+    }
+    case "collection-delete": {
+      reply(req.id, await deleteCollectionDocument(requireClient(), {
+        database: req.database,
+        collection: req.collection,
+        originalDocumentEjson: req.originalDocumentEjson
+      }));
+      return;
+    }
+    case "index-list": {
+      reply(req.id, await listIndexes(requireClient(), {
+        database: req.database,
+        collection: req.collection
+      }));
+      return;
+    }
+    case "index-create": {
+      reply(req.id, await createCollectionIndex(requireClient(), {
+        database: req.database,
+        collection: req.collection,
+        keysEjson: req.keysEjson,
+        ...req.name ? { name: req.name } : {},
+        ...req.unique !== void 0 ? { unique: req.unique } : {},
+        ...req.sparse !== void 0 ? { sparse: req.sparse } : {},
+        ...req.hidden !== void 0 ? { hidden: req.hidden } : {},
+        ...req.expireAfterSeconds !== void 0 ? { expireAfterSeconds: req.expireAfterSeconds } : {},
+        ...req.partialFilterEjson ? { partialFilterEjson: req.partialFilterEjson } : {}
+      }));
+      return;
+    }
+    case "index-drop": {
+      reply(req.id, await dropCollectionIndex(requireClient(), {
+        database: req.database,
+        collection: req.collection,
+        name: req.name
+      }));
+      return;
+    }
+    case "explain": {
+      reply(req.id, await explainCollectionFind(requireClient(), {
+        database: req.database,
+        collection: req.collection,
+        filterEjson: req.filterEjson,
+        ...req.sortEjson ? { sortEjson: req.sortEjson } : {},
+        ...req.projectionEjson ? { projectionEjson: req.projectionEjson } : {},
+        verbosity: req.verbosity
+      }));
+      return;
+    }
+    case "global-search": {
+      reply(req.id, await globalSearch(requireClient(), {
+        database: req.database,
+        text: req.text,
+        maxCollections: req.maxCollections,
+        maxDocumentsPerCollection: req.maxDocumentsPerCollection,
+        maxResults: req.maxResults
+      }));
+      return;
+    }
+    case "change-start": {
+      reply(req.id, startChangeStream(requireClient(), registry, {
+        database: req.database,
+        ...req.collection ? { collection: req.collection } : {},
+        pipelineEjson: req.pipelineEjson,
+        fullDocument: req.fullDocument,
+        owner: {
+          connectionId: req.connectionId,
+          tabId: req.tabId
+        }
+      }));
+      return;
+    }
+    case "change-poll": {
+      reply(req.id, await pollChangeStream(
+        registry,
+        req.streamId,
+        req.maxEvents
+      ));
+      return;
+    }
+    case "change-close": {
+      await registry.closeStream(req.streamId);
+      reply(req.id, { closed: true });
+      return;
+    }
+    case "gridfs-list": {
+      reply(req.id, await listGridFsFiles(requireClient(), {
+        database: req.database,
+        bucketName: req.bucketName,
+        limit: req.limit
+      }));
+      return;
+    }
+    case "gridfs-upload": {
+      reply(req.id, await uploadGridFsFile(requireClient(), {
+        database: req.database,
+        bucketName: req.bucketName,
+        sourcePath: req.sourcePath,
+        ...req.metadataEjson ? { metadataEjson: req.metadataEjson } : {}
+      }));
+      return;
+    }
+    case "gridfs-download": {
+      reply(req.id, await downloadGridFsFile(requireClient(), {
+        database: req.database,
+        bucketName: req.bucketName,
+        idEjson: req.idEjson,
+        destinationPath: req.destinationPath
+      }));
+      return;
+    }
+    case "gridfs-delete": {
+      reply(req.id, await deleteGridFsFile(requireClient(), {
+        database: req.database,
+        bucketName: req.bucketName,
+        idEjson: req.idEjson
+      }));
       return;
     }
     case "shutdown": {

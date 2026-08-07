@@ -1,7 +1,10 @@
 # MongoG
 
 Production-grade, cross-platform MongoDB desktop IDE.
-**Status: Phase 2 complete; Phase 3 is next.** See
+**Status: Phase 5 complete; Phase 6 is next.** See
+[docs/phase5-report.md](docs/phase5-report.md),
+[docs/phase4-report.md](docs/phase4-report.md),
+[docs/phase3-report.md](docs/phase3-report.md),
 [docs/phase2-report.md](docs/phase2-report.md),
 [docs/phase1-report.md](docs/phase1-report.md), and the
 [Phase 0 spike report](docs/spikes/phase0-report.md).
@@ -45,8 +48,8 @@ version "undefined"` (known Forge env quirk), run once:
 ## Test
 
 ```bash
-npm test            # unit (140)
-npm run test:integ  # integration against real mongod (25) — first run downloads mongod
+npm test            # unit (162)
+npm run test:integ  # integration against real mongod (37) — first run downloads mongod
 npm run test:all
 npm run typecheck
 ```
@@ -59,7 +62,7 @@ npm run make        # installers (zip/dmg on macOS)
 ```
 
 Packaged-app self-check:
-`MONGOG_SMOKE=1 out/MongoG-darwin-arm64/MongoG.app/Contents/MacOS/mongog`.
+`MONGOG_SMOKE=1 out/MongoG-darwin-arm64/MongoG.app/Contents/MacOS/MongoG`.
 For its DB path, start mongod externally and also set
 `MONGOG_SMOKE_MONGO_URI`; packaged builds never launch
 `mongodb-memory-server`.
@@ -69,8 +72,8 @@ For its DB path, start mongod externally and also set
 ```
 src/main        Electron main: window, IPC registry, supervisor, vault, smoke
 src/preload     contextBridge typed facade (CJS, sandboxed)
-src/renderer    React IDE shell, Explorer, Monaco query tabs, virtualized results
-src/query-runtime  engine (vm sandbox), cursor registry, EJSON, schema sampling
+src/renderer    React IDE shell, Explorer, query/collection/admin workspaces
+src/query-runtime  engine, cursor/stream registry, collection/admin operations
 src/features/script-analysis  TS-AST parse/instrument/context (pure, tested)
 src/shared      domain types, zod IPC schemas, errors, redaction, EJSON
 scripts/        type extraction, spike checks

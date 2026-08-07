@@ -44,14 +44,20 @@ describe('detectCompletionContext', () => {
     const [src, off] = at('db.collection("users").find({ address: { ci█: "x" } })');
     const ctx = detectCompletionContext(src, off);
     expect(ctx.kind).toBe('document-key');
-    if (ctx.kind === 'document-key') expect(ctx.docKind).toBe('filter');
+    if (ctx.kind === 'document-key') {
+      expect(ctx.docKind).toBe('filter');
+      expect(ctx.pathPrefix).toBe('address');
+    }
   });
 
   it('detects operator position ($-prefixed key)', () => {
     const [src, off] = at('db.collection("users").find({ age: { $g█: 5 } })');
     const ctx = detectCompletionContext(src, off);
     expect(ctx.kind).toBe('operator');
-    if (ctx.kind === 'operator') expect(ctx.docKind).toBe('filter');
+    if (ctx.kind === 'operator') {
+      expect(ctx.docKind).toBe('filter');
+      expect(ctx.operatorScope).toBe('field');
+    }
   });
 
   it('detects update document context (arg 1 of updateMany)', () => {
@@ -61,6 +67,7 @@ describe('detectCompletionContext', () => {
     if (ctx.kind === 'operator') {
       expect(ctx.docKind).toBe('update');
       expect(ctx.collection).toBe('users');
+      expect(ctx.operatorScope).toBe('update');
     }
   });
 
@@ -74,6 +81,23 @@ describe('detectCompletionContext', () => {
   it('detects stage position in later pipeline stages', () => {
     const [src, off] = at('db.collection("o").aggregate([{ $match: {} }, { $gr█: {} }])');
     expect(detectCompletionContext(src, off).kind).toBe('aggregation-stage');
+  });
+
+  it('refines field context inside schema-aware pipeline stages', () => {
+    const [src, off] = at('db.collection("orders").aggregate([{ $match: { sta█: "paid" } }])');
+    expect(detectCompletionContext(src, off)).toMatchObject({
+      kind: 'document-key',
+      docKind: 'filter',
+      collection: 'orders',
+    });
+  });
+
+  it('detects aggregation field references', () => {
+    const [src, off] = at('db.collection("orders").aggregate([{ $group: { _id: "$sta█" } }])');
+    expect(detectCompletionContext(src, off)).toEqual({
+      kind: 'field-reference',
+      collection: 'orders',
+    });
   });
 
   it('detects sort context in .sort({...})', () => {
@@ -105,5 +129,40 @@ describe('detectCompletionContext', () => {
   it('defers string values (non-key positions) to the TS service', () => {
     const [src, off] = at('db.collection("u").find({ name: "ad█" })');
     expect(detectCompletionContext(src, off).kind).toBe('identifier');
+  });
+
+  it('resolves a collection through a local collection variable', () => {
+    const [src, off] = at(`const users = db.collection("users");
+users.find({ na█: "Ada" });`);
+    const ctx = detectCompletionContext(src, off);
+    expect(ctx).toMatchObject({
+      kind: 'document-key',
+      docKind: 'filter',
+      collection: 'users',
+      method: 'find',
+    });
+  });
+
+  it('resolves a collection through a cursor variable and chained method', () => {
+    const [src, off] = at(`const users = db.collection("users");
+const cursor = users.find({});
+cursor.sort({ na█: 1 });`);
+    const ctx = detectCompletionContext(src, off);
+    expect(ctx).toMatchObject({
+      kind: 'document-key',
+      docKind: 'sort',
+      collection: 'users',
+      method: 'sort',
+    });
+  });
+
+  it('classifies logical operators at the filter root', () => {
+    const [src, off] = at('db.collection("users").find({ $a█: [] })');
+    const ctx = detectCompletionContext(src, off);
+    expect(ctx).toMatchObject({
+      kind: 'operator',
+      docKind: 'filter',
+      operatorScope: 'root',
+    });
   });
 });

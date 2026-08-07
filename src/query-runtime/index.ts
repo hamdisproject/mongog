@@ -13,6 +13,8 @@
  *   -> { id, type: 'sample-schema', database, collection, sampleSize? }
  *   -> { id, type: 'list-databases' }
  *   -> { id, type: 'list-collections', database }
+ *   -> { id, type: 'collection-find', ... }
+ *   -> { id, type: 'collection-insert' | 'collection-replace' | 'collection-delete', ... }
  *   -> { id, type: 'shutdown' }
  *  <- { id, ok: true, value? } | { id, ok: false, error: AppError }
  *  <- { type: 'engine-event', executionId, event }     (streamed, no id)
@@ -22,9 +24,28 @@ import { MongoClient, type MongoClientOptions } from 'mongodb';
 import { ExecutionEngine } from './engine/execute.js';
 import { CursorRegistry } from './registry/cursors.js';
 import { sampleSchema } from './metadata/sample.js';
+import {
+  deleteCollectionDocument,
+  findCollectionDocuments,
+  insertCollectionDocument,
+  replaceCollectionDocument,
+} from './collection/operations.js';
+import {
+  createCollectionIndex,
+  deleteGridFsFile,
+  downloadGridFsFile,
+  dropCollectionIndex,
+  explainCollectionFind,
+  globalSearch,
+  listGridFsFiles,
+  listIndexes,
+  pollChangeStream,
+  startChangeStream,
+  uploadGridFsFile,
+} from './admin/operations.js';
 import { classifyError, serializeError, type AppError } from '../shared/errors/index.js';
 import { redactUri } from '../shared/redaction/index.js';
-import type { ExecuteRequest } from '../shared/domain/index.js';
+import type { ExecuteRequest, ExplainVerbosity } from '../shared/domain/index.js';
 
 interface RuntimeRequest {
   id: number;
@@ -177,10 +198,173 @@ async function handle(req: RuntimeRequest): Promise<void> {
     }
     case 'list-collections': {
       const db = requireClient().db(req.database as string);
-      const cols = await db
-        .listCollections({}, { nameOnly: true })
-        .toArray();
+      const cursor = db.listCollections({}, { nameOnly: true });
+      const cols: unknown[] = [];
+      try {
+        for (;;) {
+          const collection = await cursor.next();
+          if (!collection) break;
+          cols.push(collection);
+        }
+      } finally {
+        await cursor.close().catch(() => undefined);
+      }
       reply(req.id, cols);
+      return;
+    }
+    case 'collection-find': {
+      const result = await findCollectionDocuments(requireClient(), registry, {
+        database: req.database as string,
+        collection: req.collection as string,
+        owner: {
+          connectionId: req.connectionId as string,
+          tabId: req.tabId as string,
+        },
+        filterEjson: req.filterEjson as string,
+        ...(req.sortEjson ? { sortEjson: req.sortEjson as string } : {}),
+        ...(req.projectionEjson ? { projectionEjson: req.projectionEjson as string } : {}),
+        pageSize: req.pageSize as number,
+      });
+      reply(req.id, result);
+      return;
+    }
+    case 'collection-insert': {
+      reply(req.id, await insertCollectionDocument(requireClient(), {
+        database: req.database as string,
+        collection: req.collection as string,
+        documentEjson: req.documentEjson as string,
+      }));
+      return;
+    }
+    case 'collection-replace': {
+      reply(req.id, await replaceCollectionDocument(requireClient(), {
+        database: req.database as string,
+        collection: req.collection as string,
+        originalDocumentEjson: req.originalDocumentEjson as string,
+        documentEjson: req.documentEjson as string,
+      }));
+      return;
+    }
+    case 'collection-delete': {
+      reply(req.id, await deleteCollectionDocument(requireClient(), {
+        database: req.database as string,
+        collection: req.collection as string,
+        originalDocumentEjson: req.originalDocumentEjson as string,
+      }));
+      return;
+    }
+    case 'index-list': {
+      reply(req.id, await listIndexes(requireClient(), {
+        database: req.database as string,
+        collection: req.collection as string,
+      }));
+      return;
+    }
+    case 'index-create': {
+      reply(req.id, await createCollectionIndex(requireClient(), {
+        database: req.database as string,
+        collection: req.collection as string,
+        keysEjson: req.keysEjson as string,
+        ...(req.name ? { name: req.name as string } : {}),
+        ...(req.unique !== undefined ? { unique: req.unique as boolean } : {}),
+        ...(req.sparse !== undefined ? { sparse: req.sparse as boolean } : {}),
+        ...(req.hidden !== undefined ? { hidden: req.hidden as boolean } : {}),
+        ...(req.expireAfterSeconds !== undefined
+          ? { expireAfterSeconds: req.expireAfterSeconds as number }
+          : {}),
+        ...(req.partialFilterEjson
+          ? { partialFilterEjson: req.partialFilterEjson as string }
+          : {}),
+      }));
+      return;
+    }
+    case 'index-drop': {
+      reply(req.id, await dropCollectionIndex(requireClient(), {
+        database: req.database as string,
+        collection: req.collection as string,
+        name: req.name as string,
+      }));
+      return;
+    }
+    case 'explain': {
+      reply(req.id, await explainCollectionFind(requireClient(), {
+        database: req.database as string,
+        collection: req.collection as string,
+        filterEjson: req.filterEjson as string,
+        ...(req.sortEjson ? { sortEjson: req.sortEjson as string } : {}),
+        ...(req.projectionEjson ? { projectionEjson: req.projectionEjson as string } : {}),
+        verbosity: req.verbosity as ExplainVerbosity,
+      }));
+      return;
+    }
+    case 'global-search': {
+      reply(req.id, await globalSearch(requireClient(), {
+        database: req.database as string,
+        text: req.text as string,
+        maxCollections: req.maxCollections as number,
+        maxDocumentsPerCollection: req.maxDocumentsPerCollection as number,
+        maxResults: req.maxResults as number,
+      }));
+      return;
+    }
+    case 'change-start': {
+      reply(req.id, startChangeStream(requireClient(), registry, {
+        database: req.database as string,
+        ...(req.collection ? { collection: req.collection as string } : {}),
+        pipelineEjson: req.pipelineEjson as string,
+        fullDocument: req.fullDocument as 'default' | 'updateLookup' | 'whenAvailable' | 'required',
+        owner: {
+          connectionId: req.connectionId as string,
+          tabId: req.tabId as string,
+        },
+      }));
+      return;
+    }
+    case 'change-poll': {
+      reply(req.id, await pollChangeStream(
+        registry,
+        req.streamId as string,
+        req.maxEvents as number,
+      ));
+      return;
+    }
+    case 'change-close': {
+      await registry.closeStream(req.streamId as string);
+      reply(req.id, { closed: true });
+      return;
+    }
+    case 'gridfs-list': {
+      reply(req.id, await listGridFsFiles(requireClient(), {
+        database: req.database as string,
+        bucketName: req.bucketName as string,
+        limit: req.limit as number,
+      }));
+      return;
+    }
+    case 'gridfs-upload': {
+      reply(req.id, await uploadGridFsFile(requireClient(), {
+        database: req.database as string,
+        bucketName: req.bucketName as string,
+        sourcePath: req.sourcePath as string,
+        ...(req.metadataEjson ? { metadataEjson: req.metadataEjson as string } : {}),
+      }));
+      return;
+    }
+    case 'gridfs-download': {
+      reply(req.id, await downloadGridFsFile(requireClient(), {
+        database: req.database as string,
+        bucketName: req.bucketName as string,
+        idEjson: req.idEjson as string,
+        destinationPath: req.destinationPath as string,
+      }));
+      return;
+    }
+    case 'gridfs-delete': {
+      reply(req.id, await deleteGridFsFile(requireClient(), {
+        database: req.database as string,
+        bucketName: req.bucketName as string,
+        idEjson: req.idEjson as string,
+      }));
       return;
     }
     case 'shutdown': {

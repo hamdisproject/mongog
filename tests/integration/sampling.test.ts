@@ -71,4 +71,19 @@ describe('schema sampling', () => {
     expect(detectBsonType(null)).toBe('null');
     expect(detectBsonType({ a: 1 })).toBe('object');
   });
+
+  it('honours inference path bounds', async () => {
+    const result = await sampleSchema(client.db('mongog_test'), 'mixed', {
+      sampleSize: 20,
+      maxPaths: 4,
+      maxDepth: 1,
+    });
+    expect(result.sampledCount).toBe(20);
+    expect(result.fields.length).toBeLessThanOrEqual(4);
+  });
+
+  it('returns a cacheable empty inferred schema for an empty collection', async () => {
+    const result = await sampleSchema(client.db('mongog_test'), 'empty', { sampleSize: 50 });
+    expect(result).toEqual({ fields: [], sampledCount: 0, sampleSize: 50 });
+  });
 });

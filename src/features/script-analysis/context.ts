@@ -18,9 +18,22 @@ export type DocumentContextKind =
 export type CompletionContext =
   | { kind: 'collection-name' }
   | { kind: 'database-name' }
-  | { kind: 'document-key'; docKind: DocumentContextKind; collection?: string; method?: string }
-  | { kind: 'operator'; docKind: 'filter' | 'update'; collection?: string; method?: string }
+  | {
+      kind: 'document-key';
+      docKind: DocumentContextKind;
+      collection?: string;
+      method?: string;
+      pathPrefix?: string;
+    }
+  | {
+      kind: 'operator';
+      docKind: 'filter' | 'update';
+      operatorScope: 'root' | 'field' | 'update';
+      collection?: string;
+      method?: string;
+    }
   | { kind: 'aggregation-stage'; collection?: string }
+  | { kind: 'field-reference'; collection?: string }
   | { kind: 'identifier' };
 
 /** method name -> argument index -> document semantics */
@@ -52,6 +65,14 @@ const OPTION_KEY_KINDS: Record<string, DocumentContextKind> = {
   pipeline: 'pipeline',
 };
 
+const STAGE_KEY_KINDS: Record<string, DocumentContextKind> = {
+  $match: 'filter',
+  $sort: 'sort',
+  $project: 'projection',
+  $set: 'document',
+  $addFields: 'document',
+};
+
 export function detectCompletionContext(
   source: string,
   offset: number,
@@ -71,6 +92,10 @@ export function detectCompletionContext(
       if (callee === 'use') return { kind: 'database-name' };
       if (callee === 'db' && receiverText(parent).endsWith('client')) return { kind: 'database-name' };
     }
+    if (node.text.startsWith('$') && !node.text.startsWith('$$')) {
+      const collection = pipelineCollectionForNode(node);
+      if (collection) return { kind: 'field-reference', collection };
+    }
     // A string used as a document VALUE is not a key position.
     return { kind: 'identifier' };
   }
@@ -89,10 +114,12 @@ export function detectCompletionContext(
   }
 
   const docKind = refinedDocKind(objectLiteral, callCtx.docKind);
+  const pathPrefix = fieldPathPrefix(objectLiteral, callCtx);
   if (typedPrefix.startsWith('$') && (docKind === 'filter' || docKind === 'update')) {
     return {
       kind: 'operator',
       docKind,
+      operatorScope: docKind === 'update' ? 'update' : pathPrefix ? 'field' : 'root',
       ...(callCtx.collection ? { collection: callCtx.collection } : {}),
       ...(callCtx.method ? { method: callCtx.method } : {}),
     };
@@ -102,6 +129,7 @@ export function detectCompletionContext(
     docKind,
     ...(callCtx.collection ? { collection: callCtx.collection } : {}),
     ...(callCtx.method ? { method: callCtx.method } : {}),
+    ...(pathPrefix ? { pathPrefix } : {}),
   };
 }
 
@@ -161,6 +189,7 @@ interface DataCallContext {
   method?: string;
   collection?: string;
   pipelineArray?: ts.ArrayLiteralExpression;
+  argumentRoot: ts.Expression;
 }
 
 /** Find the enclosing driver data-method call that governs this object. */
@@ -183,9 +212,20 @@ function enclosingDataCall(objectLiteral: ts.ObjectLiteralExpression): DataCallC
           // A pipeline array encountered while climbing overrides arg-kind
           // only for the stage objects themselves (handled by caller).
           if (docKind === 'pipeline' && pipelineArray) {
-            return { docKind, method, collection: collectionOfCall(parent), pipelineArray };
+            return {
+              docKind,
+              method,
+              collection: collectionOfCall(parent),
+              pipelineArray,
+              argumentRoot: parent.arguments[argIndex]!,
+            };
           }
-          return { docKind, method, collection: collectionOfCall(parent) };
+          return {
+            docKind,
+            method,
+            collection: collectionOfCall(parent),
+            argumentRoot: parent.arguments[argIndex]!,
+          };
         }
       }
     }
@@ -225,11 +265,46 @@ function refinedDocKind(
         }
         return base;
       }
+      if (key && key in STAGE_KEY_KINDS && base === 'pipeline') {
+        return STAGE_KEY_KINDS[key]!;
+      }
     }
     if (ts.isCallExpression(node)) break;
     node = node.parent;
   }
   return base;
+}
+
+/** Field path represented by nested object literals, excluding operators/options. */
+function fieldPathPrefix(
+  objectLiteral: ts.ObjectLiteralExpression,
+  ctx: DataCallContext,
+): string | undefined {
+  const segments: string[] = [];
+  let node: ts.Node = objectLiteral;
+  while (node !== ctx.argumentRoot && node.parent) {
+    const parent: ts.Node = node.parent;
+    if (ts.isPropertyAssignment(parent) && containsNode(parent.initializer, node)) {
+      const key = propertyName(parent.name);
+      if (
+        key &&
+        !key.startsWith('$') &&
+        !(key in OPTION_KEY_KINDS) &&
+        !(key in STAGE_KEY_KINDS)
+      ) {
+        segments.unshift(key);
+      }
+    }
+    node = parent;
+  }
+  return segments.length > 0 ? segments.join('.') : undefined;
+}
+
+function propertyName(name: ts.PropertyName): string | undefined {
+  if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) {
+    return name.text;
+  }
+  return undefined;
 }
 
 function calleeName(call: ts.CallExpression): string | undefined {
@@ -245,27 +320,104 @@ function receiverText(call: ts.CallExpression): string {
   return '';
 }
 
-/** Best-effort: extract collection name from db.collection("x").<method>() chains. */
-function collectionOfCall(call: ts.CallExpression): string | undefined {
-  let expr: ts.Expression | undefined = ts.isPropertyAccessExpression(call.expression)
-    ? call.expression.expression
-    : undefined;
-  let hops = 0;
-  while (expr && hops < 10) {
-    if (ts.isCallExpression(expr) && ts.isPropertyAccessExpression(expr.expression)) {
-      const name = expr.expression.name.text;
-      if ((name === 'collection' || name === 'getCollection') && expr.arguments.length > 0) {
-        const arg = expr.arguments[0]!;
-        if (ts.isStringLiteral(arg)) return arg.text;
-        return undefined;
+function pipelineCollectionForNode(node: ts.Node): string | undefined {
+  let current: ts.Node | undefined = node;
+  while (current?.parent) {
+    const parent: ts.Node = current.parent;
+    if (ts.isCallExpression(parent)) {
+      const method = calleeName(parent);
+      if (method === 'aggregate' || method === 'watch') {
+        const pipeline = parent.arguments[0];
+        if (pipeline && containsNode(pipeline, node)) return collectionOfCall(parent);
       }
-      expr = expr.expression.expression;
-      hops += 1;
-      continue;
     }
-    break;
+    current = parent;
   }
   return undefined;
+}
+
+/** Resolve direct/chained collection calls and local aliases through the AST. */
+function collectionOfCall(call: ts.CallExpression): string | undefined {
+  const expression = ts.isPropertyAccessExpression(call.expression)
+    ? call.expression.expression
+    : undefined;
+  if (!expression) return undefined;
+  return collectionOfExpression(expression, call.getSourceFile(), call.getStart(), new Set(), 0);
+}
+
+function collectionOfExpression(
+  expression: ts.Expression,
+  sourceFile: ts.SourceFile,
+  before: number,
+  resolving: Set<string>,
+  depth: number,
+): string | undefined {
+  if (depth > 12) return undefined;
+  if (ts.isParenthesizedExpression(expression) || ts.isAwaitExpression(expression)) {
+    return collectionOfExpression(expression.expression, sourceFile, before, resolving, depth + 1);
+  }
+  if (ts.isCallExpression(expression)) {
+    if (ts.isPropertyAccessExpression(expression.expression)) {
+      const method = expression.expression.name.text;
+      if (method === 'collection' || method === 'getCollection') {
+        const name = expression.arguments[0];
+        return name && (ts.isStringLiteral(name) || ts.isNoSubstitutionTemplateLiteral(name))
+          ? name.text
+          : undefined;
+      }
+      return collectionOfExpression(
+        expression.expression.expression,
+        sourceFile,
+        before,
+        resolving,
+        depth + 1,
+      );
+    }
+    return undefined;
+  }
+  if (ts.isPropertyAccessExpression(expression)) {
+    return collectionOfExpression(expression.expression, sourceFile, before, resolving, depth + 1);
+  }
+  if (ts.isIdentifier(expression)) {
+    if (resolving.has(expression.text)) return undefined;
+    const initializer = latestVariableInitializer(sourceFile, expression.text, before);
+    if (!initializer) return undefined;
+    resolving.add(expression.text);
+    const resolved = collectionOfExpression(
+      initializer,
+      sourceFile,
+      initializer.getStart(),
+      resolving,
+      depth + 1,
+    );
+    resolving.delete(expression.text);
+    return resolved;
+  }
+  return undefined;
+}
+
+function latestVariableInitializer(
+  sourceFile: ts.SourceFile,
+  name: string,
+  before: number,
+): ts.Expression | undefined {
+  let latest: { position: number; initializer: ts.Expression } | undefined;
+  const visit = (node: ts.Node): void => {
+    const position = node.getStart(sourceFile);
+    if (position >= before) return;
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.name.text === name &&
+      node.initializer &&
+      (!latest || position > latest.position)
+    ) {
+      latest = { position, initializer: node.initializer };
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return latest?.initializer;
 }
 
 function containsNode(root: ts.Node, target: ts.Node): boolean {

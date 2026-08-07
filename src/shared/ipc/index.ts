@@ -3,6 +3,8 @@ import type { AppError } from '../errors/index.js';
 import type { EjsonEnvelope } from '../ejson/index.js';
 import type {
   ConnectionState,
+  CollectionDocumentsPage,
+  CollectionMutationResult,
   DocumentsPage,
   EngineEvent,
   ExecuteRequest,
@@ -11,7 +13,16 @@ import type {
   ConnectionOptions,
   TestConnectionResult,
   SecretPayload,
+  SchemaSnapshot,
   WorkspaceTab,
+  ExplainVerbosity,
+  IndexDescription,
+  GlobalSearchResult,
+  ChangeStreamStartResult,
+  ChangeStreamPollResult,
+  GridFsFileInfo,
+  GridFsUploadResult,
+  GridFsDialogResult,
 } from '../domain/index.js';
 
 export const IpcChannels = {
@@ -47,8 +58,26 @@ export const IpcChannels = {
   connExecutionCancel: 'mongog:conn:execution:cancel',
   connListDatabases: 'mongog:conn:list-databases',
   connListCollections: 'mongog:conn:list-collections',
+  // ── Phase 3: Collection browser / document editor ──
+  connCollectionFind: 'mongog:conn:collection:find',
+  connCollectionInsert: 'mongog:conn:collection:insert',
+  connCollectionReplace: 'mongog:conn:collection:replace',
+  connCollectionDelete: 'mongog:conn:collection:delete',
   // ── Phase 4: Schema / completions ──
   connSampleSchema: 'mongog:conn:sample-schema',
+  // ── Phase 5: Administration ──
+  connIndexList: 'mongog:conn:index:list',
+  connIndexCreate: 'mongog:conn:index:create',
+  connIndexDrop: 'mongog:conn:index:drop',
+  connExplain: 'mongog:conn:explain',
+  connGlobalSearch: 'mongog:conn:global-search',
+  connChangeStart: 'mongog:conn:change:start',
+  connChangePoll: 'mongog:conn:change:poll',
+  connChangeClose: 'mongog:conn:change:close',
+  connGridFsList: 'mongog:conn:gridfs:list',
+  connGridFsUpload: 'mongog:conn:gridfs:upload',
+  connGridFsDownload: 'mongog:conn:gridfs:download',
+  connGridFsDelete: 'mongog:conn:gridfs:delete',
   // ── Workspace persistence ──
   workspaceSave: 'mongog:workspace:save',
   workspaceLoad: 'mongog:workspace:load',
@@ -165,7 +194,7 @@ export const workspaceSaveSchema = z.object({
   state: z.object({
     tabs: z.array(z.object({
       id: z.string(),
-      kind: z.enum(['query', 'collection', 'history', 'connection-settings']),
+      kind: z.enum(['query', 'collection', 'history', 'connection-settings', 'admin']),
       title: z.string(),
       connectionId: z.string().nullable(),
       database: z.string().optional(),
@@ -173,6 +202,7 @@ export const workspaceSaveSchema = z.object({
       editorContent: z.string().optional(),
       mode: z.enum(['query', 'trusted']).optional(),
       profileId: z.string().optional(),
+      adminSection: z.enum(['indexes', 'explain', 'search', 'changes', 'gridfs']).optional(),
       dirty: z.boolean().optional(),
     })),
     activeTabId: z.string().nullable(),
@@ -233,6 +263,124 @@ export const connListDatabasesSchema = z.object({
 export const connListCollectionsSchema = z.object({
   connectionId: z.string().min(1),
   database: z.string().min(1),
+});
+
+// ── Phase 3: Collection browser / document editor schemas ──
+
+const namespaceSchema = {
+  connectionId: z.string().min(1),
+  database: z.string().min(1).max(255),
+  collection: z.string().min(1).max(255),
+};
+const ejsonSchema = z.string().min(1).max(17 * 1024 * 1024);
+
+export const connCollectionFindSchema = z.object({
+  ...namespaceSchema,
+  tabId: z.string().min(1),
+  filterEjson: ejsonSchema,
+  sortEjson: ejsonSchema.optional(),
+  projectionEjson: ejsonSchema.optional(),
+  pageSize: z.number().int().min(1).max(500),
+});
+
+export const connCollectionInsertSchema = z.object({
+  ...namespaceSchema,
+  documentEjson: ejsonSchema,
+});
+
+export const connCollectionReplaceSchema = z.object({
+  ...namespaceSchema,
+  originalDocumentEjson: ejsonSchema,
+  documentEjson: ejsonSchema,
+});
+
+export const connCollectionDeleteSchema = z.object({
+  ...namespaceSchema,
+  originalDocumentEjson: ejsonSchema,
+});
+
+// ── Phase 5: Administration schemas ──
+
+export const connIndexListSchema = z.object(namespaceSchema);
+
+export const connIndexCreateSchema = z.object({
+  ...namespaceSchema,
+  keysEjson: ejsonSchema,
+  name: z.string().min(1).max(127).optional(),
+  unique: z.boolean().optional(),
+  sparse: z.boolean().optional(),
+  hidden: z.boolean().optional(),
+  expireAfterSeconds: z.number().int().min(0).max(2_147_483_647).optional(),
+  partialFilterEjson: ejsonSchema.optional(),
+});
+
+export const connIndexDropSchema = z.object({
+  ...namespaceSchema,
+  name: z.string().min(1).max(127),
+});
+
+export const connExplainSchema = z.object({
+  ...namespaceSchema,
+  filterEjson: ejsonSchema,
+  sortEjson: ejsonSchema.optional(),
+  projectionEjson: ejsonSchema.optional(),
+  verbosity: z.enum(['queryPlanner', 'executionStats', 'allPlansExecution']),
+});
+
+export const connGlobalSearchSchema = z.object({
+  connectionId: z.string().min(1),
+  database: z.string().min(1).max(255),
+  text: z.string().trim().min(1).max(1_000),
+  maxCollections: z.number().int().min(1).max(200).optional(),
+  maxDocumentsPerCollection: z.number().int().min(1).max(10_000).optional(),
+  maxResults: z.number().int().min(1).max(1_000).optional(),
+});
+
+export const connChangeStartSchema = z.object({
+  connectionId: z.string().min(1),
+  database: z.string().min(1).max(255),
+  collection: z.string().min(1).max(255).optional(),
+  tabId: z.string().min(1),
+  pipelineEjson: ejsonSchema,
+  fullDocument: z.enum(['default', 'updateLookup', 'whenAvailable', 'required']),
+});
+
+export const connChangePollSchema = z.object({
+  connectionId: z.string().min(1),
+  streamId: z.string().min(1),
+  maxEvents: z.number().int().min(1).max(100).optional(),
+});
+
+export const connChangeCloseSchema = z.object({
+  connectionId: z.string().min(1),
+  streamId: z.string().min(1),
+});
+
+const gridFsNamespaceSchema = {
+  connectionId: z.string().min(1),
+  database: z.string().min(1).max(255),
+  bucketName: z.string().min(1).max(128),
+};
+
+export const connGridFsListSchema = z.object({
+  ...gridFsNamespaceSchema,
+  limit: z.number().int().min(1).max(1_000).optional(),
+});
+
+export const connGridFsUploadSchema = z.object({
+  ...gridFsNamespaceSchema,
+  metadataEjson: ejsonSchema.optional(),
+});
+
+export const connGridFsDownloadSchema = z.object({
+  ...gridFsNamespaceSchema,
+  idEjson: ejsonSchema,
+  filename: z.string().min(1).max(255),
+});
+
+export const connGridFsDeleteSchema = z.object({
+  ...gridFsNamespaceSchema,
+  idEjson: ejsonSchema,
 });
 
 // ── Response types ──
@@ -339,11 +487,99 @@ export interface MongoGDesktopApi {
     cancel(connectionId: string, executionId: string): Promise<void>;
     listDatabases(connectionId: string): Promise<Array<{ name: string }>>;
     listCollections(connectionId: string, database: string): Promise<Array<{ name: string; type?: string }>>;
-    sampleSchema(connectionId: string, database: string, collection: string, sampleSize?: number): Promise<{
-      fields: Array<{ path: string; types: Array<{ bsonType: string; proportion: number }>; presence: number }>;
-      sampledCount: number;
-      sampleSize: number;
-    }>;
+    collectionFind(input: {
+      connectionId: string;
+      database: string;
+      collection: string;
+      tabId: string;
+      filterEjson: string;
+      sortEjson?: string;
+      projectionEjson?: string;
+      pageSize: number;
+    }): Promise<CollectionDocumentsPage>;
+    collectionInsert(input: {
+      connectionId: string;
+      database: string;
+      collection: string;
+      documentEjson: string;
+    }): Promise<CollectionMutationResult>;
+    collectionReplace(input: {
+      connectionId: string;
+      database: string;
+      collection: string;
+      originalDocumentEjson: string;
+      documentEjson: string;
+    }): Promise<CollectionMutationResult>;
+    collectionDelete(input: {
+      connectionId: string;
+      database: string;
+      collection: string;
+      originalDocumentEjson: string;
+    }): Promise<CollectionMutationResult>;
+    sampleSchema(
+      connectionId: string,
+      database: string,
+      collection: string,
+      sampleSize?: number,
+    ): Promise<SchemaSnapshot>;
+  };
+  admin: {
+    listIndexes(connectionId: string, database: string, collection: string): Promise<IndexDescription[]>;
+    createIndex(input: {
+      connectionId: string;
+      database: string;
+      collection: string;
+      keysEjson: string;
+      name?: string;
+      unique?: boolean;
+      sparse?: boolean;
+      hidden?: boolean;
+      expireAfterSeconds?: number;
+      partialFilterEjson?: string;
+    }): Promise<{ name: string }>;
+    dropIndex(connectionId: string, database: string, collection: string, name: string): Promise<{ dropped: string }>;
+    explain(input: {
+      connectionId: string;
+      database: string;
+      collection: string;
+      filterEjson: string;
+      sortEjson?: string;
+      projectionEjson?: string;
+      verbosity: ExplainVerbosity;
+    }): Promise<EjsonEnvelope>;
+    globalSearch(input: {
+      connectionId: string;
+      database: string;
+      text: string;
+      maxCollections?: number;
+      maxDocumentsPerCollection?: number;
+      maxResults?: number;
+    }): Promise<GlobalSearchResult>;
+    startChangeStream(input: {
+      connectionId: string;
+      database: string;
+      collection?: string;
+      tabId: string;
+      pipelineEjson: string;
+      fullDocument: 'default' | 'updateLookup' | 'whenAvailable' | 'required';
+    }): Promise<ChangeStreamStartResult>;
+    pollChangeStream(connectionId: string, streamId: string, maxEvents?: number): Promise<ChangeStreamPollResult>;
+    closeChangeStream(connectionId: string, streamId: string): Promise<void>;
+    listGridFsFiles(connectionId: string, database: string, bucketName: string, limit?: number): Promise<GridFsFileInfo[]>;
+    uploadGridFsFile(input: {
+      connectionId: string;
+      database: string;
+      bucketName: string;
+      metadataEjson?: string;
+    }): Promise<GridFsDialogResult<GridFsUploadResult>>;
+    downloadGridFsFile(input: {
+      connectionId: string;
+      database: string;
+      bucketName: string;
+      idEjson: string;
+      filename: string;
+    }): Promise<GridFsDialogResult<{ downloaded: true }>>;
+    deleteGridFsFile(connectionId: string, database: string, bucketName: string, idEjson: string): Promise<{ deleted: true }>;
   };
   workspace: {
     save(state: { tabs: WorkspaceTab[]; activeTabId: string | null }): Promise<void>;

@@ -113,7 +113,7 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
     const tab: WorkspaceTab = {
       id,
       kind,
-      title: kind === 'query' ? 'Untitled' : kind,
+      title: kind === 'query' ? 'Untitled' : kind === 'admin' ? 'Administration' : kind,
       connectionId,
       dirty: false,
     };
@@ -127,16 +127,18 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
 
   closeTab: (id) => {
     const execution = get().results[id];
-    if (execution?.connectionId && typeof window !== 'undefined' && window.mongog) {
+    const tabConnectionId = get().tabs.find((tab) => tab.id === id)?.connectionId;
+    const ownerConnectionId = execution?.connectionId ?? tabConnectionId;
+    if (ownerConnectionId && typeof window !== 'undefined' && window.mongog) {
       if (
-        execution.executionId &&
+        execution?.executionId &&
         (execution.status === 'starting' ||
           execution.status === 'running' ||
           execution.status === 'cancelling')
       ) {
-        void window.mongog.query.cancel(execution.connectionId, execution.executionId);
+        void window.mongog.query.cancel(ownerConnectionId, execution.executionId);
       }
-      void window.mongog.query.closeOwner(execution.connectionId, id);
+      void window.mongog.query.closeOwner(ownerConnectionId, id);
     }
 
     set((state) => {

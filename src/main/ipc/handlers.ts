@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import type { BrowserWindow } from 'electron';
+import { basename } from 'node:path';
+import { dialog, type BrowserWindow } from 'electron';
 import { registerChannel, type SenderValidator } from './registry.js';
 import {
   cursorCloseSchema,
@@ -26,13 +27,40 @@ import {
   connExecutionCancelSchema,
   connListDatabasesSchema,
   connListCollectionsSchema,
+  connCollectionFindSchema,
+  connCollectionInsertSchema,
+  connCollectionReplaceSchema,
+  connCollectionDeleteSchema,
   sampleSchemaSchema,
+  connIndexListSchema,
+  connIndexCreateSchema,
+  connIndexDropSchema,
+  connExplainSchema,
+  connGlobalSearchSchema,
+  connChangeStartSchema,
+  connChangePollSchema,
+  connChangeCloseSchema,
+  connGridFsListSchema,
+  connGridFsUploadSchema,
+  connGridFsDownloadSchema,
+  connGridFsDeleteSchema,
   workspaceSaveSchema,
   type ExecuteResponse,
   type PingRuntimeResponse,
   type SystemInfoResponse,
 } from '../../shared/ipc/index.js';
-import type { DocumentsPage } from '../../shared/domain/index.js';
+import type {
+  CollectionDocumentsPage,
+  CollectionMutationResult,
+  DocumentsPage,
+  SchemaSnapshot,
+  ChangeStreamPollResult,
+  ChangeStreamStartResult,
+  GlobalSearchResult,
+  GridFsFileInfo,
+  GridFsUploadResult,
+  IndexDescription,
+} from '../../shared/domain/index.js';
 import type { EjsonEnvelope } from '../../shared/ejson/index.js';
 import { appError } from '../../shared/errors/index.js';
 import { RuntimeSupervisor } from '../runtime/supervisor.js';
@@ -55,6 +83,13 @@ const SPIKE_CONNECTION_ID = 'spike';
 export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderValidator): void {
   const { supervisor } = ctx;
   const conn = new ConnectionManager(ctx.getDb(), supervisor, ctx.secretStore);
+  const requireWritableConnection = (connectionId: string): void => {
+    const profile = conn.getProfile(connectionId);
+    if (!profile) throw appError('NotFound', `Connection profile not found: ${connectionId}`);
+    if (profile.readOnly) {
+      throw appError('ReadOnlyProtection', 'This connection is read-only; document changes are disabled.');
+    }
+  };
 
   // ── S1: Spike ping runtime ──
   registerChannel(
@@ -240,11 +275,163 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
     return client.request<Array<{ name: string; type?: string }>>('list-collections', { database });
   }, validateSender);
 
+  // ── Phase 3: Collection browser / document editor ──
+  registerChannel(IpcChannels.connCollectionFind, connCollectionFindSchema, async (payload) => {
+    const client = supervisor.get(payload.connectionId);
+    if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+    return client.request<CollectionDocumentsPage>('collection-find', payload);
+  }, validateSender);
+
+  registerChannel(IpcChannels.connCollectionInsert, connCollectionInsertSchema, async (payload) => {
+    requireWritableConnection(payload.connectionId);
+    const client = supervisor.get(payload.connectionId);
+    if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+    return client.request<CollectionMutationResult>('collection-insert', payload);
+  }, validateSender);
+
+  registerChannel(IpcChannels.connCollectionReplace, connCollectionReplaceSchema, async (payload) => {
+    requireWritableConnection(payload.connectionId);
+    const client = supervisor.get(payload.connectionId);
+    if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+    return client.request<CollectionMutationResult>('collection-replace', payload);
+  }, validateSender);
+
+  registerChannel(IpcChannels.connCollectionDelete, connCollectionDeleteSchema, async (payload) => {
+    requireWritableConnection(payload.connectionId);
+    const client = supervisor.get(payload.connectionId);
+    if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+    return client.request<CollectionMutationResult>('collection-delete', payload);
+  }, validateSender);
+
   // ── Phase 4: Schema sampling ──
   registerChannel(IpcChannels.connSampleSchema, sampleSchemaSchema, async ({ connectionId, database, collection, sampleSize }) => {
     const client = supervisor.get(connectionId);
     if (!client) throw appError('UtilityProcessCrash', `Connection ${connectionId} is not running.`);
-    return client.request('sample-schema', { database, collection, ...(sampleSize !== undefined ? { sampleSize } : {}) });
+    const result = await client.request<Pick<SchemaSnapshot, 'fields' | 'sampledCount' | 'sampleSize'>>(
+      'sample-schema',
+      { database, collection, ...(sampleSize !== undefined ? { sampleSize } : {}) },
+    );
+    return {
+      ...result,
+      connectionId,
+      database,
+      collection,
+      takenAt: Date.now(),
+      ttlMs: 5 * 60 * 1000,
+      inferred: true,
+    } satisfies SchemaSnapshot;
+  }, validateSender);
+
+  // ── Phase 5: Administration ──
+  registerChannel(IpcChannels.connIndexList, connIndexListSchema, async ({ connectionId, database, collection }) => {
+    const client = supervisor.get(connectionId);
+    if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+    return client.request<IndexDescription[]>('index-list', { database, collection });
+  }, validateSender);
+
+  registerChannel(IpcChannels.connIndexCreate, connIndexCreateSchema, async (payload) => {
+    requireWritableConnection(payload.connectionId);
+    const client = supervisor.get(payload.connectionId);
+    if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+    return client.request<{ name: string }>('index-create', payload);
+  }, validateSender);
+
+  registerChannel(IpcChannels.connIndexDrop, connIndexDropSchema, async (payload) => {
+    requireWritableConnection(payload.connectionId);
+    const client = supervisor.get(payload.connectionId);
+    if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+    return client.request<{ dropped: string }>('index-drop', payload);
+  }, validateSender);
+
+  registerChannel(IpcChannels.connExplain, connExplainSchema, async (payload) => {
+    const client = supervisor.get(payload.connectionId);
+    if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+    return client.request<EjsonEnvelope>('explain', payload);
+  }, validateSender);
+
+  registerChannel(IpcChannels.connGlobalSearch, connGlobalSearchSchema, async (payload) => {
+    const client = supervisor.get(payload.connectionId);
+    if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+    return client.request<GlobalSearchResult>('global-search', {
+      ...payload,
+      maxCollections: payload.maxCollections ?? 50,
+      maxDocumentsPerCollection: payload.maxDocumentsPerCollection ?? 500,
+      maxResults: payload.maxResults ?? 100,
+    });
+  }, validateSender);
+
+  registerChannel(IpcChannels.connChangeStart, connChangeStartSchema, async (payload) => {
+    const client = supervisor.get(payload.connectionId);
+    if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+    return client.request<ChangeStreamStartResult>('change-start', payload);
+  }, validateSender);
+
+  registerChannel(IpcChannels.connChangePoll, connChangePollSchema, async ({ connectionId, streamId, maxEvents }) => {
+    const client = supervisor.get(connectionId);
+    if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+    return client.request<ChangeStreamPollResult>('change-poll', {
+      streamId,
+      maxEvents: maxEvents ?? 50,
+    });
+  }, validateSender);
+
+  registerChannel(IpcChannels.connChangeClose, connChangeCloseSchema, async ({ connectionId, streamId }) => {
+    const client = supervisor.get(connectionId);
+    if (!client) return;
+    await client.request('change-close', { streamId });
+  }, validateSender);
+
+  registerChannel(IpcChannels.connGridFsList, connGridFsListSchema, async ({ connectionId, database, bucketName, limit }) => {
+    const client = supervisor.get(connectionId);
+    if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+    return client.request<GridFsFileInfo[]>('gridfs-list', {
+      database,
+      bucketName,
+      limit: limit ?? 200,
+    });
+  }, validateSender);
+
+  registerChannel(IpcChannels.connGridFsUpload, connGridFsUploadSchema, async (payload) => {
+    requireWritableConnection(payload.connectionId);
+    const window = ctx.getWindow();
+    const selection = window
+      ? await dialog.showOpenDialog(window, { properties: ['openFile'] })
+      : await dialog.showOpenDialog({ properties: ['openFile'] });
+    if (selection.canceled || !selection.filePaths[0]) return { cancelled: true };
+    const client = supervisor.get(payload.connectionId);
+    if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+    const value = await client.request<GridFsUploadResult>('gridfs-upload', {
+      database: payload.database,
+      bucketName: payload.bucketName,
+      sourcePath: selection.filePaths[0],
+      ...(payload.metadataEjson ? { metadataEjson: payload.metadataEjson } : {}),
+    });
+    return { cancelled: false, value };
+  }, validateSender);
+
+  registerChannel(IpcChannels.connGridFsDownload, connGridFsDownloadSchema, async (payload) => {
+    const window = ctx.getWindow();
+    const options = { defaultPath: basename(payload.filename) };
+    const selection = window
+      ? await dialog.showSaveDialog(window, options)
+      : await dialog.showSaveDialog(options);
+    if (selection.canceled || !selection.filePath) return { cancelled: true };
+    const client = supervisor.get(payload.connectionId);
+    if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+    const value = await client.request<{ downloaded: true }>('gridfs-download', {
+      database: payload.database,
+      bucketName: payload.bucketName,
+      idEjson: payload.idEjson,
+      destinationPath: selection.filePath,
+    });
+    return { cancelled: false, value };
+  }, validateSender);
+
+  registerChannel(IpcChannels.connGridFsDelete, connGridFsDeleteSchema, async (payload) => {
+    requireWritableConnection(payload.connectionId);
+    const client = supervisor.get(payload.connectionId);
+    if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+    return client.request<{ deleted: true }>('gridfs-delete', payload);
   }, validateSender);
 
   // ── Workspace persistence ──

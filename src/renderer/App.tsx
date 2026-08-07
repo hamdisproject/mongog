@@ -4,8 +4,11 @@ import { TabBar } from './components/TabBar/TabBar.js';
 import { QueryEditor } from './components/Editor/QueryEditor.js';
 import { ResultsPanel } from './components/Results/ResultsPanel.js';
 import { CollectionView } from './components/Results/CollectionView.js';
+import { AdminView } from './components/Admin/AdminView.js';
+import type { WorkspaceTab } from '../shared/domain/index.js';
 import { useWorkspaceStore } from './stores/workspace.js';
 import { useConnectionStore } from './stores/connections.js';
+import { useSchemaCache } from './stores/schema-cache.js';
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -67,6 +70,7 @@ export default function App() {
         state.status === 'runtime-crashed' ||
         state.status === 'error'
       ) {
+        useSchemaCache.getState().invalidateConnection(state.connectionId);
         const message = state.status === 'error'
           ? state.error.message
           : state.status === 'runtime-crashed'
@@ -105,7 +109,7 @@ export default function App() {
   );
 }
 
-function renderTabContent(activeTabId: string | null, tabs: { id: string; kind: string }[]) {
+function renderTabContent(activeTabId: string | null, tabs: WorkspaceTab[]) {
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
   if (!activeTab) {
@@ -128,6 +132,8 @@ function renderTabContent(activeTabId: string | null, tabs: { id: string; kind: 
           <CollectionView />
         </div>
       );
+    case 'admin':
+      return <AdminView tab={activeTab} />;
     default:
       return <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
         {activeTab.kind} tab

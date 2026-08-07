@@ -85,8 +85,32 @@ const api: MongoGDesktopApi = {
       invoke(IpcChannels.connListDatabases, { connectionId }),
     listCollections: (connectionId, database) =>
       invoke(IpcChannels.connListCollections, { connectionId, database }),
+    collectionFind: (input) => invoke(IpcChannels.connCollectionFind, input),
+    collectionInsert: (input) => invoke(IpcChannels.connCollectionInsert, input),
+    collectionReplace: (input) => invoke(IpcChannels.connCollectionReplace, input),
+    collectionDelete: (input) => invoke(IpcChannels.connCollectionDelete, input),
     sampleSchema: (connectionId, database, collection, sampleSize) =>
       invoke(IpcChannels.connSampleSchema, { connectionId, database, collection, sampleSize }),
+  },
+  admin: {
+    listIndexes: (connectionId, database, collection) =>
+      invoke(IpcChannels.connIndexList, { connectionId, database, collection }),
+    createIndex: (input) => invoke(IpcChannels.connIndexCreate, input),
+    dropIndex: (connectionId, database, collection, name) =>
+      invoke(IpcChannels.connIndexDrop, { connectionId, database, collection, name }),
+    explain: (input) => invoke(IpcChannels.connExplain, input),
+    globalSearch: (input) => invoke(IpcChannels.connGlobalSearch, input),
+    startChangeStream: (input) => invoke(IpcChannels.connChangeStart, input),
+    pollChangeStream: (connectionId, streamId, maxEvents) =>
+      invoke(IpcChannels.connChangePoll, { connectionId, streamId, maxEvents }),
+    closeChangeStream: (connectionId, streamId) =>
+      invoke(IpcChannels.connChangeClose, { connectionId, streamId }),
+    listGridFsFiles: (connectionId, database, bucketName, limit) =>
+      invoke(IpcChannels.connGridFsList, { connectionId, database, bucketName, limit }),
+    uploadGridFsFile: (input) => invoke(IpcChannels.connGridFsUpload, input),
+    downloadGridFsFile: (input) => invoke(IpcChannels.connGridFsDownload, input),
+    deleteGridFsFile: (connectionId, database, bucketName, idEjson) =>
+      invoke(IpcChannels.connGridFsDelete, { connectionId, database, bucketName, idEjson }),
   },
   workspace: {
     save: (state) => invoke(IpcChannels.workspaceSave, { state }),

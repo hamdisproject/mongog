@@ -6,7 +6,7 @@
  * cursor.next()/hasNext() — toArray() on user cursors is never called.
  */
 import { randomUUID } from 'node:crypto';
-import type { DocumentsPage } from '../../shared/domain/index.js';
+import type { ChangeStreamPollResult, DocumentsPage } from '../../shared/domain/index.js';
 import { appError } from '../../shared/errors/index.js';
 import {
   byteLength,
@@ -57,6 +57,7 @@ interface StreamEntry {
   owner: CursorOwner;
   stream: ChangeStreamLike;
   createdAt: number;
+  lastTouchedAt: number;
   buffered: number;
   closed: boolean;
 }
@@ -153,10 +154,36 @@ export class CursorRegistry {
       owner,
       stream,
       createdAt: this.now(),
+      lastTouchedAt: this.now(),
       buffered: 0,
       closed: false,
     });
     return streamId;
+  }
+
+  /** Non-blocking, bounded polling for a registered change stream. */
+  async pollStream(streamId: string, maxEvents: number): Promise<ChangeStreamPollResult> {
+    const entry = this.getOpenStream(streamId);
+    entry.lastTouchedAt = this.now();
+    const events: EjsonEnvelope[] = [];
+    try {
+      while (events.length < maxEvents && !entry.stream.closed) {
+        const event = await entry.stream.tryNext();
+        if (event == null) break;
+        events.push(serializeToEjsonWithFull(event).preview);
+      }
+    } catch (error) {
+      if (entry.stream.closed) {
+        await this.closeStream(streamId);
+        return { events, closed: true };
+      }
+      throw appError('MongoDBCommand', `Change stream polling failed: ${(error as Error).message}`, {
+        name: (error as Error).name,
+      });
+    }
+    const closed = entry.stream.closed;
+    if (closed) await this.closeStream(streamId);
+    return { events, closed };
   }
 
   /**
@@ -326,6 +353,12 @@ export class CursorRegistry {
         count += 1;
       }
     }
+    for (const entry of [...this.streams.values()]) {
+      if (now - entry.lastTouchedAt > this.idleTimeoutMS) {
+        await this.closeStream(entry.streamId);
+        count += 1;
+      }
+    }
     return count;
   }
 
@@ -341,6 +374,17 @@ export class CursorRegistry {
       throw appError('CursorNotFound', `Cursor ${cursorId} is closed or expired.`, {
         name: 'CursorNotFound',
         hint: 'The cursor may have expired after the idle timeout; re-run the query.',
+      });
+    }
+    return entry;
+  }
+
+  private getOpenStream(streamId: string): StreamEntry {
+    const entry = this.streams.get(streamId);
+    if (!entry || entry.closed) {
+      throw appError('CursorNotFound', `Change stream ${streamId} is closed or expired.`, {
+        name: 'CursorNotFound',
+        hint: 'Start the change stream again.',
       });
     }
     return entry;
