@@ -85,11 +85,11 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.keyboard.press('Control+Space');
   await expect(page.locator('.suggest-widget.visible')).toContainText('sku', { timeout: 15_000 });
   await page.keyboard.press('Escape');
-  await setMonacoValue(page, 'Collection filter', "{\n  sku: 'alpha',\n}");
+  await setMonacoValue(page, 'Collection filter', "{\n  sku: 'alpha',\n");
   await expect.poll(() => page.getByTestId('criteria-editor-filter').evaluate(
     (element) => element.getBoundingClientRect().height,
   )).toBeGreaterThan(initialFilterHeight);
-  await setMonacoValue(page, 'Collection sort', '{ quantity: -1 }');
+  await setMonacoValue(page, 'Collection sort', '{ createdAt: -1 }');
   await setMonacoValue(page, 'Collection projection', '{ sku: 1, quantity: 1 }');
   await expect(page.getByRole('button', { name: 'Apply', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
@@ -121,8 +121,11 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
 });
 
 async function setMonacoValue(page: Page, label: string, value: string): Promise<void> {
-  const editor = page.getByLabel(label);
-  await editor.focus();
+  const kind = label.replace('Collection ', '');
+  await page.getByTestId(`criteria-editor-${kind}`).evaluate((element) => {
+    (element as HTMLElement).click();
+  });
+  await expect(page.getByLabel(label)).toBeFocused();
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
   await page.keyboard.press('Backspace');
   await page.keyboard.insertText(value);
