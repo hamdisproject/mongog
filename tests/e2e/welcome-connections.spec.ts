@@ -53,16 +53,24 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.getByRole('button', { name: 'basic' }).click();
   await page.getByRole('button', { name: 'Test, Save & Connect' }).click();
   await expect(page.getByText('Connection tested, saved, and connected.')).toBeVisible({ timeout: 30_000 });
+  let explorer = page.getByRole('navigation', { name: 'Connection explorer' });
+  await expect(explorer.getByRole('button', { name: 'Disconnect', exact: true })).toBeVisible();
+  await expect(explorer.getByRole('button', { name: 'Connection settings for E2E Local' })).toBeVisible();
 
   await page.locator('[title^="welcome: Welcome"]').click();
-  await page.getByRole('button', { name: /E2E Local/ }).click();
+  await page.getByRole('button', { name: /E2E Local CONNECTED/ }).click();
   await expect(page.locator('[title^="query: E2E Local · mongog_e2e"]')).toBeVisible();
+  await expect(page.getByTestId('query-results-region')).toHaveCount(0);
+  await expectWorkspaceSurfaceFullWidth(page, 'query-editor');
+  await expectQueryEditorFullHeight(page);
 
   await application!.close();
   application = null;
   page = await launch();
   await expect(page.getByText('Welcome back')).toBeVisible();
   await expect(page.locator('[title^="welcome: Welcome"]')).toHaveCount(1);
+  explorer = page.getByRole('navigation', { name: 'Connection explorer' });
+  await expect(explorer.getByRole('button', { name: 'Connect', exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Open Connections' }).click();
   await page.getByRole('complementary').getByText('E2E Local', { exact: true }).click();
@@ -70,6 +78,11 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.getByRole('button', { name: 'Test, Save & Connect' }).click();
   await expect(page.getByText('Connection tested, saved, and connected.')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText('E2E Renamed', { exact: true }).first()).toBeVisible();
+  await expect(explorer.getByRole('button', { name: 'Connection settings for E2E Renamed' })).toBeVisible();
+  await explorer.getByRole('button', { name: 'Disconnect', exact: true }).click();
+  await expect(explorer.getByRole('button', { name: 'Connect', exact: true })).toBeVisible();
+  await explorer.getByRole('button', { name: 'Connect', exact: true }).click();
+  await expect(explorer.getByRole('button', { name: 'Disconnect', exact: true })).toBeVisible();
 
   await page.getByTitle('Expand databases').click();
   await page.getByTitle('Expand database mongog_e2e').click();
@@ -106,11 +119,16 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
 
   await page.getByRole('button', { name: 'Query', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Query', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByLabel('Connection')).toBeDisabled();
+  await expect(page.getByTestId('query-results-region')).toHaveCount(0);
+  await expectWorkspaceSurfaceFullWidth(page, 'query-editor');
+  await expectQueryEditorFullHeight(page);
+  await expect(page.getByLabel('Connection', { exact: true })).toBeDisabled();
   await expect(page.getByLabel('Database')).toBeDisabled();
   await page.getByRole('button', { name: /^Run/ }).click();
+  await expect(page.getByTestId('query-results-region')).toBeVisible();
   await expect(page.getByText('Statement 1', { exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText('documents', { exact: true })).toBeVisible();
+  await expectQueryColumnsFillWidth(page);
 
   await page.getByRole('button', { name: 'Documents', exact: true }).click();
   await expect(page.getByRole('button', { name: /^Criteria · 3/ })).toBeVisible();
@@ -152,6 +170,42 @@ async function expectViewportLocked(page: Page): Promise<void> {
     scrollX: 0,
     scrollY: 0,
   });
+}
+
+async function expectWorkspaceSurfaceFullWidth(page: Page, testId: string): Promise<void> {
+  await expect.poll(() => page.getByTestId(testId).evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const navigation = document.querySelector('nav[aria-label="Connection explorer"]');
+    const surface = element.querySelector('[data-testid="query-editor-surface"]');
+    const monaco = surface?.querySelector('.monaco-editor');
+    if (!navigation || !surface || !monaco) return Number.POSITIVE_INFINITY;
+
+    const navigationRect = navigation.getBoundingClientRect();
+    const surfaceRect = surface.getBoundingClientRect();
+    const monacoRect = monaco.getBoundingClientRect();
+    return Math.round(Math.max(
+      Math.abs(rect.left - navigationRect.right),
+      Math.abs(window.innerWidth - rect.right),
+      Math.abs(surfaceRect.left - monacoRect.left),
+      Math.abs(surfaceRect.right - monacoRect.right),
+    ));
+  })).toBeLessThanOrEqual(1);
+}
+
+async function expectQueryEditorFullHeight(page: Page): Promise<void> {
+  await expect.poll(() => page.getByTestId('query-editor').evaluate((element) => (
+    Math.round(Math.abs(window.innerHeight - element.getBoundingClientRect().bottom))
+  ))).toBeLessThanOrEqual(1);
+}
+
+async function expectQueryColumnsFillWidth(page: Page): Promise<void> {
+  await expect.poll(() => page.getByTestId('query-documents-table-wrap').evaluate((wrapper) => {
+    const lastHeader = wrapper.querySelector('th:last-child');
+    if (!lastHeader) return Number.POSITIVE_INFINITY;
+    return Math.round(Math.abs(
+      wrapper.getBoundingClientRect().right - lastHeader.getBoundingClientRect().right,
+    ));
+  })).toBeLessThanOrEqual(2);
 }
 
 async function launch(): Promise<Page> {

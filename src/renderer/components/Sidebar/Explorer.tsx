@@ -4,7 +4,7 @@ import { useWorkspaceStore } from '../../stores/workspace.js';
 
 const s: Record<string, React.CSSProperties> = {
   sidebar: {
-    width: 260, background: '#252526', color: '#ccc',
+    width: '100%', height: '100%', background: '#252526', color: '#ccc',
     display: 'flex', flexDirection: 'column', borderRight: '1px solid #333',
     fontFamily: 'system-ui', fontSize: 13, userSelect: 'none', overflow: 'hidden',
   },
@@ -28,6 +28,16 @@ const s: Record<string, React.CSSProperties> = {
   name: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   actions: {
     fontSize: 16, lineHeight: '16px', cursor: 'pointer', opacity: 0.5, padding: '0 2px',
+  },
+  connectionButton: {
+    minWidth: 62, border: '1px solid #555', borderRadius: 3, background: '#333',
+    padding: '2px 6px', color: '#ccc', fontSize: 10, lineHeight: '14px',
+    cursor: 'pointer', flexShrink: 0,
+  },
+  settingsButton: {
+    width: 22, height: 22, border: 0, borderRadius: 3, background: 'transparent',
+    color: '#aaa', padding: 0, fontSize: 13, lineHeight: '22px', cursor: 'pointer',
+    flexShrink: 0,
   },
 };
 
@@ -126,7 +136,7 @@ function ExplorerTree() {
                       isSelected={selectedProfileId === p.id}
                       isExpanded={expandedProfileIds.has(p.id)}
                       onSelect={() => selectProfile(p.id)}
-                      onDoubleClick={() => handleDoubleClick(p.id)}
+                      onConnectionToggle={() => handleDoubleClick(p.id)}
                       onToggle={() => toggleProfile(p.id)}
                       onEdit={() => openConnections({ mode: 'edit', profileId: p.id })}
                     />
@@ -143,7 +153,7 @@ function ExplorerTree() {
             isSelected={selectedProfileId === p.id}
             isExpanded={expandedProfileIds.has(p.id)}
             onSelect={() => selectProfile(p.id)}
-            onDoubleClick={() => handleDoubleClick(p.id)}
+            onConnectionToggle={() => handleDoubleClick(p.id)}
             onToggle={() => toggleProfile(p.id)}
             onEdit={() => openConnections({ mode: 'edit', profileId: p.id })}
           />
@@ -154,20 +164,30 @@ function ExplorerTree() {
 }
 
 interface ProfileNodeProps {
-  profile: { id: string; name: string; color: string | null; hasSecret: boolean };
+  profile: { id: string; name: string; color: string | null };
   isConnected: boolean;
   isSelected: boolean;
   isExpanded: boolean;
   onSelect: () => void;
-  onDoubleClick: () => void;
+  onConnectionToggle: () => Promise<void>;
   onToggle: () => void;
   onEdit: () => void;
 }
 
-function ProfileNode({ profile, isConnected, isSelected, isExpanded, onSelect, onDoubleClick, onToggle, onEdit }: ProfileNodeProps) {
+function ProfileNode({ profile, isConnected, isSelected, isExpanded, onSelect, onConnectionToggle, onToggle, onEdit }: ProfileNodeProps) {
   const { databases, expandedDatabaseIds, toggleDatabase, collections, loadCollections } = useConnectionStore();
   const { createTab, updateTab } = useWorkspaceStore();
+  const [connectionBusy, setConnectionBusy] = useState(false);
   const connDbs = databases[profile.id] ?? [];
+  const handleConnectionAction = async () => {
+    if (connectionBusy) return;
+    setConnectionBusy(true);
+    try {
+      await onConnectionToggle();
+    } finally {
+      setConnectionBusy(false);
+    }
+  };
   const handleCollectionClick = (dbName: string, colName: string, colType?: string) => {
     const tabId = createTab('collection', profile.id);
     updateTab(tabId, {
@@ -183,7 +203,7 @@ function ProfileNode({ profile, isConnected, isSelected, isExpanded, onSelect, o
       <div
         style={{ ...s.treeItem, ...(isSelected ? s.treeItemSelected : {}) }}
         onClick={onSelect}
-        onDoubleClick={onDoubleClick}
+        onDoubleClick={() => void handleConnectionAction()}
         title={isConnected ? 'Double-click to disconnect' : 'Double-click to connect'}
       >
         <span
@@ -195,9 +215,27 @@ function ProfileNode({ profile, isConnected, isSelected, isExpanded, onSelect, o
         </span>
         <div style={{ ...s.dot, ...(isConnected ? s.dotConnected : s.dotDisconnected), ...(profile.color ? { background: profile.color } : {}) }} />
         <span style={s.name}>{profile.name}</span>
-        {profile.hasSecret && <span style={{ fontSize: 10, opacity: 0.4 }}>&#x1F512;</span>}
-        <span style={{ ...s.actions, fontSize: 12 }}
-          onClick={(e) => { e.stopPropagation(); onEdit(); }} title="Edit connection">&#x2699;</span>
+        <button
+          style={{
+            ...s.connectionButton,
+            color: isConnected ? '#e5c07b' : '#4ec9b0',
+            ...(connectionBusy ? { opacity: 0.55, cursor: 'default' } : {}),
+          }}
+          disabled={connectionBusy}
+          onClick={(event) => { event.stopPropagation(); void handleConnectionAction(); }}
+          onDoubleClick={(event) => event.stopPropagation()}
+        >
+          {isConnected ? 'Disconnect' : 'Connect'}
+        </button>
+        <button
+          style={s.settingsButton}
+          aria-label={`Connection settings for ${profile.name}`}
+          title="Edit connection"
+          onClick={(event) => { event.stopPropagation(); onEdit(); }}
+          onDoubleClick={(event) => event.stopPropagation()}
+        >
+          &#x2699;
+        </button>
       </div>
 
       {isExpanded && isConnected && (
@@ -245,5 +283,12 @@ function ProfileNode({ profile, isConnected, isSelected, isExpanded, onSelect, o
 }
 
 export function Explorer() {
-  return <ExplorerTree />;
+  return (
+    <nav
+      aria-label="Connection explorer"
+      style={{ width: 260, height: '100%', minHeight: 0, flexShrink: 0, overflow: 'hidden' }}
+    >
+      <ExplorerTree />
+    </nav>
+  );
 }

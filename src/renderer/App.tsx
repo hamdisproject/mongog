@@ -1,8 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { Explorer } from './components/Sidebar/Explorer.js';
 import { TabBar } from './components/TabBar/TabBar.js';
-import { QueryEditor } from './components/Editor/QueryEditor.js';
-import { ResultsPanel } from './components/Results/ResultsPanel.js';
+import { QueryWorkspace } from './components/Editor/QueryWorkspace.js';
 import { CollectionView } from './components/Results/CollectionView.js';
 import { AdminView } from './components/Admin/AdminView.js';
 import { WelcomeView } from './components/Welcome/WelcomeView.js';
@@ -136,12 +135,7 @@ function renderTabContent(activeTabId: string | null, tabs: WorkspaceTab[]) {
     case 'welcome':
       return <WelcomeView />;
     case 'query':
-      return (
-        <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ flex: 1, minHeight: 0 }}><QueryEditor /></div>
-          <div style={{ height: '40%', minHeight: 120 }}><ResultsPanel /></div>
-        </div>
-      );
+      return <QueryWorkspace />;
     case 'collection':
       return (
         <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

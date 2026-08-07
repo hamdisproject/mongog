@@ -7,9 +7,8 @@ import { useSchemaCache } from '../../stores/schema-cache.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
 import { collectionDocumentsOwnerId } from '../../collection-workspace.js';
 import { theme } from '../../theme.js';
-import { QueryEditor } from '../Editor/QueryEditor.js';
+import { QueryWorkspace } from '../Editor/QueryWorkspace.js';
 import { CollectionCriteriaEditor } from './CollectionCriteriaEditor.js';
-import { ResultsPanel } from './ResultsPanel.js';
 import type { CriteriaKind } from '../../monaco/object-expression.js';
 
 const s: Record<string, React.CSSProperties> = {
@@ -148,8 +147,7 @@ export function CollectionView() {
 
       {view === 'query' && (
         <div style={{ ...s.surface, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ flex: 1, minHeight: 0 }}><QueryEditor contextLocked /></div>
-          <div style={{ height: '40%', minHeight: 120 }}><ResultsPanel /></div>
+          <QueryWorkspace contextLocked />
         </div>
       )}
     </div>

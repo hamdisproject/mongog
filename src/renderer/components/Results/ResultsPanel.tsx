@@ -21,7 +21,8 @@ import {
 
 const s: Record<string, React.CSSProperties> = {
   panel: {
-    display: 'flex', flexDirection: 'column', height: '100%',
+    display: 'flex', flexDirection: 'column', width: '100%', height: '100%',
+    minWidth: 0, minHeight: 0,
     background: '#1e1e1e', borderTop: '1px solid #333', overflow: 'hidden',
   },
   header: {
@@ -33,7 +34,7 @@ const s: Record<string, React.CSSProperties> = {
     background: '#3c3c3c', color: '#ddd', border: '1px solid #555',
     padding: '1px 5px', borderRadius: 2, fontSize: 11,
   },
-  content: { flex: 1, overflow: 'auto', padding: 6, fontSize: 12 },
+  content: { flex: 1, minWidth: 0, overflow: 'auto', padding: 6, fontSize: 12 },
   card: {
     border: '1px solid #353535', borderRadius: 3, marginBottom: 6,
     background: '#202020', overflow: 'hidden',
@@ -55,7 +56,10 @@ const s: Record<string, React.CSSProperties> = {
     border: '1px solid #4c472c', background: '#282619', borderRadius: 3,
     padding: 8, marginBottom: 6, color: '#dcdcaa',
   },
-  tableWrap: { overflow: 'auto', maxHeight: 300, border: '1px solid #333' },
+  tableWrap: {
+    width: '100%', maxWidth: '100%', minWidth: 0, overflow: 'auto',
+    maxHeight: 300, border: '1px solid #333',
+  },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 11 },
   th: {
     position: 'sticky', top: 0, textAlign: 'left', padding: '4px 7px',
@@ -334,8 +338,9 @@ function DocumentsResult({
       {rows.length === 0 ? (
         <div style={s.empty}>No documents on this page</div>
       ) : (
-        <div ref={scrollRef} style={s.tableWrap}>
+        <div data-testid="query-documents-table-wrap" ref={scrollRef} style={s.tableWrap}>
           <table
+            data-testid="query-documents-table"
             style={{
               ...s.table,
               display: 'grid',
@@ -345,7 +350,7 @@ function DocumentsResult({
           >
             <thead style={{ display: 'grid', position: 'sticky', top: 0, zIndex: 2 }}>
               {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id} style={{ display: 'flex' }}>
+                <tr key={headerGroup.id} style={{ display: 'flex', width: '100%' }}>
                   {headerGroup.headers.map((header) => (
                     <th
                       key={header.id}
@@ -353,7 +358,9 @@ function DocumentsResult({
                         ...s.th,
                         display: 'block',
                         width: header.getSize(),
-                        flex: `0 0 ${header.getSize()}px`,
+                        flex: header.id === '$row'
+                          ? `0 0 ${header.getSize()}px`
+                          : `1 0 ${header.getSize()}px`,
                       }}
                     >
                       {flexRender(header.column.columnDef.header, header.getContext())}
@@ -393,7 +400,9 @@ function DocumentsResult({
                           ...s.td,
                           display: 'block',
                           width: cell.column.getSize(),
-                          flex: `0 0 ${cell.column.getSize()}px`,
+                          flex: cell.column.id === '$row'
+                            ? `0 0 ${cell.column.getSize()}px`
+                            : `1 0 ${cell.column.getSize()}px`,
                         }}
                       >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}

@@ -6,7 +6,10 @@ import { useConnectionStore } from '../../stores/connections.js';
 import { useEditorContext } from '../../stores/editor-context.js';
 
 const s: Record<string, React.CSSProperties> = {
-  container: { display: 'flex', flexDirection: 'column', height: '100%' },
+  container: {
+    display: 'flex', flexDirection: 'column', width: '100%', height: '100%',
+    minWidth: 0, minHeight: 0, overflow: 'hidden',
+  },
   toolbar: {
     display: 'flex', gap: 6, padding: '4px 8px', background: '#2d2d2d',
     borderBottom: '1px solid #333', alignItems: 'center', flexShrink: 0,
@@ -23,7 +26,7 @@ const s: Record<string, React.CSSProperties> = {
   btnDanger: { background: '#6b3030' },
   status: { fontSize: 11, color: '#999', marginLeft: 'auto' },
   error: { fontSize: 11, color: '#f48771', maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis' },
-  editor: { flex: 1 },
+  editor: { flex: 1, width: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden' },
 };
 
 const DEFAULT_CODE = `// Select a connection, then run with Cmd/Ctrl+Enter.
@@ -150,6 +153,8 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
   useEffect(() => {
     let disposed = false;
     let editor: Monaco.editor.IStandaloneCodeEditor | null = null;
+    let resizeObserver: ResizeObserver | null = null;
+    let layoutFrame: number | null = null;
     void bootMonaco().then((monaco) => {
       if (disposed || !editorHost.current) return;
       const tab = useWorkspaceStore.getState().tabs
@@ -173,10 +178,15 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
         updateTab(tab.id, { editorContent: editor!.getValue(), dirty: true });
       });
       editorRef.current = editor;
+      resizeObserver = new ResizeObserver(() => editor?.layout());
+      resizeObserver.observe(editorHost.current);
+      layoutFrame = requestAnimationFrame(() => editor?.layout());
       editor.focus();
     });
     return () => {
       disposed = true;
+      resizeObserver?.disconnect();
+      if (layoutFrame !== null) cancelAnimationFrame(layoutFrame);
       editor?.dispose();
       if (editorRef.current === editor) editorRef.current = null;
     };
@@ -235,7 +245,7 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
     .filter((profile): profile is NonNullable<typeof profile> => profile !== undefined);
 
   return (
-    <div style={s.container}>
+    <div data-testid="query-editor" style={s.container}>
       <div style={s.toolbar}>
         <select
           aria-label="Connection"
@@ -311,7 +321,7 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
         {execution?.error && <span style={s.error} title={execution.error}>{execution.error}</span>}
         <span style={s.status}>{execution?.status ?? 'idle'}</span>
       </div>
-      <div ref={editorHost} style={s.editor} />
+      <div data-testid="query-editor-surface" ref={editorHost} style={s.editor} />
     </div>
   );
 }
