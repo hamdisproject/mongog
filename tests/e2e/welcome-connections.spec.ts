@@ -39,6 +39,7 @@ test.afterAll(async () => {
 
 test('Welcome, Connections, and Collection Query provide the complete lifecycle', async () => {
   let page = await launch();
+  await expectViewportLocked(page);
   await expect(page.getByText('Welcome back')).toBeVisible();
   await expect(page.locator('[title^="welcome: Welcome"]')).toHaveCount(1);
 
@@ -78,6 +79,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByLabel('Collection filter')).toBeVisible();
   await expect(page.getByLabel('Collection sort')).toBeVisible();
   await expect(page.getByLabel('Collection projection')).toBeVisible();
+  await expectViewportLocked(page);
   const initialFilterHeight = await page.getByTestId('criteria-editor-filter').evaluate(
     (element) => element.getBoundingClientRect().height,
   );
@@ -89,6 +91,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect.poll(() => page.getByTestId('criteria-editor-filter').evaluate(
     (element) => element.getBoundingClientRect().height,
   )).toBeGreaterThan(initialFilterHeight);
+  await expectViewportLocked(page);
   await setMonacoValue(page, 'Collection sort', '{ createdAt: -1 }');
   await setMonacoValue(page, 'Collection projection', '{ sku: 1, quantity: 1 }');
   await expect(page.getByRole('button', { name: 'Apply', exact: true })).toBeEnabled();
@@ -129,6 +132,26 @@ async function setMonacoValue(page: Page, label: string, value: string): Promise
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
   await page.keyboard.press('Backspace');
   await page.keyboard.insertText(value);
+}
+
+async function expectViewportLocked(page: Page): Promise<void> {
+  await expect.poll(() => page.evaluate(() => ({
+    horizontalOverflow: Math.max(
+      document.documentElement.scrollWidth,
+      document.body.scrollWidth,
+    ) - window.innerWidth,
+    verticalOverflow: Math.max(
+      document.documentElement.scrollHeight,
+      document.body.scrollHeight,
+    ) - window.innerHeight,
+    scrollX: window.scrollX,
+    scrollY: window.scrollY,
+  }))).toEqual({
+    horizontalOverflow: 0,
+    verticalOverflow: 0,
+    scrollX: 0,
+    scrollY: 0,
+  });
 }
 
 async function launch(): Promise<Page> {

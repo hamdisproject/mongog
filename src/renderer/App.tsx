@@ -107,10 +107,15 @@ export default function App() {
 
   return (
     <div style={{
-      display: 'flex', height: '100vh', background: theme.colors.app, color: theme.colors.text, fontFamily: 'system-ui',
+      display: 'flex', width: '100%', height: '100%', minWidth: 0, minHeight: 0,
+      overflow: 'hidden', background: theme.colors.app, color: theme.colors.text,
+      fontFamily: 'system-ui',
     }}>
       <Explorer />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{
+        flex: 1, minWidth: 0, minHeight: 0, display: 'flex',
+        flexDirection: 'column', overflow: 'hidden',
+      }}>
         <TabBar />
         {renderTabContent(activeTabId, tabs)}
       </div>
@@ -122,7 +127,7 @@ function renderTabContent(activeTabId: string | null, tabs: WorkspaceTab[]) {
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
   if (!activeTab) {
-    return <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
+    return <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
       Select or create a tab to begin
     </div>;
   }
@@ -132,14 +137,14 @@ function renderTabContent(activeTabId: string | null, tabs: WorkspaceTab[]) {
       return <WelcomeView />;
     case 'query':
       return (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ flex: 1, minHeight: 0 }}><QueryEditor /></div>
           <div style={{ height: '40%', minHeight: 120 }}><ResultsPanel /></div>
         </div>
       );
     case 'collection':
       return (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <CollectionView />
         </div>
       );
@@ -148,7 +153,7 @@ function renderTabContent(activeTabId: string | null, tabs: WorkspaceTab[]) {
     case 'connection-settings':
       return <ConnectionsView tab={activeTab} />;
     default:
-      return <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
+      return <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
         {activeTab.kind} tab
       </div>;
   }
