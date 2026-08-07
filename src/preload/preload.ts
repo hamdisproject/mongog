@@ -66,6 +66,8 @@ const api: MongoGDesktopApi = {
     getState: (profileId) => invoke(IpcChannels.connGetState, { profileId }),
     listConnected: () => invoke(IpcChannels.connListConnected),
     testConnection: (uri, options) => invoke(IpcChannels.connTest, { uri, options }),
+    testDraft: (input) => invoke(IpcChannels.connTestDraft, input),
+    saveAndConnect: (input) => invoke(IpcChannels.connSaveAndConnect, input),
   },
   query: {
     execute: (req) => invoke(IpcChannels.connExecute, req),

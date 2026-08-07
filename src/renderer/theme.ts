@@ -1,0 +1,22 @@
+export const theme = {
+  colors: {
+    app: '#1e1e1e',
+    panel: '#252526',
+    panelRaised: '#2d2d2d',
+    input: '#181818',
+    inputSoft: '#3c3c3c',
+    border: '#3a3a3a',
+    borderStrong: '#555',
+    text: '#dddddd',
+    textMuted: '#969696',
+    textFaint: '#6f6f6f',
+    accent: '#0e639c',
+    accentHover: '#1177bb',
+    selected: '#094771',
+    success: '#4ec9b0',
+    warning: '#e5c07b',
+    danger: '#f48771',
+    dangerSurface: '#4a1f1f',
+  },
+  radius: 4,
+} as const;

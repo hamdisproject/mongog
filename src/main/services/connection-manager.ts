@@ -11,7 +11,14 @@ import type {
   ConnectionOptions,
   SecretPayload,
   TestConnectionResult,
+  ConnectionDraftRequest,
+  SaveAndConnectResult,
 } from '../../shared/domain/connections.js';
+
+export type ConnectionTester = (
+  uri: string,
+  options: Record<string, unknown>,
+) => Promise<TestConnectionResult>;
 
 export interface ConnectionSecretStore {
   set(key: string, plaintext: string): Promise<void>;
@@ -24,11 +31,18 @@ export class ConnectionManager {
   private db: Database;
   private supervisor: RuntimeSupervisor;
   private secrets: ConnectionSecretStore;
+  private tester: ConnectionTester | null;
 
-  constructor(db: Database, supervisor: RuntimeSupervisor, secrets: ConnectionSecretStore) {
+  constructor(
+    db: Database,
+    supervisor: RuntimeSupervisor,
+    secrets: ConnectionSecretStore,
+    tester: ConnectionTester | null = null,
+  ) {
     this.db = db;
     this.supervisor = supervisor;
     this.secrets = secrets;
+    this.tester = tester;
   }
 
   // ── Groups ──
@@ -181,27 +195,27 @@ export class ConnectionManager {
     const profile = this.db.profiles.byId(profileId);
     if (!profile) throw appError('NotFound', `Connection profile not found: ${profileId}`);
 
-    if (!profile.hasSecret) return profile.uriRedacted;
-
-    const secretJson = await this.secrets.get(secretKey(profileId));
-    if (!secretJson) return profile.uriRedacted;
-
-    let secret: SecretPayload;
-    try {
-      secret = JSON.parse(secretJson) as SecretPayload;
-    } catch {
-      throw appError('SecureStorageFailure', 'Stored connection secret is invalid and must be entered again.');
+    let secret: SecretPayload | undefined;
+    if (profile.hasSecret) {
+      const secretJson = await this.secrets.get(secretKey(profileId));
+      if (secretJson) {
+        try {
+          secret = JSON.parse(secretJson) as SecretPayload;
+        } catch {
+          throw appError('SecureStorageFailure', 'Stored connection secret is invalid and must be entered again.');
+        }
+      }
     }
-    if (secret.uriOverride) return secret.uriOverride;
+    if (secret?.uriOverride) return secret.uriOverride;
 
-    if (secret.password) {
-      const username = profile.options.username;
-      const creds = username
-        ? `${encodeURIComponent(username)}:${encodeURIComponent(secret.password)}`
-        : encodeURIComponent(secret.password);
+    const username = profile.options.username;
+    if (username) {
+      const creds = `${encodeURIComponent(username)}:${encodeURIComponent(secret?.password ?? '')}`;
       return profile.uriRedacted.replace('//', `//${creds}@`);
     }
-
+    if (secret?.password) {
+      return profile.uriRedacted.replace('//', `//${encodeURIComponent(secret.password)}@`);
+    }
     return profile.uriRedacted;
   }
 
@@ -210,8 +224,7 @@ export class ConnectionManager {
     if (!profile) throw appError('NotFound', `Connection profile not found: ${profileId}`);
     const uri = await this.resolveUri(profileId);
     // Strip non-driver options (username is already embedded in the resolved URI).
-    const { username: _u, ...driverOptions } = profile.options ?? {};
-    await this.supervisor.ensure(profileId, uri, driverOptions as Record<string, unknown>);
+    await this.supervisor.ensure(profileId, uri, toDriverOptions(profile.options ?? {}));
   }
 
   async disconnect(profileId: string): Promise<void> {
@@ -241,6 +254,8 @@ export class ConnectionManager {
   }
 
   async testConnection(uri: string, options?: ConnectionOptions): Promise<TestConnectionResult> {
+    const runtimeOptions = toDriverOptions(options ?? {});
+    if (this.tester) return this.tester(uri, runtimeOptions);
     const client = new RuntimeClient({
       entryPath: resolveRuntimeEntry(),
       connectionId: `test-${randomUUID()}`,
@@ -252,7 +267,7 @@ export class ConnectionManager {
       const started = Date.now();
       const init = await client.request<{ serverVersion: string; topology: string }>('init', {
         uri,
-        options: options ?? {},
+        options: runtimeOptions,
       });
       const roundTripMs = Date.now() - started;
       await client.request('ping');
@@ -269,8 +284,132 @@ export class ConnectionManager {
     }
   }
 
+  async testDraft(input: ConnectionDraftRequest): Promise<TestConnectionResult> {
+    try {
+      const { uri, options } = await this.resolveDraftConnection(input);
+      return this.testConnection(uri, options);
+    } catch (error) {
+      return { ok: false, error: serializeError(error) };
+    }
+  }
+
+  async saveAndConnect(input: ConnectionDraftRequest): Promise<SaveAndConnectResult> {
+    const test = await this.testDraft(input);
+    if (!test.ok) return { test, saved: false, connected: false };
+
+    const { draft, secretAction } = input;
+    let profile: ConnectionProfile;
+    if (input.profileId) {
+      profile = await this.updateProfile(input.profileId, {
+        name: draft.name,
+        groupId: draft.groupId,
+        uri: draft.uri,
+        defaultDatabase: draft.defaultDatabase,
+        readOnly: draft.readOnly,
+        color: draft.color,
+        options: draft.options,
+        ...(secretAction.mode === 'replace' ? { secret: secretAction.secret } : {}),
+        ...(secretAction.mode === 'clear' ? { secret: null } : {}),
+      });
+    } else {
+      if (secretAction.mode !== 'replace') {
+        return {
+          test: {
+            ok: false,
+            error: appError('Validation', 'A new connection must provide an explicit credential state.'),
+          },
+          saved: false,
+          connected: false,
+        };
+      }
+      profile = await this.createProfile({
+        name: draft.name,
+        groupId: draft.groupId,
+        uri: draft.uri,
+        ...(draft.defaultDatabase ? { defaultDatabase: draft.defaultDatabase } : {}),
+        readOnly: draft.readOnly,
+        ...(draft.color ? { color: draft.color } : {}),
+        options: draft.options,
+        ...(Object.keys(secretAction.secret).length > 0 ? { secret: secretAction.secret } : {}),
+      });
+    }
+
+    // Do not disturb an active runtime until the draft has passed its isolated
+    // test and its profile/vault update has succeeded.
+    await this.supervisor.dispose(profile.id).catch(() => undefined);
+    try {
+      await this.connect(profile.id);
+      return { test, saved: true, connected: true, profile };
+    } catch (error) {
+      return {
+        test,
+        saved: true,
+        connected: false,
+        profile,
+        connectionError: serializeError(error),
+      };
+    }
+  }
+
+  private async resolveDraftConnection(
+    input: ConnectionDraftRequest,
+  ): Promise<{ uri: string; options: ConnectionOptions }> {
+    const { draft, secretAction } = input;
+    assertUriHasNoCredentials(draft.uri);
+    if (input.profileId && !this.db.profiles.byId(input.profileId)) {
+      throw appError('NotFound', `Connection profile not found: ${input.profileId}`);
+    }
+    if (!input.profileId && secretAction.mode !== 'replace') {
+      throw appError('Validation', 'A new connection must provide an explicit credential state.');
+    }
+
+    let secret: SecretPayload | undefined;
+    if (secretAction.mode === 'replace') {
+      secret = secretAction.secret;
+    } else if (secretAction.mode === 'preserve' && input.profileId) {
+      const stored = await this.secrets.get(secretKey(input.profileId));
+      if (stored) {
+        try {
+          secret = JSON.parse(stored) as SecretPayload;
+        } catch {
+          throw appError('SecureStorageFailure', 'Stored connection secret is invalid and must be entered again.');
+        }
+      }
+    }
+
+    const username = draft.options.username?.trim();
+    const uri = secret?.uriOverride
+      ? secret.uriOverride
+      : username
+        ? draft.uri.replace(
+            '//',
+            `//${encodeURIComponent(username)}:${encodeURIComponent(secret?.password ?? '')}@`,
+          )
+        : secret?.password
+          ? draft.uri.replace('//', `//${encodeURIComponent(secret.password)}@`)
+          : draft.uri;
+    const { username: _username, ...driverOptions } = draft.options;
+    return { uri, options: driverOptions };
+  }
+
 }
 
 function secretKey(profileId: string): string {
   return `conn:${profileId}`;
+}
+
+function toDriverOptions(options: ConnectionOptions): Record<string, unknown> {
+  const { username: _username, tls, authMechanism, ...rest } = options;
+  return {
+    ...rest,
+    ...(authMechanism && authMechanism !== 'SCRAM' ? { authMechanism } : {}),
+    ...(tls
+      ? {
+          tls: tls.enabled,
+          ...(tls.allowInvalidCertificates !== undefined
+            ? { tlsAllowInvalidCertificates: tls.allowInvalidCertificates }
+            : {}),
+        }
+      : {}),
+  };
 }

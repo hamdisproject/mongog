@@ -2,8 +2,13 @@ import { create } from 'zustand';
 import type {
   ConnectionGroup,
   ConnectionProfile,
+  ConnectionDraftRequest,
+  SaveAndConnectResult,
+  TestConnectionResult,
 } from '../../shared/domain/connections.js';
 import type { ConnectionState as RuntimeConnectionState } from '../../shared/domain/index.js';
+import { useSchemaCache } from './schema-cache.js';
+import { useWorkspaceStore } from './workspace.js';
 
 interface ConnectedInfo {
   pid?: number;
@@ -23,6 +28,7 @@ interface ConnectionState {
   groups: ConnectionGroup[];
   profiles: ConnectionProfile[];
   connected: Record<string, ConnectedInfo>;
+  errors: Record<string, string>;
   selectedGroupId: string | null;
   selectedProfileId: string | null;
   expandedGroupIds: Set<string>;
@@ -51,6 +57,8 @@ interface ConnectionState {
   }) => Promise<ConnectionProfile>;
   updateProfile: (id: string, input: Partial<ConnectionProfile & { uri?: string }>) => Promise<ConnectionProfile>;
   deleteProfile: (id: string) => Promise<void>;
+  testDraft: (input: ConnectionDraftRequest) => Promise<TestConnectionResult>;
+  saveAndConnect: (input: ConnectionDraftRequest) => Promise<SaveAndConnectResult>;
   connect: (profileId: string) => Promise<void>;
   disconnect: (profileId: string) => Promise<void>;
   refreshConnected: () => Promise<void>;
@@ -61,6 +69,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
   groups: [],
   profiles: [],
   connected: {},
+  errors: {},
   selectedGroupId: null,
   selectedProfileId: null,
   expandedGroupIds: new Set(),
@@ -222,6 +231,10 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
     const expandedDatabaseIds = new Set(
       [...get().expandedDatabaseIds].filter((key) => !key.startsWith(`${id}:`)),
     );
+    const errors = { ...get().errors };
+    delete errors[id];
+    useSchemaCache.getState().invalidateConnection(id);
+    useWorkspaceStore.getState().detachConnection(id);
     set({
       profiles: get().profiles.filter((x) => x.id !== id),
       connected,
@@ -230,7 +243,41 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
       expandedProfileIds,
       expandedDatabaseIds,
       selectedProfileId: get().selectedProfileId === id ? null : get().selectedProfileId,
+      errors,
     });
+  },
+
+  testDraft: (input) => window.mongog.connections.testDraft(input),
+
+  saveAndConnect: async (input) => {
+    const result = await window.mongog.connections.saveAndConnect(input);
+    if (!result.profile) return result;
+    const profile = result.profile;
+    const exists = get().profiles.some((candidate) => candidate.id === profile.id);
+    const profiles = exists
+      ? get().profiles.map((candidate) => (candidate.id === profile.id ? profile : candidate))
+      : [...get().profiles, profile];
+    const connected = { ...get().connected };
+    const errors = { ...get().errors };
+    const databases = { ...get().databases };
+    delete databases[profile.id];
+    const collections = Object.fromEntries(
+      Object.entries(get().collections).filter(([key]) => !key.startsWith(`${profile.id}:`)),
+    );
+    useSchemaCache.getState().invalidateConnection(profile.id);
+    if (result.connected) {
+      const state = await window.mongog.connections.getState(profile.id);
+      if (state.status === 'connected') {
+        connected[profile.id] = { pid: state.pid, serverVersion: state.serverVersion };
+      }
+      delete errors[profile.id];
+    } else {
+      delete connected[profile.id];
+      if (result.connectionError) errors[profile.id] = result.connectionError.message;
+    }
+    set({ profiles, connected, errors, databases, collections, selectedProfileId: profile.id });
+    if (result.connected) void get().loadDatabases(profile.id);
+    return result;
   },
 
   connect: async (profileId) => {
@@ -239,7 +286,9 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
     const connected = { ...get().connected };
     if (state.status === 'connected') {
       connected[profileId] = { pid: state.pid, serverVersion: state.serverVersion };
-      set({ connected });
+      const errors = { ...get().errors };
+      delete errors[profileId];
+      set({ connected, errors });
       void get().loadDatabases(profileId);
     } else {
       delete connected[profileId];
@@ -251,6 +300,8 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
     await window.mongog.connections.disconnect(profileId);
     const next = { ...get().connected };
     delete next[profileId];
+    const errors = { ...get().errors };
+    delete errors[profileId];
     const databases = { ...get().databases };
     delete databases[profileId];
     const collections = Object.fromEntries(
@@ -267,6 +318,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
       collections,
       expandedProfileIds,
       expandedDatabaseIds,
+      errors,
     });
   },
 
@@ -290,12 +342,16 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
         pid: state.runtimePid,
         serverVersion: state.serverVersion,
       };
-      set({ connected });
+      const errors = { ...get().errors };
+      delete errors[connectionId];
+      set({ connected, errors });
       return;
     }
     if (state.status === 'connecting') return;
 
     delete connected[connectionId];
+    const errors = { ...get().errors };
+    if (state.status === 'error') errors[connectionId] = state.error.message;
     const databases = { ...get().databases };
     delete databases[connectionId];
     const collections = Object.fromEntries(
@@ -312,6 +368,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
       collections,
       expandedProfileIds,
       expandedDatabaseIds,
+      errors,
     });
   },
 }));

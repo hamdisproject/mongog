@@ -23,6 +23,7 @@
     "spike:monaco-types": "node scripts/spike-monaco-types.mjs",
     "test": "vitest run tests/unit",
     "test:integ": "vitest run tests/integration",
+    "test:e2e": "playwright test -c playwright.config.ts",
     "test:all": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src tests"

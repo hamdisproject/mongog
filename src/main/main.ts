@@ -14,9 +14,10 @@ const supervisor = new RuntimeSupervisor({ maxRuntimes: 10, idleTimeoutMS: 15 * 
 const smokeUserDataPath = process.env.MONGOG_SMOKE === '1'
   ? join(app.getPath('temp'), `mongog-smoke-${process.pid}`)
   : null;
+const e2eUserDataPath = process.env.MONGOG_E2E_USER_DATA?.trim() || null;
 
-if (smokeUserDataPath) {
-  app.setPath('userData', smokeUserDataPath);
+if (smokeUserDataPath || e2eUserDataPath) {
+  app.setPath('userData', smokeUserDataPath ?? e2eUserDataPath!);
 }
 
 let spikeMongoUri: string | null = null;

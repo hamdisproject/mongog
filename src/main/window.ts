@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BrowserWindow, screen, shell } from 'electron';
+import { app, BrowserWindow, screen, shell } from 'electron';
 import type { WindowState } from './window-state.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -68,7 +68,13 @@ export function createMainWindow(options?: CreateWindowOptions): BrowserWindow {
   if (typeof MAIN_WINDOW_VITE_DEV_SERVER_URL !== 'undefined' && MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     void win.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
-    void win.loadFile(path.join(here, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
+    void win.loadFile(path.join(
+      app.getAppPath(),
+      '.vite',
+      'renderer',
+      MAIN_WINDOW_VITE_NAME,
+      'index.html',
+    ));
   }
 
   return win;

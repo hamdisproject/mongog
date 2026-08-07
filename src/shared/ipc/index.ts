@@ -23,6 +23,8 @@ import type {
   GridFsFileInfo,
   GridFsUploadResult,
   GridFsDialogResult,
+  ConnectionDraftRequest,
+  SaveAndConnectResult,
 } from '../domain/index.js';
 
 export const IpcChannels = {
@@ -48,6 +50,8 @@ export const IpcChannels = {
   connGetState: 'mongog:conn:get-state',
   connListConnected: 'mongog:conn:list-connected',
   connTest: 'mongog:conn:test',
+  connTestDraft: 'mongog:conn:test-draft',
+  connSaveAndConnect: 'mongog:conn:save-and-connect',
   // ── Phase 2: Query execution ──
   connExecute: 'mongog:conn:execute',
   connCursorFetchNext: 'mongog:conn:cursor:fetch-next',
@@ -183,6 +187,28 @@ export const testConnectionSchema = z.object({
   options: connectionOptionsSchema.optional(),
 });
 
+const connectionDraftSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  groupId: z.string().min(1).nullable(),
+  uri: z.string().trim().min(1).max(8_192),
+  defaultDatabase: z.string().trim().min(1).max(255).nullable(),
+  readOnly: z.boolean(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable(),
+  options: connectionOptionsSchema,
+});
+
+const connectionSecretActionSchema = z.discriminatedUnion('mode', [
+  z.object({ mode: z.literal('preserve') }),
+  z.object({ mode: z.literal('clear') }),
+  z.object({ mode: z.literal('replace'), secret: secretPayloadSchema }),
+]);
+
+export const connectionDraftRequestSchema = z.object({
+  profileId: z.string().min(1).optional(),
+  draft: connectionDraftSchema,
+  secretAction: connectionSecretActionSchema,
+}) satisfies z.ZodType<ConnectionDraftRequest>;
+
 export const sampleSchemaSchema = z.object({
   connectionId: z.string().min(1),
   database: z.string().min(1),
@@ -194,7 +220,7 @@ export const workspaceSaveSchema = z.object({
   state: z.object({
     tabs: z.array(z.object({
       id: z.string(),
-      kind: z.enum(['query', 'collection', 'history', 'connection-settings', 'admin']),
+      kind: z.enum(['welcome', 'query', 'collection', 'history', 'connection-settings', 'admin']),
       title: z.string(),
       connectionId: z.string().nullable(),
       database: z.string().optional(),
@@ -202,6 +228,7 @@ export const workspaceSaveSchema = z.object({
       editorContent: z.string().optional(),
       mode: z.enum(['query', 'trusted']).optional(),
       profileId: z.string().optional(),
+      connectionMode: z.enum(['list', 'create', 'edit']).optional(),
       adminSection: z.enum(['indexes', 'explain', 'search', 'changes', 'gridfs']).optional(),
       dirty: z.boolean().optional(),
     })),
@@ -472,6 +499,8 @@ export interface MongoGDesktopApi {
     }>;
     listConnected(): Promise<string[]>;
     testConnection(uri: string, options?: ConnectionOptions): Promise<TestConnectionResult>;
+    testDraft(input: ConnectionDraftRequest): Promise<TestConnectionResult>;
+    saveAndConnect(input: ConnectionDraftRequest): Promise<SaveAndConnectResult>;
   };
   query: {
     execute(req: ExecuteRequest): Promise<ExecuteResponse>;

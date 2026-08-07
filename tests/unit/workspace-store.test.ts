@@ -129,4 +129,43 @@ describe('workspace execution store', () => {
     });
     expect(useWorkspaceStore.getState().results[second]?.status).toBe('starting');
   });
+
+  it('opens one active, closeable Welcome tab and deduplicates restored copies', () => {
+    const store = useWorkspaceStore.getState();
+    const first = store.openWelcome();
+    const second = useWorkspaceStore.getState().openWelcome();
+    expect(second).toBe(first);
+    expect(useWorkspaceStore.getState().tabs.filter((tab) => tab.kind === 'welcome')).toHaveLength(1);
+    expect(useWorkspaceStore.getState().activeTabId).toBe(first);
+
+    useWorkspaceStore.getState().closeTab(first);
+    expect(useWorkspaceStore.getState().tabs).toHaveLength(0);
+    const reopened = useWorkspaceStore.getState().openWelcome();
+    expect(reopened).not.toBe(first);
+    expect(useWorkspaceStore.getState().tabs[0]?.title).toBe('Welcome');
+  });
+
+  it('reuses the singleton Connections tab and changes its selected mode', () => {
+    const first = useWorkspaceStore.getState().openConnections({ mode: 'create' });
+    const second = useWorkspaceStore.getState().openConnections({ mode: 'edit', profileId: 'profile-1' });
+    expect(second).toBe(first);
+    expect(useWorkspaceStore.getState().tabs.filter((tab) => tab.kind === 'connection-settings')).toHaveLength(1);
+    expect(useWorkspaceStore.getState().tabs[0]).toMatchObject({
+      title: 'Connections',
+      connectionMode: 'edit',
+      profileId: 'profile-1',
+    });
+  });
+
+  it('detaches deleted connections from tabs and execution state', () => {
+    const query = useWorkspaceStore.getState().createTab('query', 'deleted');
+    const settings = useWorkspaceStore.getState().openConnections({ mode: 'edit', profileId: 'deleted' });
+    useWorkspaceStore.getState().prepareExecution(query, 'deleted', 'run-1');
+
+    useWorkspaceStore.getState().detachConnection('deleted');
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === query)?.connectionId).toBeNull();
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === settings)).toMatchObject({ connectionMode: 'list' });
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === settings)?.profileId).toBeUndefined();
+    expect(useWorkspaceStore.getState().results[query]?.status).toBe('idle');
+  });
 });

@@ -37,15 +37,13 @@ function ExplorerTree() {
     expandedGroupIds, expandedProfileIds, expandedDatabaseIds,
     databases, collections, loading,
     selectGroup, selectProfile, toggleGroup, toggleProfile, toggleDatabase,
-    deleteGroup, deleteProfile, connect, disconnect,
-    createGroup, createProfile,
+    deleteGroup, connect, disconnect,
+    createGroup,
   } = useConnectionStore();
+  const { openWelcome, openConnections } = useWorkspaceStore();
 
   const [showNewGroup, setShowNewGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
-  const [showNewProfile, setShowNewProfile] = useState(false);
-  const [newProfileName, setNewProfileName] = useState('');
-  const [newProfileUri, setNewProfileUri] = useState('');
   const [profileError, setProfileError] = useState<string | null>(null);
 
   const ungrouped = profiles.filter((p) => !p.groupId);
@@ -55,25 +53,6 @@ function ExplorerTree() {
     await createGroup(newGroupName.trim());
     setNewGroupName('');
     setShowNewGroup(false);
-  };
-
-  const handleNewProfile = async () => {
-    if (!newProfileName.trim() || !newProfileUri.trim()) return;
-    setProfileError(null);
-    try {
-      const { uri, secret, username } = splitCredentialsFromUri(newProfileUri.trim());
-      await createProfile({
-        name: newProfileName.trim(),
-        uri,
-        ...(username ? { options: { username } } : {}),
-        ...(secret ? { secret } : {}),
-      });
-      setNewProfileName('');
-      setNewProfileUri('');
-      setShowNewProfile(false);
-    } catch (err) {
-      setProfileError((err as { message?: string }).message ?? String(err));
-    }
   };
 
   const handleDoubleClick = async (pid: string) => {
@@ -91,7 +70,8 @@ function ExplorerTree() {
       <div style={s.header}>
         <span>Connections</span>
         <div style={{ display: 'flex', gap: 4 }}>
-          <span style={s.actions} title="New connection" onClick={() => setShowNewProfile((v) => !v)}>+</span>
+          <span style={{ ...s.actions, fontSize: 13 }} title="Welcome" onClick={() => openWelcome()}>&#x2302;</span>
+          <span style={s.actions} title="New connection" onClick={() => openConnections({ mode: 'create' })}>+</span>
           <span style={s.actions} title="New group" onClick={() => setShowNewGroup((v) => !v)}>&#x1F4C1;</span>
         </div>
       </div>
@@ -107,24 +87,6 @@ function ExplorerTree() {
             style={{ background: '#0e639c', color: '#fff', border: 'none', padding: '2px 8px', borderRadius: 2, fontSize: 11, cursor: 'pointer' }}
             onClick={handleNewGroup}
           >Add</button>
-        </div>
-      )}
-
-      {showNewProfile && (
-        <div style={{ padding: '4px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <input autoFocus placeholder="Name" value={newProfileName}
-            onChange={(e) => setNewProfileName(e.target.value)}
-            style={{ background: '#3c3c3c', color: '#ddd', border: '1px solid #555', padding: '2px 6px', borderRadius: 2, fontSize: 12 }}
-          />
-          <input placeholder="mongodb://host:27017" value={newProfileUri}
-            onChange={(e) => setNewProfileUri(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleNewProfile()}
-            style={{ background: '#3c3c3c', color: '#ddd', border: '1px solid #555', padding: '2px 6px', borderRadius: 2, fontSize: 12 }}
-          />
-          <button
-            style={{ background: '#0e639c', color: '#fff', border: 'none', padding: '2px 8px', borderRadius: 2, fontSize: 11, cursor: 'pointer', alignSelf: 'flex-start' }}
-            onClick={handleNewProfile}
-          >Add connection</button>
         </div>
       )}
 
@@ -166,7 +128,7 @@ function ExplorerTree() {
                       onSelect={() => selectProfile(p.id)}
                       onDoubleClick={() => handleDoubleClick(p.id)}
                       onToggle={() => toggleProfile(p.id)}
-                      onDelete={() => deleteProfile(p.id)}
+                      onEdit={() => openConnections({ mode: 'edit', profileId: p.id })}
                     />
                   ))}
                 </div>
@@ -183,7 +145,7 @@ function ExplorerTree() {
             onSelect={() => selectProfile(p.id)}
             onDoubleClick={() => handleDoubleClick(p.id)}
             onToggle={() => toggleProfile(p.id)}
-            onDelete={() => deleteProfile(p.id)}
+            onEdit={() => openConnections({ mode: 'edit', profileId: p.id })}
           />
         ))}
       </div>
@@ -199,10 +161,10 @@ interface ProfileNodeProps {
   onSelect: () => void;
   onDoubleClick: () => void;
   onToggle: () => void;
-  onDelete: () => void;
+  onEdit: () => void;
 }
 
-function ProfileNode({ profile, isConnected, isSelected, isExpanded, onSelect, onDoubleClick, onToggle, onDelete }: ProfileNodeProps) {
+function ProfileNode({ profile, isConnected, isSelected, isExpanded, onSelect, onDoubleClick, onToggle, onEdit }: ProfileNodeProps) {
   const { databases, expandedDatabaseIds, toggleDatabase, collections, loadCollections } = useConnectionStore();
   const { createTab, updateTab } = useWorkspaceStore();
   const connDbs = databases[profile.id] ?? [];
@@ -230,7 +192,7 @@ function ProfileNode({ profile, isConnected, isSelected, isExpanded, onSelect, o
         <span style={s.name}>{profile.name}</span>
         {profile.hasSecret && <span style={{ fontSize: 10, opacity: 0.4 }}>&#x1F512;</span>}
         <span style={{ ...s.actions, fontSize: 12 }}
-          onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete connection">&#x2715;</span>
+          onClick={(e) => { e.stopPropagation(); onEdit(); }} title="Edit connection">&#x2699;</span>
       </div>
 
       {isExpanded && isConnected && (
@@ -278,26 +240,4 @@ function ProfileNode({ profile, isConnected, isSelected, isExpanded, onSelect, o
 
 export function Explorer() {
   return <ExplorerTree />;
-}
-
-function splitCredentialsFromUri(uri: string): {
-  uri: string;
-  secret?: { password: string };
-  username?: string;
-} {
-  const m = uri.match(/^(mongodb(?:\+srv)?):\/\/([^/@]+)@(.*)$/);
-  if (!m) return { uri };
-
-  const [, scheme, userinfo, rest] = m;
-  if (!userinfo || !rest) return { uri };
-
-  const colonIdx = userinfo.indexOf(':');
-  if (colonIdx === -1) {
-    // Username only, no password.
-    return { uri: `${scheme}://${rest}`, username: userinfo };
-  }
-
-  const username = userinfo.slice(0, colonIdx);
-  const password = userinfo.slice(colonIdx + 1);
-  return { uri: `${scheme}://${rest}`, secret: { password }, username };
 }

@@ -82,6 +82,35 @@ export interface TestConnectionResult {
   error?: AppError;
 }
 
+export interface ConnectionDraft {
+  name: string;
+  groupId: string | null;
+  uri: string;
+  defaultDatabase: string | null;
+  readOnly: boolean;
+  color: string | null;
+  options: ConnectionOptions;
+}
+
+export type ConnectionSecretAction =
+  | { mode: 'preserve' }
+  | { mode: 'clear' }
+  | { mode: 'replace'; secret: SecretPayload };
+
+export interface ConnectionDraftRequest {
+  profileId?: string;
+  draft: ConnectionDraft;
+  secretAction: ConnectionSecretAction;
+}
+
+export interface SaveAndConnectResult {
+  test: TestConnectionResult;
+  saved: boolean;
+  connected: boolean;
+  profile?: ConnectionProfile;
+  connectionError?: AppError;
+}
+
 export interface DbSummary {
   name: string;
 }

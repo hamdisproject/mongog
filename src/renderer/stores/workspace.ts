@@ -63,6 +63,9 @@ interface WorkspaceState {
   results: Record<string, TabExecutionState>;
 
   createTab: (kind: WorkspaceTab['kind'], connectionId?: string | null) => string;
+  openWelcome: () => string;
+  openConnections: (options?: { mode?: 'list' | 'create' | 'edit'; profileId?: string }) => string;
+  detachConnection: (connectionId: string) => void;
   closeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
   updateTab: (id: string, partial: Partial<WorkspaceTab>) => void;
@@ -113,7 +116,15 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
     const tab: WorkspaceTab = {
       id,
       kind,
-      title: kind === 'query' ? 'Untitled' : kind === 'admin' ? 'Administration' : kind,
+      title: kind === 'welcome'
+        ? 'Welcome'
+        : kind === 'query'
+          ? 'Untitled'
+          : kind === 'admin'
+            ? 'Administration'
+            : kind === 'connection-settings'
+              ? 'Connections'
+              : kind,
       connectionId,
       dirty: false,
     };
@@ -123,6 +134,62 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
       results: { ...state.results, [id]: emptyExecution() },
     }));
     return id;
+  },
+
+  openWelcome: () => {
+    const current = get();
+    const welcomeTabs = current.tabs.filter((tab) => tab.kind === 'welcome');
+    const keep = welcomeTabs[0];
+    if (keep) {
+      const duplicateIds = new Set(welcomeTabs.slice(1).map((tab) => tab.id));
+      const results = { ...current.results };
+      for (const id of duplicateIds) delete results[id];
+      set({
+        tabs: current.tabs.filter((tab) => !duplicateIds.has(tab.id)),
+        activeTabId: keep.id,
+        results,
+      });
+      return keep.id;
+    }
+    return get().createTab('welcome', null);
+  },
+
+  openConnections: (options = {}) => {
+    const current = get();
+    const existing = current.tabs.find((tab) => tab.kind === 'connection-settings');
+    const mode = options.mode ?? (options.profileId ? 'edit' : 'list');
+    if (existing) {
+      get().updateTab(existing.id, {
+        title: 'Connections',
+        connectionMode: mode,
+        profileId: options.profileId,
+      });
+      set({ activeTabId: existing.id });
+      return existing.id;
+    }
+    const id = get().createTab('connection-settings', null);
+    get().updateTab(id, {
+      title: 'Connections',
+      connectionMode: mode,
+      profileId: options.profileId,
+    });
+    return id;
+  },
+
+  detachConnection: (connectionId) => {
+    set((state) => {
+      const tabs = state.tabs.map((tab) => {
+        if (tab.kind === 'connection-settings' && tab.profileId === connectionId) {
+          return { ...tab, profileId: undefined, connectionMode: 'list' as const };
+        }
+        return tab.connectionId === connectionId ? { ...tab, connectionId: null } : tab;
+      });
+      const results = { ...state.results };
+      for (const [tabId, execution] of Object.entries(results)) {
+        if (execution.connectionId === connectionId) results[tabId] = emptyExecution();
+      }
+      return { tabs, results };
+    });
   },
 
   closeTab: (id) => {

@@ -18,6 +18,7 @@ import {
   disconnectSchema,
   getStateSchema,
   testConnectionSchema,
+  connectionDraftRequestSchema,
   connExecuteSchema,
   connCursorFetchNextSchema,
   connCursorFetchPrevSchema,
@@ -60,6 +61,7 @@ import type {
   GridFsFileInfo,
   GridFsUploadResult,
   IndexDescription,
+  SaveAndConnectResult,
 } from '../../shared/domain/index.js';
 import type { EjsonEnvelope } from '../../shared/ejson/index.js';
 import { appError } from '../../shared/errors/index.js';
@@ -202,6 +204,18 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
   registerChannel(IpcChannels.connGetState, getStateSchema, async ({ profileId }) => conn.getConnectionState(profileId), validateSender);
   registerChannel(IpcChannels.connListConnected, emptySchema, async () => conn.listConnected(), validateSender);
   registerChannel(IpcChannels.connTest, testConnectionSchema, async ({ uri, options }) => conn.testConnection(uri, options), validateSender);
+  registerChannel(
+    IpcChannels.connTestDraft,
+    connectionDraftRequestSchema,
+    async (payload) => conn.testDraft(payload),
+    validateSender,
+  );
+  registerChannel(
+    IpcChannels.connSaveAndConnect,
+    connectionDraftRequestSchema,
+    async (payload): Promise<SaveAndConnectResult> => conn.saveAndConnect(payload),
+    validateSender,
+  );
 
   // ── Phase 2: Connection-aware query execution ──
   registerChannel(IpcChannels.connExecute, connExecuteSchema, async (payload) => {

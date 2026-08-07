@@ -1,6 +1,6 @@
 /** Workspace/tab domain model (plan §2/§F). */
 
-export type WorkspaceTabKind = 'query' | 'collection' | 'history' | 'connection-settings' | 'admin';
+export type WorkspaceTabKind = 'welcome' | 'query' | 'collection' | 'history' | 'connection-settings' | 'admin';
 
 export type AdminSection = 'indexes' | 'explain' | 'search' | 'changes' | 'gridfs';
 
@@ -16,6 +16,7 @@ export interface WorkspaceTab {
   mode?: 'query' | 'trusted';
   /** connection-settings tabs */
   profileId?: string;
+  connectionMode?: 'list' | 'create' | 'edit';
   /** Phase 5 administration workspace. */
   adminSection?: AdminSection;
   dirty?: boolean;

@@ -24,6 +24,7 @@ const s: Record<string, React.CSSProperties> = {
 };
 
 const kindIcon: Record<string, string> = {
+  welcome: '⌂',
   query: '>_',
   collection: '{ }',
   history: 'H',

@@ -5,17 +5,21 @@ import { QueryEditor } from './components/Editor/QueryEditor.js';
 import { ResultsPanel } from './components/Results/ResultsPanel.js';
 import { CollectionView } from './components/Results/CollectionView.js';
 import { AdminView } from './components/Admin/AdminView.js';
+import { WelcomeView } from './components/Welcome/WelcomeView.js';
+import { ConnectionsView } from './components/Connections/ConnectionsView.js';
 import type { WorkspaceTab } from '../shared/domain/index.js';
 import { useWorkspaceStore } from './stores/workspace.js';
 import { useConnectionStore } from './stores/connections.js';
 import { useSchemaCache } from './stores/schema-cache.js';
+import { theme } from './theme.js';
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
 export default function App() {
-  const { createTab, activeTabId, tabs, restore } = useWorkspaceStore();
+  const { activeTabId, tabs, restore } = useWorkspaceStore();
   const { load } = useConnectionStore();
   const engineSubRef = useRef<(() => void) | null>(null);
+  const initializedRef = useRef(false);
 
   // Save workspace state (debounced).
   const persist = useCallback(() => {
@@ -28,13 +32,18 @@ export default function App() {
 
   // Load workspace state on startup.
   useEffect(() => {
-    load();
+    // React StrictMode intentionally re-runs effects in development. A second
+    // restore can otherwise race with the user's first interaction and bring
+    // Welcome back to the foreground after they have opened Connections.
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    void load();
     void window.mongog.workspace.load().then((saved) => {
       if (saved && saved.tabs.length > 0) {
         restore(saved);
-      } else if (useWorkspaceStore.getState().tabs.length === 0) {
-        createTab('query', null);
       }
+    }).catch(() => undefined).finally(() => {
+      useWorkspaceStore.getState().openWelcome();
     });
   }, []);
 
@@ -98,7 +107,7 @@ export default function App() {
 
   return (
     <div style={{
-      display: 'flex', height: '100vh', background: '#1e1e1e', color: '#ddd', fontFamily: 'system-ui',
+      display: 'flex', height: '100vh', background: theme.colors.app, color: theme.colors.text, fontFamily: 'system-ui',
     }}>
       <Explorer />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -119,6 +128,8 @@ function renderTabContent(activeTabId: string | null, tabs: WorkspaceTab[]) {
   }
 
   switch (activeTab.kind) {
+    case 'welcome':
+      return <WelcomeView />;
     case 'query':
       return (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -134,6 +145,8 @@ function renderTabContent(activeTabId: string | null, tabs: WorkspaceTab[]) {
       );
     case 'admin':
       return <AdminView tab={activeTab} />;
+    case 'connection-settings':
+      return <ConnectionsView tab={activeTab} />;
     default:
       return <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
         {activeTab.kind} tab
