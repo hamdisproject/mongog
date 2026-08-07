@@ -43,6 +43,18 @@ deliberately outside this phase.
   view reuses Monaco and structured Results with connection/database locked
   to the collection namespace. Document and query cursors use separate owner
   identities so running a query does not invalidate browser pagination.
+- Documents Filter, Sort, and Projection now live in a default-open,
+  collapsible Criteria panel backed by a dedicated Monaco language. Each
+  editor starts at one line and grows vertically with its content. All three use
+  schema-aware field completion; Filter also provides MongoDB query operators.
+  Valid identifier fields are inserted unquoted while dotted or otherwise
+  special field names are quoted automatically.
+- Criteria accept data-only object-literal syntax such as `{ bikeid: 17827 }`,
+  single-quoted strings, comments, and trailing commas. A pure TypeScript-AST
+  parser rejects calls, constructors, regex literals, templates, spreads,
+  computed/shorthand properties, and executable MongoDB operators. The query
+  runtime repeats validation and converts the normalized data through strict
+  EJSON; document mutation and Administration fields remain strict EJSON.
 
 ## Packaging and security hardening found during acceptance
 
@@ -62,8 +74,8 @@ deliberately outside this phase.
 | Check | Result |
 |---|---|
 | TypeScript strict check | PASS |
-| Unit tests | 180 / 180 PASS |
-| Real-mongod integration tests | 37 / 37 PASS |
+| Unit tests | 200 / 200 PASS |
+| Real-mongod integration tests | 38 / 38 PASS |
 | Packaged Electron lifecycle E2E | 1 / 1 PASS |
 | Query runtime production bundle | PASS |
 | Electron Forge arm64 package | PASS |

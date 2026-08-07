@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { parseDocumentExpression } from '../../../features/script-analysis/index.js';
 import type { DocumentsPage, WorkspaceTab } from '../../../shared/domain/index.js';
 import type { EjsonEnvelope } from '../../../shared/ejson/index.js';
 import { useConnectionStore } from '../../stores/connections.js';
@@ -7,7 +8,9 @@ import { useWorkspaceStore } from '../../stores/workspace.js';
 import { collectionDocumentsOwnerId } from '../../collection-workspace.js';
 import { theme } from '../../theme.js';
 import { QueryEditor } from '../Editor/QueryEditor.js';
+import { CollectionCriteriaEditor } from './CollectionCriteriaEditor.js';
 import { ResultsPanel } from './ResultsPanel.js';
+import type { CriteriaKind } from '../../monaco/object-expression.js';
 
 const s: Record<string, React.CSSProperties> = {
   workspace: { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' },
@@ -30,12 +33,17 @@ const s: Record<string, React.CSSProperties> = {
     display: 'flex', gap: 6, padding: '5px 8px', background: '#2d2d2d',
     borderBottom: '1px solid #3c3c3c', alignItems: 'center', flexShrink: 0, fontSize: 12,
   },
-  input: {
-    background: '#1f1f1f', color: '#ddd', border: '1px solid #555',
-    padding: '4px 6px', borderRadius: 2, fontSize: 11, fontFamily: 'monospace', minWidth: 100,
+  criteriaPanel: {
+    padding: '9px 10px 10px', background: theme.colors.panel, borderBottom: `1px solid ${theme.colors.border}`,
+    display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0,
   },
-  filterInput: { flex: 3 },
-  optionInput: { flex: 1 },
+  criteriaHeader: {
+    display: 'flex', alignItems: 'center', gap: 8, color: theme.colors.textMuted, fontSize: 11,
+  },
+  criteriaGrid: {
+    display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 8,
+  },
+  criteriaError: { color: theme.colors.danger, fontSize: 11 },
   button: {
     background: '#0e639c', color: '#fff', border: '1px solid #1177bb', padding: '3px 9px',
     borderRadius: 2, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap',
@@ -164,6 +172,12 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     sort: '',
     projection: '',
   });
+  const [criteriaOpen, setCriteriaOpen] = useState(true);
+  const [criteriaErrors, setCriteriaErrors] = useState<Record<CriteriaKind, string | null>>({
+    filter: null,
+    sort: null,
+    projection: null,
+  });
   const [pageSize, setPageSize] = useState(50);
   const [cursorId, setCursorId] = useState<string | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
@@ -234,6 +248,9 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
       sort: draftSort.trim(),
       projection: draftProjection.trim(),
     };
+    const errors = validateCriteria(next);
+    setCriteriaErrors(errors);
+    if (Object.values(errors).some(Boolean)) return;
     if (sameCriteria(criteria, next)) void loadInitial();
     else setCriteria(next);
   };
@@ -242,6 +259,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     setDraftFilter(EMPTY_FILTER);
     setDraftSort('');
     setDraftProjection('');
+    setCriteriaErrors({ filter: null, sort: null, projection: null });
     const cleared = { filter: EMPTY_FILTER, sort: '', projection: '' };
     if (sameCriteria(criteria, cleared)) void loadInitial();
     else setCriteria(cleared);
@@ -366,6 +384,28 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const projectionActive = criteria.projection.length > 0;
   const canEditSelection = !readOnly && !!selected && !projectionActive;
   const busy = loading || editorBusy;
+  const normalizedDraft = {
+    filter: draftFilter.trim() || EMPTY_FILTER,
+    sort: draftSort.trim(),
+    projection: draftProjection.trim(),
+  };
+  const unappliedCriteria = !sameCriteria(criteria, normalizedDraft);
+  const invalidCriteria = Object.values(criteriaErrors).some(Boolean);
+  const criteriaCount = [
+    criteria.filter.trim() !== EMPTY_FILTER,
+    criteria.sort.length > 0,
+    criteria.projection.length > 0,
+  ].filter(Boolean).length;
+  const criteriaSummary = `Criteria · ${criteriaCount}${
+    unappliedCriteria ? ' · edited' : ''
+  }${invalidCriteria ? ' · invalid' : ''}`;
+  const criteriaError = Object.values(criteriaErrors).find(Boolean) ?? null;
+
+  const handleCriteriaValidation = (kind: CriteriaKind, message: string | null) => {
+    setCriteriaErrors((current) => current[kind] === message
+      ? current
+      : { ...current, [kind]: message });
+  };
 
   if (!connectionId || !collection) {
     return <div style={s.empty}>No collection selected</div>;
@@ -374,39 +414,70 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   return (
     <div style={s.container}>
       <div style={s.toolbar}>
-        <input
-          style={{ ...s.input, ...s.filterInput }}
-          aria-label="Collection filter"
-          title="MongoDB filter as Extended JSON"
-          placeholder='Filter: {"active": true}'
-          value={draftFilter}
-          onChange={(event) => setDraftFilter(event.target.value)}
-          onKeyDown={(event) => event.key === 'Enter' && applyCriteria()}
-          disabled={busy}
-        />
-        <input
-          style={{ ...s.input, ...s.optionInput }}
-          aria-label="Collection sort"
-          title="Sort as Extended JSON"
-          placeholder='Sort: {"_id": -1}'
-          value={draftSort}
-          onChange={(event) => setDraftSort(event.target.value)}
-          disabled={busy}
-        />
-        <input
-          style={{ ...s.input, ...s.optionInput }}
-          aria-label="Collection projection"
-          title="Projection as Extended JSON. Editing is disabled for projected results."
-          placeholder='Projection: {"name": 1}'
-          value={draftProjection}
-          onChange={(event) => setDraftProjection(event.target.value)}
-          disabled={busy}
-        />
-        <ToolbarButton onClick={applyCriteria} disabled={busy}>Apply</ToolbarButton>
-        <ToolbarButton secondary onClick={clearCriteria} disabled={busy}>Clear</ToolbarButton>
+        <button
+          style={{ ...s.secondaryButton, ...(criteriaOpen ? { borderColor: theme.colors.accentHover } : {}) }}
+          aria-expanded={criteriaOpen}
+          aria-controls={`criteria-${tab.id}`}
+          onClick={() => setCriteriaOpen((open) => !open)}
+        >
+          {criteriaSummary}
+        </button>
         <ToolbarButton secondary onClick={() => void loadInitial()} disabled={busy}>Refresh</ToolbarButton>
         <ToolbarButton onClick={openNewDocument} disabled={readOnly || busy}>New</ToolbarButton>
       </div>
+
+      {criteriaOpen && (
+        <div id={`criteria-${tab.id}`} style={s.criteriaPanel}>
+          <div style={s.criteriaHeader}>
+            <span>Mongo object syntax · Cmd/Ctrl+Enter to apply</span>
+            <span style={{ flex: 1 }} />
+            {criteriaError && <span style={s.criteriaError} role="alert">{criteriaError}</span>}
+            <ToolbarButton secondary onClick={clearCriteria} disabled={busy}>Clear</ToolbarButton>
+            <ToolbarButton onClick={applyCriteria} disabled={busy || invalidCriteria}>Apply</ToolbarButton>
+          </div>
+          <CollectionCriteriaEditor
+            tabId={tab.id}
+            kind="filter"
+            label="Filter"
+            value={draftFilter}
+            connectionId={connectionId}
+            database={database}
+            collection={collection}
+            placeholder="{ bikeid: 17827 }"
+            onChange={setDraftFilter}
+            onApply={applyCriteria}
+            onValidationChange={handleCriteriaValidation}
+          />
+          <div style={s.criteriaGrid}>
+            <CollectionCriteriaEditor
+              tabId={tab.id}
+              kind="sort"
+              label="Sort"
+              value={draftSort}
+              connectionId={connectionId}
+              database={database}
+              collection={collection}
+              placeholder="{ createdAt: -1 }"
+              onChange={setDraftSort}
+              onApply={applyCriteria}
+              onValidationChange={handleCriteriaValidation}
+            />
+            <CollectionCriteriaEditor
+              tabId={tab.id}
+              kind="projection"
+              label="Projection"
+              value={draftProjection}
+              connectionId={connectionId}
+              database={database}
+              collection={collection}
+              placeholder="{ name: 1, status: 1 }"
+              onChange={setDraftProjection}
+              onApply={applyCriteria}
+              onValidationChange={handleCriteriaValidation}
+            />
+          </div>
+        </div>
+      )}
 
       {error && (
         <div style={s.error} role="alert">
@@ -583,6 +654,24 @@ function sameCriteria(left: BrowserCriteria, right: BrowserCriteria): boolean {
   return left.filter === right.filter &&
     left.sort === right.sort &&
     left.projection === right.projection;
+}
+
+function validateCriteria(criteria: BrowserCriteria): Record<CriteriaKind, string | null> {
+  const errors: Record<CriteriaKind, string | null> = {
+    filter: null,
+    sort: null,
+    projection: null,
+  };
+  for (const kind of ['filter', 'sort', 'projection'] as const) {
+    const source = criteria[kind];
+    if (!source && kind !== 'filter') continue;
+    try {
+      parseDocumentExpression(source, kind.charAt(0).toUpperCase() + kind.slice(1));
+    } catch (error) {
+      errors[kind] = error instanceof Error ? error.message : String(error);
+    }
+  }
+  return errors;
 }
 
 function errorMessage(error: unknown): string {

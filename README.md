@@ -49,8 +49,8 @@ version "undefined"` (known Forge env quirk), run once:
 ## Test
 
 ```bash
-npm test            # unit (180)
-npm run test:integ  # integration against real mongod (37) — first run downloads mongod
+npm test            # unit (200)
+npm run test:integ  # integration against real mongod (38) — first run downloads mongod
 npm run test:e2e    # packaged Electron Welcome/Connections/Collection lifecycle (1)
 npm run test:all
 npm run typecheck

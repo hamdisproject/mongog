@@ -75,7 +75,31 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.getByTitle('Open mongog_e2e.inventory').click();
   await expect(page.getByRole('button', { name: 'Documents', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByText('alpha', { exact: true })).toBeVisible();
-  await page.getByLabel('Collection filter').fill('{"sku":"alpha"}');
+  await expect(page.getByLabel('Collection filter')).toBeVisible();
+  await expect(page.getByLabel('Collection sort')).toBeVisible();
+  await expect(page.getByLabel('Collection projection')).toBeVisible();
+  const initialFilterHeight = await page.getByTestId('criteria-editor-filter').evaluate(
+    (element) => element.getBoundingClientRect().height,
+  );
+  await setMonacoValue(page, 'Collection filter', '{ ');
+  await page.keyboard.press('Control+Space');
+  await expect(page.locator('.suggest-widget.visible')).toContainText('sku', { timeout: 15_000 });
+  await page.keyboard.press('Escape');
+  await setMonacoValue(page, 'Collection filter', "{\n  sku: 'alpha',\n}");
+  await expect.poll(() => page.getByTestId('criteria-editor-filter').evaluate(
+    (element) => element.getBoundingClientRect().height,
+  )).toBeGreaterThan(initialFilterHeight);
+  await setMonacoValue(page, 'Collection sort', '{ quantity: -1 }');
+  await setMonacoValue(page, 'Collection projection', '{ sku: 1, quantity: 1 }');
+  await expect(page.getByRole('button', { name: 'Apply', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(page.getByText('alpha', { exact: true })).toBeVisible();
+  await expect(page.getByText('beta', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: /^Criteria/ }).click();
+  await expect(page.getByLabel('Collection filter')).toHaveCount(0);
+  await page.getByRole('button', { name: /^Criteria/ }).click();
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(page.getByText('beta', { exact: true })).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Query', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Query', exact: true })).toHaveAttribute('aria-pressed', 'true');
@@ -86,7 +110,8 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByText('documents', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Documents', exact: true }).click();
-  await expect(page.getByLabel('Collection filter')).toHaveValue('{"sku":"alpha"}');
+  await expect(page.getByRole('button', { name: /^Criteria · 3/ })).toBeVisible();
+  await expect(page.getByText('beta', { exact: true })).toHaveCount(0);
 
   await page.locator('[title^="connection-settings: Connections"]').click();
 
@@ -94,6 +119,14 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.getByRole('button', { name: 'Delete' }).click();
   await expect(page.getByText('No matching connections.')).toBeVisible();
 });
+
+async function setMonacoValue(page: Page, label: string, value: string): Promise<void> {
+  const editor = page.getByLabel(label);
+  await editor.focus();
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+  await page.keyboard.press('Backspace');
+  await page.keyboard.insertText(value);
+}
 
 async function launch(): Promise<Page> {
   const executablePath = packagedExecutable();

@@ -14,13 +14,19 @@ import editorWorker from 'monaco-editor/editor/editor.worker.js?worker';
 import tsWorker from 'monaco-editor/language/typescript/ts.worker.js?worker';
 import { loadMongoTypeLibs } from './extra-libs.js';
 import { registerSchemaCompletions } from './completions.js';
+import { registerObjectExpressionLanguage } from './object-expression.js';
 
-let booted = false;
+let bootPromise: Promise<typeof monaco> | null = null;
 
-export async function bootMonaco(): Promise<typeof monaco> {
-  if (booted) return monaco;
-  booted = true;
+export function bootMonaco(): Promise<typeof monaco> {
+  bootPromise ??= initializeMonaco().catch((error: unknown) => {
+    bootPromise = null;
+    throw error;
+  });
+  return bootPromise;
+}
 
+async function initializeMonaco(): Promise<typeof monaco> {
   self.MonacoEnvironment = {
     getWorker(_workerId: string, label: string) {
       if (label === 'typescript' || label === 'javascript') return new tsWorker();
@@ -52,5 +58,6 @@ export async function bootMonaco(): Promise<typeof monaco> {
 
   await loadMongoTypeLibs();
   registerSchemaCompletions();
+  registerObjectExpressionLanguage();
   return monaco;
 }

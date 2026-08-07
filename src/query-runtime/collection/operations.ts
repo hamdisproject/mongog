@@ -6,6 +6,10 @@ import type {
 } from '../../shared/domain/index.js';
 import { serializeToEjson } from '../../shared/ejson/index.js';
 import { appError } from '../../shared/errors/index.js';
+import {
+  DocumentExpressionError,
+  parseDocumentExpression,
+} from '../../features/script-analysis/index.js';
 import { CursorRegistry, type CursorOwner } from '../registry/cursors.js';
 
 export interface CollectionNamespace {
@@ -39,12 +43,12 @@ export async function findCollectionDocuments(
   registry: CursorRegistry,
   options: CollectionFindOptions,
 ): Promise<CollectionDocumentsPage> {
-  const filter = parseEjsonDocument(options.filterEjson, 'Filter');
+  const filter = parseQueryDocumentExpression(options.filterEjson, 'Filter');
   const sort = options.sortEjson
-    ? parseEjsonDocument(options.sortEjson, 'Sort')
+    ? parseQueryDocumentExpression(options.sortEjson, 'Sort')
     : undefined;
   const projection = options.projectionEjson
-    ? parseEjsonDocument(options.projectionEjson, 'Projection')
+    ? parseQueryDocumentExpression(options.projectionEjson, 'Projection')
     : undefined;
 
   // One active browser cursor per tab. Re-applying a filter or refreshing
@@ -139,6 +143,55 @@ export function parseEjsonDocument(ejson: string, label: string): Document {
     throw appError('Validation', `${label} must be a JSON object.`);
   }
   return value as Document;
+}
+
+/** Collection browser criteria accept safe JS-style object literals. */
+export function parseQueryDocumentExpression(source: string, label: string): Document {
+  let json: string;
+  try {
+    json = parseDocumentExpression(source, label).json;
+  } catch (error) {
+    if (error instanceof DocumentExpressionError) {
+      throw appError('Validation', error.message, {
+        hint: `Invalid criteria range: characters ${error.start + 1}-${error.end}.`,
+      });
+    }
+    throw error;
+  }
+
+  assertNoExecutableCriteriaOperators(JSON.parse(json) as unknown, label);
+  let value: unknown;
+  try {
+    value = EJSON.parse(json, { relaxed: false });
+  } catch (error) {
+    throw appError('Validation', `${label} contains invalid Extended JSON data.`, {
+      name: (error as Error).name,
+      causeMessage: (error as Error).message,
+    });
+  }
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw appError('Validation', `${label} must be an object literal.`);
+  }
+  return value as Document;
+}
+
+const EXECUTABLE_CRITERIA_OPERATORS = new Set(['$where', '$function', '$accumulator']);
+
+function assertNoExecutableCriteriaOperators(value: unknown, label: string): void {
+  if (Array.isArray(value)) {
+    for (const item of value) assertNoExecutableCriteriaOperators(item, label);
+    return;
+  }
+  if (typeof value !== 'object' || value === null) return;
+  for (const [key, nested] of Object.entries(value)) {
+    if (EXECUTABLE_CRITERIA_OPERATORS.has(key)) {
+      throw appError(
+        'Validation',
+        `${label} does not allow the executable MongoDB operator ${key}.`,
+      );
+    }
+    assertNoExecutableCriteriaOperators(nested, label);
+  }
 }
 
 export function assertDocumentIdUnchanged(original: Document, replacement: Document): void {

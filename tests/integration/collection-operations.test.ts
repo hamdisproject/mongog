@@ -55,26 +55,36 @@ describe('collection browser operations', () => {
     expect(page.pageIndex).toBe(4);
   });
 
-  it('applies Extended JSON filter, sort, and projection in the runtime', async () => {
+  it('applies safe object-literal filter, sort, and projection in the runtime', async () => {
     const collection = client!.db(DATABASE).collection('criteria');
     await collection.insertMany([
-      { rank: 1, active: true, hidden: 'a' },
-      { rank: 3, active: true, hidden: 'b' },
-      { rank: 2, active: false, hidden: 'c' },
+      { bikeid: 17827, rank: 1, active: true, hidden: 'a' },
+      { bikeid: 17827, rank: 3, active: true, hidden: 'b' },
+      { bikeid: 99, rank: 2, active: false, hidden: 'c' },
     ]);
 
     const page = await findCollectionDocuments(client!, registry!, {
       database: DATABASE,
       collection: 'criteria',
       owner: { connectionId: 'phase3', tabId: 'criteria-tab' },
-      filterEjson: '{"active": true}',
-      sortEjson: '{"rank": -1}',
-      projectionEjson: '{"rank": 1}',
+      filterEjson: "{ /* sampled id */ bikeid: 17827, active: true, }",
+      sortEjson: '{ rank: -1, }',
+      projectionEjson: "{ rank: 1, 'active': 1 }",
       pageSize: 10,
     });
     const documents = page.documents.map((envelope) => parseEjson<Record<string, unknown>>(envelope));
     expect(documents.map((document) => (document.rank as Int32).valueOf())).toEqual([3, 1]);
     expect(documents.every((document) => !Object.hasOwn(document, 'hidden'))).toBe(true);
+  });
+
+  it('rejects executable criteria before they reach MongoDB', async () => {
+    await expect(findCollectionDocuments(client!, registry!, {
+      database: DATABASE,
+      collection: 'criteria',
+      owner: { connectionId: 'phase3', tabId: 'unsafe-criteria-tab' },
+      filterEjson: '{ bikeid: getBikeId() }',
+      pageSize: 10,
+    })).rejects.toMatchObject({ category: 'Validation' });
   });
 
   it('replaces a BSON-rich document while preserving its immutable _id', async () => {
