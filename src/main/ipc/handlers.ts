@@ -61,7 +61,7 @@ import {
   type PingRuntimeResponse,
   type SystemInfoResponse,
 } from '../../shared/ipc/index.js';
-import { DEFAULT_SETTINGS } from '../../shared/domain/workspace.js';
+import { DEFAULT_SETTINGS, normalizeApplicationSettings } from '../../shared/domain/workspace.js';
 import type {
   CollectionDocumentsPage,
   CollectionMutationResult,
@@ -521,7 +521,7 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
   }, validateSender);
 
   registerChannel(IpcChannels.settingsLoad, emptySchema, async () => (
-    ctx.getDb().settings.get() ?? structuredClone(DEFAULT_SETTINGS)
+    normalizeApplicationSettings(ctx.getDb().settings.get() ?? structuredClone(DEFAULT_SETTINGS))
   ), validateSender);
 
   // ── Hierarchical saved library ──

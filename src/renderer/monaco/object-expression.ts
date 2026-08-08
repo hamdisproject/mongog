@@ -7,6 +7,7 @@ import {
 import { useSchemaCache } from '../stores/schema-cache.js';
 import {
   buildCriteriaVirtualSource,
+  bsonConstructorSuggestions,
   criteriaSuggestionInsertText,
   type CriteriaKind,
 } from './criteria-completions.js';
@@ -48,19 +49,25 @@ export function registerObjectExpressionLanguage(): monaco.IDisposable {
     monaco.languages.setMonarchTokensProvider(OBJECT_EXPRESSION_LANGUAGE, {
       defaultToken: 'invalid',
       tokenPostfix: '.mongog-object-expression',
-      keywords: ['true', 'false', 'null'],
+      keywords: ['true', 'false', 'null', 'new'],
+      constructors: [
+        'ObjectId', 'ISODate', 'Date', 'Int32', 'NumberInt', 'Long', 'NumberLong',
+        'Double', 'Decimal128', 'NumberDecimal', 'BinData', 'UUID', 'BSONRegExp',
+        'Timestamp', 'MinKey', 'MaxKey', 'DBRef', 'Code', 'BSONSymbol',
+      ],
       tokenizer: {
         root: [
           [/\s+/, 'white'],
           [/\/\*/, 'comment', '@comment'],
           [/\/\/.*/, 'comment'],
+          [/\/(?![/*])(?:\\.|[^/\\\r\n])+\/[dgimsuvy]*/, 'regexp'],
           [/[{}\[\]()]/, '@brackets'],
           [/[,:]/, 'delimiter'],
           [/-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/, 'number'],
           [/"/, 'string', '@doubleString'],
           [/'/, 'string', '@singleString'],
           [/\$[A-Z_a-z][$\w]*/, 'keyword'],
-          [/[A-Z_a-z][$\w]*/, { cases: { '@keywords': 'keyword', '@default': 'type.identifier' } }],
+          [/[A-Z_a-z][$\w]*/, { cases: { '@keywords': 'keyword', '@constructors': 'type', '@default': 'type.identifier' } }],
         ],
         comment: [
           [/[^*/]+/, 'comment'],
@@ -84,8 +91,28 @@ export function registerObjectExpressionLanguage(): monaco.IDisposable {
     monaco.languages.registerCompletionItemProvider(OBJECT_EXPRESSION_LANGUAGE, {
       triggerCharacters: ['"', "'", '{', ',', '$'],
       provideCompletionItems: async (model, position, _completionContext, token) => {
+        const word = model.getWordUntilPosition(position);
+        const range: monaco.IRange = {
+          startLineNumber: position.lineNumber,
+          endLineNumber: position.lineNumber,
+          startColumn: word.startColumn,
+          endColumn: word.endColumn,
+        };
+        const line = model.getLineContent(position.lineNumber);
+        const precedingCharacter = line.charAt(Math.max(0, word.startColumn - 2));
+        const insideQuotedToken = precedingCharacter === '"' || precedingCharacter === "'";
+
+        const constructorItems = bsonConstructorSuggestions.map((suggestion) => ({
+          label: suggestion.label,
+          insertText: suggestion.insertText,
+          range,
+          kind: monaco.languages.CompletionItemKind.Constructor,
+          detail: suggestion.detail,
+          sortText: `z-${suggestion.label}`,
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+        } satisfies monaco.languages.CompletionItem));
         const criteriaContext = modelContexts.get(model.uri.toString());
-        if (!criteriaContext) return { suggestions: [] };
+        if (!criteriaContext) return { suggestions: constructorItems };
 
         const source = model.getValue();
         const sourceOffset = model.getOffsetAt(position);
@@ -114,26 +141,15 @@ export function registerObjectExpressionLanguage(): monaco.IDisposable {
         }
         if (token.isCancellationRequested) return { suggestions: [] };
 
-        const word = model.getWordUntilPosition(position);
-        const range: monaco.IRange = {
-          startLineNumber: position.lineNumber,
-          endLineNumber: position.lineNumber,
-          startColumn: word.startColumn,
-          endColumn: word.endColumn,
-        };
-        const line = model.getLineContent(position.lineNumber);
-        const precedingCharacter = line.charAt(Math.max(0, word.startColumn - 2));
-        const insideQuotedToken = precedingCharacter === '"' || precedingCharacter === "'";
-
         return {
-          suggestions: buildSemanticSuggestions(semanticContext, { fields })
+          suggestions: [...constructorItems, ...buildSemanticSuggestions(semanticContext, { fields })
             .filter((suggestion) => suggestion.label !== '$where')
             .map((suggestion) => toCriteriaSuggestion(
               suggestion,
               range,
               precedingCharacter,
               insideQuotedToken,
-            )),
+            ))],
         };
       },
     }),

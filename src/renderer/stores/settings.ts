@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { ApplicationSettings } from '../../shared/domain/index.js';
-import { DEFAULT_SETTINGS } from '../../shared/domain/workspace.js';
+import type { BsonDisplayMode } from '../../shared/ejson/index.js';
+import { DEFAULT_SETTINGS, normalizeApplicationSettings } from '../../shared/domain/workspace.js';
 import { applyThemePreference, type ThemePreference } from '../theme.js';
 
 interface SettingsState {
@@ -10,6 +11,7 @@ interface SettingsState {
   error: string | null;
   load: () => Promise<void>;
   setTheme: (theme: ThemePreference) => Promise<void>;
+  setBsonDisplayMode: (mode: BsonDisplayMode) => Promise<void>;
 }
 
 const initialSettings: ApplicationSettings = structuredClone(DEFAULT_SETTINGS);
@@ -23,7 +25,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
 
   load: async () => {
     try {
-      const settings = await window.mongog.settings.load();
+      const settings = normalizeApplicationSettings(await window.mongog.settings.load());
       applyThemePreference(settings.theme);
       set({ settings, loaded: true, error: null });
     } catch (error) {
@@ -43,6 +45,19 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       set({ saving: false });
     } catch (error) {
       applyThemePreference(previous.theme);
+      set({ settings: previous, saving: false, error: errorMessage(error) });
+    }
+  },
+
+  setBsonDisplayMode: async (mode) => {
+    if (get().saving || get().settings.ejson.defaultMode === mode) return;
+    const previous = get().settings;
+    const settings = { ...previous, ejson: { ...previous.ejson, defaultMode: mode } };
+    set({ settings, saving: true, error: null });
+    try {
+      await window.mongog.settings.save(settings);
+      set({ saving: false });
+    } catch (error) {
       set({ settings: previous, saving: false, error: errorMessage(error) });
     }
   },

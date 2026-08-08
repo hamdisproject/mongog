@@ -8,9 +8,9 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   parseEjson,
-  renderEjson,
+  renderBson,
+  type BsonDisplayMode,
   type EjsonEnvelope,
-  type EjsonMode,
 } from '../../../shared/ejson/index.js';
 import type { QueryResult } from '../../../shared/domain/index.js';
 import {
@@ -18,6 +18,7 @@ import {
   type StatementErrorState,
   type StatementResultState,
 } from '../../stores/workspace.js';
+import { useSettingsStore } from '../../stores/settings.js';
 
 const s: Record<string, React.CSSProperties> = {
   panel: {
@@ -91,7 +92,7 @@ const s: Record<string, React.CSSProperties> = {
 
 export function ResultsPanel() {
   const { activeTabId, results } = useWorkspaceStore();
-  const [ejsonMode, setEjsonMode] = useState<EjsonMode>('relaxed');
+  const displayMode = useSettingsStore((state) => state.settings.ejson.defaultMode);
   const execution = activeTabId ? results[activeTabId] : undefined;
 
   if (!activeTabId || !execution) {
@@ -111,18 +112,7 @@ export function ResultsPanel() {
         {execution.executionId && <span style={s.badge}>{execution.executionId.slice(0, 8)}</span>}
         <span style={s.badge}>{execution.status}</span>
         <span style={s.headerSpacer} />
-        <label>
-          EJSON{' '}
-          <select
-            aria-label="EJSON display mode"
-            style={s.select}
-            value={ejsonMode}
-            onChange={(event) => setEjsonMode(event.target.value as EjsonMode)}
-          >
-            <option value="relaxed">Relaxed</option>
-            <option value="canonical">Canonical</option>
-          </select>
-        </label>
+        <span title="Change in Settings">{displayMode === 'mongosh' ? 'MongoDB Shell' : displayMode === 'relaxed' ? 'Relaxed EJSON' : 'Canonical EJSON'}</span>
       </div>
 
       <div style={s.content}>
@@ -141,7 +131,7 @@ export function ResultsPanel() {
             tabId={activeTabId}
             connectionId={execution.connectionId}
             item={item}
-            ejsonMode={ejsonMode}
+            displayMode={displayMode}
           />
         ))}
 
@@ -155,7 +145,7 @@ export function ResultsPanel() {
             {execution.consoleEntries.map((entry, index) => (
               <pre key={`${entry.statementIndex}:${index}`} style={s.code}>
                 {`console.${entry.level} `}
-                {entry.args.map((arg) => renderEnvelope(arg, ejsonMode, false)).join(' ')}
+                {entry.args.map((arg) => renderEnvelope(arg, displayMode, false)).join(' ')}
               </pre>
             ))}
           </div>
@@ -181,12 +171,12 @@ function ResultCard({
   tabId,
   connectionId,
   item,
-  ejsonMode,
+  displayMode,
 }: {
   tabId: string;
   connectionId: string | null;
   item: StatementResultState;
-  ejsonMode: EjsonMode;
+  displayMode: BsonDisplayMode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   return (
@@ -216,10 +206,10 @@ function ResultCard({
             connectionId={connectionId}
             item={item}
             result={item.result}
-            ejsonMode={ejsonMode}
+            displayMode={displayMode}
           />
         ) : (
-          <NonDocumentResult result={item.result} ejsonMode={ejsonMode} />
+          <NonDocumentResult result={item.result} displayMode={displayMode} />
         )}
       </div>}
     </div>
@@ -231,13 +221,13 @@ function DocumentsResult({
   connectionId,
   item,
   result,
-  ejsonMode,
+  displayMode,
 }: {
   tabId: string;
   connectionId: string | null;
   item: StatementResultState;
   result: Extract<QueryResult, { kind: 'documents' }>;
-  ejsonMode: EjsonMode;
+  displayMode: BsonDisplayMode;
 }) {
   const { updateDocumentPage, markCursorClosed } = useWorkspaceStore();
   const [loading, setLoading] = useState<'next' | 'prev' | 'close' | null>(null);
@@ -268,14 +258,14 @@ function DocumentsResult({
         cell: ({ getValue }: { getValue: () => unknown }) => {
           const value = getValue();
           return (
-            <span title={formatCell(value, ejsonMode, false)}>
-              {formatCell(value, ejsonMode, true)}
+            <span title={formatCell(value, displayMode, false)}>
+              {formatCell(value, displayMode, true)}
             </span>
           );
         },
       })),
     ],
-    [columns, ejsonMode],
+    [columns, displayMode],
   );
   const table = useReactTable({
     data: rows,
@@ -433,7 +423,7 @@ function DocumentsResult({
       {selectedEnvelope && (
         <>
           <pre style={{ ...s.code, marginTop: 7 }}>
-            {renderEnvelope(selectedFullEnvelope ?? selectedEnvelope, ejsonMode, true)}
+            {renderEnvelope(selectedFullEnvelope ?? selectedEnvelope, displayMode, true)}
           </pre>
           {selectedEnvelope.truncated && !selectedFullEnvelope && (
             <div style={s.controls}>
@@ -489,12 +479,12 @@ function DocumentsResult({
   );
 }
 
-function NonDocumentResult({ result, ejsonMode }: { result: QueryResult; ejsonMode: EjsonMode }) {
+function NonDocumentResult({ result, displayMode }: { result: QueryResult; displayMode: BsonDisplayMode }) {
   switch (result.kind) {
     case 'scalar':
-      return <pre style={s.code}>{renderEnvelope(result.value, ejsonMode, true)}</pre>;
+      return <pre style={s.code}>{renderEnvelope(result.value, displayMode, true)}</pre>;
     case 'command':
-      return <pre style={s.code}>{renderEnvelope(result.value, ejsonMode, true)}</pre>;
+      return <pre style={s.code}>{renderEnvelope(result.value, displayMode, true)}</pre>;
     case 'write':
       return (
         <>
@@ -504,7 +494,7 @@ function NonDocumentResult({ result, ejsonMode }: { result: QueryResult; ejsonMo
               <span key={label}>{label}: {value}</span>
             ))}
           </div>
-          {result.raw && <pre style={s.code}>{renderEnvelope(result.raw, ejsonMode, true)}</pre>}
+          {result.raw && <pre style={s.code}>{renderEnvelope(result.raw, displayMode, true)}</pre>}
         </>
       );
     case 'opaque':
@@ -562,21 +552,21 @@ function extractColumns(rows: Array<Record<string, unknown>>): string[] {
   return ['_id', ...[...keys].filter((key) => key !== '_id').sort()];
 }
 
-function renderEnvelope(envelope: EjsonEnvelope, mode: EjsonMode, pretty: boolean): string {
+function renderEnvelope(envelope: EjsonEnvelope, mode: BsonDisplayMode, pretty: boolean): string {
   if (envelope.truncated) {
     return `${envelope.ejson}\n… truncated preview (${formatBytes(envelope.byteSize)} original)`;
   }
   try {
-    return renderEjson(parseEjson(envelope), mode, pretty);
+    return renderBson(parseEjson(envelope), mode, pretty);
   } catch {
     return envelope.ejson;
   }
 }
 
-function formatCell(value: unknown, mode: EjsonMode, truncate: boolean): string {
+function formatCell(value: unknown, mode: BsonDisplayMode, truncate: boolean): string {
   let rendered: string;
   try {
-    rendered = renderEjson(value, mode, false);
+    rendered = renderBson(value, mode, false);
   } catch {
     rendered = String(value);
   }

@@ -70,6 +70,12 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect.poll(() => page.getByTestId('settings-view').evaluate(
     (element) => getComputedStyle(element).backgroundColor,
   )).toBe('rgb(247, 248, 250)');
+  await expect(page.getByRole('radio', { name: 'MongoDB Shell data display' }))
+    .toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('radio', { name: 'Canonical EJSON data display' }).click();
+  await expect(page.getByRole('radio', { name: 'Canonical EJSON data display' }))
+    .toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('radio', { name: 'MongoDB Shell data display' }).click();
   await page.locator('[title^="welcome: Welcome"]').click();
 
   await page.getByRole('button', { name: 'New Connection', exact: true }).click();
@@ -199,6 +205,9 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByText('Welcome back')).toBeVisible();
   await expect(page.locator('[title^="welcome: Welcome"]')).toHaveCount(1);
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await page.locator('[data-tab-kind="settings"]').click();
+  await expect(page.getByRole('radio', { name: 'MongoDB Shell data display' }))
+    .toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('[data-tab-id]').first()).toHaveAttribute('data-tab-id', queryTabId);
   await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toHaveAttribute('data-tab-pinned', 'true');
   await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toHaveAttribute('title', /^query: Pinned query/);
@@ -281,7 +290,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
 
   await page.getByTitle('Open mongog_e2e.inventory').click();
   await expect(page.getByRole('button', { name: 'Documents', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByText('alpha', { exact: true })).toBeVisible();
+  await expect(page.getByText('"alpha"', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Collection filter')).toBeVisible();
   await expect(page.getByLabel('Collection sort')).toBeVisible();
   await expect(page.getByLabel('Collection projection')).toBeVisible();
@@ -303,8 +312,8 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await setMonacoValue(page, 'Collection projection', '{ sku: 1, quantity: 1 }');
   await expect(page.getByRole('button', { name: 'Apply', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
-  await expect(page.getByText('alpha', { exact: true })).toBeVisible();
-  await expect(page.getByText('beta', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('"alpha"', { exact: true })).toBeVisible();
+  await expect(page.getByText('"beta"', { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Calculate total document count' }).click();
   await expect(page.getByRole('button', { name: 'Calculate total document count' }))
     .toHaveText('Total count: 1');
@@ -313,8 +322,8 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await quantityColumn.fill('> 4');
   await expect(page.getByRole('button', { name: /^Criteria.*edited/ })).toBeVisible();
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
-  await expect(page.getByText('beta', { exact: true })).toBeVisible();
-  await expect(page.getByText('alpha', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('"beta"', { exact: true })).toBeVisible();
+  await expect(page.getByText('"alpha"', { exact: true })).toHaveCount(0);
   const initialQuantityWidth = await quantityColumn.evaluate((element) => element.closest('th')!.getBoundingClientRect().width);
   const quantityResizer = page.getByRole('separator', { name: 'Resize quantity column' });
   const resizeBox = await quantityResizer.boundingBox();
@@ -343,7 +352,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByLabel('Collection filter')).toHaveCount(0);
   await page.getByRole('button', { name: /^Criteria/ }).click();
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
-  await expect(page.getByText('beta', { exact: true })).toBeVisible();
+  await expect(page.getByText('"beta"', { exact: true })).toBeVisible();
 
   await page.getByTestId('save-documents').click();
   saveDialog = page.getByRole('dialog', { name: 'Save item' });
@@ -374,8 +383,8 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   );
   collectionTabId = await reopenedCollectionTab.getAttribute('data-tab-id');
   if (!collectionTabId) throw new Error('Expected reopened collection tab id');
-  await expect(page.getByText('beta', { exact: true })).toBeVisible();
-  await expect(page.getByText('alpha', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('"beta"', { exact: true })).toBeVisible();
+  await expect(page.getByText('"alpha"', { exact: true })).toHaveCount(0);
 
   await expect(explorer.locator('[data-saved-item-type="documents"] svg')).toBeVisible();
   await expect(explorer.locator('[data-saved-item-type="tab"] svg')).toBeVisible();
@@ -416,7 +425,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
 
   await page.getByRole('button', { name: 'Documents', exact: true }).click();
   await expect(page.getByRole('button', { name: /^Criteria · 3/ })).toBeVisible();
-  await expect(page.getByText('beta', { exact: true })).toBeVisible();
+  await expect(page.getByText('"beta"', { exact: true })).toBeVisible();
 
   const finalCollectionTab = page.locator(`[data-tab-id="${collectionTabId}"]`);
   await finalCollectionTab.click({ button: 'right' });

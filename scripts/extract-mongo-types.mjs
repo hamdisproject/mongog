@@ -157,6 +157,28 @@ type MongoGShellDb = import('mongodb').Db & {
 };
 declare let db: MongoGShellDb;
 declare function use(databaseName: string): MongoGShellDb;
+declare const ObjectId: {
+  (inputId?: string): import('bson').ObjectId;
+  new (inputId?: string): import('bson').ObjectId;
+  isValid(input: string): boolean;
+};
+declare function ISODate(value?: string): Date;
+declare function Int32(value?: number | string): import('bson').Int32;
+declare function NumberInt(value?: number | string): import('bson').Int32;
+declare function Long(value?: number | string): import('bson').Long;
+declare function NumberLong(value?: number | string): import('bson').Long;
+declare function Double(value?: number | string): import('bson').Double;
+declare function Decimal128(value?: string): import('bson').Decimal128;
+declare function NumberDecimal(value?: string): import('bson').Decimal128;
+declare function BinData(subtype: number, base64: string): import('bson').Binary;
+declare function UUID(value?: string): import('bson').UUID;
+declare function BSONRegExp(pattern: string, options?: string): import('bson').BSONRegExp;
+declare function Timestamp(value: { t: number; i: number } | number, increment?: number): import('bson').Timestamp;
+declare function MinKey(): import('bson').MinKey;
+declare function MaxKey(): import('bson').MaxKey;
+declare function DBRef(collection: string, id: import('bson').ObjectId, database?: string, fields?: import('bson').Document): import('bson').DBRef;
+declare function Code(code: string, scope?: import('bson').Document): import('bson').Code;
+declare function BSONSymbol(value: string): import('bson').BSONSymbol;
 declare function print(...values: unknown[]): void;
 declare function printjson(value: unknown): void;
 `;

@@ -1,4 +1,5 @@
 import { useSettingsStore } from '../../stores/settings.js';
+import type { BsonDisplayMode } from '../../../shared/ejson/index.js';
 import { theme, type ThemePreference } from '../../theme.js';
 
 const options: Array<{
@@ -27,8 +28,34 @@ const options: Array<{
   },
 ];
 
+const dataDisplayOptions: Array<{
+  id: BsonDisplayMode;
+  label: string;
+  description: string;
+  example: string;
+}> = [
+  {
+    id: 'mongosh',
+    label: 'MongoDB Shell',
+    description: 'Compass-like values with readable numbers and BSON constructors where needed.',
+    example: '{ price: 1492.00, count: 8,\n  createdAt: ISODate("…") }',
+  },
+  {
+    id: 'relaxed',
+    label: 'Relaxed EJSON',
+    description: 'Human-friendly Extended JSON with native numbers and ISO dates.',
+    example: '{ "count": 42,\n  "createdAt": { "$date": "…" } }',
+  },
+  {
+    id: 'canonical',
+    label: 'Canonical EJSON',
+    description: 'Lossless Extended JSON with an explicit wrapper for every BSON type.',
+    example: '{ "count": { "$numberLong": "42" },\n  "_id": { "$oid": "…" } }',
+  },
+];
+
 export function SettingsView() {
-  const { settings, loaded, saving, error, setTheme } = useSettingsStore();
+  const { settings, loaded, saving, error, setTheme, setBsonDisplayMode } = useSettingsStore();
 
   return (
     <main
@@ -45,7 +72,7 @@ export function SettingsView() {
           </div>
           <h1 style={{ margin: '7px 0 8px', fontSize: 25, fontWeight: 650 }}>Settings</h1>
           <p style={{ margin: 0, maxWidth: 620, color: theme.colors.textMuted, fontSize: 13, lineHeight: 1.55 }}>
-            Personalize how MongoG looks. Theme changes apply immediately and are saved for your next session.
+            Personalize MongoG’s appearance and how BSON data is shown. Changes apply immediately and persist across sessions.
           </p>
         </div>
 
@@ -89,8 +116,52 @@ export function SettingsView() {
           </div>
         </section>
 
+        <section style={{ marginTop: 18, border: `1px solid ${theme.colors.border}`, borderRadius: 7, background: theme.colors.panel, overflow: 'hidden' }}>
+          <div style={{ padding: '15px 17px', borderBottom: `1px solid ${theme.colors.border}` }}>
+            <h2 style={{ margin: 0, fontSize: 14 }}>Data display</h2>
+            <div style={{ marginTop: 5, color: theme.colors.textMuted, fontSize: 11, lineHeight: 1.45 }}>
+              Choose one global BSON format for Documents, Query results, console output, and criteria editors. Stored data remains lossless Canonical EJSON.
+            </div>
+          </div>
+
+          <div role="radiogroup" aria-label="BSON data display" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, padding: 16 }}>
+            {dataDisplayOptions.map((option) => {
+              const selected = settings.ejson.defaultMode === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  aria-label={`${option.label} data display`}
+                  disabled={!loaded || saving}
+                  onClick={() => void setBsonDisplayMode(option.id)}
+                  style={{
+                    minWidth: 0, border: `1px solid ${selected ? theme.colors.accentHover : theme.colors.borderStrong}`,
+                    borderRadius: 6, background: selected ? theme.colors.selected : theme.colors.input,
+                    color: theme.colors.text, padding: 0, overflow: 'hidden', textAlign: 'left',
+                    cursor: !loaded || saving ? 'default' : 'pointer', opacity: !loaded ? 0.65 : 1,
+                    boxShadow: selected ? `0 0 0 1px ${theme.colors.accentHover}` : 'none',
+                  }}
+                >
+                  <pre aria-hidden="true" style={{ boxSizing: 'border-box', height: 78, margin: 0, padding: '12px 13px', overflow: 'hidden', borderBottom: `1px solid ${theme.colors.border}`, background: theme.colors.app, color: option.id === 'mongosh' ? theme.colors.warning : theme.colors.textMuted, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 10, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>
+                    {option.example}
+                  </pre>
+                  <span style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '11px 12px 13px' }}>
+                    <span aria-hidden="true" style={{ marginTop: 2, width: 13, height: 13, borderRadius: '50%', border: `1px solid ${selected ? theme.colors.accentHover : theme.colors.borderStrong}`, background: selected ? theme.colors.accent : 'transparent', boxShadow: selected ? `inset 0 0 0 3px ${theme.colors.input}` : 'none', flexShrink: 0 }} />
+                    <span>
+                      <strong style={{ display: 'block', fontSize: 12 }}>{option.label}</strong>
+                      <span style={{ display: 'block', marginTop: 4, color: theme.colors.textMuted, fontSize: 10, lineHeight: 1.4 }}>{option.description}</span>
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
         <div aria-live="polite" style={{ minHeight: 20, marginTop: 10, color: error ? theme.colors.danger : theme.colors.textMuted, fontSize: 11 }}>
-          {error ? error : saving ? 'Saving theme…' : loaded ? 'Theme preference is saved automatically.' : 'Loading settings…'}
+          {error ? error : saving ? 'Saving settings…' : loaded ? 'Preferences are saved automatically.' : 'Loading settings…'}
         </div>
       </div>
     </main>

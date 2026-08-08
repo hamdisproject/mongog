@@ -34,6 +34,59 @@ export interface SandboxHandle {
 
 const CONSOLE_ARG_PREVIEW_BYTES = 16 * 1024;
 
+function shellFactory<T extends abstract new (...args: never[]) => unknown>(
+  constructor: T,
+  factory: (...args: unknown[]) => unknown,
+): (...args: unknown[]) => unknown {
+  Object.setPrototypeOf(factory, constructor);
+  Object.defineProperty(factory, 'prototype', { value: constructor.prototype });
+  return factory;
+}
+
+const shellObjectId = shellFactory(bson.ObjectId, (value?: unknown) => (
+  new bson.ObjectId(value === undefined ? undefined : String(value))
+));
+const shellInt32 = shellFactory(bson.Int32, (value: unknown = 0) => (
+  typeof value === 'string' ? bson.Int32.fromString(value) : new bson.Int32(Number(value))
+));
+const shellLong = shellFactory(bson.Long, (value: unknown = '0') => (
+  typeof value === 'string' ? bson.Long.fromString(value) : bson.Long.fromValue(value as number)
+));
+const shellDouble = shellFactory(bson.Double, (value: unknown = 0) => (
+  typeof value === 'string' ? bson.Double.fromString(value) : new bson.Double(Number(value))
+));
+const shellDecimal128 = shellFactory(bson.Decimal128, (value: unknown = '0') => (
+  bson.Decimal128.fromString(String(value))
+));
+const shellBsonRegExp = shellFactory(bson.BSONRegExp, (pattern: unknown, options: unknown = '') => (
+  new bson.BSONRegExp(String(pattern), String(options))
+));
+const shellTimestamp = shellFactory(bson.Timestamp, (value: unknown, increment?: unknown) => (
+  typeof value === 'object' && value !== null
+    ? new bson.Timestamp(value as { t: number; i: number })
+    : new bson.Timestamp({ t: Number(value), i: Number(increment ?? 0) })
+));
+const shellMinKey = shellFactory(bson.MinKey, () => new bson.MinKey());
+const shellMaxKey = shellFactory(bson.MaxKey, () => new bson.MaxKey());
+const shellDbRef = shellFactory(bson.DBRef, (
+  collection: unknown,
+  oid: unknown,
+  database?: unknown,
+  fields?: unknown,
+) => new bson.DBRef(
+  String(collection),
+  oid as bson.ObjectId,
+  database === undefined ? undefined : String(database),
+  fields as bson.Document | undefined,
+));
+const shellCode = shellFactory(bson.Code, (code: unknown, scope?: unknown) => (
+  new bson.Code(String(code), scope as bson.Document | undefined)
+));
+const shellBsonSymbol = shellFactory(bson.BSONSymbol, (value: unknown) => new bson.BSONSymbol(String(value)));
+const shellUuid = shellFactory(bson.UUID, (value?: unknown) => (
+  value === undefined ? new bson.UUID() : new bson.UUID(String(value))
+));
+
 export function createSandbox(options: SandboxOptions): SandboxHandle {
   type ShellCompatibleDb = mongodb.Db & {
     getSiblingDB(databaseName: string): ShellCompatibleDb;
@@ -91,6 +144,24 @@ export function createSandbox(options: SandboxOptions): SandboxHandle {
   const sandbox: Record<string, unknown> = {
     mongodb,
     bson,
+    ObjectId: shellObjectId,
+    ISODate: (value?: unknown) => value === undefined ? new Date() : new Date(String(value)),
+    Int32: shellInt32,
+    NumberInt: shellInt32,
+    Long: shellLong,
+    NumberLong: shellLong,
+    Double: shellDouble,
+    Decimal128: shellDecimal128,
+    NumberDecimal: shellDecimal128,
+    BinData: (subtype: unknown, base64: unknown) => bson.Binary.createFromBase64(String(base64), Number(subtype)),
+    UUID: shellUuid,
+    BSONRegExp: shellBsonRegExp,
+    Timestamp: shellTimestamp,
+    MinKey: shellMinKey,
+    MaxKey: shellMaxKey,
+    DBRef: shellDbRef,
+    Code: shellCode,
+    BSONSymbol: shellBsonSymbol,
     client: options.client,
     db: currentDb,
     use(name: string) {

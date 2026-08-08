@@ -4,6 +4,7 @@ import {
   detectCompletionContext,
 } from '../../src/features/script-analysis/index.js';
 import {
+  bsonConstructorSuggestions,
   buildCriteriaVirtualSource,
   criteriaSuggestionInsertText,
 } from '../../src/renderer/monaco/criteria-completions.js';
@@ -74,5 +75,13 @@ describe('Documents criteria completions', () => {
       '',
       false,
     )).toBe('bisikletŞasi');
+  });
+
+  it('offers safe BSON constructor snippets with literal arguments', () => {
+    const suggestions = new Map(bsonConstructorSuggestions.map((item) => [item.label, item.insertText]));
+    expect(suggestions.get('ObjectId')).toContain('507f1f77bcf86cd799439011');
+    expect(suggestions.get('ISODate')).toContain('2026-01-01T00:00:00.000Z');
+    expect(suggestions.get('Decimal128')).toContain('125.50');
+    expect(suggestions.get('Timestamp')).toContain('t:');
   });
 });

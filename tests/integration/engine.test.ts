@@ -113,6 +113,34 @@ await db.collection("orders").findOne({ _id: new ObjectId("000000000000000000000
     }
   });
 
+  it('exposes callable mongosh BSON globals backed by real bson values', async () => {
+    const c = await run(`({
+      oid: ObjectId("507f1f77bcf86cd799439011"),
+      date: ISODate("2026-01-01T00:00:00.000Z"),
+      int: NumberInt(42),
+      long: NumberLong("9223372036854775807"),
+      decimal: NumberDecimal("125.50"),
+      binary: BinData(0, "AQID"),
+      uuid: UUID("00112233-4455-6677-8899-aabbccddeeff"),
+      regex: BSONRegExp("^bike", "i"),
+      timestamp: Timestamp({ t: 1700000000, i: 1 }),
+      min: MinKey(),
+      max: MaxKey()
+    });`);
+    expect(c.finished?.status).toBe('completed');
+    expect(c.results[0]?.result.kind).toBe('scalar');
+    if (c.results[0]?.result.kind === 'scalar') {
+      const canonical = c.results[0].result.value.ejson;
+      expect(canonical).toContain('$oid');
+      expect(canonical).toContain('$date');
+      expect(canonical).toContain('$numberLong');
+      expect(canonical).toContain('$numberDecimal');
+      expect(canonical).toContain('$binary');
+      expect(canonical).toContain('$regularExpression');
+      expect(canonical).toContain('$timestamp');
+    }
+  });
+
   it('use() rebinds db and print/printjson produce console results', async () => {
     const c = await run(`
 use("mongog_test");

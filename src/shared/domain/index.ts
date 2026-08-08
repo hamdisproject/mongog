@@ -64,7 +64,7 @@ export type {
 
 export { MAX_SAVED_FOLDER_DEPTH } from './saved.js';
 
-export { DEFAULT_WORKSPACE, DEFAULT_SETTINGS } from './workspace.js';
+export { DEFAULT_WORKSPACE, DEFAULT_SETTINGS, normalizeApplicationSettings } from './workspace.js';
 
 export type ConnectionState =
   | { status: 'disconnected' }

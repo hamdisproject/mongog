@@ -6946,7 +6946,7 @@ function requireUtils$1() {
     exports2.isSuperset = isSuperset;
     exports2.isHello = isHello;
     exports2.setDifference = setDifference;
-    exports2.isRecord = isRecord;
+    exports2.isRecord = isRecord2;
     exports2.emitWarning = emitWarning;
     exports2.emitWarningOnce = emitWarningOnce;
     exports2.enumToString = enumToString;
@@ -7270,7 +7270,7 @@ function requireUtils$1() {
       return difference;
     }
     const HAS_OWN = (object, prop) => Object.prototype.hasOwnProperty.call(object, prop);
-    function isRecord(value, requiredKeys = void 0) {
+    function isRecord2(value, requiredKeys = void 0) {
       if (!isObject(value)) {
         return false;
       }
@@ -245324,286 +245324,6 @@ ${body}
 })()`;
   return { code, capturedStatementIndexes: captured };
 }
-class DocumentExpressionError extends Error {
-  start;
-  end;
-  constructor(message, start, end) {
-    super(message);
-    this.name = "DocumentExpressionError";
-    this.start = start;
-    this.end = end;
-  }
-}
-const EXECUTABLE_DOCUMENT_OPERATORS = /* @__PURE__ */ new Set(["$where", "$function", "$accumulator"]);
-function parseDocumentExpression(source, label = "Expression") {
-  if (!source.trim()) {
-    throw new DocumentExpressionError(`${label} cannot be empty.`, 0, Math.max(1, source.length));
-  }
-  const wrapped = `(${source}
-)`;
-  const sourceFile = ts.createSourceFile(
-    "document-expression.ts",
-    wrapped,
-    ts.ScriptTarget.ESNext,
-    true,
-    ts.ScriptKind.TS
-  );
-  const parseDiagnostics = sourceFile.parseDiagnostics ?? [];
-  const diagnostic = parseDiagnostics[0];
-  if (diagnostic) {
-    const start = sourceOffset(diagnostic.start ?? 1, source.length);
-    const end = sourceOffset((diagnostic.start ?? 1) + Math.max(1, diagnostic.length ?? 1), source.length);
-    throw new DocumentExpressionError(
-      `${label} has invalid syntax: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")}`,
-      start,
-      Math.max(start + 1, end)
-    );
-  }
-  const statement = sourceFile.statements[0];
-  if (sourceFile.statements.length !== 1 || !statement || !ts.isExpressionStatement(statement)) {
-    throw new DocumentExpressionError(`${label} must be one object literal.`, 0, Math.max(1, source.length));
-  }
-  const root = unwrapParentheses(statement.expression);
-  if (!ts.isObjectLiteralExpression(root)) {
-    throw expressionError(sourceFile, root, source.length, `${label} must be an object literal.`);
-  }
-  const value = convertObject(sourceFile, root, source.length, label);
-  return { json: JSON.stringify(value) };
-}
-function convertObject(sourceFile, node2, sourceLength, label) {
-  const result = /* @__PURE__ */ Object.create(null);
-  for (const property of node2.properties) {
-    if (!ts.isPropertyAssignment(property)) {
-      throw expressionError(
-        sourceFile,
-        property,
-        sourceLength,
-        `${label} supports property assignments only; shorthand, spread, and methods are not allowed.`
-      );
-    }
-    const key = propertyName(sourceFile, property.name, sourceLength, label);
-    if (EXECUTABLE_DOCUMENT_OPERATORS.has(key)) {
-      throw expressionError(
-        sourceFile,
-        property.name,
-        sourceLength,
-        `${label} does not allow the executable MongoDB operator ${key}.`
-      );
-    }
-    Object.defineProperty(result, key, {
-      value: convertValue(sourceFile, property.initializer, sourceLength, label),
-      enumerable: true,
-      configurable: true,
-      writable: true
-    });
-  }
-  return result;
-}
-function convertValue(sourceFile, rawNode, sourceLength, label) {
-  const node2 = unwrapParentheses(rawNode);
-  if (ts.isObjectLiteralExpression(node2)) {
-    return convertObject(sourceFile, node2, sourceLength, label);
-  }
-  if (ts.isArrayLiteralExpression(node2)) {
-    return node2.elements.map((element) => {
-      if (ts.isOmittedExpression(element) || ts.isSpreadElement(element)) {
-        throw expressionError(
-          sourceFile,
-          element,
-          sourceLength,
-          `${label} does not allow array holes or spread elements.`
-        );
-      }
-      return convertValue(sourceFile, element, sourceLength, label);
-    });
-  }
-  if (ts.isStringLiteral(node2)) return node2.text;
-  if (ts.isNumericLiteral(node2)) return Number(node2.text);
-  if (node2.kind === ts.SyntaxKind.TrueKeyword) return true;
-  if (node2.kind === ts.SyntaxKind.FalseKeyword) return false;
-  if (node2.kind === ts.SyntaxKind.NullKeyword) return null;
-  if (ts.isPrefixUnaryExpression(node2) && node2.operator === ts.SyntaxKind.MinusToken && ts.isNumericLiteral(node2.operand)) {
-    return -Number(node2.operand.text);
-  }
-  throw expressionError(
-    sourceFile,
-    node2,
-    sourceLength,
-    `${label} values must be literal data; executable expressions are not allowed.`
-  );
-}
-function propertyName(sourceFile, name, sourceLength, label) {
-  if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) {
-    return name.text;
-  }
-  throw expressionError(
-    sourceFile,
-    name,
-    sourceLength,
-    `${label} does not allow computed property names.`
-  );
-}
-function unwrapParentheses(node2) {
-  let current = node2;
-  while (ts.isParenthesizedExpression(current)) current = current.expression;
-  return current;
-}
-function expressionError(sourceFile, node2, sourceLength, message) {
-  const start = sourceOffset(node2.getStart(sourceFile), sourceLength);
-  const end = sourceOffset(node2.getEnd(), sourceLength);
-  return new DocumentExpressionError(message, start, Math.max(start + 1, end));
-}
-function sourceOffset(wrappedOffset, sourceLength) {
-  return Math.max(0, Math.min(sourceLength, wrappedOffset - 1));
-}
-const URI_SCHEME = /^(mongodb(?:\+srv)?):\/\//i;
-function redactUri(uri) {
-  if (!URI_SCHEME.test(uri)) return redactSecretPatterns(uri);
-  const replaced = uri.replace(/^(mongodb(?:\+srv)?:\/\/)[^/@]*@/i, "$1<redacted>@");
-  return redactSecretPatterns(replaced);
-}
-function redactSecretPatterns(input) {
-  return input.replace(/(password|passwd|pwd|secret|token|aws_session_token)=([^\s&;]+)/gi, "$1=<redacted>").replace(/\/\/[^/\s:]+:[^@\s]+@/g, "//<redacted>:<redacted>@");
-}
-function redactForLog(value) {
-  if (typeof value === "string") return redactSecretPatterns(redactUri(value));
-  if (Array.isArray(value)) return value.map(redactForLog);
-  if (value && typeof value === "object") {
-    const out = {};
-    for (const [k, v] of Object.entries(value)) {
-      out[k] = /password|secret|token|credential|passphrase/i.test(k) ? "<redacted>" : redactForLog(v);
-    }
-    return out;
-  }
-  return value;
-}
-const hasLabel = (e, label) => Array.isArray(e.errorLabels) && e.errorLabels.includes(label);
-function classifyError(err, range) {
-  if (isAppError(err)) {
-    const withRange = range && !err.statementRange ? { ...err, statementRange: range } : err;
-    return redactError(withRange);
-  }
-  const e = err ?? {};
-  const name = typeof e.name === "string" ? e.name : "Error";
-  const rawMessage = typeof e.message === "string" ? e.message : String(err);
-  const message = redactText(rawMessage);
-  const base2 = {
-    category: "Unknown",
-    message,
-    name,
-    ...typeof e.code === "number" ? { code: e.code } : {},
-    ...typeof e.codeName === "string" ? { codeName: e.codeName } : {},
-    ...Array.isArray(e.errorLabels) ? { labels: [...e.errorLabels] } : {},
-    ...range ? { statementRange: range } : {},
-    ...e.cause?.message ? { causeMessage: redactText(e.cause.message) } : {}
-  };
-  if (name === "AbortError" || name === "MongoGCancelled") {
-    return { ...base2, category: "Cancellation" };
-  }
-  if (name === "ModuleNotAllowed") {
-    return { ...base2, category: "ModuleNotAllowed" };
-  }
-  switch (name) {
-    case "MongoParseError":
-      return { ...base2, category: "InvalidConnectionString" };
-    case "MongoServerSelectionError":
-      return { ...base2, category: "ServerSelection", hint: serverSelectionHint(e) };
-    case "MongoNetworkTimeoutError":
-      return { ...base2, category: "NetworkTimeout" };
-    case "MongoNetworkError": {
-      if (/ENOTFOUND|EAI_AGAIN|getaddrinfo/i.test(rawMessage)) return { ...base2, category: "Dns" };
-      if (/TLS|SSL|certificate|CERT_/i.test(rawMessage)) return { ...base2, category: "Tls" };
-      if (/timed? ?out/i.test(rawMessage)) return { ...base2, category: "NetworkTimeout" };
-      return { ...base2, category: "Network" };
-    }
-    case "MongoBulkWriteError":
-    case "MongoWriteConcernError":
-    case "MongoServerError":
-      return { ...base2, category: serverErrorCategory(e) };
-    case "MongoExpiredSessionError":
-    case "MongoTransactionError":
-      return { ...base2, category: "MongoDBCommand" };
-    case "MongoRuntimeError":
-    case "MongoAPIError":
-      return { ...base2, category: "MongoDBCommand" };
-    case "MongoCursorExhaustedError":
-    case "MongoCursorInUseError":
-      return { ...base2, category: "CursorNotFound" };
-  }
-  if (hasLabel(e, "TransientTransactionError") || hasLabel(e, "UnknownTransactionCommitResult")) {
-    return { ...base2, category: "MongoDBCommand" };
-  }
-  if (!name.startsWith("Mongo")) {
-    return { ...base2, category: "JavaScriptRuntime" };
-  }
-  return { ...base2, category: "MongoDBCommand" };
-}
-function serverErrorCategory(e) {
-  switch (e.code) {
-    case 18:
-    case 8e3:
-      return "Authentication";
-    case 13:
-    case 31:
-      return "Authorization";
-    case 11e3:
-    case 11001:
-    case 12582:
-      return "DuplicateKey";
-    case 121:
-      return "Validation";
-    case 50:
-      return "NetworkTimeout";
-    // ExceededTimeLimit (maxTimeMS)
-    case 26:
-    case 48:
-      return "NotFound";
-    // NamespaceNotFound / NamespaceExists-adjacent
-    default:
-      return "MongoDBCommand";
-  }
-}
-function serverSelectionHint(e) {
-  const msg = `${e.message ?? ""} ${e.cause?.message ?? ""}`;
-  if (/ENOTFOUND|EAI_AGAIN/i.test(msg)) return "DNS resolution failed; check hostnames / SRV record.";
-  if (/ECONNREFUSED/i.test(msg)) return "Connection refused; is mongod running and reachable?";
-  if (/certificate|TLS|SSL/i.test(msg)) return "TLS handshake failed; check CA/cert options.";
-  if (/Authentication/i.test(msg)) return "Authentication failed during server selection.";
-  return void 0;
-}
-function isAppError(value) {
-  return typeof value === "object" && value !== null && "category" in value && "message" in value && typeof value.message === "string";
-}
-function serializeError(err, range) {
-  return classifyError(err, range);
-}
-function redactText(value) {
-  const redacted = redactForLog(value);
-  return typeof redacted === "string" ? redacted : String(redacted);
-}
-function redactError(error2) {
-  const message = redactText(error2.message);
-  const causeMessage = error2.causeMessage === void 0 ? void 0 : redactText(error2.causeMessage);
-  const hint = error2.hint === void 0 ? void 0 : redactText(error2.hint);
-  if (message === error2.message && causeMessage === error2.causeMessage && hint === error2.hint) {
-    return error2;
-  }
-  return {
-    ...error2,
-    message,
-    ...causeMessage === void 0 ? {} : { causeMessage },
-    ...hint === void 0 ? {} : { hint }
-  };
-}
-function appError(category, message, extra) {
-  return { category, message, ...extra };
-}
-class MongoGCancellationError extends Error {
-  name = "MongoGCancelled";
-  constructor(message = "Execution cancelled") {
-    super(message);
-  }
-}
 const TypedArrayPrototypeGetSymbolToStringTag = (() => {
   const g = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(Uint8Array.prototype), Symbol.toStringTag).get;
   return (value) => g.call(value);
@@ -249988,6 +249708,523 @@ const bson$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProper
   serializeWithBufferAndIndex,
   setInternalBufferSize
 }, Symbol.toStringTag, { value: "Module" }));
+class DocumentExpressionError extends Error {
+  start;
+  end;
+  constructor(message, start, end) {
+    super(message);
+    this.name = "DocumentExpressionError";
+    this.start = start;
+    this.end = end;
+  }
+}
+const EXECUTABLE_DOCUMENT_OPERATORS = /* @__PURE__ */ new Set(["$where", "$function", "$accumulator"]);
+function parseDocumentExpression(source, label = "Expression") {
+  if (!source.trim()) {
+    throw new DocumentExpressionError(`${label} cannot be empty.`, 0, Math.max(1, source.length));
+  }
+  const wrapped = `(${source}
+)`;
+  const sourceFile = ts.createSourceFile(
+    "document-expression.ts",
+    wrapped,
+    ts.ScriptTarget.ESNext,
+    true,
+    ts.ScriptKind.TS
+  );
+  const parseDiagnostics = sourceFile.parseDiagnostics ?? [];
+  const diagnostic = parseDiagnostics[0];
+  if (diagnostic) {
+    const start = sourceOffset(diagnostic.start ?? 1, source.length);
+    const end = sourceOffset((diagnostic.start ?? 1) + Math.max(1, diagnostic.length ?? 1), source.length);
+    throw new DocumentExpressionError(
+      `${label} has invalid syntax: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")}`,
+      start,
+      Math.max(start + 1, end)
+    );
+  }
+  const statement = sourceFile.statements[0];
+  if (sourceFile.statements.length !== 1 || !statement || !ts.isExpressionStatement(statement)) {
+    throw new DocumentExpressionError(`${label} must be one object literal.`, 0, Math.max(1, source.length));
+  }
+  const root = unwrapParentheses(statement.expression);
+  if (!ts.isObjectLiteralExpression(root)) {
+    throw expressionError(sourceFile, root, source.length, `${label} must be an object literal.`);
+  }
+  const value = convertObject(sourceFile, root, source.length, label);
+  return { json: JSON.stringify(toCanonicalJsonData(value)) };
+}
+function convertObject(sourceFile, node2, sourceLength, label) {
+  const result = /* @__PURE__ */ Object.create(null);
+  for (const property of node2.properties) {
+    if (!ts.isPropertyAssignment(property)) {
+      throw expressionError(
+        sourceFile,
+        property,
+        sourceLength,
+        `${label} supports property assignments only; shorthand, spread, and methods are not allowed.`
+      );
+    }
+    const key = propertyName(sourceFile, property.name, sourceLength, label);
+    if (EXECUTABLE_DOCUMENT_OPERATORS.has(key)) {
+      throw expressionError(
+        sourceFile,
+        property.name,
+        sourceLength,
+        `${label} does not allow the executable MongoDB operator ${key}.`
+      );
+    }
+    Object.defineProperty(result, key, {
+      value: convertValue(sourceFile, property.initializer, sourceLength, label),
+      enumerable: true,
+      configurable: true,
+      writable: true
+    });
+  }
+  return result;
+}
+function convertValue(sourceFile, rawNode, sourceLength, label) {
+  const node2 = unwrapParentheses(rawNode);
+  if (ts.isObjectLiteralExpression(node2)) {
+    return convertObject(sourceFile, node2, sourceLength, label);
+  }
+  if (ts.isArrayLiteralExpression(node2)) {
+    return node2.elements.map((element) => {
+      if (ts.isOmittedExpression(element) || ts.isSpreadElement(element)) {
+        throw expressionError(
+          sourceFile,
+          element,
+          sourceLength,
+          `${label} does not allow array holes or spread elements.`
+        );
+      }
+      return convertValue(sourceFile, element, sourceLength, label);
+    });
+  }
+  if (ts.isStringLiteral(node2)) return node2.text;
+  if (ts.isNumericLiteral(node2)) return Number(node2.text);
+  if (ts.isRegularExpressionLiteral(node2)) {
+    return convertRegexLiteral(sourceFile, node2, sourceLength, label);
+  }
+  if (ts.isCallExpression(node2)) {
+    return convertBsonConstructor(sourceFile, node2, node2.expression, node2.arguments, sourceLength, label, false);
+  }
+  if (ts.isNewExpression(node2)) {
+    return convertBsonConstructor(
+      sourceFile,
+      node2,
+      node2.expression,
+      node2.arguments ?? ts.factory.createNodeArray(),
+      sourceLength,
+      label,
+      true
+    );
+  }
+  if (node2.kind === ts.SyntaxKind.TrueKeyword) return true;
+  if (node2.kind === ts.SyntaxKind.FalseKeyword) return false;
+  if (node2.kind === ts.SyntaxKind.NullKeyword) return null;
+  if (ts.isPrefixUnaryExpression(node2) && node2.operator === ts.SyntaxKind.MinusToken && ts.isNumericLiteral(node2.operand)) {
+    return -Number(node2.operand.text);
+  }
+  throw expressionError(
+    sourceFile,
+    node2,
+    sourceLength,
+    `${label} values must be literal data; executable expressions are not allowed.`
+  );
+}
+const BSON_CONSTRUCTOR_NAMES = /* @__PURE__ */ new Set([
+  "ObjectId",
+  "ISODate",
+  "Int32",
+  "NumberInt",
+  "Long",
+  "NumberLong",
+  "Double",
+  "Decimal128",
+  "NumberDecimal",
+  "BinData",
+  "UUID",
+  "BSONRegExp",
+  "Timestamp",
+  "MinKey",
+  "MaxKey",
+  "DBRef",
+  "Code",
+  "BSONSymbol"
+]);
+function convertBsonConstructor(sourceFile, callNode, expression, args, sourceLength, label, isNew) {
+  if (!ts.isIdentifier(expression)) {
+    throw expressionError(sourceFile, callNode, sourceLength, `${label} does not allow method calls.`);
+  }
+  const name = expression.text;
+  if (isNew && name !== "Date") {
+    throw expressionError(
+      sourceFile,
+      callNode,
+      sourceLength,
+      `${label} only allows new Date(…) as a constructor expression.`
+    );
+  }
+  if (!isNew && !BSON_CONSTRUCTOR_NAMES.has(name)) {
+    throw expressionError(
+      sourceFile,
+      callNode,
+      sourceLength,
+      `${label} does not allow the executable call ${name}(…).`
+    );
+  }
+  try {
+    switch (name) {
+      case "ObjectId":
+        expectArgCount(name, args, 1);
+        return new ObjectId(expectString(name, args[0]));
+      case "ISODate":
+      case "Date": {
+        expectArgCount(name, args, 1);
+        const value = new Date(expectString(name, args[0]));
+        if (Number.isNaN(value.getTime())) throw new Error("requires a valid ISO date string");
+        return value;
+      }
+      case "Int32":
+      case "NumberInt": {
+        expectArgCount(name, args, 1);
+        const value = staticScalar(sourceFile, args[0], sourceLength, label);
+        return typeof value === "string" ? Int32.fromString(value) : new Int32(expectIntegerValue(name, value));
+      }
+      case "Long":
+      case "NumberLong": {
+        expectArgCount(name, args, 1);
+        const value = staticScalar(sourceFile, args[0], sourceLength, label);
+        if (typeof value === "string") return Long.fromString(value);
+        return Long.fromNumber(expectSafeIntegerValue(name, value));
+      }
+      case "Double": {
+        expectArgCount(name, args, 1);
+        const value = staticScalar(sourceFile, args[0], sourceLength, label);
+        return typeof value === "string" ? Double.fromString(value) : new Double(expectNumberValue(name, value));
+      }
+      case "Decimal128":
+      case "NumberDecimal":
+        expectArgCount(name, args, 1);
+        return Decimal128.fromString(expectString(name, args[0]));
+      case "BinData": {
+        expectArgCount(name, args, 2);
+        const subtype = expectInteger(name, args[0], sourceFile, sourceLength, label);
+        if (subtype < 0 || subtype > 255) throw new Error("subtype must be between 0 and 255");
+        return Binary.createFromBase64(expectString(name, args[1]), subtype);
+      }
+      case "UUID": {
+        expectArgCount(name, args, 1);
+        const value = expectString(name, args[0]);
+        if (!UUID.isValid(value)) throw new Error("requires a valid UUID string");
+        return new UUID(value);
+      }
+      case "BSONRegExp": {
+        expectArgRange(name, args, 1, 2);
+        return new BSONRegExp(expectString(name, args[0]), args[1] ? expectString(name, args[1]) : "");
+      }
+      case "Timestamp": {
+        expectArgCount(name, args, 1);
+        const value = convertStaticArgument(sourceFile, args[0], sourceLength, label);
+        if (!isRecord(value)) throw new Error("requires an object with numeric t and i fields");
+        const t = expectUnsignedInt32(`${name}.t`, value.t);
+        const i = expectUnsignedInt32(`${name}.i`, value.i);
+        return new Timestamp({ t, i });
+      }
+      case "MinKey":
+        expectArgCount(name, args, 0);
+        return new MinKey();
+      case "MaxKey":
+        expectArgCount(name, args, 0);
+        return new MaxKey();
+      case "DBRef": {
+        expectArgRange(name, args, 2, 4);
+        const collection2 = expectString(name, args[0]);
+        const oid = convertStaticArgument(sourceFile, args[1], sourceLength, label);
+        if (!(oid instanceof ObjectId)) throw new Error("second argument must be ObjectId(…)");
+        const database = args[2] && !isUndefinedIdentifier(args[2]) ? expectString(name, args[2]) : void 0;
+        const fields = args[3] ? convertStaticArgument(sourceFile, args[3], sourceLength, label) : void 0;
+        if (fields !== void 0 && !isRecord(fields)) throw new Error("fourth argument must be an object literal");
+        return new DBRef(collection2, oid, database, fields);
+      }
+      case "Code": {
+        expectArgRange(name, args, 1, 2);
+        const code = expectString(name, args[0]);
+        const scope = args[1] ? convertStaticArgument(sourceFile, args[1], sourceLength, label) : void 0;
+        if (scope !== void 0 && !isRecord(scope)) throw new Error("scope must be an object literal");
+        return new Code(code, scope);
+      }
+      case "BSONSymbol":
+        expectArgCount(name, args, 1);
+        return new BSONSymbol(expectString(name, args[0]));
+      default:
+        throw new Error("is not supported");
+    }
+  } catch (error2) {
+    if (error2 instanceof DocumentExpressionError) throw error2;
+    throw expressionError(
+      sourceFile,
+      callNode,
+      sourceLength,
+      `${name}(…) ${error2.message}.`
+    );
+  }
+}
+function convertRegexLiteral(sourceFile, node2, sourceLength, label) {
+  const text = node2.text;
+  const separator = text.lastIndexOf("/");
+  if (!text.startsWith("/") || separator <= 0) {
+    throw expressionError(sourceFile, node2, sourceLength, `${label} contains an invalid regular expression literal.`);
+  }
+  try {
+    return new BSONRegExp(text.slice(1, separator), text.slice(separator + 1));
+  } catch (error2) {
+    throw expressionError(sourceFile, node2, sourceLength, `${label} contains an invalid BSON regex: ${error2.message}.`);
+  }
+}
+function convertStaticArgument(sourceFile, node2, sourceLength, label) {
+  return convertValue(sourceFile, node2, sourceLength, label);
+}
+function staticScalar(sourceFile, node2, sourceLength, label) {
+  if (!node2) throw new Error("requires an argument");
+  const value = convertValue(sourceFile, node2, sourceLength, label);
+  if (typeof value !== "string" && typeof value !== "number") throw new Error("requires a string or number literal");
+  return value;
+}
+function expectString(name, node2) {
+  const unwrapped = node2 && unwrapParentheses(node2);
+  if (!unwrapped || !ts.isStringLiteral(unwrapped)) throw new Error(`${name} requires a string literal`);
+  return unwrapped.text;
+}
+function expectInteger(name, node2, sourceFile, sourceLength, label) {
+  if (!node2) throw new Error(`${name} requires a numeric literal`);
+  return expectIntegerValue(name, convertValue(sourceFile, node2, sourceLength, label));
+}
+function expectNumberValue(name, value) {
+  if (typeof value !== "number") throw new Error(`${name} requires a numeric literal`);
+  return value;
+}
+function expectIntegerValue(name, value) {
+  const number = expectNumberValue(name, value);
+  if (!Number.isInteger(number)) throw new Error(`${name} requires an integer literal`);
+  return number;
+}
+function expectSafeIntegerValue(name, value) {
+  const number = expectIntegerValue(name, value);
+  if (!Number.isSafeInteger(number)) throw new Error(`${name} numeric input must be a safe integer; use a string for 64-bit values`);
+  return number;
+}
+function expectUnsignedInt32(name, value) {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > 4294967295) {
+    throw new Error(`${name} must be an unsigned 32-bit integer`);
+  }
+  return value;
+}
+function expectArgCount(name, args, count2) {
+  if (args.length !== count2) throw new Error(`requires exactly ${count2} argument${count2 === 1 ? "" : "s"}`);
+}
+function expectArgRange(name, args, min, max) {
+  if (args.length < min || args.length > max) throw new Error(`requires ${min}-${max} arguments`);
+}
+function isUndefinedIdentifier(node2) {
+  const value = unwrapParentheses(node2);
+  return ts.isIdentifier(value) && value.text === "undefined";
+}
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function toCanonicalJsonData(value) {
+  if (Array.isArray(value)) return value.map(toCanonicalJsonData);
+  if (value instanceof Date || isRecord(value) && typeof value._bsontype === "string") {
+    return JSON.parse(EJSON.stringify(value, void 0, 0, { relaxed: false }));
+  }
+  if (isRecord(value)) {
+    const result = /* @__PURE__ */ Object.create(null);
+    for (const [key, nested] of Object.entries(value)) {
+      Object.defineProperty(result, key, {
+        value: toCanonicalJsonData(nested),
+        enumerable: true,
+        configurable: true,
+        writable: true
+      });
+    }
+    return result;
+  }
+  return value;
+}
+function propertyName(sourceFile, name, sourceLength, label) {
+  if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) {
+    return name.text;
+  }
+  throw expressionError(
+    sourceFile,
+    name,
+    sourceLength,
+    `${label} does not allow computed property names.`
+  );
+}
+function unwrapParentheses(node2) {
+  let current = node2;
+  while (ts.isParenthesizedExpression(current)) current = current.expression;
+  return current;
+}
+function expressionError(sourceFile, node2, sourceLength, message) {
+  const start = sourceOffset(node2.getStart(sourceFile), sourceLength);
+  const end = sourceOffset(node2.getEnd(), sourceLength);
+  return new DocumentExpressionError(message, start, Math.max(start + 1, end));
+}
+function sourceOffset(wrappedOffset, sourceLength) {
+  return Math.max(0, Math.min(sourceLength, wrappedOffset - 1));
+}
+const URI_SCHEME = /^(mongodb(?:\+srv)?):\/\//i;
+function redactUri(uri) {
+  if (!URI_SCHEME.test(uri)) return redactSecretPatterns(uri);
+  const replaced = uri.replace(/^(mongodb(?:\+srv)?:\/\/)[^/@]*@/i, "$1<redacted>@");
+  return redactSecretPatterns(replaced);
+}
+function redactSecretPatterns(input) {
+  return input.replace(/(password|passwd|pwd|secret|token|aws_session_token)=([^\s&;]+)/gi, "$1=<redacted>").replace(/\/\/[^/\s:]+:[^@\s]+@/g, "//<redacted>:<redacted>@");
+}
+function redactForLog(value) {
+  if (typeof value === "string") return redactSecretPatterns(redactUri(value));
+  if (Array.isArray(value)) return value.map(redactForLog);
+  if (value && typeof value === "object") {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) {
+      out[k] = /password|secret|token|credential|passphrase/i.test(k) ? "<redacted>" : redactForLog(v);
+    }
+    return out;
+  }
+  return value;
+}
+const hasLabel = (e, label) => Array.isArray(e.errorLabels) && e.errorLabels.includes(label);
+function classifyError(err, range) {
+  if (isAppError(err)) {
+    const withRange = range && !err.statementRange ? { ...err, statementRange: range } : err;
+    return redactError(withRange);
+  }
+  const e = err ?? {};
+  const name = typeof e.name === "string" ? e.name : "Error";
+  const rawMessage = typeof e.message === "string" ? e.message : String(err);
+  const message = redactText(rawMessage);
+  const base2 = {
+    category: "Unknown",
+    message,
+    name,
+    ...typeof e.code === "number" ? { code: e.code } : {},
+    ...typeof e.codeName === "string" ? { codeName: e.codeName } : {},
+    ...Array.isArray(e.errorLabels) ? { labels: [...e.errorLabels] } : {},
+    ...range ? { statementRange: range } : {},
+    ...e.cause?.message ? { causeMessage: redactText(e.cause.message) } : {}
+  };
+  if (name === "AbortError" || name === "MongoGCancelled") {
+    return { ...base2, category: "Cancellation" };
+  }
+  if (name === "ModuleNotAllowed") {
+    return { ...base2, category: "ModuleNotAllowed" };
+  }
+  switch (name) {
+    case "MongoParseError":
+      return { ...base2, category: "InvalidConnectionString" };
+    case "MongoServerSelectionError":
+      return { ...base2, category: "ServerSelection", hint: serverSelectionHint(e) };
+    case "MongoNetworkTimeoutError":
+      return { ...base2, category: "NetworkTimeout" };
+    case "MongoNetworkError": {
+      if (/ENOTFOUND|EAI_AGAIN|getaddrinfo/i.test(rawMessage)) return { ...base2, category: "Dns" };
+      if (/TLS|SSL|certificate|CERT_/i.test(rawMessage)) return { ...base2, category: "Tls" };
+      if (/timed? ?out/i.test(rawMessage)) return { ...base2, category: "NetworkTimeout" };
+      return { ...base2, category: "Network" };
+    }
+    case "MongoBulkWriteError":
+    case "MongoWriteConcernError":
+    case "MongoServerError":
+      return { ...base2, category: serverErrorCategory(e) };
+    case "MongoExpiredSessionError":
+    case "MongoTransactionError":
+      return { ...base2, category: "MongoDBCommand" };
+    case "MongoRuntimeError":
+    case "MongoAPIError":
+      return { ...base2, category: "MongoDBCommand" };
+    case "MongoCursorExhaustedError":
+    case "MongoCursorInUseError":
+      return { ...base2, category: "CursorNotFound" };
+  }
+  if (hasLabel(e, "TransientTransactionError") || hasLabel(e, "UnknownTransactionCommitResult")) {
+    return { ...base2, category: "MongoDBCommand" };
+  }
+  if (!name.startsWith("Mongo")) {
+    return { ...base2, category: "JavaScriptRuntime" };
+  }
+  return { ...base2, category: "MongoDBCommand" };
+}
+function serverErrorCategory(e) {
+  switch (e.code) {
+    case 18:
+    case 8e3:
+      return "Authentication";
+    case 13:
+    case 31:
+      return "Authorization";
+    case 11e3:
+    case 11001:
+    case 12582:
+      return "DuplicateKey";
+    case 121:
+      return "Validation";
+    case 50:
+      return "NetworkTimeout";
+    // ExceededTimeLimit (maxTimeMS)
+    case 26:
+    case 48:
+      return "NotFound";
+    // NamespaceNotFound / NamespaceExists-adjacent
+    default:
+      return "MongoDBCommand";
+  }
+}
+function serverSelectionHint(e) {
+  const msg = `${e.message ?? ""} ${e.cause?.message ?? ""}`;
+  if (/ENOTFOUND|EAI_AGAIN/i.test(msg)) return "DNS resolution failed; check hostnames / SRV record.";
+  if (/ECONNREFUSED/i.test(msg)) return "Connection refused; is mongod running and reachable?";
+  if (/certificate|TLS|SSL/i.test(msg)) return "TLS handshake failed; check CA/cert options.";
+  if (/Authentication/i.test(msg)) return "Authentication failed during server selection.";
+  return void 0;
+}
+function isAppError(value) {
+  return typeof value === "object" && value !== null && "category" in value && "message" in value && typeof value.message === "string";
+}
+function serializeError(err, range) {
+  return classifyError(err, range);
+}
+function redactText(value) {
+  const redacted = redactForLog(value);
+  return typeof redacted === "string" ? redacted : String(redacted);
+}
+function redactError(error2) {
+  const message = redactText(error2.message);
+  const causeMessage = error2.causeMessage === void 0 ? void 0 : redactText(error2.causeMessage);
+  const hint = error2.hint === void 0 ? void 0 : redactText(error2.hint);
+  if (message === error2.message && causeMessage === error2.causeMessage && hint === error2.hint) {
+    return error2;
+  }
+  return {
+    ...error2,
+    message,
+    ...causeMessage === void 0 ? {} : { causeMessage },
+    ...hint === void 0 ? {} : { hint }
+  };
+}
+function appError(category, message, extra) {
+  return { category, message, ...extra };
+}
+class MongoGCancellationError extends Error {
+  name = "MongoGCancelled";
+  constructor(message = "Execution cancelled") {
+    super(message);
+  }
+}
 const DEFAULT_MAX_PREVIEW_BYTES = 256 * 1024;
 const textEncoder = new TextEncoder();
 function byteLength(s) {
@@ -250049,6 +250286,29 @@ function inspectFallback(value) {
   }
 }
 const CONSOLE_ARG_PREVIEW_BYTES = 16 * 1024;
+function shellFactory(constructor, factory) {
+  Object.setPrototypeOf(factory, constructor);
+  Object.defineProperty(factory, "prototype", { value: constructor.prototype });
+  return factory;
+}
+const shellObjectId = shellFactory(ObjectId, (value) => new ObjectId(value === void 0 ? void 0 : String(value)));
+const shellInt32 = shellFactory(Int32, (value = 0) => typeof value === "string" ? Int32.fromString(value) : new Int32(Number(value)));
+const shellLong = shellFactory(Long, (value = "0") => typeof value === "string" ? Long.fromString(value) : Long.fromValue(value));
+const shellDouble = shellFactory(Double, (value = 0) => typeof value === "string" ? Double.fromString(value) : new Double(Number(value)));
+const shellDecimal128 = shellFactory(Decimal128, (value = "0") => Decimal128.fromString(String(value)));
+const shellBsonRegExp = shellFactory(BSONRegExp, (pattern, options = "") => new BSONRegExp(String(pattern), String(options)));
+const shellTimestamp = shellFactory(Timestamp, (value, increment) => typeof value === "object" && value !== null ? new Timestamp(value) : new Timestamp({ t: Number(value), i: Number(increment ?? 0) }));
+const shellMinKey = shellFactory(MinKey, () => new MinKey());
+const shellMaxKey = shellFactory(MaxKey, () => new MaxKey());
+const shellDbRef = shellFactory(DBRef, (collection2, oid, database, fields) => new DBRef(
+  String(collection2),
+  oid,
+  database === void 0 ? void 0 : String(database),
+  fields
+));
+const shellCode = shellFactory(Code, (code, scope) => new Code(String(code), scope));
+const shellBsonSymbol = shellFactory(BSONSymbol, (value) => new BSONSymbol(String(value)));
+const shellUuid = shellFactory(UUID, (value) => value === void 0 ? new UUID() : new UUID(String(value)));
 function createSandbox(options) {
   const shellDb = (databaseName) => {
     const value = options.client.db(databaseName);
@@ -250100,6 +250360,24 @@ function createSandbox(options) {
   const sandbox = {
     mongodb,
     bson: bson$1,
+    ObjectId: shellObjectId,
+    ISODate: (value) => value === void 0 ? /* @__PURE__ */ new Date() : new Date(String(value)),
+    Int32: shellInt32,
+    NumberInt: shellInt32,
+    Long: shellLong,
+    NumberLong: shellLong,
+    Double: shellDouble,
+    Decimal128: shellDecimal128,
+    NumberDecimal: shellDecimal128,
+    BinData: (subtype, base642) => Binary.createFromBase64(String(base642), Number(subtype)),
+    UUID: shellUuid,
+    BSONRegExp: shellBsonRegExp,
+    Timestamp: shellTimestamp,
+    MinKey: shellMinKey,
+    MaxKey: shellMaxKey,
+    DBRef: shellDbRef,
+    Code: shellCode,
+    BSONSymbol: shellBsonSymbol,
     client: options.client,
     db: currentDb,
     use(name) {
@@ -251108,6 +251386,25 @@ async function dropDatabase(client2, database) {
 function parseEjsonDocument(ejson, label) {
   let value;
   try {
+    value = parseStrictEjsonDocument(ejson, label);
+  } catch (ejsonError) {
+    try {
+      const parsed = parseDocumentExpression(ejson, label);
+      value = EJSON.parse(parsed.json, { relaxed: false });
+    } catch (expressionError2) {
+      const message = expressionError2 instanceof DocumentExpressionError ? expressionError2.message : `${label} is not valid Extended JSON or MongoDB Shell literal syntax.`;
+      throw appError("Validation", message, {
+        name: ejsonError.name,
+        causeMessage: ejsonError.message
+      });
+    }
+  }
+  assertNoExecutableCriteriaOperators(value, label);
+  return assertDocumentValue(value, label, "JSON object");
+}
+function parseStrictEjsonDocument(ejson, label) {
+  let value;
+  try {
     value = EJSON.parse(ejson, { relaxed: false });
   } catch (error2) {
     throw appError("Validation", `${label} is not valid Extended JSON.`, {
@@ -251115,8 +251412,11 @@ function parseEjsonDocument(ejson, label) {
       causeMessage: error2.message
     });
   }
+  return assertDocumentValue(value, label, "JSON object");
+}
+function assertDocumentValue(value, label, kind) {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw appError("Validation", `${label} must be a JSON object.`);
+    throw appError("Validation", `${label} must be a ${kind}.`);
   }
   return value;
 }
@@ -251214,11 +251514,11 @@ async function listIndexes(client2, namespace) {
   return indexes2;
 }
 async function createCollectionIndex(client2, options) {
-  const keys = parseEjsonDocument(options.keysEjson, "Index keys");
+  const keys = parseStrictEjsonDocument(options.keysEjson, "Index keys");
   if (Object.keys(keys).length === 0) {
     throw appError("Validation", "Index keys must contain at least one field.");
   }
-  const partialFilterExpression = options.partialFilterEjson ? parseEjsonDocument(options.partialFilterEjson, "Partial filter") : void 0;
+  const partialFilterExpression = options.partialFilterEjson ? parseStrictEjsonDocument(options.partialFilterEjson, "Partial filter") : void 0;
   const name = await client2.db(options.database).collection(options.collection).createIndex(
     keys,
     {
@@ -251240,9 +251540,9 @@ async function dropCollectionIndex(client2, options) {
   return { dropped: options.name };
 }
 async function explainCollectionFind(client2, options) {
-  const filter = parseEjsonDocument(options.filterEjson, "Filter");
-  const sort2 = options.sortEjson ? parseEjsonDocument(options.sortEjson, "Sort") : void 0;
-  const projection = options.projectionEjson ? parseEjsonDocument(options.projectionEjson, "Projection") : void 0;
+  const filter = parseStrictEjsonDocument(options.filterEjson, "Filter");
+  const sort2 = options.sortEjson ? parseStrictEjsonDocument(options.sortEjson, "Sort") : void 0;
+  const projection = options.projectionEjson ? parseStrictEjsonDocument(options.projectionEjson, "Projection") : void 0;
   let cursor = client2.db(options.database).collection(options.collection).find(filter, {
     ...projection ? { projection } : {},
     maxTimeMS: 3e4
@@ -251335,7 +251635,7 @@ async function listGridFsFiles(client2, options) {
   return files;
 }
 async function uploadGridFsFile(client2, options) {
-  const metadata = options.metadataEjson ? parseEjsonDocument(options.metadataEjson, "GridFS metadata") : void 0;
+  const metadata = options.metadataEjson ? parseStrictEjsonDocument(options.metadataEjson, "GridFS metadata") : void 0;
   const bucket = new libExports.GridFSBucket(client2.db(options.database), { bucketName: options.bucketName });
   const sourceInfo = await promises$1.stat(options.sourcePath);
   if (!sourceInfo.isFile()) throw appError("Validation", "The selected GridFS source is not a file.");

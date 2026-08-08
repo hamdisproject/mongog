@@ -9,6 +9,7 @@ import {
 import { useConnectionStore } from '../stores/connections.js';
 import { useEditorContext } from '../stores/editor-context.js';
 import { useSchemaCache } from '../stores/schema-cache.js';
+import { bsonConstructorSuggestions } from './criteria-completions.js';
 
 export function registerSchemaCompletions(): monaco.IDisposable {
   return monaco.languages.registerCompletionItemProvider('typescript', {
@@ -70,9 +71,20 @@ export function registerSchemaCompletions(): monaco.IDisposable {
       const insideQuotedToken = precedingCharacter === '"' || precedingCharacter === "'";
 
       return {
-        suggestions: buildSemanticSuggestions(semanticContext, data).map((suggestion) =>
-          toMonacoSuggestion(suggestion, range, precedingCharacter, insideQuotedToken),
-        ),
+        suggestions: [
+          ...bsonConstructorSuggestions.map((suggestion) => ({
+            label: suggestion.label,
+            insertText: suggestion.insertText,
+            range,
+            kind: monaco.languages.CompletionItemKind.Constructor,
+            detail: suggestion.detail,
+            sortText: `z-${suggestion.label}`,
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          } satisfies monaco.languages.CompletionItem)),
+          ...buildSemanticSuggestions(semanticContext, data).map((suggestion) =>
+            toMonacoSuggestion(suggestion, range, precedingCharacter, insideQuotedToken),
+          ),
+        ],
       };
     },
   });

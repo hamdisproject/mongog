@@ -289,7 +289,7 @@ export const applicationSettingsSchema = z.object({
     retentionDays: z.number().int().min(1).max(36_500),
     maxEntries: z.number().int().min(1),
   }),
-  ejson: z.object({ defaultMode: z.enum(['relaxed', 'canonical']) }),
+  ejson: z.object({ defaultMode: z.enum(['mongosh', 'relaxed', 'canonical']) }),
   window: z.object({
     bounds: z.object({
       x: z.number(),

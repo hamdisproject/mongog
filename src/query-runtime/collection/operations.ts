@@ -185,6 +185,29 @@ export async function dropDatabase(
 export function parseEjsonDocument(ejson: string, label: string): Document {
   let value: unknown;
   try {
+    value = parseStrictEjsonDocument(ejson, label);
+  } catch (ejsonError) {
+    try {
+      const parsed = parseDocumentExpression(ejson, label);
+      value = EJSON.parse(parsed.json, { relaxed: false });
+    } catch (expressionError) {
+      const message = expressionError instanceof DocumentExpressionError
+        ? expressionError.message
+        : `${label} is not valid Extended JSON or MongoDB Shell literal syntax.`;
+      throw appError('Validation', message, {
+        name: (ejsonError as Error).name,
+        causeMessage: (ejsonError as Error).message,
+      });
+    }
+  }
+  assertNoExecutableCriteriaOperators(value, label);
+  return assertDocumentValue(value, label, 'JSON object');
+}
+
+/** Administration forms intentionally keep their strict Extended JSON boundary. */
+export function parseStrictEjsonDocument(ejson: string, label: string): Document {
+  let value: unknown;
+  try {
     value = EJSON.parse(ejson, { relaxed: false });
   } catch (error) {
     throw appError('Validation', `${label} is not valid Extended JSON.`, {
@@ -192,8 +215,12 @@ export function parseEjsonDocument(ejson: string, label: string): Document {
       causeMessage: (error as Error).message,
     });
   }
+  return assertDocumentValue(value, label, 'JSON object');
+}
+
+function assertDocumentValue(value: unknown, label: string, kind: string): Document {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw appError('Validation', `${label} must be a JSON object.`);
+    throw appError('Validation', `${label} must be a ${kind}.`);
   }
   return value as Document;
 }

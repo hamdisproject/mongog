@@ -21,7 +21,7 @@ import type {
 } from '../../shared/domain/index.js';
 import { serializeToEjson } from '../../shared/ejson/index.js';
 import { appError } from '../../shared/errors/index.js';
-import { parseEjsonDocument } from '../collection/operations.js';
+import { parseStrictEjsonDocument } from '../collection/operations.js';
 import { CursorRegistry, type CursorOwner } from '../registry/cursors.js';
 
 export interface AdminNamespace {
@@ -59,12 +59,12 @@ export async function createCollectionIndex(
     partialFilterEjson?: string;
   },
 ): Promise<{ name: string }> {
-  const keys = parseEjsonDocument(options.keysEjson, 'Index keys');
+  const keys = parseStrictEjsonDocument(options.keysEjson, 'Index keys');
   if (Object.keys(keys).length === 0) {
     throw appError('Validation', 'Index keys must contain at least one field.');
   }
   const partialFilterExpression = options.partialFilterEjson
-    ? parseEjsonDocument(options.partialFilterEjson, 'Partial filter')
+    ? parseStrictEjsonDocument(options.partialFilterEjson, 'Partial filter')
     : undefined;
   const name = await client.db(options.database).collection(options.collection).createIndex(
     keys as IndexSpecification,
@@ -102,12 +102,12 @@ export async function explainCollectionFind(
     verbosity: ExplainVerbosity;
   },
 ) {
-  const filter = parseEjsonDocument(options.filterEjson, 'Filter');
+  const filter = parseStrictEjsonDocument(options.filterEjson, 'Filter');
   const sort = options.sortEjson
-    ? parseEjsonDocument(options.sortEjson, 'Sort')
+    ? parseStrictEjsonDocument(options.sortEjson, 'Sort')
     : undefined;
   const projection = options.projectionEjson
-    ? parseEjsonDocument(options.projectionEjson, 'Projection')
+    ? parseStrictEjsonDocument(options.projectionEjson, 'Projection')
     : undefined;
   let cursor = client.db(options.database).collection(options.collection).find(filter, {
     ...(projection ? { projection } : {}),
@@ -247,7 +247,7 @@ export async function uploadGridFsFile(
   },
 ): Promise<GridFsUploadResult> {
   const metadata = options.metadataEjson
-    ? parseEjsonDocument(options.metadataEjson, 'GridFS metadata')
+    ? parseStrictEjsonDocument(options.metadataEjson, 'GridFS metadata')
     : undefined;
   const bucket = new GridFSBucket(client.db(options.database), { bucketName: options.bucketName });
   const sourceInfo = await stat(options.sourcePath);

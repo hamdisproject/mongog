@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { parseDocumentExpression } from '../../../features/script-analysis/index.js';
 import type { DocumentCriteriaText, DocumentsPage, WorkspaceTab } from '../../../shared/domain/index.js';
-import type { EjsonEnvelope } from '../../../shared/ejson/index.js';
+import {
+  parseEjson,
+  renderBson,
+  type BsonDisplayMode,
+  type EjsonEnvelope,
+} from '../../../shared/ejson/index.js';
 import { useConnectionStore } from '../../stores/connections.js';
 import { useSchemaCache } from '../../stores/schema-cache.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
+import { useSettingsStore } from '../../stores/settings.js';
 import { collectionDocumentsOwnerId, emptyDocumentCriteriaState } from '../../collection-workspace.js';
 import { buildColumnFilterExpression, reorderColumns } from '../../collection-column-filter.js';
 import { theme } from '../../theme.js';
@@ -12,6 +18,7 @@ import { QueryWorkspace } from '../Editor/QueryWorkspace.js';
 import { CollectionCriteriaEditor } from './CollectionCriteriaEditor.js';
 import type { CriteriaKind } from '../../monaco/object-expression.js';
 import { SavedActions } from '../Saved/SavedActions.js';
+import { DocumentBsonEditor } from './DocumentBsonEditor.js';
 
 const s: Record<string, React.CSSProperties> = {
   workspace: { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' },
@@ -164,6 +171,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const connected = useConnectionStore((state) => state.connected);
   const connect = useConnectionStore((state) => state.connect);
   const updateTab = useWorkspaceStore((state) => state.updateTab);
+  const displayMode = useSettingsStore((state) => state.settings.ejson.defaultMode);
   const connectionId = tab.connectionId ?? '';
   const database = tab.database ?? 'admin';
   const collection = tab.collection ?? '';
@@ -199,6 +207,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const [selected, setSelected] = useState<DocumentRow | null>(null);
   const [editorMode, setEditorMode] = useState<EditorMode>('view');
   const [editorText, setEditorText] = useState('');
+  const [editorValidationError, setEditorValidationError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [editorBusy, setEditorBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -238,6 +247,12 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     setCountLoading(false);
     setCountError(null);
   }, [connectionId, database, collection, criteria.filter]);
+
+  useEffect(() => {
+    if (selected && editorMode === 'view') {
+      setEditorText(renderDocumentEnvelope(selected.envelope, displayMode));
+    }
+  }, [displayMode, editorMode, selected]);
 
   const applyPage = useCallback((page: DocumentsPage) => {
     const nextRows = page.documents.map((envelope, index) =>
@@ -407,7 +422,8 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
       }
       const complete = createDocumentRow(envelope, row.absoluteIndex);
       setSelected(complete);
-      setEditorText(prettyEjson(envelope.ejson));
+      setEditorText(renderDocumentEnvelope(envelope, displayMode));
+      setEditorValidationError(null);
       setEditorMode('view');
     } catch (caught) {
       setError(errorMessage(caught));
@@ -420,12 +436,20 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     setSelected(null);
     setEditorMode('new');
     setEditorText('{\n  \n}');
+    setEditorValidationError(null);
     setError(null);
     setNotice(null);
   };
 
   const saveDocument = async () => {
-    if (readOnly || editorMode === 'view') return;
+    if (readOnly || editorMode === 'view' || editorValidationError) return;
+    try {
+      parseDocumentExpression(editorText, 'Document');
+    } catch (caught) {
+      setEditorValidationError(errorMessage(caught));
+      setError(errorMessage(caught));
+      return;
+    }
     setEditorBusy(true);
     setError(null);
     setNotice(null);
@@ -682,7 +706,9 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
                       key={column}
                       style={{ ...s.td, width: columnWidths[column] ?? (column === '_id' ? 220 : 180) }}
                     >
-                      {formatCellValue(row.value?.[column])}
+                      <span title={formatCellValue(row.value?.[column], displayMode, false)}>
+                        {formatCellValue(row.value?.[column], displayMode, true)}
+                      </span>
                     </td>
                   ))}
                 </tr>
@@ -697,20 +723,30 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
           <div style={s.editorHeader}>
             <strong>{editorMode === 'new' ? 'New document' : editorMode === 'edit' ? 'Edit document' : 'Document'}</strong>
             <span style={{ flex: 1, color: 'var(--color-text-muted)' }}>
-              Canonical Extended JSON{projectionActive ? ' — projected documents cannot be edited' : ''}
+              {displayModeLabel(displayMode)}{projectionActive ? ' — projected documents cannot be edited' : ''}
             </span>
+            {editorValidationError && editorMode !== 'view' && (
+              <span role="alert" title={editorValidationError} style={{ maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: theme.colors.danger }}>
+                Invalid BSON syntax
+              </span>
+            )}
             {editorMode === 'view' ? (
               <>
-                <ToolbarButton secondary onClick={() => setEditorMode('edit')} disabled={!canEditSelection || editorBusy}>Edit</ToolbarButton>
+                <ToolbarButton secondary onClick={() => {
+                  if (selected) {
+                    setEditorText(renderDocumentEnvelope(selected.envelope, displayMode, true));
+                  }
+                  setEditorMode('edit');
+                }} disabled={!canEditSelection || editorBusy}>Edit</ToolbarButton>
                 <ToolbarButton danger onClick={() => void deleteDocument()} disabled={!canEditSelection || editorBusy}>Delete</ToolbarButton>
                 <ToolbarButton secondary onClick={() => { setSelected(null); setEditorText(''); }}>Close</ToolbarButton>
               </>
             ) : (
               <>
-                <ToolbarButton onClick={() => void saveDocument()} disabled={editorBusy}>Save</ToolbarButton>
+                <ToolbarButton onClick={() => void saveDocument()} disabled={editorBusy || !!editorValidationError}>Save</ToolbarButton>
                 <ToolbarButton secondary onClick={() => {
                   if (selected) {
-                    setEditorText(prettyEjson(selected.envelope.ejson));
+                    setEditorText(renderDocumentEnvelope(selected.envelope, displayMode));
                     setEditorMode('view');
                   } else {
                     setEditorText('');
@@ -720,13 +756,13 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
               </>
             )}
           </div>
-          <textarea
-            style={s.editor}
-            aria-label="Document Extended JSON editor"
+          <DocumentBsonEditor
+            tabId={tab.id}
             value={editorText}
             readOnly={editorMode === 'view'}
-            spellCheck={false}
-            onChange={(event) => setEditorText(event.target.value)}
+            onChange={setEditorText}
+            onSave={() => void saveDocument()}
+            onValidationChange={setEditorValidationError}
           />
         </div>
       )}
@@ -798,8 +834,8 @@ function ToolbarButton({
 }
 
 function createDocumentRow(envelope: EjsonEnvelope, absoluteIndex: number): DocumentRow {
-  const value = envelope.truncated ? null : parseDocumentValue(envelope.ejson);
-  const id = value && Object.hasOwn(value, '_id') ? JSON.stringify(value._id) : null;
+  const value = envelope.truncated ? null : parseDocumentValue(envelope);
+  const id = value && Object.hasOwn(value, '_id') ? renderBson(value._id, 'canonical', false) : null;
   return {
     key: id ? `${id}:${absoluteIndex}` : `document:${absoluteIndex}`,
     absoluteIndex,
@@ -808,9 +844,9 @@ function createDocumentRow(envelope: EjsonEnvelope, absoluteIndex: number): Docu
   };
 }
 
-function parseDocumentValue(ejson: string): Record<string, unknown> | null {
+function parseDocumentValue(envelope: EjsonEnvelope): Record<string, unknown> | null {
   try {
-    const value = JSON.parse(ejson) as unknown;
+    const value = parseEjson(envelope);
     if (isDocumentValue(value)) return value;
   } catch {
     // The runtime owns validation; an invalid preview is displayed as opaque.
@@ -818,11 +854,15 @@ function parseDocumentValue(ejson: string): Record<string, unknown> | null {
   return null;
 }
 
-function prettyEjson(ejson: string): string {
+function renderDocumentEnvelope(
+  envelope: EjsonEnvelope,
+  mode: BsonDisplayMode,
+  editable = false,
+): string {
   try {
-    return JSON.stringify(JSON.parse(ejson), null, 2);
+    return renderBson(parseEjson(envelope), mode, true, editable ? 'editable' : 'display');
   } catch {
-    return ejson;
+    return envelope.ejson;
   }
 }
 
@@ -834,11 +874,20 @@ function extractColumns(documents: Array<Record<string, unknown>>): string[] {
   return ['_id', ...Array.from(keys).filter((key) => key !== '_id').sort()];
 }
 
-function formatCellValue(value: unknown): string {
+function formatCellValue(value: unknown, mode: BsonDisplayMode, truncateValue: boolean): string {
   if (value === null || value === undefined) return 'null';
-  if (typeof value === 'string') return truncate(value, 100);
-  if (typeof value === 'object') return truncate(JSON.stringify(value), 100);
-  return String(value);
+  let rendered: string;
+  try {
+    rendered = renderBson(value, mode, false);
+  } catch {
+    rendered = String(value);
+  }
+  return truncateValue ? truncate(rendered, 100) : rendered;
+}
+
+function displayModeLabel(mode: BsonDisplayMode): string {
+  if (mode === 'mongosh') return 'MongoDB Shell BSON';
+  return mode === 'relaxed' ? 'Relaxed Extended JSON' : 'Canonical Extended JSON';
 }
 
 function truncate(value: string, length: number): string {

@@ -1,4 +1,4 @@
-import { EJSON, Int32, ObjectId } from 'bson';
+import { BSONRegExp, Decimal128, EJSON, Int32, Long, ObjectId, Timestamp } from 'bson';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { MongoClient } from 'mongodb';
 import {
@@ -79,6 +79,66 @@ describe('collection browser operations', () => {
     const documents = page.documents.map((envelope) => parseEjson<Record<string, unknown>>(envelope));
     expect(documents.map((document) => (document.rank as Int32).valueOf())).toEqual([3, 1]);
     expect(documents.every((document) => !Object.hasOwn(document, 'hidden'))).toBe(true);
+  });
+
+  it('applies Compass-style BSON filters and document mutations with type preservation', async () => {
+    const id = '507f1f77bcf86cd799439011';
+    await insertCollectionDocument(client!, {
+      database: DATABASE,
+      collection: 'compass_literals',
+      documentEjson: `{
+        _id: ObjectId("${id}"),
+        createdAt: ISODate("2026-01-02T03:04:05.006Z"),
+        sequence: Long("9223372036854775807"),
+        amount: Decimal128("125.50"),
+        name: "bike-alpha",
+        matcher: BSONRegExp("^bike", "i"),
+        clock: Timestamp({ t: 1700000000, i: 1 }),
+      }`,
+    });
+
+    const stored = await client!.db(DATABASE).collection('compass_literals').findOne({
+      _id: new ObjectId(id),
+    });
+    expect(stored?.createdAt).toBeInstanceOf(Date);
+    expect((stored?.sequence as { _bsontype?: string })._bsontype).toBe('Long');
+    expect((stored?.amount as { _bsontype?: string })._bsontype).toBe('Decimal128');
+    expect(EJSON.stringify(stored?.matcher, undefined, 0, { relaxed: false })).toContain('$regularExpression');
+    expect((stored?.clock as { _bsontype?: string })._bsontype).toBe('Timestamp');
+
+    const page = await findCollectionDocuments(client!, registry!, {
+      database: DATABASE,
+      collection: 'compass_literals',
+      owner: { connectionId: 'phase3', tabId: 'compass-literals-tab' },
+      filterEjson: `{
+        _id: ObjectId("${id}"),
+        createdAt: { $gte: ISODate("2026-01-01T00:00:00.000Z") },
+        sequence: Long("9223372036854775807"),
+        amount: Decimal128("125.50"),
+        name: /^bike/i,
+        clock: Timestamp({ t: 1700000000, i: 1 }),
+      }`,
+      pageSize: 10,
+    });
+    expect(page.documents).toHaveLength(1);
+
+    await replaceCollectionDocument(client!, {
+      database: DATABASE,
+      collection: 'compass_literals',
+      originalDocumentEjson: serializeToEjson(stored).ejson,
+      documentEjson: `{
+        _id: ObjectId("${id}"),
+        createdAt: ISODate("2026-01-03T00:00:00.000Z"),
+        sequence: Long("42"),
+        amount: Decimal128("250.75"),
+        name: "bike-updated",
+      }`,
+    });
+    const replaced = await client!.db(DATABASE).collection('compass_literals').findOne({
+      _id: new ObjectId(id),
+    });
+    expect((replaced?.sequence as Long).toString()).toBe('42');
+    expect((replaced?.amount as Decimal128).toString()).toBe('250.75');
   });
 
   it('counts the applied safe filter without consuming the browser cursor', async () => {
