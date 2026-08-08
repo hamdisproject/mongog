@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useWorkspaceStore } from '../../stores/workspace.js';
 import type { WorkspaceTab } from '../../../shared/domain/index.js';
+import { ContextMenu, type ContextMenuItem } from '../Common/ContextMenu.js';
 
 const s: Record<string, React.CSSProperties> = {
   bar: {
@@ -18,8 +20,9 @@ const s: Record<string, React.CSSProperties> = {
   },
   dirtyDot: { width: 6, height: 6, borderRadius: '50%', background: '#e5c07b', flexShrink: 0 },
   newBtn: {
-    padding: '4px 10px', cursor: 'pointer', color: '#888', fontSize: 16,
-    display: 'flex', alignItems: 'center', flexShrink: 0,
+    padding: '4px 11px', cursor: 'pointer', color: '#ccc', fontSize: 12,
+    display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
+    border: 0, borderRight: '1px solid #3a3a3a', background: '#252526',
   },
 };
 
@@ -30,22 +33,54 @@ const kindIcon: Record<string, string> = {
   history: 'H',
   'connection-settings': 'C',
   admin: 'A',
+  'change-stream': '⇄',
 };
 
 export function TabBar() {
-  const { tabs, activeTabId, setActiveTab, closeTab, createTab } = useWorkspaceStore();
+  const { tabs, activeTabId, closeTabs, openQuery } = useWorkspaceStore();
+  const [menu, setMenu] = useState<{ tabId: string; x: number; y: number } | null>(null);
 
   const handleNewTab = () => {
-    createTab('query', null);
+    openQuery();
+  };
+
+  const menuItems = (tabId: string): ContextMenuItem[] => {
+    const index = tabs.findIndex((tab) => tab.id === tabId);
+    const left = tabs.slice(0, index).map((tab) => tab.id);
+    const right = tabs.slice(index + 1).map((tab) => tab.id);
+    return [
+      { label: 'Close', onSelect: () => closeTabs([tabId]) },
+      { label: 'Close Others', disabled: tabs.length <= 1, onSelect: () => closeTabs(tabs.filter((tab) => tab.id !== tabId).map((tab) => tab.id)) },
+      { label: 'Close Tabs to the Left', disabled: left.length === 0, onSelect: () => closeTabs(left) },
+      { label: 'Close Tabs to the Right', disabled: right.length === 0, onSelect: () => closeTabs(right) },
+      { label: 'Close All Tabs', danger: true, separatorBefore: true, onSelect: () => closeTabs(tabs.map((tab) => tab.id)) },
+    ];
   };
 
   return (
     <div style={s.bar}>
+      <button type="button" onClick={handleNewTab} style={s.newBtn} title="New query tab">
+        <span style={{ color: '#4ec9b0', fontSize: 15 }}>+</span> Query
+      </button>
       {tabs.map((tab) => (
-        <Tab key={tab.id} tab={tab} active={tab.id === activeTabId} />
+        <Tab
+          key={tab.id}
+          tab={tab}
+          active={tab.id === activeTabId}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            setMenu({ tabId: tab.id, x: event.clientX, y: event.clientY });
+          }}
+        />
       ))}
-      <div onClick={handleNewTab} style={s.newBtn} title="New query tab">+</div>
-      <div onClick={() => createTab('admin', null)} style={{ ...s.newBtn, fontSize: 12 }} title="Open administration">Admin</div>
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={menuItems(menu.tabId)}
+          onClose={() => setMenu(null)}
+        />
+      )}
     </div>
   );
 }
@@ -53,15 +88,17 @@ export function TabBar() {
 interface TabProps {
   tab: WorkspaceTab;
   active: boolean;
+  onContextMenu: (event: React.MouseEvent) => void;
 }
 
-function Tab({ tab, active }: TabProps) {
+function Tab({ tab, active, onContextMenu }: TabProps) {
   const { setActiveTab, closeTab } = useWorkspaceStore();
 
   return (
     <div
       style={{ ...s.tab, ...(active ? s.tabActive : {}) }}
       onClick={() => setActiveTab(tab.id)}
+      onContextMenu={onContextMenu}
       title={`${tab.kind}: ${tab.title}${tab.dirty ? ' (modified)' : ''}`}
     >
       <span style={{ fontSize: 10, opacity: 0.6 }}>{kindIcon[tab.kind] ?? '?'}</span>

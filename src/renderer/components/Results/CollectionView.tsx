@@ -6,6 +6,7 @@ import { useConnectionStore } from '../../stores/connections.js';
 import { useSchemaCache } from '../../stores/schema-cache.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
 import { collectionDocumentsOwnerId } from '../../collection-workspace.js';
+import { buildColumnFilterExpression, reorderColumns } from '../../collection-column-filter.js';
 import { theme } from '../../theme.js';
 import { QueryWorkspace } from '../Editor/QueryWorkspace.js';
 import { CollectionCriteriaEditor } from './CollectionCriteriaEditor.js';
@@ -65,11 +66,20 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: 11,
   },
   tableWrap: { flex: 1, minHeight: 0, overflow: 'auto', fontSize: 12 },
-  table: { borderCollapse: 'collapse', width: '100%' },
+  table: { borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' },
   th: {
-    padding: '5px 8px', textAlign: 'left', background: '#252526', color: '#aaa',
+    padding: 0, textAlign: 'left', background: '#252526', color: '#aaa',
     borderBottom: '1px solid #444', position: 'sticky', top: 0, whiteSpace: 'nowrap',
-    fontWeight: 500, fontSize: 11, zIndex: 1,
+    fontWeight: 500, fontSize: 11, zIndex: 1, overflow: 'visible',
+  },
+  columnTitle: { display: 'flex', alignItems: 'center', position: 'relative', gap: 5, padding: '4px 7px 2px' },
+  columnFilter: {
+    boxSizing: 'border-box', display: 'block', width: 'calc(100% - 10px)', margin: '1px 5px 5px',
+    border: '1px solid #444', borderRadius: 2, background: '#181818', color: '#ddd',
+    padding: '3px 5px', fontSize: 10, outline: 0, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+  },
+  resizeHandle: {
+    position: 'absolute', top: 0, right: -3, width: 7, height: '100%', cursor: 'col-resize', zIndex: 3,
   },
   td: {
     padding: '3px 8px', borderBottom: '1px solid #333', maxWidth: 340,
@@ -189,10 +199,37 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const columns = useMemo(
+  const discoveredColumns = useMemo(
     () => extractColumns(rows.map((row) => row.value).filter(isDocumentValue)),
     [rows],
   );
+  const [columnOrder, setColumnOrder] = useState<string[]>([]);
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
+  const columns = useMemo(() => {
+    const retained = columnOrder.filter((column) => discoveredColumns.includes(column));
+    const added = discoveredColumns.filter((column) => !retained.includes(column));
+    return [...retained, ...added];
+  }, [columnOrder, discoveredColumns]);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
+  const [countLoading, setCountLoading] = useState(false);
+  const [countError, setCountError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setColumnOrder((current) => {
+      const retained = current.filter((column) => discoveredColumns.includes(column));
+      const next = [...retained, ...discoveredColumns.filter((column) => !retained.includes(column))];
+      return next.length === current.length && next.every((column, index) => column === current[index])
+        ? current
+        : next;
+    });
+  }, [discoveredColumns]);
+
+  useEffect(() => {
+    setTotalCount(null);
+    setCountError(null);
+  }, [connectionId, database, collection, criteria.filter]);
 
   const applyPage = useCallback((page: DocumentsPage) => {
     const nextRows = page.documents.map((envelope, index) =>
@@ -257,10 +294,62 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     setDraftFilter(EMPTY_FILTER);
     setDraftSort('');
     setDraftProjection('');
+    setColumnFilters({});
     setCriteriaErrors({ filter: null, sort: null, projection: null });
     const cleared = { filter: EMPTY_FILTER, sort: '', projection: '' };
     if (sameCriteria(criteria, cleared)) void loadInitial();
     else setCriteria(cleared);
+  };
+
+  const updateColumnFilter = (column: string, value: string) => {
+    const next = { ...columnFilters, [column]: value };
+    if (!value) delete next[column];
+    setColumnFilters(next);
+    setDraftFilter(buildColumnFilterExpression(next));
+    setCriteriaErrors((current) => ({ ...current, filter: null }));
+  };
+
+  const moveColumn = (source: string, target: string) => {
+    if (source === target) return;
+    setColumnOrder((current) => {
+      const order = current.length > 0 ? [...current] : [...columns];
+      return reorderColumns(order, source, target);
+    });
+  };
+
+  const beginColumnResize = (event: React.PointerEvent, column: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const startX = event.clientX;
+    const startWidth = columnWidths[column] ?? (column === '_id' ? 220 : 180);
+    const onMove = (moveEvent: PointerEvent) => {
+      const width = Math.max(90, Math.min(720, startWidth + moveEvent.clientX - startX));
+      setColumnWidths((current) => ({ ...current, [column]: width }));
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp, { once: true });
+  };
+
+  const calculateTotalCount = async () => {
+    setCountLoading(true);
+    setCountError(null);
+    try {
+      const result = await window.mongog.query.collectionCount({
+        connectionId,
+        database,
+        collection,
+        filterEjson: criteria.filter || EMPTY_FILTER,
+      });
+      setTotalCount(result.count);
+    } catch (caught) {
+      setCountError(errorMessage(caught));
+    } finally {
+      setCountLoading(false);
+    }
   };
 
   const fetchPage = async (direction: 'next' | 'previous') => {
@@ -490,11 +579,68 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
         <div style={s.empty}>No documents found</div>
       ) : (
         <div style={s.tableWrap}>
-          <table style={s.table}>
+          <table
+            data-testid="collection-documents-table"
+            style={{
+              ...s.table,
+              width: `max(100%, ${46 + columns.reduce((total, column) => total + (columnWidths[column] ?? (column === '_id' ? 220 : 180)), 0)}px)`,
+            }}
+          >
+            <colgroup>
+              <col style={{ width: 46 }} />
+              {columns.map((column) => (
+                <col key={column} style={{ width: columnWidths[column] ?? (column === '_id' ? 220 : 180) }} />
+              ))}
+            </colgroup>
             <thead>
               <tr>
-                <th style={s.th}>#</th>
-                {columns.map((column) => <th key={column} style={s.th}>{column}</th>)}
+                <th style={s.th}><div style={s.columnTitle}>#</div></th>
+                {columns.map((column) => (
+                  <th
+                    key={column}
+                    style={s.th}
+                    draggable
+                    onDragStart={(event) => {
+                      setDraggedColumn(column);
+                      event.dataTransfer.effectAllowed = 'move';
+                      event.dataTransfer.setData('text/plain', column);
+                    }}
+                    onDragEnd={() => setDraggedColumn(null)}
+                    onDragOver={(event) => {
+                      if (draggedColumn && draggedColumn !== column) event.preventDefault();
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const source = draggedColumn ?? event.dataTransfer.getData('text/plain');
+                      if (source) moveColumn(source, column);
+                      setDraggedColumn(null);
+                    }}
+                  >
+                    <div style={{ ...s.columnTitle, opacity: draggedColumn === column ? 0.55 : 1 }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={`${column} — drag to reorder`}>{column}</span>
+                      <span
+                        aria-label={`Resize ${column} column`}
+                        role="separator"
+                        style={s.resizeHandle}
+                        onPointerDown={(event) => beginColumnResize(event, column)}
+                      />
+                    </div>
+                    <input
+                      aria-label={`Filter ${column} column`}
+                      draggable={false}
+                      style={s.columnFilter}
+                      value={columnFilters[column] ?? ''}
+                      placeholder="exact, *text*, >, <"
+                      onDragStart={(event) => event.stopPropagation()}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onChange={(event) => updateColumnFilter(column, event.target.value)}
+                      onKeyDown={(event) => {
+                        event.stopPropagation();
+                        if (event.key === 'Enter') applyCriteria();
+                      }}
+                    />
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -504,9 +650,14 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
                   style={{ ...s.row, ...(selected?.key === row.key ? s.selectedRow : {}) }}
                   onClick={() => void selectRow(row)}
                 >
-                  <td style={{ ...s.td, ...s.rowNumber }}>{row.absoluteIndex + 1}</td>
+                  <td style={{ ...s.td, ...s.rowNumber, width: 46 }}>{row.absoluteIndex + 1}</td>
                   {columns.map((column) => (
-                    <td key={column} style={s.td}>{formatCellValue(row.value?.[column])}</td>
+                    <td
+                      key={column}
+                      style={{ ...s.td, width: columnWidths[column] ?? (column === '_id' ? 220 : 180) }}
+                    >
+                      {formatCellValue(row.value?.[column])}
+                    </td>
                   ))}
                 </tr>
               ))}
@@ -555,8 +706,15 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
       )}
 
       <div style={s.status}>
-        <span>{loading || editorBusy ? 'Working…' : `${rows.length} document(s) — page ${pageIndex + 1}`}</span>
+        <span>{loading || editorBusy ? 'Working…' : `${rows.length} document(s)`}</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span>Page {pageIndex + 1}</span>
+          <span style={{ color: countError ? theme.colors.danger : undefined }} title={countError ?? undefined}>
+            Total: {countLoading ? 'counting…' : totalCount === null ? '—' : totalCount.toLocaleString()}
+          </span>
+          <ToolbarButton secondary onClick={() => void calculateTotalCount()} disabled={busy || countLoading}>
+            Count
+          </ToolbarButton>
           <label>Page size&nbsp;
             <select
               style={s.select}

@@ -25,9 +25,13 @@ import { ExecutionEngine } from './engine/execute.js';
 import { CursorRegistry } from './registry/cursors.js';
 import { sampleSchema } from './metadata/sample.js';
 import {
+  countCollectionDocuments,
   deleteCollectionDocument,
+  dropCollection,
+  dropDatabase,
   findCollectionDocuments,
   insertCollectionDocument,
+  renameCollection,
   replaceCollectionDocument,
 } from './collection/operations.js';
 import {
@@ -228,6 +232,14 @@ async function handle(req: RuntimeRequest): Promise<void> {
       reply(req.id, result);
       return;
     }
+    case 'collection-count': {
+      reply(req.id, await countCollectionDocuments(requireClient(), {
+        database: req.database as string,
+        collection: req.collection as string,
+        filterEjson: req.filterEjson as string,
+      }));
+      return;
+    }
     case 'collection-insert': {
       reply(req.id, await insertCollectionDocument(requireClient(), {
         database: req.database as string,
@@ -251,6 +263,25 @@ async function handle(req: RuntimeRequest): Promise<void> {
         collection: req.collection as string,
         originalDocumentEjson: req.originalDocumentEjson as string,
       }));
+      return;
+    }
+    case 'collection-rename': {
+      reply(req.id, await renameCollection(requireClient(), {
+        database: req.database as string,
+        collection: req.collection as string,
+        newName: req.newName as string,
+      }));
+      return;
+    }
+    case 'collection-drop': {
+      reply(req.id, await dropCollection(requireClient(), {
+        database: req.database as string,
+        collection: req.collection as string,
+      }));
+      return;
+    }
+    case 'database-drop': {
+      reply(req.id, await dropDatabase(requireClient(), req.database as string));
       return;
     }
     case 'index-list': {

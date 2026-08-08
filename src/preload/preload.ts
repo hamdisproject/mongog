@@ -88,9 +88,15 @@ const api: MongoGDesktopApi = {
     listCollections: (connectionId, database) =>
       invoke(IpcChannels.connListCollections, { connectionId, database }),
     collectionFind: (input) => invoke(IpcChannels.connCollectionFind, input),
+    collectionCount: (input) => invoke(IpcChannels.connCollectionCount, input),
     collectionInsert: (input) => invoke(IpcChannels.connCollectionInsert, input),
     collectionReplace: (input) => invoke(IpcChannels.connCollectionReplace, input),
     collectionDelete: (input) => invoke(IpcChannels.connCollectionDelete, input),
+    collectionRename: (input) => invoke(IpcChannels.connCollectionRename, input),
+    collectionDrop: (connectionId, database, collection) =>
+      invoke(IpcChannels.connCollectionDrop, { connectionId, database, collection }),
+    databaseDrop: (connectionId, database) =>
+      invoke(IpcChannels.connDatabaseDrop, { connectionId, database }),
     sampleSchema: (connectionId, database, collection, sampleSize) =>
       invoke(IpcChannels.connSampleSchema, { connectionId, database, collection, sampleSize }),
   },

@@ -13960,11 +13960,11 @@ function requireRename() {
       return "renameCollection";
     }
     buildCommandDocument(_connection, _session) {
-      const renameCollection = this.collection.namespace;
+      const renameCollection2 = this.collection.namespace;
       const to = this.collection.s.namespace.withCollection(this.newName).toString();
       const dropTarget = typeof this.options.dropTarget === "boolean" ? this.options.dropTarget : false;
       return {
-        renameCollection,
+        renameCollection: renameCollection2,
         to,
         dropTarget
       };
@@ -250050,7 +250050,24 @@ function inspectFallback(value) {
 }
 const CONSOLE_ARG_PREVIEW_BYTES = 16 * 1024;
 function createSandbox(options) {
-  let currentDb = options.client.db(options.database);
+  const shellDb = (databaseName) => {
+    const value = options.client.db(databaseName);
+    if (!Object.hasOwn(value, "getSiblingDB")) {
+      Object.defineProperty(value, "getSiblingDB", {
+        configurable: false,
+        enumerable: false,
+        writable: false,
+        value: (name) => {
+          if (typeof name !== "string" || name.length === 0) {
+            throw new Error("getSiblingDB(databaseName: string) requires a non-empty string.");
+          }
+          return shellDb(name);
+        }
+      });
+    }
+    return value;
+  };
+  let currentDb = shellDb(options.database);
   let consoleCount = 0;
   const consoleLimit = options.consoleEntryLimit ?? 1e3;
   const emitConsole = (level, values) => {
@@ -250089,7 +250106,7 @@ function createSandbox(options) {
       if (typeof name !== "string" || name.length === 0) {
         throw new Error("use(databaseName: string) requires a non-empty string.");
       }
-      currentDb = options.client.db(name);
+      currentDb = shellDb(name);
       sandbox.db = currentDb;
       return currentDb;
     },
@@ -251032,6 +251049,11 @@ async function findCollectionDocuments(client2, registry2, options) {
     throw error2;
   }
 }
+async function countCollectionDocuments(client2, options) {
+  const filter = parseQueryDocumentExpression(options.filterEjson, "Filter");
+  const count2 = await client2.db(options.database).collection(options.collection).countDocuments(filter, { maxTimeMS: 3e4 });
+  return { count: count2 };
+}
 async function insertCollectionDocument(client2, options) {
   const document2 = parseEjsonDocument(options.documentEjson, "Document");
   const result = await client2.db(options.database).collection(options.collection).insertOne(document2);
@@ -251067,6 +251089,21 @@ async function deleteCollectionDocument(client2, options) {
     acknowledged: result.acknowledged,
     deletedCount: result.deletedCount
   };
+}
+async function renameCollection(client2, options) {
+  if (options.newName === options.collection) {
+    throw appError("Validation", "The new collection name must be different.");
+  }
+  await client2.db(options.database).collection(options.collection).rename(options.newName, { dropTarget: false });
+  return { oldName: options.collection, newName: options.newName };
+}
+async function dropCollection(client2, options) {
+  const dropped = await client2.db(options.database).collection(options.collection).drop();
+  return { dropped };
+}
+async function dropDatabase(client2, database) {
+  const dropped = await client2.db(database).dropDatabase();
+  return { dropped };
 }
 function parseEjsonDocument(ejson, label) {
   let value;
@@ -251517,6 +251554,14 @@ async function handle(req) {
       reply(req.id, result);
       return;
     }
+    case "collection-count": {
+      reply(req.id, await countCollectionDocuments(requireClient(), {
+        database: req.database,
+        collection: req.collection,
+        filterEjson: req.filterEjson
+      }));
+      return;
+    }
     case "collection-insert": {
       reply(req.id, await insertCollectionDocument(requireClient(), {
         database: req.database,
@@ -251540,6 +251585,25 @@ async function handle(req) {
         collection: req.collection,
         originalDocumentEjson: req.originalDocumentEjson
       }));
+      return;
+    }
+    case "collection-rename": {
+      reply(req.id, await renameCollection(requireClient(), {
+        database: req.database,
+        collection: req.collection,
+        newName: req.newName
+      }));
+      return;
+    }
+    case "collection-drop": {
+      reply(req.id, await dropCollection(requireClient(), {
+        database: req.database,
+        collection: req.collection
+      }));
+      return;
+    }
+    case "database-drop": {
+      reply(req.id, await dropDatabase(requireClient(), req.database));
       return;
     }
     case "index-list": {

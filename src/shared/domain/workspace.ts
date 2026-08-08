@@ -1,6 +1,13 @@
 /** Workspace/tab domain model (plan §2/§F). */
 
-export type WorkspaceTabKind = 'welcome' | 'query' | 'collection' | 'history' | 'connection-settings' | 'admin';
+export type WorkspaceTabKind =
+  | 'welcome'
+  | 'query'
+  | 'collection'
+  | 'history'
+  | 'connection-settings'
+  | 'admin'
+  | 'change-stream';
 
 export type AdminSection = 'indexes' | 'explain' | 'search' | 'changes' | 'gridfs';
 

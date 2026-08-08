@@ -37,4 +37,20 @@ describe('collection workspace helpers', () => {
       },
     }).success).toBe(true);
   });
+
+  it('accepts a persisted namespace-locked change stream tab', () => {
+    expect(workspaceSaveSchema.safeParse({
+      state: {
+        tabs: [{
+          id: 'changes-1',
+          kind: 'change-stream',
+          title: 'Changes · db.items',
+          connectionId: 'conn-1',
+          database: 'db',
+          collection: 'items',
+        }],
+        activeTabId: 'changes-1',
+      },
+    }).success).toBe(true);
+  });
 });

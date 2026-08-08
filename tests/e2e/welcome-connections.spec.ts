@@ -42,6 +42,8 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expectViewportLocked(page);
   await expect(page.getByText('Welcome back')).toBeVisible();
   await expect(page.locator('[title^="welcome: Welcome"]')).toHaveCount(1);
+  await expect(page.getByTitle('New query tab')).toBeVisible();
+  await expect(page.getByTitle('Open administration')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'New Connection' }).click();
   await expect(page.getByRole('heading', { name: 'New connection' })).toBeVisible();
@@ -84,8 +86,30 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await explorer.getByRole('button', { name: 'Connect', exact: true }).click();
   await expect(explorer.getByRole('button', { name: 'Disconnect', exact: true })).toBeVisible();
 
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K');
+  const quickOpen = page.getByLabel('Search databases and collections');
+  await expect(quickOpen).toBeVisible();
+  await quickOpen.fill('inventory');
+  await expect(page.getByRole('option', { name: /inventory/ })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('option', { name: /inventory/ }).click();
+  await expect(page.getByRole('button', { name: 'Documents', exact: true })).toHaveAttribute('aria-pressed', 'true');
+
   await page.getByTitle('Expand databases').click();
   await page.getByTitle('Expand database mongog_e2e').click();
+  await explorer.getByLabel('Search connections').fill('inventory');
+  await expect(page.getByTitle('Open mongog_e2e.inventory')).toBeVisible();
+  await explorer.getByLabel('Search connections').fill('');
+
+  await page.getByTitle('Open mongog_e2e.inventory').click({ button: 'right' });
+  await expect(page.getByRole('menuitem', { name: 'Indexes' })).toBeVisible();
+  await page.getByRole('menuitem', { name: 'Indexes' }).click();
+  await expect(page.locator('[title^="admin: Indexes · mongog_e2e.inventory"]')).toBeVisible();
+  await expect(page.getByText('Indexes', { exact: true }).first()).toBeVisible();
+  await page.getByTitle('Open mongog_e2e.inventory').click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Watch Changes' }).click();
+  await expect(page.locator('[title^="change-stream: Changes · mongog_e2e.inventory"]')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Status field changes' })).toBeVisible();
+
   await page.getByTitle('Open mongog_e2e.inventory').click();
   await expect(page.getByRole('button', { name: 'Documents', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByText('alpha', { exact: true })).toBeVisible();
@@ -111,11 +135,30 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page.getByText('alpha', { exact: true })).toBeVisible();
   await expect(page.getByText('beta', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Count', exact: true }).click();
+  await expect(page.getByText('Total: 1', { exact: true })).toBeVisible();
+
+  const quantityColumn = page.getByLabel('Filter quantity column');
+  await quantityColumn.fill('> 4');
+  await expect(page.getByRole('button', { name: /^Criteria.*edited/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(page.getByText('beta', { exact: true })).toBeVisible();
+  await expect(page.getByText('alpha', { exact: true })).toHaveCount(0);
+  const initialQuantityWidth = await quantityColumn.evaluate((element) => element.closest('th')!.getBoundingClientRect().width);
+  const quantityResizer = page.getByRole('separator', { name: 'Resize quantity column' });
+  const resizeBox = await quantityResizer.boundingBox();
+  if (!resizeBox) throw new Error('Quantity column resize handle is missing');
+  await page.mouse.move(resizeBox.x + resizeBox.width / 2, resizeBox.y + 4);
+  await page.mouse.down();
+  await page.mouse.move(resizeBox.x + 90, resizeBox.y + 4);
+  await page.mouse.up();
+  await expect.poll(() => quantityColumn.evaluate((element) => element.closest('th')!.getBoundingClientRect().width))
+    .toBeGreaterThan(initialQuantityWidth + 50);
   await page.getByRole('button', { name: /^Criteria/ }).click();
   await expect(page.getByLabel('Collection filter')).toHaveCount(0);
   await page.getByRole('button', { name: /^Criteria/ }).click();
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
-  await expect(page.getByText('beta', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('beta', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Query', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Query', exact: true })).toHaveAttribute('aria-pressed', 'true');
@@ -129,10 +172,29 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByText('Statement 1', { exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText('documents', { exact: true })).toBeVisible();
   await expectQueryColumnsFillWidth(page);
+  const initialResultsHeight = await page.getByTestId('query-results-region').evaluate((element) => element.getBoundingClientRect().height);
+  const resultsResizer = page.getByTestId('query-results-resizer');
+  const resultsResizeBox = await resultsResizer.boundingBox();
+  if (!resultsResizeBox) throw new Error('Results resize handle is missing');
+  await page.mouse.move(resultsResizeBox.x + 10, resultsResizeBox.y + 2);
+  await page.mouse.down();
+  await page.mouse.move(resultsResizeBox.x + 10, resultsResizeBox.y - 80);
+  await page.mouse.up();
+  await expect.poll(() => page.getByTestId('query-results-region').evaluate((element) => element.getBoundingClientRect().height))
+    .toBeGreaterThan(initialResultsHeight + 50);
+  const statement = page.getByRole('button', { name: /Statement 1.*documents/ });
+  await statement.click();
+  await expect(page.getByTestId('query-documents-table')).toHaveCount(0);
+  await statement.click();
+  await expect(page.getByTestId('query-documents-table')).toBeVisible();
 
   await page.getByRole('button', { name: 'Documents', exact: true }).click();
   await expect(page.getByRole('button', { name: /^Criteria · 3/ })).toBeVisible();
-  await expect(page.getByText('beta', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('beta', { exact: true })).toBeVisible();
+
+  await page.locator('[title^="collection: mongog_e2e.inventory"]').click({ button: 'right' });
+  await expect(page.getByRole('menuitem', { name: 'Close Tabs to the Left' })).toBeVisible();
+  await page.keyboard.press('Escape');
 
   await page.locator('[title^="connection-settings: Connections"]').click();
 

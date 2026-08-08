@@ -29,9 +29,13 @@ import {
   connListDatabasesSchema,
   connListCollectionsSchema,
   connCollectionFindSchema,
+  connCollectionCountSchema,
   connCollectionInsertSchema,
   connCollectionReplaceSchema,
   connCollectionDeleteSchema,
+  connCollectionRenameSchema,
+  connCollectionDropSchema,
+  connDatabaseDropSchema,
   sampleSchemaSchema,
   connIndexListSchema,
   connIndexCreateSchema,
@@ -296,6 +300,12 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
     return client.request<CollectionDocumentsPage>('collection-find', payload);
   }, validateSender);
 
+  registerChannel(IpcChannels.connCollectionCount, connCollectionCountSchema, async (payload) => {
+    const client = supervisor.get(payload.connectionId);
+    if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+    return client.request<{ count: number }>('collection-count', payload);
+  }, validateSender);
+
   registerChannel(IpcChannels.connCollectionInsert, connCollectionInsertSchema, async (payload) => {
     requireWritableConnection(payload.connectionId);
     const client = supervisor.get(payload.connectionId);
@@ -315,6 +325,27 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
     const client = supervisor.get(payload.connectionId);
     if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
     return client.request<CollectionMutationResult>('collection-delete', payload);
+  }, validateSender);
+
+  registerChannel(IpcChannels.connCollectionRename, connCollectionRenameSchema, async (payload) => {
+    requireWritableConnection(payload.connectionId);
+    const client = supervisor.get(payload.connectionId);
+    if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+    return client.request<{ oldName: string; newName: string }>('collection-rename', payload);
+  }, validateSender);
+
+  registerChannel(IpcChannels.connCollectionDrop, connCollectionDropSchema, async (payload) => {
+    requireWritableConnection(payload.connectionId);
+    const client = supervisor.get(payload.connectionId);
+    if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+    return client.request<{ dropped: boolean }>('collection-drop', payload);
+  }, validateSender);
+
+  registerChannel(IpcChannels.connDatabaseDrop, connDatabaseDropSchema, async (payload) => {
+    requireWritableConnection(payload.connectionId);
+    const client = supervisor.get(payload.connectionId);
+    if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+    return client.request<{ dropped: boolean }>('database-drop', payload);
   }, validateSender);
 
   // ── Phase 4: Schema sampling ──

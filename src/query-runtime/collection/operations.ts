@@ -38,6 +38,14 @@ export interface CollectionDeleteOptions extends CollectionNamespace {
   originalDocumentEjson: string;
 }
 
+export interface CollectionCountOptions extends CollectionNamespace {
+  filterEjson: string;
+}
+
+export interface CollectionRenameOptions extends CollectionNamespace {
+  newName: string;
+}
+
 export async function findCollectionDocuments(
   client: MongoClient,
   registry: CursorRegistry,
@@ -74,6 +82,18 @@ export async function findCollectionDocuments(
     await registry.close(cursorId);
     throw error;
   }
+}
+
+export async function countCollectionDocuments(
+  client: MongoClient,
+  options: CollectionCountOptions,
+): Promise<{ count: number }> {
+  const filter = parseQueryDocumentExpression(options.filterEjson, 'Filter');
+  const count = await client
+    .db(options.database)
+    .collection(options.collection)
+    .countDocuments(filter as Filter<Document>, { maxTimeMS: 30_000 });
+  return { count };
 }
 
 export async function insertCollectionDocument(
@@ -127,6 +147,36 @@ export async function deleteCollectionDocument(
     acknowledged: result.acknowledged,
     deletedCount: result.deletedCount,
   };
+}
+
+export async function renameCollection(
+  client: MongoClient,
+  options: CollectionRenameOptions,
+): Promise<{ oldName: string; newName: string }> {
+  if (options.newName === options.collection) {
+    throw appError('Validation', 'The new collection name must be different.');
+  }
+  await client
+    .db(options.database)
+    .collection(options.collection)
+    .rename(options.newName, { dropTarget: false });
+  return { oldName: options.collection, newName: options.newName };
+}
+
+export async function dropCollection(
+  client: MongoClient,
+  options: CollectionNamespace,
+): Promise<{ dropped: boolean }> {
+  const dropped = await client.db(options.database).collection(options.collection).drop();
+  return { dropped };
+}
+
+export async function dropDatabase(
+  client: MongoClient,
+  database: string,
+): Promise<{ dropped: boolean }> {
+  const dropped = await client.db(database).dropDatabase();
+  return { dropped };
 }
 
 export function parseEjsonDocument(ejson: string, label: string): Document {

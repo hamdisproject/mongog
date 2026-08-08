@@ -4,8 +4,10 @@ import { TabBar } from './components/TabBar/TabBar.js';
 import { QueryWorkspace } from './components/Editor/QueryWorkspace.js';
 import { CollectionView } from './components/Results/CollectionView.js';
 import { AdminView } from './components/Admin/AdminView.js';
+import { ChangeStreamView } from './components/Admin/ChangeStreamView.js';
 import { WelcomeView } from './components/Welcome/WelcomeView.js';
 import { ConnectionsView } from './components/Connections/ConnectionsView.js';
+import { CommandPalette } from './components/CommandPalette/CommandPalette.js';
 import type { WorkspaceTab } from '../shared/domain/index.js';
 import { useWorkspaceStore } from './stores/workspace.js';
 import { useConnectionStore } from './stores/connections.js';
@@ -111,6 +113,7 @@ export default function App() {
       fontFamily: 'system-ui',
     }}>
       <Explorer />
+      <CommandPalette />
       <div style={{
         flex: 1, minWidth: 0, minHeight: 0, display: 'flex',
         flexDirection: 'column', overflow: 'hidden',
@@ -144,6 +147,8 @@ function renderTabContent(activeTabId: string | null, tabs: WorkspaceTab[]) {
       );
     case 'admin':
       return <AdminView tab={activeTab} />;
+    case 'change-stream':
+      return <ChangeStreamView tab={activeTab} />;
     case 'connection-settings':
       return <ConnectionsView tab={activeTab} />;
     default:

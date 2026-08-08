@@ -68,11 +68,18 @@ interface WorkspaceState {
   results: Record<string, TabExecutionState>;
 
   createTab: (kind: WorkspaceTab['kind'], connectionId?: string | null) => string;
+  openQuery: (options?: { connectionId?: string | null; database?: string; title?: string; editorContent?: string }) => string;
+  openCollection: (options: { connectionId: string; database: string; collection: string }) => string;
+  openAdmin: (options: { connectionId: string; database: string; collection?: string; section: NonNullable<WorkspaceTab['adminSection']> }) => string;
+  openChangeStream: (options: { connectionId: string; database: string; collection?: string }) => string;
   openWelcome: () => string;
   openConnections: (options?: { mode?: 'list' | 'create' | 'edit'; profileId?: string }) => string;
   setCollectionView: (tabId: string, view: CollectionViewMode) => void;
   detachConnection: (connectionId: string) => void;
+  renameCollectionContext: (connectionId: string, database: string, oldName: string, newName: string) => void;
+  closeNamespaceTabs: (connectionId: string, database: string, collection?: string) => void;
   closeTab: (id: string) => void;
+  closeTabs: (ids: string[]) => void;
   setActiveTab: (id: string) => void;
   updateTab: (id: string, partial: Partial<WorkspaceTab>) => void;
   prepareExecution: (tabId: string, connectionId: string, runId: string) => void;
@@ -112,6 +119,23 @@ function emptyExecution(): TabExecutionState {
   };
 }
 
+function cleanupTabResources(tab: WorkspaceTab, execution: TabExecutionState | undefined): void {
+  const connectionId = execution?.connectionId ?? tab.connectionId;
+  if (!connectionId || typeof window === 'undefined' || !window.mongog) return;
+  if (
+    execution?.executionId &&
+    (execution.status === 'starting' ||
+      execution.status === 'running' ||
+      execution.status === 'cancelling')
+  ) {
+    void window.mongog.query.cancel(connectionId, execution.executionId);
+  }
+  void window.mongog.query.closeOwner(connectionId, tab.id);
+  if (tab.kind === 'collection') {
+    void window.mongog.query.closeOwner(connectionId, collectionDocumentsOwnerId(tab.id));
+  }
+}
+
 export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
   tabs: [],
   activeTabId: null,
@@ -128,6 +152,8 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
           ? 'Untitled'
           : kind === 'admin'
             ? 'Administration'
+            : kind === 'change-stream'
+              ? 'Change Stream'
             : kind === 'connection-settings'
               ? 'Connections'
               : kind,
@@ -140,6 +166,86 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
       activeTabId: id,
       results: { ...state.results, [id]: emptyExecution() },
     }));
+    return id;
+  },
+
+  openQuery: (options = {}) => {
+    const id = get().createTab('query', options.connectionId ?? null);
+    get().updateTab(id, {
+      ...(options.database ? { database: options.database } : {}),
+      ...(options.title ? { title: options.title } : {}),
+      ...(options.editorContent !== undefined ? { editorContent: options.editorContent } : {}),
+    });
+    return id;
+  },
+
+  openCollection: (options) => {
+    const existing = get().tabs.find((tab) => (
+      tab.kind === 'collection' &&
+      tab.connectionId === options.connectionId &&
+      tab.database === options.database &&
+      tab.collection === options.collection
+    ));
+    if (existing) {
+      set({ activeTabId: existing.id });
+      return existing.id;
+    }
+    const id = get().createTab('collection', options.connectionId);
+    get().updateTab(id, {
+      title: `${options.database}.${options.collection}`,
+      database: options.database,
+      collection: options.collection,
+      collectionViewMode: 'documents',
+    });
+    return id;
+  },
+
+  openAdmin: (options) => {
+    const existing = get().tabs.find((tab) => (
+      tab.kind === 'admin' &&
+      tab.connectionId === options.connectionId &&
+      tab.database === options.database &&
+      tab.collection === options.collection &&
+      tab.adminSection === options.section
+    ));
+    if (existing) {
+      set({ activeTabId: existing.id });
+      return existing.id;
+    }
+    const id = get().createTab('admin', options.connectionId);
+    const scope = options.collection ? `${options.database}.${options.collection}` : options.database;
+    const label = options.section === 'gridfs'
+      ? 'GridFS'
+      : options.section === 'search'
+        ? 'Search'
+        : options.section.charAt(0).toUpperCase() + options.section.slice(1);
+    get().updateTab(id, {
+      title: `${label} · ${scope}`,
+      database: options.database,
+      ...(options.collection ? { collection: options.collection } : {}),
+      adminSection: options.section,
+    });
+    return id;
+  },
+
+  openChangeStream: (options) => {
+    const existing = get().tabs.find((tab) => (
+      tab.kind === 'change-stream' &&
+      tab.connectionId === options.connectionId &&
+      tab.database === options.database &&
+      tab.collection === options.collection
+    ));
+    if (existing) {
+      set({ activeTabId: existing.id });
+      return existing.id;
+    }
+    const id = get().createTab('change-stream', options.connectionId);
+    const scope = options.collection ? `${options.database}.${options.collection}` : options.database;
+    get().updateTab(id, {
+      title: `Changes · ${scope}`,
+      database: options.database,
+      ...(options.collection ? { collection: options.collection } : {}),
+    });
     return id;
   },
 
@@ -214,37 +320,58 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
     });
   },
 
-  closeTab: (id) => {
-    const execution = get().results[id];
-    const closingTab = get().tabs.find((tab) => tab.id === id);
-    const tabConnectionId = closingTab?.connectionId;
-    const ownerConnectionId = execution?.connectionId ?? tabConnectionId;
-    if (ownerConnectionId && typeof window !== 'undefined' && window.mongog) {
-      if (
-        execution?.executionId &&
-        (execution.status === 'starting' ||
-          execution.status === 'running' ||
-          execution.status === 'cancelling')
-      ) {
-        void window.mongog.query.cancel(ownerConnectionId, execution.executionId);
-      }
-      void window.mongog.query.closeOwner(ownerConnectionId, id);
-      if (closingTab?.kind === 'collection') {
-        void window.mongog.query.closeOwner(ownerConnectionId, collectionDocumentsOwnerId(id));
-      }
-    }
+  renameCollectionContext: (connectionId, database, oldName, newName) => {
+    set((state) => ({
+      tabs: state.tabs.map((tab) => {
+        if (
+          tab.connectionId !== connectionId ||
+          tab.database !== database ||
+          tab.collection !== oldName
+        ) return tab;
+        const editorContent = tab.editorContent === collectionQueryTemplate(oldName)
+          ? collectionQueryTemplate(newName)
+          : tab.editorContent;
+        return {
+          ...tab,
+          collection: newName,
+          ...(editorContent !== undefined ? { editorContent } : {}),
+          title: tab.kind === 'collection'
+            ? `${database}.${newName}`
+            : tab.title.replace(`${database}.${oldName}`, `${database}.${newName}`),
+        };
+      }),
+    }));
+  },
 
+  closeNamespaceTabs: (connectionId, database, collection) => {
+    const ids = get().tabs.filter((tab) => (
+      tab.connectionId === connectionId &&
+      tab.database === database &&
+      (collection === undefined || tab.collection === collection)
+    )).map((tab) => tab.id);
+    get().closeTabs(ids);
+  },
+
+  closeTab: (id) => get().closeTabs([id]),
+
+  closeTabs: (ids) => {
+    const closingIds = new Set(ids);
+    if (closingIds.size === 0) return;
+    const current = get();
+    for (const tab of current.tabs) {
+      if (closingIds.has(tab.id)) cleanupTabResources(tab, current.results[tab.id]);
+    }
     set((state) => {
-      const index = state.tabs.findIndex((tab) => tab.id === id);
-      const tabs = state.tabs.filter((tab) => tab.id !== id);
+      const activeIndex = state.tabs.findIndex((tab) => tab.id === state.activeTabId);
+      const tabs = state.tabs.filter((tab) => !closingIds.has(tab.id));
       let activeTabId = state.activeTabId;
-      if (activeTabId === id) {
-        if (tabs.length === 0) activeTabId = null;
-        else if (index > 0) activeTabId = tabs[index - 1]!.id;
-        else activeTabId = tabs[0]!.id;
+      if (activeTabId && closingIds.has(activeTabId)) {
+        const left = state.tabs.slice(0, activeIndex).reverse().find((tab) => !closingIds.has(tab.id));
+        const right = state.tabs.slice(activeIndex + 1).find((tab) => !closingIds.has(tab.id));
+        activeTabId = left?.id ?? right?.id ?? null;
       }
       const results = { ...state.results };
-      delete results[id];
+      for (const id of closingIds) delete results[id];
       return { tabs, activeTabId, results };
     });
   },

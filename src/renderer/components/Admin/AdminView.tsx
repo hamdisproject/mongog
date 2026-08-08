@@ -15,7 +15,6 @@ const sections: Array<{ id: AdminSection; label: string }> = [
   { id: 'indexes', label: 'Indexes' },
   { id: 'explain', label: 'Explain' },
   { id: 'search', label: 'Global Search' },
-  { id: 'changes', label: 'Change Streams' },
   { id: 'gridfs', label: 'GridFS' },
 ];
 

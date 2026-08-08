@@ -2,9 +2,13 @@ import { EJSON, Int32, ObjectId } from 'bson';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { MongoClient } from 'mongodb';
 import {
+  countCollectionDocuments,
   deleteCollectionDocument,
+  dropCollection,
+  dropDatabase,
   findCollectionDocuments,
   insertCollectionDocument,
+  renameCollection,
   replaceCollectionDocument,
 } from '../../src/query-runtime/collection/operations.js';
 import { CursorRegistry } from '../../src/query-runtime/registry/cursors.js';
@@ -75,6 +79,32 @@ describe('collection browser operations', () => {
     const documents = page.documents.map((envelope) => parseEjson<Record<string, unknown>>(envelope));
     expect(documents.map((document) => (document.rank as Int32).valueOf())).toEqual([3, 1]);
     expect(documents.every((document) => !Object.hasOwn(document, 'hidden'))).toBe(true);
+  });
+
+  it('counts the applied safe filter without consuming the browser cursor', async () => {
+    const result = await countCollectionDocuments(client!, {
+      database: DATABASE,
+      collection: 'criteria',
+      filterEjson: '{ bikeid: 17827, rank: { $gte: 2 } }',
+    });
+    expect(result).toEqual({ count: 1 });
+  });
+
+  it('renames and drops collections and drops a database through driver operations', async () => {
+    const database = 'mongog_namespace_mutations';
+    await client!.db(database).collection('before').insertOne({ value: 1 });
+    await expect(renameCollection(client!, {
+      database,
+      collection: 'before',
+      newName: 'after',
+    })).resolves.toEqual({ oldName: 'before', newName: 'after' });
+    await expect(client!.db(database).collection('after').countDocuments({})).resolves.toBe(1);
+    await expect(dropCollection(client!, { database, collection: 'after' }))
+      .resolves.toEqual({ dropped: true });
+    await client!.db(database).collection('remaining').insertOne({ value: 2 });
+    await expect(dropDatabase(client!, database)).resolves.toEqual({ dropped: true });
+    const names = (await client!.db('admin').admin().listDatabases()).databases.map((item) => item.name);
+    expect(names).not.toContain(database);
   });
 
   it('rejects executable criteria before they reach MongoDB', async () => {

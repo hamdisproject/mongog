@@ -35,7 +35,27 @@ export interface SandboxHandle {
 const CONSOLE_ARG_PREVIEW_BYTES = 16 * 1024;
 
 export function createSandbox(options: SandboxOptions): SandboxHandle {
-  let currentDb = options.client.db(options.database);
+  type ShellCompatibleDb = mongodb.Db & {
+    getSiblingDB(databaseName: string): ShellCompatibleDb;
+  };
+  const shellDb = (databaseName: string): ShellCompatibleDb => {
+    const value = options.client.db(databaseName) as ShellCompatibleDb;
+    if (!Object.hasOwn(value, 'getSiblingDB')) {
+      Object.defineProperty(value, 'getSiblingDB', {
+        configurable: false,
+        enumerable: false,
+        writable: false,
+        value: (name: string) => {
+          if (typeof name !== 'string' || name.length === 0) {
+            throw new Error('getSiblingDB(databaseName: string) requires a non-empty string.');
+          }
+          return shellDb(name);
+        },
+      });
+    }
+    return value;
+  };
+  let currentDb = shellDb(options.database);
   let consoleCount = 0;
   const consoleLimit = options.consoleEntryLimit ?? 1000;
 
@@ -77,7 +97,7 @@ export function createSandbox(options: SandboxOptions): SandboxHandle {
       if (typeof name !== 'string' || name.length === 0) {
         throw new Error('use(databaseName: string) requires a non-empty string.');
       }
-      currentDb = options.client.db(name);
+      currentDb = shellDb(name);
       (sandbox as { db: mongodb.Db }).db = currentDb;
       return currentDb;
     },

@@ -64,9 +64,13 @@ export const IpcChannels = {
   connListCollections: 'mongog:conn:list-collections',
   // ── Phase 3: Collection browser / document editor ──
   connCollectionFind: 'mongog:conn:collection:find',
+  connCollectionCount: 'mongog:conn:collection:count',
   connCollectionInsert: 'mongog:conn:collection:insert',
   connCollectionReplace: 'mongog:conn:collection:replace',
   connCollectionDelete: 'mongog:conn:collection:delete',
+  connCollectionRename: 'mongog:conn:collection:rename',
+  connCollectionDrop: 'mongog:conn:collection:drop',
+  connDatabaseDrop: 'mongog:conn:database:drop',
   // ── Phase 4: Schema / completions ──
   connSampleSchema: 'mongog:conn:sample-schema',
   // ── Phase 5: Administration ──
@@ -220,7 +224,7 @@ export const workspaceSaveSchema = z.object({
   state: z.object({
     tabs: z.array(z.object({
       id: z.string(),
-      kind: z.enum(['welcome', 'query', 'collection', 'history', 'connection-settings', 'admin']),
+      kind: z.enum(['welcome', 'query', 'collection', 'history', 'connection-settings', 'admin', 'change-stream']),
       title: z.string(),
       connectionId: z.string().nullable(),
       database: z.string().optional(),
@@ -311,6 +315,11 @@ export const connCollectionFindSchema = z.object({
   pageSize: z.number().int().min(1).max(500),
 });
 
+export const connCollectionCountSchema = z.object({
+  ...namespaceSchema,
+  filterEjson: ejsonSchema,
+});
+
 export const connCollectionInsertSchema = z.object({
   ...namespaceSchema,
   documentEjson: ejsonSchema,
@@ -325,6 +334,18 @@ export const connCollectionReplaceSchema = z.object({
 export const connCollectionDeleteSchema = z.object({
   ...namespaceSchema,
   originalDocumentEjson: ejsonSchema,
+});
+
+export const connCollectionRenameSchema = z.object({
+  ...namespaceSchema,
+  newName: z.string().trim().min(1).max(255),
+});
+
+export const connCollectionDropSchema = z.object(namespaceSchema);
+
+export const connDatabaseDropSchema = z.object({
+  connectionId: z.string().min(1),
+  database: z.string().min(1).max(255),
 });
 
 // ── Phase 5: Administration schemas ──
@@ -527,6 +548,12 @@ export interface MongoGDesktopApi {
       projectionEjson?: string;
       pageSize: number;
     }): Promise<CollectionDocumentsPage>;
+    collectionCount(input: {
+      connectionId: string;
+      database: string;
+      collection: string;
+      filterEjson: string;
+    }): Promise<{ count: number }>;
     collectionInsert(input: {
       connectionId: string;
       database: string;
@@ -546,6 +573,14 @@ export interface MongoGDesktopApi {
       collection: string;
       originalDocumentEjson: string;
     }): Promise<CollectionMutationResult>;
+    collectionRename(input: {
+      connectionId: string;
+      database: string;
+      collection: string;
+      newName: string;
+    }): Promise<{ oldName: string; newName: string }>;
+    collectionDrop(connectionId: string, database: string, collection: string): Promise<{ dropped: boolean }>;
+    databaseDrop(connectionId: string, database: string): Promise<{ dropped: boolean }>;
     sampleSchema(
       connectionId: string,
       database: string,

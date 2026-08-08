@@ -152,8 +152,11 @@ const globals = `
 declare const mongodb: typeof import('mongodb');
 declare const bson: typeof import('bson');
 declare const client: import('mongodb').MongoClient;
-declare let db: import('mongodb').Db;
-declare function use(databaseName: string): import('mongodb').Db;
+type MongoGShellDb = import('mongodb').Db & {
+  getSiblingDB(databaseName: string): MongoGShellDb;
+};
+declare let db: MongoGShellDb;
+declare function use(databaseName: string): MongoGShellDb;
 declare function print(...values: unknown[]): void;
 declare function printjson(value: unknown): void;
 `;

@@ -126,6 +126,26 @@ printjson({ nested: [1, 2, 3] });
     expect(c.results[0]!.result.kind).toBe('scalar');
   });
 
+  it('supports Mongo shell-style getSiblingDB without rebinding the active db', async () => {
+    await client.db('mongog_sibling').collection('items').insertMany([{ n: 1 }, { n: 2 }]);
+    const c = await run(`
+await db.getSiblingDB("mongog_sibling").collection("items").countDocuments({});
+db.databaseName;
+`);
+    expect(c.finished?.status).toBe('completed');
+    expect(c.results).toHaveLength(2);
+    if (c.results[0]!.result.kind === 'scalar') {
+      expect(Number(parseEjson(c.results[0]!.result.value))).toBe(2);
+    } else {
+      expect.unreachable('expected scalar count');
+    }
+    if (c.results[1]!.result.kind === 'scalar') {
+      expect(parseEjson(c.results[1]!.result.value)).toBe('mongog_test');
+    } else {
+      expect.unreachable('expected active database name');
+    }
+  });
+
   it('constructs GridFSBucket from the real driver', async () => {
     const c = await run(`
 const bucket = new mongodb.GridFSBucket(db);

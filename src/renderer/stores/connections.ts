@@ -46,6 +46,11 @@ interface ConnectionState {
   toggleDatabase: (connId: string, dbName: string) => void;
   loadDatabases: (connId: string) => Promise<void>;
   loadCollections: (connId: string, dbName: string) => Promise<void>;
+  refreshDatabases: (connId: string) => Promise<void>;
+  refreshCollections: (connId: string, dbName: string) => Promise<void>;
+  renameCollection: (connId: string, dbName: string, oldName: string, newName: string) => Promise<void>;
+  dropCollection: (connId: string, dbName: string, collection: string) => Promise<void>;
+  dropDatabase: (connId: string, dbName: string) => Promise<void>;
   createGroup: (name: string) => Promise<ConnectionGroup>;
   updateGroup: (g: ConnectionGroup) => Promise<void>;
   deleteGroup: (id: string) => Promise<void>;
@@ -176,6 +181,72 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
     } catch {
       // Connection may have been disconnected.
     }
+  },
+
+  refreshDatabases: async (connId) => {
+    const dbs = await window.mongog.query.listDatabases(connId);
+    set((state) => ({ databases: { ...state.databases, [connId]: dbs } }));
+  },
+
+  refreshCollections: async (connId, dbName) => {
+    const key = `${connId}:${dbName}`;
+    const values = await window.mongog.query.listCollections(connId, dbName);
+    set((state) => ({ collections: { ...state.collections, [key]: values } }));
+  },
+
+  renameCollection: async (connId, dbName, oldName, newName) => {
+    await window.mongog.query.collectionRename({
+      connectionId: connId,
+      database: dbName,
+      collection: oldName,
+      newName,
+    });
+    const key = `${connId}:${dbName}`;
+    set((state) => ({
+      collections: {
+        ...state.collections,
+        [key]: (state.collections[key] ?? []).map((item) => (
+          item.name === oldName ? { ...item, name: newName } : item
+        )).sort((left, right) => left.name.localeCompare(right.name)),
+      },
+    }));
+    useSchemaCache.getState().invalidate(connId, dbName, oldName);
+    useSchemaCache.getState().invalidate(connId, dbName, newName);
+    useWorkspaceStore.getState().renameCollectionContext(connId, dbName, oldName, newName);
+  },
+
+  dropCollection: async (connId, dbName, collection) => {
+    await window.mongog.query.collectionDrop(connId, dbName, collection);
+    const key = `${connId}:${dbName}`;
+    set((state) => ({
+      collections: {
+        ...state.collections,
+        [key]: (state.collections[key] ?? []).filter((item) => item.name !== collection),
+      },
+    }));
+    useSchemaCache.getState().invalidate(connId, dbName, collection);
+    useWorkspaceStore.getState().closeNamespaceTabs(connId, dbName, collection);
+  },
+
+  dropDatabase: async (connId, dbName) => {
+    await window.mongog.query.databaseDrop(connId, dbName);
+    const key = `${connId}:${dbName}`;
+    set((state) => {
+      const collections = { ...state.collections };
+      delete collections[key];
+      const expandedDatabaseIds = new Set(state.expandedDatabaseIds);
+      expandedDatabaseIds.delete(key);
+      return {
+        databases: {
+          ...state.databases,
+          [connId]: (state.databases[connId] ?? []).filter((item) => item.name !== dbName),
+        },
+        collections,
+        expandedDatabaseIds,
+      };
+    });
+    useSchemaCache.getState().invalidateConnection(connId);
+    useWorkspaceStore.getState().closeNamespaceTabs(connId, dbName);
   },
 
   createGroup: async (name) => {

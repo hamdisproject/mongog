@@ -188,14 +188,28 @@ function ResultCard({
   item: StatementResultState;
   ejsonMode: EjsonMode;
 }) {
+  const [collapsed, setCollapsed] = useState(false);
   return (
     <div style={s.card}>
-      <div style={s.cardHeader}>
+      <div
+        style={{ ...s.cardHeader, cursor: 'pointer', userSelect: 'none' }}
+        role="button"
+        tabIndex={0}
+        aria-expanded={!collapsed}
+        onClick={() => setCollapsed((current) => !current)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            setCollapsed((current) => !current);
+          }
+        }}
+      >
+        <span style={{ width: 12, color: '#888' }}>{collapsed ? '▶' : '▼'}</span>
         <span>Statement {item.index + 1}</span>
         <span style={s.badge}>{item.result.kind}</span>
         <span style={{ marginLeft: 'auto' }}>{item.durationMs.toFixed(1)} ms</span>
       </div>
-      <div style={s.cardBody}>
+      {!collapsed && <div style={s.cardBody}>
         {item.result.kind === 'documents' ? (
           <DocumentsResult
             tabId={tabId}
@@ -207,7 +221,7 @@ function ResultCard({
         ) : (
           <NonDocumentResult result={item.result} ejsonMode={ejsonMode} />
         )}
-      </div>
+      </div>}
     </div>
   );
 }

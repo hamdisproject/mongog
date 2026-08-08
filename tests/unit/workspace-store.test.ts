@@ -157,6 +157,42 @@ describe('workspace execution store', () => {
     });
   });
 
+  it('opens contextual tools once per namespace while new queries remain independent', () => {
+    const firstQuery = useWorkspaceStore.getState().openQuery({ connectionId: 'conn-1', database: 'db' });
+    const secondQuery = useWorkspaceStore.getState().openQuery({ connectionId: 'conn-1', database: 'db' });
+    expect(secondQuery).not.toBe(firstQuery);
+
+    const firstCollection = useWorkspaceStore.getState().openCollection({
+      connectionId: 'conn-1', database: 'db', collection: 'items',
+    });
+    const secondCollection = useWorkspaceStore.getState().openCollection({
+      connectionId: 'conn-1', database: 'db', collection: 'items',
+    });
+    expect(secondCollection).toBe(firstCollection);
+
+    const changes = useWorkspaceStore.getState().openChangeStream({
+      connectionId: 'conn-1', database: 'db', collection: 'items',
+    });
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === changes)).toMatchObject({
+      kind: 'change-stream',
+      title: 'Changes · db.items',
+    });
+  });
+
+  it('closes multiple tabs together and activates the nearest surviving tab', () => {
+    const first = useWorkspaceStore.getState().openQuery({ title: 'first' });
+    const second = useWorkspaceStore.getState().openQuery({ title: 'second' });
+    const third = useWorkspaceStore.getState().openQuery({ title: 'third' });
+    const fourth = useWorkspaceStore.getState().openQuery({ title: 'fourth' });
+    useWorkspaceStore.getState().setActiveTab(third);
+
+    useWorkspaceStore.getState().closeTabs([second, third, fourth]);
+
+    expect(useWorkspaceStore.getState().tabs.map((tab) => tab.id)).toEqual([first]);
+    expect(useWorkspaceStore.getState().activeTabId).toBe(first);
+    expect(Object.keys(useWorkspaceStore.getState().results)).toEqual([first]);
+  });
+
   it('detaches deleted connections from tabs and execution state', () => {
     const query = useWorkspaceStore.getState().createTab('query', 'deleted');
     const settings = useWorkspaceStore.getState().openConnections({ mode: 'edit', profileId: 'deleted' });
