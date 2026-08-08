@@ -61,6 +61,7 @@ interface ConnectionState {
     secret?: { password?: string; uriOverride?: string };
   }) => Promise<ConnectionProfile>;
   updateProfile: (id: string, input: Partial<ConnectionProfile & { uri?: string }>) => Promise<ConnectionProfile>;
+  moveProfileToGroup: (profileId: string, groupId: string | null) => Promise<void>;
   deleteProfile: (id: string) => Promise<void>;
   testDraft: (input: ConnectionDraftRequest) => Promise<TestConnectionResult>;
   saveAndConnect: (input: ConnectionDraftRequest) => Promise<SaveAndConnectResult>;
@@ -286,6 +287,10 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
     const p = await window.mongog.connections.updateProfile(id, input);
     set({ profiles: get().profiles.map((x) => (x.id === id ? p : x)) });
     return p;
+  },
+
+  moveProfileToGroup: async (profileId, groupId) => {
+    await get().updateProfile(profileId, { groupId });
   },
 
   deleteProfile: async (id) => {

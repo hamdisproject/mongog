@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useConnectionStore } from '../../stores/connections.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
 import { collectionQueryTemplate } from '../../collection-workspace.js';
+import type { ConnectionGroup } from '../../../shared/domain/connections.js';
 import { ActionDialog } from '../Common/ActionDialog.js';
 import { ContextMenu, type ContextMenuItem } from '../Common/ContextMenu.js';
 
@@ -27,6 +28,7 @@ const s: Record<string, React.CSSProperties> = {
     cursor: 'pointer', borderRadius: 3, margin: '0 4px',
   },
   treeItemSelected: { background: '#094771' },
+  treeItemDropTarget: { background: '#264f78', outline: '1px solid #3794ff', outlineOffset: -1 },
   groupChildren: { marginLeft: 16 },
   dbChildren: { marginLeft: 20 },
   colChildren: { marginLeft: 36 },
@@ -47,6 +49,16 @@ const s: Record<string, React.CSSProperties> = {
     color: '#aaa', padding: 0, fontSize: 13, lineHeight: '22px', cursor: 'pointer',
     flexShrink: 0,
   },
+  collapseButton: {
+    width: 18, height: 18, flexShrink: 0, border: 0, borderRadius: 2,
+    background: 'transparent', color: '#aaa', padding: 0, fontSize: 10,
+    lineHeight: '18px', cursor: 'pointer', textAlign: 'center',
+  },
+};
+
+type GroupAction = {
+  kind: 'rename' | 'delete';
+  group: ConnectionGroup;
 };
 
 function ExplorerTree() {
@@ -55,8 +67,8 @@ function ExplorerTree() {
     expandedGroupIds, expandedProfileIds, expandedDatabaseIds,
     databases, collections, loading,
     selectGroup, selectProfile, toggleGroup, toggleProfile, toggleDatabase,
-    deleteGroup, connect, disconnect, loadDatabases, loadCollections,
-    createGroup,
+    updateGroup, deleteGroup, connect, disconnect, loadDatabases, loadCollections,
+    createGroup, moveProfileToGroup,
   } = useConnectionStore();
   const { openWelcome, openConnections } = useWorkspaceStore();
 
@@ -64,6 +76,16 @@ function ExplorerTree() {
   const [newGroupName, setNewGroupName] = useState('');
   const [profileError, setProfileError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [draggingProfileId, setDraggingProfileId] = useState<string | null>(null);
+  const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
+  const [groupContextMenu, setGroupContextMenu] = useState<{
+    x: number;
+    y: number;
+    group: ConnectionGroup;
+  } | null>(null);
+  const [groupAction, setGroupAction] = useState<GroupAction | null>(null);
+  const [groupActionBusy, setGroupActionBusy] = useState(false);
+  const [groupActionError, setGroupActionError] = useState<string | null>(null);
   const normalizedSearch = search.trim().toLocaleLowerCase();
 
   const matchesProfile = (profileId: string, profileName: string) => {
@@ -108,6 +130,44 @@ function ExplorerTree() {
     }
   };
 
+  const moveProfile = async (profileId: string, groupId: string | null) => {
+    setProfileError(null);
+    try {
+      await moveProfileToGroup(profileId, groupId);
+      if (groupId && !expandedGroupIds.has(groupId)) toggleGroup(groupId);
+    } catch (error) {
+      setProfileError(errorMessage(error));
+    } finally {
+      setDraggingProfileId(null);
+      setDragOverGroupId(null);
+    }
+  };
+
+  const showGroupMenu = (event: React.MouseEvent, group: ConnectionGroup) => {
+    event.preventDefault();
+    event.stopPropagation();
+    selectGroup(group.id);
+    setGroupContextMenu({ x: event.clientX, y: event.clientY, group });
+  };
+
+  const performGroupAction = async (value: string) => {
+    if (!groupAction || groupActionBusy) return;
+    setGroupActionBusy(true);
+    setGroupActionError(null);
+    try {
+      if (groupAction.kind === 'rename') {
+        await updateGroup({ ...groupAction.group, name: value.trim() });
+      } else {
+        await deleteGroup(groupAction.group.id);
+      }
+      setGroupAction(null);
+    } catch (error) {
+      setGroupActionError(errorMessage(error));
+    } finally {
+      setGroupActionBusy(false);
+    }
+  };
+
   return (
     <div style={s.sidebar}>
       <div style={s.header}>
@@ -143,7 +203,7 @@ function ExplorerTree() {
         </div>
       )}
 
-      <div style={s.tree}>
+      <div style={s.tree} role="tree" aria-label="MongoDB connections">
         {profileError && (
           <div style={{ padding: '4px 8px', fontSize: 11, color: '#f44747', borderBottom: '1px solid #333' }}>
             {profileError}
@@ -162,21 +222,69 @@ function ExplorerTree() {
           ));
           if (normalizedSearch && !groupMatches && groupProfiles.length === 0) return null;
           const isExpanded = normalizedSearch ? true : expandedGroupIds.has(g.id);
+          const groupKey = `group:${g.id}`;
           return (
             <div key={g.id}>
               <div
-                style={{ ...s.treeItem, ...(selectedGroupId === g.id ? s.treeItemSelected : {}) }}
+                className="explorer-tree-item"
+                role="treeitem"
+                aria-label={`Group ${g.name}`}
+                aria-level={1}
+                aria-expanded={isExpanded}
+                tabIndex={0}
+                data-tree-node-key={groupKey}
+                style={{
+                  ...s.treeItem,
+                  ...(selectedGroupId === g.id ? s.treeItemSelected : {}),
+                  ...(dragOverGroupId === g.id ? s.treeItemDropTarget : {}),
+                }}
                 onClick={() => selectGroup(g.id)}
                 onDoubleClick={() => toggleGroup(g.id)}
+                onContextMenu={(event) => showGroupMenu(event, g)}
+                onKeyDown={(event) => handleTreeKeyDown(event, {
+                  key: groupKey,
+                  expanded: isExpanded,
+                  expandable: true,
+                  onExpand: () => { if (!isExpanded) toggleGroup(g.id); },
+                  onCollapse: () => { if (isExpanded) toggleGroup(g.id); },
+                  onActivate: () => toggleGroup(g.id),
+                })}
+                onDragOver={(event) => {
+                  if (!draggingProfileId) return;
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = 'move';
+                  setDragOverGroupId(g.id);
+                }}
+                onDragLeave={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                    setDragOverGroupId((current) => current === g.id ? null : current);
+                  }
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  const profileId = event.dataTransfer.getData('application/x-mongog-profile') || draggingProfileId;
+                  if (profileId) void moveProfile(profileId, g.id);
+                }}
               >
-                <span style={{ fontSize: 10, width: 14, textAlign: 'center' }}>{isExpanded ? '▼' : '▶'}</span>
+                <button
+                  type="button"
+                  style={s.collapseButton}
+                  aria-label={`${isExpanded ? 'Collapse' : 'Expand'} group ${g.name}`}
+                  title={`${isExpanded ? 'Collapse' : 'Expand'} group ${g.name}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (!normalizedSearch) toggleGroup(g.id);
+                  }}
+                  onDoubleClick={(event) => event.stopPropagation()}
+                >
+                  {isExpanded ? '▼' : '▶'}
+                </button>
                 <span style={{ fontSize: 11, opacity: 0.6 }}>&#x1F4C1;</span>
                 <span style={s.name}>{g.name}</span>
-                <span style={{ ...s.actions, fontSize: 12 }}
-                  onClick={(e) => { e.stopPropagation(); deleteGroup(g.id); }} title="Delete group">&#x2715;</span>
               </div>
               {isExpanded && (
-                <div style={s.groupChildren}>
+                <div style={s.groupChildren} role="group">
                   {groupProfiles.map((p) => (
                     <ProfileNode key={p.id} profile={p}
                       isConnected={!!connected[p.id]}
@@ -187,6 +295,9 @@ function ExplorerTree() {
                       onToggle={() => toggleProfile(p.id)}
                       onEdit={() => openConnections({ mode: 'edit', profileId: p.id })}
                       search={normalizedSearch}
+                      parentKey={groupKey}
+                      onDragStart={(profileId) => setDraggingProfileId(profileId)}
+                      onDragEnd={() => { setDraggingProfileId(null); setDragOverGroupId(null); }}
                     />
                   ))}
                 </div>
@@ -205,9 +316,80 @@ function ExplorerTree() {
             onToggle={() => toggleProfile(p.id)}
             onEdit={() => openConnections({ mode: 'edit', profileId: p.id })}
             search={normalizedSearch}
+            onDragStart={(profileId) => setDraggingProfileId(profileId)}
+            onDragEnd={() => { setDraggingProfileId(null); setDragOverGroupId(null); }}
           />
         ))}
+        {draggingProfileId && (
+          <div
+            role="treeitem"
+            aria-label="Move connection out of group"
+            aria-level={1}
+            tabIndex={-1}
+            style={{
+              ...s.treeItem, marginTop: 7, border: '1px dashed #555', color: '#999',
+              justifyContent: 'center', fontSize: 11,
+              ...(dragOverGroupId === '__ungrouped__' ? s.treeItemDropTarget : {}),
+            }}
+            onDragOver={(event) => {
+              event.preventDefault();
+              event.dataTransfer.dropEffect = 'move';
+              setDragOverGroupId('__ungrouped__');
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              const profileId = event.dataTransfer.getData('application/x-mongog-profile') || draggingProfileId;
+              if (profileId) void moveProfile(profileId, null);
+            }}
+          >
+            Drop here to remove from group
+          </div>
+        )}
       </div>
+      {groupContextMenu && (
+        <ContextMenu
+          x={groupContextMenu.x}
+          y={groupContextMenu.y}
+          items={[
+            {
+              label: 'Rename Group…',
+              onSelect: () => {
+                setGroupActionError(null);
+                setGroupAction({ kind: 'rename', group: groupContextMenu.group });
+              },
+            },
+            {
+              label: 'Delete Group…',
+              separatorBefore: true,
+              danger: true,
+              onSelect: () => {
+                setGroupActionError(null);
+                setGroupAction({ kind: 'delete', group: groupContextMenu.group });
+              },
+            },
+          ]}
+          onClose={() => setGroupContextMenu(null)}
+        />
+      )}
+      {groupAction && (
+        <ActionDialog
+          title={groupAction.kind === 'rename' ? 'Rename group' : 'Delete group'}
+          description={groupAction.kind === 'rename'
+            ? `Rename group ${groupAction.group.name}. Connections inside the group will be preserved.`
+            : `Delete group ${groupAction.group.name}. Connections inside it will be moved out of the group and will not be deleted.`}
+          inputLabel={groupAction.kind === 'rename'
+            ? 'Group name'
+            : `Type "${groupAction.group.name}" to confirm`}
+          initialValue={groupAction.kind === 'rename' ? groupAction.group.name : ''}
+          requiredValue={groupAction.kind === 'delete' ? groupAction.group.name : undefined}
+          confirmLabel={groupAction.kind === 'rename' ? 'Rename' : 'Delete group'}
+          danger={groupAction.kind === 'delete'}
+          busy={groupActionBusy}
+          error={groupActionError}
+          onCancel={() => { if (!groupActionBusy) setGroupAction(null); }}
+          onConfirm={(value) => void performGroupAction(value)}
+        />
+      )}
     </div>
   );
 }
@@ -222,6 +404,9 @@ interface ProfileNodeProps {
   onToggle: () => void;
   onEdit: () => void;
   search: string;
+  parentKey?: string;
+  onDragStart: (profileId: string) => void;
+  onDragEnd: () => void;
 }
 
 type NamespaceAction =
@@ -239,6 +424,9 @@ function ProfileNode({
   onToggle,
   onEdit,
   search,
+  parentKey,
+  onDragStart,
+  onDragEnd,
 }: ProfileNodeProps) {
   const {
     databases,
@@ -265,6 +453,8 @@ function ProfileNode({
       (collections[`${profile.id}:${database.name}`] ?? [])
         .some((collection) => collection.name.toLocaleLowerCase().includes(search))
     ));
+  const profileKey = `profile:${profile.id}`;
+  const profileExpanded = !!search || isExpanded;
   const handleConnectionAction = async () => {
     if (connectionBusy) return;
     setConnectionBusy(true);
@@ -397,9 +587,34 @@ function ProfileNode({
   return (
     <div>
       <div
+        className="explorer-tree-item"
+        role="treeitem"
+        aria-label={`Connection ${profile.name}`}
+        aria-level={parentKey ? 2 : 1}
+        aria-expanded={isConnected ? profileExpanded : undefined}
+        tabIndex={0}
+        draggable
+        data-tree-node-key={profileKey}
+        data-tree-parent-key={parentKey}
         style={{ ...s.treeItem, ...(isSelected ? s.treeItemSelected : {}) }}
         onClick={onSelect}
         onDoubleClick={() => void handleConnectionAction()}
+        onKeyDown={(event) => handleTreeKeyDown(event, {
+          key: profileKey,
+          parentKey,
+          expanded: profileExpanded,
+          expandable: isConnected,
+          onExpand: () => { if (!profileExpanded) onToggle(); },
+          onCollapse: () => { if (profileExpanded && !search) onToggle(); },
+          onActivate: onSelect,
+        })}
+        onDragStart={(event) => {
+          event.dataTransfer.effectAllowed = 'move';
+          event.dataTransfer.setData('application/x-mongog-profile', profile.id);
+          event.dataTransfer.setData('text/plain', profile.name);
+          onDragStart(profile.id);
+        }}
+        onDragEnd={onDragEnd}
         title={isConnected ? 'Double-click to disconnect' : 'Double-click to connect'}
       >
         <span
@@ -407,7 +622,7 @@ function ProfileNode({
           title={isConnected ? (isExpanded ? 'Collapse databases' : 'Expand databases') : undefined}
           onClick={(e) => { e.stopPropagation(); onToggle(); }}
         >
-          {isConnected ? (isExpanded ? '▼' : '▶') : ''}
+          {isConnected ? (profileExpanded ? '▼' : '▶') : ''}
         </span>
         <div style={{ ...s.dot, ...(isConnected ? s.dotConnected : s.dotDisconnected), ...(profile.color ? { background: profile.color } : {}) }} />
         <span style={s.name}>{profile.name}</span>
@@ -434,8 +649,8 @@ function ProfileNode({
         </button>
       </div>
 
-      {(search || isExpanded) && isConnected && (
-        <div style={s.dbChildren}>
+      {profileExpanded && isConnected && (
+        <div style={s.dbChildren} role="group">
           {visibleDatabases.map((db) => {
             const dbKey = `${profile.id}:${db.name}`;
             const dbExpanded = search ? true : expandedDatabaseIds.has(dbKey);
@@ -444,26 +659,58 @@ function ProfileNode({
             const visibleCollections = !search || profileNameMatches || databaseMatches
               ? dbCols
               : dbCols.filter((collection) => collection.name.toLocaleLowerCase().includes(search));
+            const databaseKey = `database:${profile.id}:${encodeURIComponent(db.name)}`;
             return (
               <div key={db.name}>
                 <div
+                  className="explorer-tree-item"
+                  role="treeitem"
+                  aria-label={`Database ${db.name}`}
+                  aria-level={parentKey ? 3 : 2}
+                  aria-expanded={dbExpanded}
+                  tabIndex={0}
+                  data-tree-node-key={databaseKey}
+                  data-tree-parent-key={profileKey}
                   style={{ ...s.treeItem, paddingLeft: 4, fontSize: 12 }}
                   title={`${dbExpanded ? 'Collapse' : 'Expand'} database ${db.name}`}
                   onClick={() => toggleDatabase(profile.id, db.name)}
                   onContextMenu={(event) => showDatabaseMenu(event, db.name)}
+                  onKeyDown={(event) => handleTreeKeyDown(event, {
+                    key: databaseKey,
+                    parentKey: profileKey,
+                    expanded: dbExpanded,
+                    expandable: true,
+                    onExpand: () => { if (!dbExpanded) toggleDatabase(profile.id, db.name); },
+                    onCollapse: () => { if (dbExpanded && !search) toggleDatabase(profile.id, db.name); },
+                    onActivate: () => toggleDatabase(profile.id, db.name),
+                  })}
                 >
                   <span style={{ fontSize: 10, width: 12, textAlign: 'center' }}>{dbExpanded ? '▼' : '▶'}</span>
                   <span style={{ fontSize: 11 }}>&#x1F4E6;</span>
                   <span style={s.name}>{db.name}</span>
                 </div>
                 {dbExpanded && (
-                  <div style={s.colChildren}>
+                  <div style={s.colChildren} role="group">
                     {visibleCollections.map((col) => (
                       <div
                         key={col.name}
+                        className="explorer-tree-item"
+                        role="treeitem"
+                        aria-label={`Collection ${db.name}.${col.name}`}
+                        aria-level={parentKey ? 4 : 3}
+                        tabIndex={0}
+                        data-tree-node-key={`collection:${profile.id}:${encodeURIComponent(db.name)}:${encodeURIComponent(col.name)}`}
+                        data-tree-parent-key={databaseKey}
                         style={{ ...s.treeItem, paddingLeft: 2, fontSize: 12, color: '#aaa' }}
                         onClick={() => handleCollectionClick(db.name, col.name)}
                         onContextMenu={(event) => showCollectionMenu(event, db.name, col.name)}
+                        onKeyDown={(event) => handleTreeKeyDown(event, {
+                          key: `collection:${profile.id}:${encodeURIComponent(db.name)}:${encodeURIComponent(col.name)}`,
+                          parentKey: databaseKey,
+                          expanded: false,
+                          expandable: false,
+                          onActivate: () => handleCollectionClick(db.name, col.name),
+                        })}
                         title={`Open ${db.name}.${col.name}`}
                       >
                         <span style={{ fontSize: 11 }}>{col.type === 'view' ? 'V' : '{ }'}</span>
@@ -530,6 +777,79 @@ export function Explorer() {
       <ExplorerTree />
     </nav>
   );
+}
+
+interface TreeKeyOptions {
+  key: string;
+  parentKey?: string;
+  expanded: boolean;
+  expandable: boolean;
+  onExpand?: () => void;
+  onCollapse?: () => void;
+  onActivate: () => void;
+}
+
+function handleTreeKeyDown(
+  event: React.KeyboardEvent<HTMLElement>,
+  options: TreeKeyOptions,
+): void {
+  if (event.target !== event.currentTarget) return;
+  const tree = event.currentTarget.closest<HTMLElement>('[role="tree"]');
+  if (!tree) return;
+  const isVisible = (item: HTMLElement) => item.getClientRects().length > 0;
+  const visibleItems = Array.from(tree.querySelectorAll<HTMLElement>('[role="treeitem"]'))
+    .filter((item) => isVisible(item) && item.dataset.treeNodeKey);
+  const currentIndex = visibleItems.indexOf(event.currentTarget);
+  const focusItem = (item: HTMLElement | undefined) => {
+    if (!item) return;
+    item.focus();
+    item.scrollIntoView({ block: 'nearest' });
+  };
+  const focusChild = () => {
+    const child = Array.from(tree.querySelectorAll<HTMLElement>('[role="treeitem"]'))
+      .find((item) => isVisible(item) && item.dataset.treeParentKey === options.key);
+    focusItem(child);
+  };
+
+  switch (event.key) {
+    case 'ArrowDown':
+      event.preventDefault();
+      focusItem(visibleItems[currentIndex + 1]);
+      break;
+    case 'ArrowUp':
+      event.preventDefault();
+      focusItem(visibleItems[currentIndex - 1]);
+      break;
+    case 'Home':
+      event.preventDefault();
+      focusItem(visibleItems[0]);
+      break;
+    case 'End':
+      event.preventDefault();
+      focusItem(visibleItems.at(-1));
+      break;
+    case 'ArrowRight':
+      event.preventDefault();
+      if (options.expandable && !options.expanded) {
+        options.onExpand?.();
+      } else if (options.expandable) {
+        focusChild();
+      }
+      break;
+    case 'ArrowLeft':
+      event.preventDefault();
+      if (options.expandable && options.expanded) {
+        options.onCollapse?.();
+      } else if (options.parentKey) {
+        focusItem(visibleItems.find((item) => item.dataset.treeNodeKey === options.parentKey));
+      }
+      break;
+    case 'Enter':
+    case ' ':
+      event.preventDefault();
+      options.onActivate();
+      break;
+  }
 }
 
 function errorMessage(error: unknown): string {

@@ -59,6 +59,23 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   let explorer = page.getByRole('navigation', { name: 'Connection explorer' });
   await expect(explorer.getByRole('button', { name: 'Disconnect', exact: true })).toBeVisible();
   await expect(explorer.getByRole('button', { name: 'Connection settings for E2E Local' })).toBeVisible();
+  await page.getByTitle('New group').click();
+  await page.getByPlaceholder('Group name').fill('E2E Group');
+  await page.getByPlaceholder('Group name').press('Enter');
+  const groupNode = explorer.getByRole('treeitem', { name: 'Group E2E Group' });
+  const initialProfileNode = explorer.getByRole('treeitem', { name: 'Connection E2E Local' });
+  await initialProfileNode.dragTo(groupNode);
+  await expect(groupNode.locator('..').getByRole('treeitem', { name: 'Connection E2E Local' })).toBeVisible();
+  await explorer.getByRole('button', { name: 'Collapse group E2E Group' }).click();
+  await expect(groupNode.locator('..').getByRole('treeitem', { name: 'Connection E2E Local' })).toHaveCount(0);
+  await explorer.getByRole('button', { name: 'Expand group E2E Group' }).click();
+  await expect(groupNode.locator('..').getByRole('treeitem', { name: 'Connection E2E Local' })).toBeVisible();
+  await groupNode.click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Rename Group…' }).click();
+  const renameGroupDialog = page.getByRole('dialog', { name: 'Rename group' });
+  await renameGroupDialog.getByRole('textbox').fill('E2E Renamed Group');
+  await renameGroupDialog.getByRole('button', { name: 'Rename', exact: true }).click();
+  await expect(explorer.getByRole('treeitem', { name: 'Group E2E Renamed Group' })).toBeVisible();
 
   await page.locator('[title^="welcome: Welcome"]').click();
   await page.getByRole('button', { name: /E2E Local CONNECTED/ }).click();
@@ -74,6 +91,10 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.locator('[title^="welcome: Welcome"]')).toHaveCount(1);
   explorer = page.getByRole('navigation', { name: 'Connection explorer' });
   await expect(explorer.getByRole('button', { name: 'Connect', exact: true })).toBeVisible();
+  await expect(
+    explorer.getByRole('treeitem', { name: 'Group E2E Renamed Group' }).locator('..')
+      .getByRole('treeitem', { name: 'Connection E2E Local' }),
+  ).toBeVisible();
 
   await page.getByRole('button', { name: 'Open Connections' }).click();
   await page.getByRole('complementary').getByText('E2E Local', { exact: true }).click();
@@ -95,8 +116,34 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.getByRole('option', { name: /inventory/ }).click();
   await expect(page.getByRole('button', { name: 'Documents', exact: true })).toHaveAttribute('aria-pressed', 'true');
 
-  await page.getByTitle('Expand databases').click();
-  await page.getByTitle('Expand database mongog_e2e').click();
+  const profileTreeItem = explorer.getByRole('treeitem', { name: 'Connection E2E Renamed' });
+  await profileTreeItem.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(profileTreeItem).toBeFocused();
+  const databaseTreeItem = explorer.getByRole('treeitem', { name: 'Database mongog_e2e' });
+  await expect(databaseTreeItem).toBeVisible();
+  await page.keyboard.press('ArrowRight');
+  await expect(explorer.locator('[role="treeitem"][aria-level="3"]:focus')).toBeVisible();
+  for (let index = 0; index < 20 && !(await databaseTreeItem.evaluate((element) => element === document.activeElement)); index += 1) {
+    await page.keyboard.press('ArrowDown');
+  }
+  await expect(databaseTreeItem).toBeFocused();
+  await page.keyboard.press('ArrowUp');
+  await expect(databaseTreeItem).not.toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(databaseTreeItem).toBeFocused();
+  await page.keyboard.press('ArrowRight');
+  await expect(databaseTreeItem).toBeFocused();
+  const collectionTreeItem = explorer.getByRole('treeitem', { name: 'Collection mongog_e2e.inventory' });
+  await expect(collectionTreeItem).toBeVisible();
+  await page.keyboard.press('ArrowRight');
+  await expect(collectionTreeItem).toBeFocused();
+  await page.keyboard.press('ArrowLeft');
+  await expect(databaseTreeItem).toBeFocused();
+  await page.keyboard.press('ArrowLeft');
+  await expect(collectionTreeItem).toHaveCount(0);
+  await page.keyboard.press('ArrowRight');
+  await expect(collectionTreeItem).toBeVisible();
   await explorer.getByLabel('Search connections').fill('inventory');
   await expect(page.getByTitle('Open mongog_e2e.inventory')).toBeVisible();
   await explorer.getByLabel('Search connections').fill('');
@@ -168,7 +215,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expectWorkspaceSurfaceFullWidth(page, 'query-editor');
   await expectQueryEditorFullHeight(page);
   await expect(page.getByLabel('Connection', { exact: true })).toBeDisabled();
-  await expect(page.getByLabel('Database')).toBeDisabled();
+  await expect(page.getByLabel('Database', { exact: true })).toBeDisabled();
   await page.getByRole('button', { name: /^Run/ }).click();
   await expect(page.getByTestId('query-results-region')).toBeVisible();
   await expect(page.getByText('Statement 1', { exact: true })).toBeVisible({ timeout: 30_000 });
@@ -203,6 +250,13 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'Delete' }).click();
   await expect(page.getByText('No matching connections.')).toBeVisible();
+  const renamedGroupNode = explorer.getByRole('treeitem', { name: 'Group E2E Renamed Group' });
+  await renamedGroupNode.click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Delete Group…' }).click();
+  const deleteGroupDialog = page.getByRole('dialog', { name: 'Delete group' });
+  await deleteGroupDialog.getByRole('textbox').fill('E2E Renamed Group');
+  await deleteGroupDialog.getByRole('button', { name: 'Delete group', exact: true }).click();
+  await expect(renamedGroupNode).toHaveCount(0);
 });
 
 async function setMonacoValue(page: Page, label: string, value: string): Promise<void> {

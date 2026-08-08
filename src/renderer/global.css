@@ -15,3 +15,9 @@ body {
   background: #1e1e1e;
   overscroll-behavior: none;
 }
+
+.explorer-tree-item:focus {
+  outline: 1px solid #3794ff;
+  outline-offset: -1px;
+  background: #37373d;
+}
