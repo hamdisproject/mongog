@@ -6,6 +6,7 @@
  * cursor.next()/hasNext() — toArray() on user cursors is never called.
  */
 import { randomUUID } from 'node:crypto';
+import { EJSON } from 'bson';
 import type { ChangeStreamPollResult, DocumentsPage } from '../../shared/domain/index.js';
 import { appError } from '../../shared/errors/index.js';
 import {
@@ -305,6 +306,88 @@ export class CursorRegistry {
     entry.fullValues.delete(fullValueId);
     entry.fullValues.set(fullValueId, record);
     return record.envelope;
+  }
+
+  /** Metadata needed by main-process save naming; never includes document data. */
+  metadata(cursorId: string): { namespace: string; pageIndex: number; pageSize: number } {
+    const entry = this.getOpen(cursorId);
+    const page = entry.pages[entry.currentPageIndex];
+    return {
+      namespace: entry.namespace,
+      pageIndex: entry.currentPageIndex,
+      pageSize: page?.documents.length ?? 0,
+    };
+  }
+
+  /**
+   * Resolve the currently displayed retained page to complete BSON values.
+   * Export must fail rather than silently write a truncated preview.
+   */
+  snapshotCurrentPage(cursorId: string): { namespace: string; documents: unknown[] } {
+    const entry = this.getOpen(cursorId);
+    entry.lastTouchedAt = this.now();
+    const page = entry.pages[entry.currentPageIndex];
+    if (!page) {
+      throw appError('CursorNotFound', 'The cursor has no retained current page.', {
+        hint: 'Fetch or re-run the result before exporting it.',
+      });
+    }
+    const documents = page.documents.map((envelope) => {
+      let complete = envelope;
+      if (envelope.truncated) {
+        const retained = envelope.fullValueId
+          ? entry.fullValues.get(envelope.fullValueId)
+          : undefined;
+        if (!retained) {
+          throw appError('CursorNotFound', 'A complete document is no longer retained for export.', {
+            hint: 'Refresh the page or use a narrower projection, then export again.',
+          });
+        }
+        complete = retained.envelope;
+      }
+      try {
+        return EJSON.parse(complete.ejson, { relaxed: false });
+      } catch {
+        throw appError('Validation', 'A retained document could not be decoded for export.');
+      }
+    });
+    return { namespace: entry.namespace, documents };
+  }
+
+  /** Bounded raw paging for an export-owned cursor. No values cross IPC. */
+  async fetchRawNext(
+    cursorId: string,
+    batchSize: number,
+  ): Promise<{ documents: unknown[]; hasMore: boolean }> {
+    const entry = this.getOpen(cursorId);
+    if (entry.pages.length > 0 || entry.pending !== EMPTY) {
+      throw appError('Validation', 'Raw export paging is only available for a dedicated export cursor.');
+    }
+    entry.lastTouchedAt = this.now();
+    const documents: unknown[] = [];
+    while (documents.length < batchSize) {
+      let value: unknown | null;
+      try {
+        value = await entry.cursor.next();
+      } catch (error) {
+        throw appError('MongoDBCommand', `Export cursor iteration failed: ${(error as Error).message}`, {
+          name: (error as Error).name,
+        });
+      }
+      if (value == null) break;
+      documents.push(value);
+    }
+    let hasMore = false;
+    if (!entry.cursor.closed) {
+      try {
+        hasMore = await entry.cursor.hasNext();
+      } catch (error) {
+        throw appError('MongoDBCommand', `Export cursor lookahead failed: ${(error as Error).message}`, {
+          name: (error as Error).name,
+        });
+      }
+    }
+    return { documents, hasMore };
   }
 
   async close(cursorId: string): Promise<void> {

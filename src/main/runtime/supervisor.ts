@@ -5,7 +5,7 @@
 import { EventEmitter } from 'node:events';
 import { resolveRuntimeEntry } from './paths.js';
 import { RuntimeClient } from './runtime-client.js';
-import type { EngineEvent } from '../../shared/domain/index.js';
+import type { EngineEvent, ExportProgressEvent } from '../../shared/domain/index.js';
 import { appError, serializeError } from '../../shared/errors/index.js';
 
 export interface SupervisorOptions {
@@ -75,6 +75,9 @@ export class RuntimeSupervisor extends EventEmitter {
     const client = new RuntimeClient({ entryPath: resolveRuntimeEntry(), connectionId });
     client.onEngineEvent((executionId, event: EngineEvent, tabId?: string, runId?: string) => {
       this.emit('engine-event', connectionId, executionId, event, tabId, runId);
+    });
+    client.onExportProgress((event: ExportProgressEvent) => {
+      this.emit('export-progress', connectionId, event);
     });
     client.on('exit', () => {
       const current = this.runtimes.get(connectionId);

@@ -12,7 +12,11 @@ import {
   type BsonDisplayMode,
   type EjsonEnvelope,
 } from '../../../shared/ejson/index.js';
-import type { QueryResult } from '../../../shared/domain/index.js';
+import type {
+  ExportFormat,
+  QueryExportValue,
+  QueryResult,
+} from '../../../shared/domain/index.js';
 import {
   useWorkspaceStore,
   type StatementErrorState,
@@ -20,6 +24,8 @@ import {
 } from '../../stores/workspace.js';
 import { useSettingsStore } from '../../stores/settings.js';
 import { BsonSyntaxText } from '../Common/BsonSyntaxText.js';
+import { ExportDialog } from '../Export/ExportDialog.js';
+import { useExportJobsStore } from '../../stores/exports.js';
 
 const s: Record<string, React.CSSProperties> = {
   panel: {
@@ -92,9 +98,10 @@ const s: Record<string, React.CSSProperties> = {
 };
 
 export function ResultsPanel() {
-  const { activeTabId, results } = useWorkspaceStore();
+  const { activeTabId, results, tabs } = useWorkspaceStore();
   const displayMode = useSettingsStore((state) => state.settings.ejson.defaultMode);
   const execution = activeTabId ? results[activeTabId] : undefined;
+  const database = tabs.find((tab) => tab.id === activeTabId)?.database ?? 'admin';
 
   if (!activeTabId || !execution) {
     return <div style={s.panel}><div style={s.empty}>Open a query tab to see results</div></div>;
@@ -131,6 +138,7 @@ export function ResultsPanel() {
             key={`${item.index}:${resultIdentity(item.result)}`}
             tabId={activeTabId}
             connectionId={execution.connectionId}
+            database={database}
             item={item}
             displayMode={displayMode}
           />
@@ -171,11 +179,13 @@ export function ResultsPanel() {
 function ResultCard({
   tabId,
   connectionId,
+  database,
   item,
   displayMode,
 }: {
   tabId: string;
   connectionId: string | null;
+  database: string;
   item: StatementResultState;
   displayMode: BsonDisplayMode;
 }) {
@@ -198,6 +208,12 @@ function ResultCard({
         <span style={{ width: 12, color: 'var(--color-text-muted)' }}>{collapsed ? '▶' : '▼'}</span>
         <span>Statement {item.index + 1}</span>
         <span style={s.badge}>{item.result.kind}</span>
+        <ExportResultAction
+          connectionId={connectionId}
+          database={database}
+          item={item}
+          displayMode={displayMode}
+        />
         <span style={{ marginLeft: 'auto' }}>{item.durationMs.toFixed(1)} ms</span>
       </div>
       {!collapsed && <div style={s.cardBody}>
@@ -214,6 +230,65 @@ function ResultCard({
         )}
       </div>}
     </div>
+  );
+}
+
+function ExportResultAction({
+  connectionId,
+  database,
+  item,
+  displayMode,
+}: {
+  connectionId: string | null;
+  database: string;
+  item: StatementResultState;
+  displayMode: BsonDisplayMode;
+}) {
+  const exportValue = queryExportValue(item.result);
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!exportValue || !connectionId) return null;
+
+  const start = async (format: ExportFormat) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await window.mongog.exports.startQueryResult({
+        connectionId,
+        database,
+        statementIndex: item.index,
+        format,
+        bsonMode: displayMode,
+        result: exportValue,
+      });
+      useExportJobsStore.getState().register(connectionId, result);
+      setOpen(false);
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <span
+      style={{ display: 'inline-flex', alignItems: 'center' }}
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
+      <button style={s.btn} onClick={() => setOpen(true)}>Export…</button>
+      {open && (
+        <ExportDialog
+          title={`Export Statement ${item.index + 1}`}
+          allowAllMatching={false}
+          busy={busy}
+          onCancel={() => setOpen(false)}
+          onExport={(format) => void start(format)}
+        />
+      )}
+      {error && <span role="alert" title={error} style={{ color: 'var(--color-danger)', marginLeft: 5 }}>Export failed</span>}
+    </span>
   );
 }
 
@@ -571,6 +646,32 @@ function formatCell(value: unknown, mode: BsonDisplayMode): string {
     return renderBson(value, mode, false);
   } catch {
     return String(value);
+  }
+}
+
+function queryExportValue(result: QueryResult): QueryExportValue | null {
+  switch (result.kind) {
+    case 'documents':
+      return { kind: 'documents', cursorId: result.cursorId };
+    case 'scalar':
+      return { kind: 'scalar', value: result.value };
+    case 'command':
+      return { kind: 'command', value: result.value };
+    case 'write':
+      return {
+        kind: 'write',
+        op: result.op,
+        ...(result.insertedCount !== undefined ? { insertedCount: result.insertedCount } : {}),
+        ...(result.matchedCount !== undefined ? { matchedCount: result.matchedCount } : {}),
+        ...(result.modifiedCount !== undefined ? { modifiedCount: result.modifiedCount } : {}),
+        ...(result.deletedCount !== undefined ? { deletedCount: result.deletedCount } : {}),
+        ...(result.upsertedCount !== undefined ? { upsertedCount: result.upsertedCount } : {}),
+      };
+    case 'console':
+    case 'changeStream':
+    case 'opaque':
+    case 'error':
+      return null;
   }
 }
 

@@ -100,6 +100,12 @@ void app.whenReady().then(async () => {
       });
     }
   });
+  supervisor.on('export-progress', (_connectionId, event) => {
+    audit?.handleExportEvent(event);
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send(IpcEvents.exportProgress, event);
+    }
+  });
   supervisor.on('runtime-connecting', (connectionId) => {
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IpcEvents.connectionState, {
@@ -130,6 +136,7 @@ void app.whenReady().then(async () => {
   });
   supervisor.on('runtime-exit', (connectionId) => {
     audit?.failQueriesForConnection(connectionId, 'Query runtime exited before execution completed.');
+    audit?.failExportsForConnection(connectionId, 'Query runtime exited before export completed.');
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IpcEvents.connectionState, {
         connectionId,
@@ -148,6 +155,7 @@ void app.whenReady().then(async () => {
   });
   supervisor.on('runtime-force-killed', (connectionId) => {
     audit?.failQueriesForConnection(connectionId, 'Query runtime was force-killed before execution completed.');
+    audit?.failExportsForConnection(connectionId, 'Query runtime was force-killed before export completed.');
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IpcEvents.connectionState, {
         connectionId,

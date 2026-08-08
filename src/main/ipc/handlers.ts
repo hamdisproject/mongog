@@ -62,6 +62,9 @@ import {
   auditSummarySchema,
   auditDeleteSchema,
   auditClearSchema,
+  exportCollectionSchema,
+  exportQueryResultSchema,
+  exportCancelSchema,
   type ExecuteResponse,
   type PingRuntimeResponse,
   type SystemInfoResponse,
@@ -83,6 +86,7 @@ import type {
   SavedItem,
   SavedLibrarySnapshot,
   DeleteSavedFolderResult,
+  ExportStartResult,
 } from '../../shared/domain/index.js';
 import type { EjsonEnvelope } from '../../shared/ejson/index.js';
 import { appError } from '../../shared/errors/index.js';
@@ -93,6 +97,7 @@ import { resolveRuntimeEntry } from '../runtime/paths.js';
 import { ConnectionManager, type ConnectionSecretStore } from '../services/connection-manager.js';
 import { AuditService, type AuditContext } from '../services/audit-service.js';
 import type { Database } from '../storage/database.js';
+import { buildExportFilename, exportDialogFilters } from '../export/filename.js';
 
 export interface HandlerContext {
   supervisor: RuntimeSupervisor;
@@ -773,6 +778,84 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
     }, () => ({ affectedCount: 1 }));
   }, validateSender);
 
+  // ── Streaming result export ──
+  registerChannel(IpcChannels.exportCollection, exportCollectionSchema, async (payload): Promise<ExportStartResult> => {
+    const client = supervisor.get(payload.connectionId);
+    if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+    const filename = buildExportFilename(payload.database, payload.collection, payload.format);
+    const destinationPath = await chooseExportDestination(ctx.getWindow(), filename, payload.format);
+    if (!destinationPath) return { cancelled: true };
+    const jobId = randomUUID();
+    const finalFilename = basename(destinationPath);
+    ctx.audit.beginExport(auditContext(payload.connectionId, {
+      correlationId: jobId,
+      database: payload.database,
+      collection: payload.collection,
+      category: 'export', action: 'export.documents', origin: 'user', operationClass: 'read',
+      summary: `Export collection documents as ${payload.format.toUpperCase()}`,
+      detail: { format: payload.format, scope: payload.scope },
+    }) as AuditContext & { correlationId: string });
+    try {
+      await client.request('export-collection-start', {
+        ...payload,
+        jobId,
+        filename: finalFilename,
+        destinationPath,
+      });
+      return { cancelled: false, jobId, filename: finalFilename };
+    } catch (error) {
+      ctx.audit.failExportStart(jobId, error);
+      throw error;
+    }
+  }, validateSender);
+
+  registerChannel(IpcChannels.exportQueryResult, exportQueryResultSchema, async (payload): Promise<ExportStartResult> => {
+    const client = supervisor.get(payload.connectionId);
+    if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+    let collection: string | undefined;
+    if (payload.result.kind === 'documents') {
+      const metadata = await client.request<{ namespace: string }>('cursor-metadata', {
+        cursorId: payload.result.cursorId,
+      });
+      const prefix = `${payload.database}.`;
+      collection = metadata.namespace.startsWith(prefix)
+        ? metadata.namespace.slice(prefix.length)
+        : undefined;
+    }
+    const fallback = `query_statement_${payload.statementIndex + 1}`;
+    const filename = buildExportFilename(payload.database, collection, payload.format, new Date(), fallback);
+    const destinationPath = await chooseExportDestination(ctx.getWindow(), filename, payload.format);
+    if (!destinationPath) return { cancelled: true };
+    const jobId = randomUUID();
+    const finalFilename = basename(destinationPath);
+    ctx.audit.beginExport(auditContext(payload.connectionId, {
+      correlationId: jobId,
+      database: payload.database,
+      ...(collection ? { collection } : {}),
+      category: 'export', action: 'export.query-result', origin: 'user', operationClass: 'read',
+      summary: `Export visible query result as ${payload.format.toUpperCase()}`,
+      detail: { format: payload.format, scope: 'current-page', statement: payload.statementIndex + 1 },
+    }) as AuditContext & { correlationId: string });
+    try {
+      await client.request('export-query-start', {
+        ...payload,
+        jobId,
+        filename: finalFilename,
+        destinationPath,
+      });
+      return { cancelled: false, jobId, filename: finalFilename };
+    } catch (error) {
+      ctx.audit.failExportStart(jobId, error);
+      throw error;
+    }
+  }, validateSender);
+
+  registerChannel(IpcChannels.exportCancel, exportCancelSchema, async ({ connectionId, jobId }) => {
+    const client = supervisor.get(connectionId);
+    if (!client) return { cancelled: false };
+    return client.request<{ cancelled: boolean }>('export-cancel', { jobId });
+  }, validateSender);
+
   // ── Workspace persistence ──
   registerChannel(IpcChannels.workspaceSave, workspaceSaveSchema, async ({ state }) => {
     ctx.getDb().workspace.upsert({
@@ -849,6 +932,27 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
   registerChannel(IpcChannels.auditClear, auditClearSchema, async (payload) => ({
     deleted: ctx.audit.clear(payload.scope === 'all' ? undefined : payload.filter),
   }), validateSender);
+}
+
+async function chooseExportDestination(
+  window: BrowserWindow | null,
+  filename: string,
+  format: 'xlsx' | 'csv' | 'txt',
+): Promise<string | null> {
+  const options = {
+    title: 'Export results',
+    defaultPath: filename,
+    filters: exportDialogFilters(format),
+    properties: ['createDirectory', 'showOverwriteConfirmation'] as Array<'createDirectory' | 'showOverwriteConfirmation'>,
+  };
+  const selection = window
+    ? await dialog.showSaveDialog(window, options)
+    : await dialog.showSaveDialog(options);
+  if (selection.canceled || !selection.filePath) return null;
+  const extension = `.${format}`;
+  return selection.filePath.toLocaleLowerCase().endsWith(extension)
+    ? selection.filePath
+    : `${selection.filePath}${extension}`;
 }
 
 async function validateSavedPayload(payload: SavedItem['payload']): Promise<void> {

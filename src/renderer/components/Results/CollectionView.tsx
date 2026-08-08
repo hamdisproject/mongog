@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { parseDocumentExpression } from '../../../features/script-analysis/index.js';
-import type { DocumentCriteriaText, DocumentsPage, WorkspaceTab } from '../../../shared/domain/index.js';
+import type {
+  DocumentCriteriaText,
+  DocumentsPage,
+  ExportFormat,
+  ExportScope,
+  WorkspaceTab,
+} from '../../../shared/domain/index.js';
 import {
   parseEjson,
   renderBson,
@@ -20,6 +26,8 @@ import type { CriteriaKind } from '../../monaco/object-expression.js';
 import { SavedActions } from '../Saved/SavedActions.js';
 import { DocumentBsonEditor } from './DocumentBsonEditor.js';
 import { BsonSyntaxText } from '../Common/BsonSyntaxText.js';
+import { ExportDialog } from '../Export/ExportDialog.js';
+import { useExportJobsStore } from '../../stores/exports.js';
 
 const s: Record<string, React.CSSProperties> = {
   workspace: { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' },
@@ -213,6 +221,8 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const [editorBusy, setEditorBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportBusy, setExportBusy] = useState(false);
 
   const discoveredColumns = useMemo(
     () => extractColumns(rows.map((row) => row.value).filter(isDocumentValue)),
@@ -535,6 +545,33 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
       : { ...current, [kind]: message });
   };
 
+  const startExport = async (format: ExportFormat, scope: ExportScope) => {
+    if (!cursorId || !connectionId) return;
+    setExportBusy(true);
+    setError(null);
+    try {
+      const result = await window.mongog.exports.startCollection({
+        connectionId,
+        database,
+        collection,
+        cursorId,
+        scope,
+        format,
+        filterEjson: criteria.filter || EMPTY_FILTER,
+        ...(criteria.sort ? { sortEjson: criteria.sort } : {}),
+        ...(criteria.projection ? { projectionEjson: criteria.projection } : {}),
+        bsonMode: displayMode,
+        columnOrder: columns,
+      });
+      useExportJobsStore.getState().register(connectionId, result);
+      setExportOpen(false);
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setExportBusy(false);
+    }
+  };
+
   if (!collection) {
     return <div style={s.empty}>This saved view has no collection. Edit its saved details to assign a namespace.</div>;
   }
@@ -552,11 +589,23 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
           {criteriaSummary}
         </button>
         <ToolbarButton secondary onClick={() => void loadInitial()} disabled={busy}>Refresh</ToolbarButton>
+        <ToolbarButton secondary onClick={() => setExportOpen(true)} disabled={busy || !cursorId}>Export…</ToolbarButton>
         {!isConnected && connectionId && (
           <ToolbarButton onClick={() => void connect(connectionId)} disabled={busy}>Connect</ToolbarButton>
         )}
         <ToolbarButton onClick={openNewDocument} disabled={readOnly || busy}>New</ToolbarButton>
       </div>
+
+      {exportOpen && (
+        <ExportDialog
+          title={`Export ${database}.${collection}`}
+          allowAllMatching
+          unappliedCriteria={unappliedCriteria}
+          busy={exportBusy}
+          onCancel={() => setExportOpen(false)}
+          onExport={(format, scope) => void startExport(format, scope)}
+        />
+      )}
 
       {criteriaOpen && (
         <div id={`criteria-${tab.id}`} style={s.criteriaPanel}>

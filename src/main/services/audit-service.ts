@@ -7,6 +7,7 @@ import type {
   AuditLogEntry,
   AuditSummary,
   EngineEvent,
+  ExportProgressEvent,
 } from '../../shared/domain/index.js';
 import { normalizeApplicationSettings } from '../../shared/domain/workspace.js';
 import { serializeError } from '../../shared/errors/index.js';
@@ -41,12 +42,19 @@ interface ActiveQuery {
   errorMessage?: string;
 }
 
+interface ActiveExport {
+  id: string;
+  startedAt: number;
+  connectionId?: string;
+}
+
 export class AuditService {
   private healthy = true;
   private healthMessage: string | undefined;
   private changesSincePrune = 0;
   private emitChange: (event: AuditChangedEvent) => void = () => undefined;
   private activeQueries = new Map<string, ActiveQuery>();
+  private activeExports = new Map<string, ActiveExport>();
   private pruneTimer: NodeJS.Timeout | null = null;
 
   constructor(private readonly db: Database) {}
@@ -178,6 +186,59 @@ export class AuditService {
     for (const [correlationId, active] of [...this.activeQueries]) {
       if (active.connectionId !== connectionId) continue;
       this.dbFinishQuery(correlationId, {
+        status: 'interrupted',
+        errorCategory: 'UtilityProcessCrash',
+        errorMessage: message,
+      });
+    }
+  }
+
+  beginExport(context: AuditContext & { correlationId: string }): void {
+    const startedAt = Date.now();
+    const id = this.begin(context);
+    if (!id) return;
+    this.activeExports.set(context.correlationId, {
+      id,
+      startedAt,
+      ...(context.connectionId ? { connectionId: context.connectionId } : {}),
+    });
+  }
+
+  failExportStart(correlationId: string, error: unknown): void {
+    const active = this.activeExports.get(correlationId);
+    if (!active) return;
+    const serialized = serializeError(error);
+    this.activeExports.delete(correlationId);
+    this.finish(active.id, active.startedAt, {
+      status: 'error',
+      errorCategory: serialized.category,
+      errorMessage: serialized.message,
+    });
+  }
+
+  handleExportEvent(event: ExportProgressEvent): void {
+    if (event.status === 'running') return;
+    const active = this.activeExports.get(event.jobId);
+    if (!active) return;
+    this.activeExports.delete(event.jobId);
+    this.finish(active.id, active.startedAt, {
+      status: event.status === 'completed'
+        ? 'success'
+        : event.status === 'cancelled'
+          ? 'cancelled'
+          : 'error',
+      resultCount: event.processedRows,
+      ...(event.status === 'error'
+        ? { errorCategory: 'Export', errorMessage: event.message ?? 'Export failed.' }
+        : {}),
+    });
+  }
+
+  failExportsForConnection(connectionId: string, message: string): void {
+    for (const [jobId, active] of [...this.activeExports]) {
+      if (active.connectionId !== connectionId) continue;
+      this.activeExports.delete(jobId);
+      this.finish(active.id, active.startedAt, {
         status: 'interrupted',
         errorCategory: 'UtilityProcessCrash',
         errorMessage: message,

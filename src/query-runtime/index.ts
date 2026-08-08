@@ -50,6 +50,11 @@ import {
 import { classifyError, serializeError, type AppError } from '../shared/errors/index.js';
 import { redactUri } from '../shared/redaction/index.js';
 import type { ExecuteRequest, ExplainVerbosity } from '../shared/domain/index.js';
+import {
+  ExportManager,
+  type RuntimeCollectionExportRequest,
+  type RuntimeQueryExportRequest,
+} from './export/export-manager.js';
 
 interface RuntimeRequest {
   id: number;
@@ -68,9 +73,13 @@ const parentPort = (process as unknown as { parentPort: ParentPortLike }).parent
 const registry = new CursorRegistry();
 registry.startSweeper();
 const engine = new ExecutionEngine(registry);
+const exportsManager = new ExportManager(registry, (event) => {
+  parentPort.postMessage({ type: 'export-event', event });
+});
 
 let client: MongoClient | null = null;
 let serverVersion = 'unknown';
+let shuttingDown = false;
 
 function reply(id: number, value: unknown): void {
   parentPort.postMessage({ id, ok: true, value });
@@ -171,6 +180,10 @@ async function handle(req: RuntimeRequest): Promise<void> {
         req.id,
         registry.fetchFullValue(req.cursorId as string, req.fullValueId as string),
       );
+      return;
+    }
+    case 'cursor-metadata': {
+      reply(req.id, registry.metadata(req.cursorId as string));
       return;
     }
     case 'cursor-close': {
@@ -398,6 +411,24 @@ async function handle(req: RuntimeRequest): Promise<void> {
       }));
       return;
     }
+    case 'export-collection-start': {
+      reply(req.id, exportsManager.start(
+        requireClient(),
+        req as unknown as RuntimeCollectionExportRequest,
+      ));
+      return;
+    }
+    case 'export-query-start': {
+      reply(req.id, exportsManager.start(
+        requireClient(),
+        req as unknown as RuntimeQueryExportRequest,
+      ));
+      return;
+    }
+    case 'export-cancel': {
+      reply(req.id, { cancelled: exportsManager.cancel(req.jobId as string) });
+      return;
+    }
     case 'shutdown': {
       reply(req.id, { bye: true });
       await shutdown(0);
@@ -409,6 +440,11 @@ async function handle(req: RuntimeRequest): Promise<void> {
 }
 
 async function shutdown(code: number): Promise<never> {
+  if (shuttingDown) {
+    process.exit(code);
+  }
+  shuttingDown = true;
+  await exportsManager.dispose().catch(() => undefined);
   await registry.dispose().catch(() => undefined);
   if (client) await client.close(true).catch(() => undefined);
   process.exit(code);
@@ -427,3 +463,6 @@ process.on?.('unhandledRejection', (err) => {
     error: serializeError(err),
   });
 });
+
+process.on?.('SIGTERM', () => { void shutdown(0); });
+process.on?.('SIGINT', () => { void shutdown(0); });

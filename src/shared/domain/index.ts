@@ -69,6 +69,25 @@ export {
   AUDIT_OPERATION_CLASSES,
 } from './audit.js';
 
+export {
+  EXPORT_FORMATS,
+  EXPORT_SCOPES,
+  EXPORT_PHASES,
+  EXPORT_JOB_STATUSES,
+} from './exports.js';
+
+export type {
+  ExportFormat,
+  ExportScope,
+  ExportPhase,
+  ExportJobStatus,
+  ExportProgressEvent,
+  ExportStartResult,
+  CollectionExportInput,
+  QueryExportValue,
+  QueryResultExportInput,
+} from './exports.js';
+
 export type {
   AuditCategory,
   AuditStatus,

@@ -18,6 +18,8 @@ import { getMonacoTheme, theme } from './theme.js';
 import { useSettingsStore } from './stores/settings.js';
 import { useSavedLibraryStore } from './stores/saved.js';
 import { bootMonaco } from './monaco/setup.js';
+import { ExportProgressOverlay } from './components/Export/ExportProgressOverlay.js';
+import { useExportJobsStore } from './stores/exports.js';
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -110,9 +112,14 @@ export default function App() {
             ? 'Query runtime stopped unexpectedly or was force-killed.'
             : 'Connection closed while the query was running.';
         useWorkspaceStore.getState().failExecutionsForConnection(state.connectionId, message);
+        useExportJobsStore.getState().failConnection(state.connectionId, message);
       }
     });
   }, []);
+
+  useEffect(() => window.mongog.events.onExportProgress((event) => {
+    useExportJobsStore.getState().apply(event);
+  }), []);
 
   useEffect(() => {
     const applyEditorTheme = () => {
@@ -149,6 +156,7 @@ export default function App() {
     }}>
       <Explorer />
       <CommandPalette />
+      <ExportProgressOverlay />
       <div style={{
         flex: 1, minWidth: 0, minHeight: 0, display: 'flex',
         flexDirection: 'column', overflow: 'hidden',

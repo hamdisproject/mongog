@@ -5,7 +5,7 @@
  */
 import { EventEmitter } from 'node:events';
 import { utilityProcess, type UtilityProcess } from 'electron';
-import type { EngineEvent } from '../../shared/domain/index.js';
+import type { EngineEvent, ExportProgressEvent } from '../../shared/domain/index.js';
 import { appError, serializeError, type AppError } from '../../shared/errors/index.js';
 
 interface PendingRequest {
@@ -103,6 +103,10 @@ export class RuntimeClient extends EventEmitter {
     this.on('engine-event', listener);
   }
 
+  onExportProgress(listener: (event: ExportProgressEvent) => void): void {
+    this.on('export-progress', listener);
+  }
+
   async kill(): Promise<void> {
     const child = this.child;
     if (!child) return;
@@ -126,9 +130,14 @@ export class RuntimeClient extends EventEmitter {
       tabId?: string;
       runId?: string;
       event?: EngineEvent;
+      exportEvent?: ExportProgressEvent;
     };
     if (m.type === 'engine-event' && m.executionId && m.event) {
       this.emit('engine-event', m.executionId, m.event, m.tabId, m.runId);
+      return;
+    }
+    if (m.type === 'export-event' && m.event) {
+      this.emit('export-progress', m.event as unknown as ExportProgressEvent);
       return;
     }
     if (m.type === 'ready') {

@@ -51,6 +51,7 @@ const api: MongoGDesktopApi = {
     onEngineEvent: (cb) => subscribe(IpcEvents.engine, cb),
     onConnectionState: (cb) => subscribe(IpcEvents.connectionState, cb),
     onAuditChanged: (cb) => subscribe(IpcEvents.auditChanged, cb),
+    onExportProgress: (cb) => subscribe(IpcEvents.exportProgress, cb),
   },
   connections: {
     listGroups: () => invoke(IpcChannels.connListGroups),
@@ -147,6 +148,11 @@ const api: MongoGDesktopApi = {
     summary: (filter = {}, bucket = 'day') => invoke(IpcChannels.auditSummary, { filter, bucket }),
     deleteEntry: (id) => invoke(IpcChannels.auditDelete, { id }),
     clear: (input) => invoke(IpcChannels.auditClear, input),
+  },
+  exports: {
+    startCollection: (input) => invoke(IpcChannels.exportCollection, input),
+    startQueryResult: (input) => invoke(IpcChannels.exportQueryResult, input),
+    cancel: (connectionId, jobId) => invoke(IpcChannels.exportCancel, { connectionId, jobId }),
   },
 };
 

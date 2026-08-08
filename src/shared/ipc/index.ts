@@ -38,11 +38,17 @@ import type {
   CreateSavedItemInput,
   UpdateSavedItemInput,
   DeleteSavedFolderResult,
+  CollectionExportInput,
+  QueryResultExportInput,
+  ExportStartResult,
+  ExportProgressEvent,
 } from '../domain/index.js';
 import {
   AUDIT_CATEGORIES,
   AUDIT_ORIGINS,
   AUDIT_STATUSES,
+  EXPORT_FORMATS,
+  EXPORT_SCOPES,
 } from '../domain/index.js';
 
 export const IpcChannels = {
@@ -122,12 +128,17 @@ export const IpcChannels = {
   auditSummary: 'mongog:audit:summary',
   auditDelete: 'mongog:audit:delete',
   auditClear: 'mongog:audit:clear',
+  // ── Streaming result export ──
+  exportCollection: 'mongog:export:collection',
+  exportQueryResult: 'mongog:export:query-result',
+  exportCancel: 'mongog:export:cancel',
 } as const;
 
 export const IpcEvents = {
   engine: 'mongog:event:engine',
   connectionState: 'mongog:event:connection-state',
   auditChanged: 'mongog:event:audit-changed',
+  exportProgress: 'mongog:event:export-progress',
 } as const;
 
 // ── Existing schemas ──
@@ -432,6 +443,64 @@ export const auditClearSchema = z.discriminatedUnion('scope', [
   z.object({ scope: z.literal('filtered'), filter: auditFilterSchema }),
 ]);
 
+// ── Streaming result export ──
+
+const exportFormatSchema = z.enum(EXPORT_FORMATS);
+const exportBsonModeSchema = z.enum(['mongosh', 'relaxed', 'canonical']);
+const exportEnvelopeSchema = z.object({
+  ejson: z.string().max(17 * 1024 * 1024),
+  byteSize: z.number().int().nonnegative(),
+  truncated: z.boolean(),
+  fullValueId: z.string().min(1).optional(),
+});
+
+export const exportCollectionSchema = z.object({
+  connectionId: z.string().min(1),
+  database: z.string().min(1).max(255),
+  collection: z.string().min(1).max(255),
+  cursorId: z.string().min(1).optional(),
+  scope: z.enum(EXPORT_SCOPES),
+  format: exportFormatSchema,
+  filterEjson: z.string().min(1).max(17 * 1024 * 1024),
+  sortEjson: z.string().max(17 * 1024 * 1024).optional(),
+  projectionEjson: z.string().max(17 * 1024 * 1024).optional(),
+  bsonMode: exportBsonModeSchema,
+  columnOrder: z.array(z.string().max(1_024)).max(16_384).optional(),
+}).superRefine((value, ctx) => {
+  if (value.scope === 'current-page' && !value.cursorId) {
+    ctx.addIssue({ code: 'custom', path: ['cursorId'], message: 'Current-page export requires a cursor.' });
+  }
+}) satisfies z.ZodType<CollectionExportInput>;
+
+const exportQueryValueSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('documents'), cursorId: z.string().min(1) }),
+  z.object({ kind: z.literal('scalar'), value: exportEnvelopeSchema }),
+  z.object({ kind: z.literal('command'), value: exportEnvelopeSchema }),
+  z.object({
+    kind: z.literal('write'),
+    op: z.enum(['insert', 'update', 'delete', 'bulk']),
+    insertedCount: z.number().int().nonnegative().optional(),
+    modifiedCount: z.number().int().nonnegative().optional(),
+    deletedCount: z.number().int().nonnegative().optional(),
+    upsertedCount: z.number().int().nonnegative().optional(),
+    matchedCount: z.number().int().nonnegative().optional(),
+  }),
+]);
+
+export const exportQueryResultSchema = z.object({
+  connectionId: z.string().min(1),
+  database: z.string().min(1).max(255),
+  statementIndex: z.number().int().nonnegative(),
+  format: exportFormatSchema,
+  bsonMode: exportBsonModeSchema,
+  result: exportQueryValueSchema,
+}) satisfies z.ZodType<QueryResultExportInput>;
+
+export const exportCancelSchema = z.object({
+  connectionId: z.string().min(1),
+  jobId: z.string().uuid(),
+});
+
 // ── Phase 2: Query schemas ──
 
 export const connExecuteSchema = z.object({
@@ -671,6 +740,7 @@ export interface MongoGDesktopApi {
     }) => void): () => void;
     onConnectionState(cb: (s: ConnectionState & { connectionId: string }) => void): () => void;
     onAuditChanged(cb: (event: import('../domain/index.js').AuditChangedEvent) => void): () => void;
+    onExportProgress(cb: (event: ExportProgressEvent) => void): () => void;
   };
   connections: {
     listGroups(): Promise<ConnectionGroup[]>;
@@ -860,6 +930,11 @@ export interface MongoGDesktopApi {
     summary(filter?: AuditFilter, bucket?: AuditBucket): Promise<AuditSummary>;
     deleteEntry(id: string): Promise<{ deleted: number }>;
     clear(input: { scope: 'all' } | { scope: 'filtered'; filter: AuditFilter }): Promise<{ deleted: number }>;
+  };
+  exports: {
+    startCollection(input: CollectionExportInput): Promise<ExportStartResult>;
+    startQueryResult(input: QueryResultExportInput): Promise<ExportStartResult>;
+    cancel(connectionId: string, jobId: string): Promise<{ cancelled: boolean }>;
   };
 }
 

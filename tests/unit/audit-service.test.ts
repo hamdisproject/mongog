@@ -101,4 +101,23 @@ describe('AuditService', () => {
     expect(db.audit.list({ status: 'interrupted' }, 10, 0).total).toBe(1);
     expect(restarted.summary({}, 'day').health).toEqual({ healthy: true });
   });
+
+  it('completes asynchronous export rows without storing destination paths or data', () => {
+    const { db, service } = setup();
+    service.beginExport({
+      correlationId: 'export-1', connectionId: 'connection-1', connectionName: 'Local',
+      database: 'shop', collection: 'orders', category: 'export', action: 'export.documents',
+      origin: 'user', operationClass: 'read', summary: 'Export collection documents as CSV',
+      detail: { format: 'csv', scope: 'all-matching' },
+    });
+    service.handleExportEvent({
+      jobId: 'export-1', connectionId: 'connection-1', status: 'completed', phase: 'finalizing',
+      processedRows: 125, totalRows: 125, filename: 'shop_orders.csv', warningCount: 0,
+    });
+
+    const entry = db.audit.list({ category: 'export' }, 10, 0).entries[0]!;
+    expect(entry).toMatchObject({ status: 'success', resultCount: 125, database: 'shop', collection: 'orders' });
+    expect(JSON.stringify(entry)).not.toContain('/');
+    expect(entry.detail).toEqual({ format: 'csv', scope: 'all-matching' });
+  });
 });

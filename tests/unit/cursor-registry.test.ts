@@ -180,6 +180,38 @@ describe('CursorRegistry', () => {
     await reg.dispose();
   });
 
+  it('snapshots the current page with complete retained values and namespace metadata', async () => {
+    const reg = new CursorRegistry({
+      pageBudget: { maxDocBytes: 100, maxPageBytes: 2_000 },
+      maxFullValueBytes: 10_000,
+    });
+    const original = { _id: 1, payload: 'x'.repeat(500) };
+    const id = reg.register(fakeCursor([original]), owner, 'db.exported');
+    await reg.fetchNext(id, 10);
+
+    expect(reg.metadata(id)).toMatchObject({ namespace: 'db.exported', pageIndex: 0, pageSize: 1 });
+    const snapshot = reg.snapshotCurrentPage(id);
+    expect(snapshot.namespace).toBe('db.exported');
+    expect(snapshot.documents).toHaveLength(1);
+    expect(snapshot.documents[0]).toMatchObject({ payload: original.payload });
+    await reg.dispose();
+  });
+
+  it('pages a dedicated export cursor in bounded raw batches', async () => {
+    const reg = new CursorRegistry();
+    const cursor = fakeCursor(docs.slice(0, 7));
+    const id = reg.register(cursor, { connectionId: 'c1', resultId: 'export:j1' }, 'db.coll');
+
+    const first = await reg.fetchRawNext(id, 3);
+    const second = await reg.fetchRawNext(id, 3);
+    const third = await reg.fetchRawNext(id, 3);
+    expect(first).toEqual({ documents: docs.slice(0, 3), hasMore: true });
+    expect(second).toEqual({ documents: docs.slice(3, 6), hasMore: true });
+    expect(third).toEqual({ documents: docs.slice(6, 7), hasMore: false });
+    await reg.dispose();
+    expect(cursor.closedCount).toBe(1);
+  });
+
   it('does not advertise full values larger than the retention budget', async () => {
     const reg = new CursorRegistry({
       pageBudget: { maxDocBytes: 100, maxPageBytes: 1_000 },

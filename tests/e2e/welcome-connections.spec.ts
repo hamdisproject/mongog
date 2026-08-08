@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
@@ -376,6 +376,22 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByRole('button', { name: /^Criteria.*edited/ })).toBeVisible();
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page.getByText('"beta"', { exact: true })).toBeVisible();
+
+  await redirectSaveDialogs(application!, userDataPath);
+  await page.getByRole('button', { name: 'Export…', exact: true }).click();
+  const documentsExportDialog = page.getByRole('dialog', { name: 'Export mongog_e2e.inventory' });
+  await expect(documentsExportDialog.getByRole('radio', { name: /Current page/ })).toBeChecked();
+  await documentsExportDialog.getByRole('button', { name: /CSV/ }).click();
+  await documentsExportDialog.getByRole('radio', { name: /All matching documents/ }).check();
+  await documentsExportDialog.getByRole('button', { name: 'Continue…' }).click();
+  await expect(page.getByText(/mongog_e2e_inventory_.*\.csv/).first()).toBeVisible();
+  await expect.poll(async () => (await readdir(userDataPath)).some((file) => (
+    /^mongog_e2e_inventory_.*\.csv$/u.test(file)
+  ))).toBe(true);
+  const documentsCsvName = (await readdir(userDataPath)).find((file) => /^mongog_e2e_inventory_.*\.csv$/u.test(file))!;
+  const documentsCsv = await readFile(join(userDataPath, documentsCsvName), 'utf8');
+  expect(documentsCsv).toContain('beta');
+  expect(documentsCsv).not.toContain('alpha');
   await expect(page.getByTestId('collection-documents-table').locator('[data-bson-syntax]').first()).toBeVisible();
   await expect(page.getByTestId('collection-documents-table').locator('[data-bson-token="string"]').first()).toBeVisible();
   await expect(page.getByText('"alpha"', { exact: true })).toHaveCount(0);
@@ -479,6 +495,17 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByTestId('query-documents-table')).toBeVisible();
   await expect(page.getByTestId('query-documents-table').locator('[data-bson-syntax]').first()).toBeVisible();
   await expect(page.getByTestId('query-documents-table').locator('[data-bson-token="string"]').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Export…', exact: true }).click();
+  const queryExportDialog = page.getByRole('dialog', { name: 'Export Statement 1' });
+  await queryExportDialog.getByRole('button', { name: /Text/ }).click();
+  await queryExportDialog.getByRole('button', { name: 'Continue…' }).click();
+  await expect.poll(async () => (await readdir(userDataPath)).some((file) => (
+    /^mongog_e2e_inventory_.*\.txt$/u.test(file)
+  ))).toBe(true);
+  const queryTxtName = (await readdir(userDataPath)).find((file) => /^mongog_e2e_inventory_.*\.txt$/u.test(file))!;
+  const queryTxt = await readFile(join(userDataPath, queryTxtName), 'utf8');
+  expect(queryTxt).toContain('sku');
+  expect(queryTxt).toContain('beta');
 
   await page.getByRole('button', { name: 'Documents', exact: true }).click();
   await expect(page.getByRole('button', { name: /^Criteria · 3/ })).toBeVisible();
@@ -605,6 +632,19 @@ async function launch(): Promise<Page> {
     env: { ...process.env, MONGOG_E2E_USER_DATA: userDataPath },
   });
   return application.firstWindow();
+}
+
+async function redirectSaveDialogs(app: ElectronApplication, directory: string): Promise<void> {
+  await app.evaluate(({ dialog }, targetDirectory) => {
+    const target = dialog as unknown as {
+      showSaveDialog: (...args: unknown[]) => Promise<{ canceled: boolean; filePath: string }>;
+    };
+    target.showSaveDialog = async (...args: unknown[]) => {
+      const options = (args.length > 1 ? args[1] : args[0]) as { defaultPath?: string };
+      const filename = String(options.defaultPath ?? 'export.dat').replace(/^.*[\\/]/u, '');
+      return { canceled: false, filePath: `${targetDirectory}/${filename}` };
+    };
+  }, directory);
 }
 
 function packagedExecutable(): string {
