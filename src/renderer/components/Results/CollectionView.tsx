@@ -114,8 +114,29 @@ const s: Record<string, React.CSSProperties> = {
     padding: '3px 5px', fontSize: 10, outline: 0, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
   },
   filterHelp: {
-    padding: '5px 10px', color: 'var(--color-text-muted)', background: 'var(--color-panel)',
+    padding: '8px 10px', color: 'var(--color-text-muted)', background: 'var(--color-panel)',
     borderBottom: '1px solid var(--color-border)', fontSize: 11, flexShrink: 0,
+    maxHeight: 'min(360px, 45vh)', overflow: 'auto',
+  },
+  filterHelpHeader: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 },
+  filterHelpQuick: { lineHeight: 1.8 },
+  filterHelpGrid: {
+    display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+    gap: 7, marginTop: 9,
+  },
+  filterHelpExample: {
+    minWidth: 0, padding: '7px 8px', border: '1px solid var(--color-border)',
+    borderRadius: 3, background: 'var(--color-input-soft)',
+  },
+  filterHelpExampleTitle: { display: 'block', color: 'var(--color-text)', marginBottom: 4 },
+  filterHelpExamplePath: {
+    display: 'block', color: 'var(--color-text-faint)', marginBottom: 4,
+    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+  },
+  filterHelpExampleCode: {
+    display: 'block', overflowX: 'auto', padding: '4px 6px', borderRadius: 2,
+    background: 'var(--color-input)', color: 'var(--color-warning-text)',
+    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', whiteSpace: 'nowrap',
   },
   resizeHandle: {
     position: 'absolute', top: 0, right: -3, width: 7, height: '100%', cursor: 'col-resize', zIndex: 3,
@@ -144,9 +165,6 @@ const s: Record<string, React.CSSProperties> = {
   status: {
     display: 'flex', justifyContent: 'space-between', gap: 10, padding: '3px 8px', fontSize: 11,
     color: 'var(--color-text-muted)', background: 'var(--color-panel)', borderTop: '1px solid var(--color-border)', flexShrink: 0,
-  },
-  select: {
-    background: 'var(--color-input-soft)', color: 'var(--color-text)', border: '1px solid var(--color-border-strong)', fontSize: 11, borderRadius: 2,
   },
 };
 
@@ -203,6 +221,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const connect = useConnectionStore((state) => state.connect);
   const updateTab = useWorkspaceStore((state) => state.updateTab);
   const displayMode = useSettingsStore((state) => state.settings.ejson.defaultMode);
+  const configuredPageSize = useSettingsStore((state) => state.settings.execution.pageSize);
   const connectionId = tab.connectionId ?? '';
   const database = tab.database ?? 'admin';
   const collection = tab.collection ?? '';
@@ -230,7 +249,8 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     sort: null,
     projection: null,
   });
-  const [pageSize, setPageSize] = useState(50);
+  const latestPageSize = useRef(configuredPageSize);
+  const [cursorPageSize, setCursorPageSize] = useState(configuredPageSize);
   const [cursorId, setCursorId] = useState<string | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
   const [hasMore, setHasMore] = useState(false);
@@ -246,6 +266,10 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const [exportOpen, setExportOpen] = useState(false);
   const [exportBusy, setExportBusy] = useState(false);
 
+  useEffect(() => {
+    latestPageSize.current = configuredPageSize;
+  }, [configuredPageSize]);
+
   const discoveredColumns = useMemo(
     () => extractColumns(rows.map((row) => row.value).filter(isDocumentValue)),
     [rows],
@@ -255,6 +279,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
   const [columnFilterErrors, setColumnFilterErrors] = useState<Record<string, string>>({});
   const [columnFilterHelpOpen, setColumnFilterHelpOpen] = useState(false);
+  const [columnFilterExamplesOpen, setColumnFilterExamplesOpen] = useState(false);
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
   const suppressSortClick = useRef(false);
   const columns = useMemo(() => {
@@ -300,7 +325,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     }
   }, [displayMode, editorMode, selected]);
 
-  const applyPage = useCallback((page: DocumentsPage) => {
+  const applyPage = useCallback((page: DocumentsPage, pageSize: number) => {
     const nextRows = page.documents.map((envelope, index) =>
       createDocumentRow(envelope, page.pageIndex * pageSize + index),
     );
@@ -310,7 +335,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     setSelected(null);
     setEditorText('');
     setEditorMode('view');
-  }, [pageSize]);
+  }, []);
 
   const loadInitial = useCallback(async () => {
     if (!connectionId || !collection || !isConnected) {
@@ -322,6 +347,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     setError(null);
     setNotice(null);
     try {
+      const pageSize = latestPageSize.current;
       const page = await window.mongog.query.collectionFind({
         connectionId,
         database,
@@ -333,7 +359,8 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
         pageSize,
       });
       setCursorId(page.cursorId);
-      applyPage(page);
+      setCursorPageSize(page.pageSize);
+      applyPage(page, page.pageSize);
     } catch (caught) {
       setRows([]);
       setCursorId(null);
@@ -341,7 +368,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     } finally {
       setLoading(false);
     }
-  }, [connectionId, database, collection, documentsOwnerId, criteria, pageSize, applyPage, isConnected]);
+  }, [connectionId, database, collection, documentsOwnerId, criteria, applyPage, isConnected]);
 
   useEffect(() => {
     void loadInitial();
@@ -462,9 +489,9 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     setError(null);
     try {
       const page = direction === 'next'
-        ? await window.mongog.query.cursorFetchNext(connectionId, cursorId, pageSize)
+        ? await window.mongog.query.cursorFetchNext(connectionId, cursorId, cursorPageSize)
         : await window.mongog.query.cursorFetchPrev(connectionId, cursorId);
-      applyPage(page);
+      applyPage(page, cursorPageSize);
     } catch (caught) {
       setError(errorMessage(caught));
     } finally {
@@ -662,7 +689,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
           title={columnFilterHelpText()}
           onClick={() => setColumnFilterHelpOpen((open) => !open)}
         >
-          Filter syntax ?
+          Filter syntax &amp; examples
         </button>
         <ToolbarButton secondary onClick={() => void loadInitial()} disabled={busy}>Refresh</ToolbarButton>
         <ToolbarButton secondary onClick={() => setExportOpen(true)} disabled={busy || !cursorId}>Export…</ToolbarButton>
@@ -685,10 +712,87 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
 
       {columnFilterHelpOpen && (
         <div style={s.filterHelp} role="note">
-          <strong>Column filters:</strong>{' '}
-          exact text · <code>*text*</code> · <code>&lt;&gt; 10</code> · <code>100..200</code> ·{' '}
-          <code>has *Com*</code> · <code>!has *Com*</code> · <code>has *Com* OR has *Phone*</code> ·{' '}
-          <code>len = 3</code> · <code>len 2..5</code> · <code>len &gt;= 2 AND has *Com*</code>
+          <div style={s.filterHelpHeader}>
+            <strong style={{ color: 'var(--color-text)' }}>Column filter syntax</strong>
+            <span style={{ flex: 1 }} />
+            <button
+              type="button"
+              style={s.secondaryButton}
+              aria-expanded={columnFilterExamplesOpen}
+              onClick={() => setColumnFilterExamplesOpen((open) => !open)}
+            >
+              {columnFilterExamplesOpen ? 'Fewer examples' : 'More examples'}
+            </button>
+          </div>
+          <div style={s.filterHelpQuick}>
+            <strong>Quick:</strong>{' '}
+            exact text · <code>{'""'}</code> empty string · <code>*text*</code> · <code>&lt;&gt; 10</code> · <code>100..200</code> ·{' '}
+            <code>has *Com*</code> · <code>!has *Com*</code> · <code>len = 3</code> ·{' '}
+            <code>AND</code> / <code>OR</code>
+            <br />
+            <strong>Nested:</strong>{' '}
+            object <code>{'{field}: value'}</code> · array object <code>{'[{field}]: value'}</code> ·{' '}
+            repeat selectors for deeper paths.
+          </div>
+          {columnFilterExamplesOpen && (
+            <div style={s.filterHelpGrid} data-testid="column-filter-examples">
+              <FilterSyntaxExample
+                title="Empty string"
+                path="status"
+                source={'""'}
+              />
+              <FilterSyntaxExample
+                title="Nested empty string"
+                path="profile.nickname"
+                source={'{nickname}: ""'}
+              />
+              <FilterSyntaxExample
+                title="Empty string inside an array"
+                path="tags[]"
+                source={'has ""'}
+              />
+              <FilterSyntaxExample
+                title="Nested object field"
+                path="location.address.street1"
+                source="{address}{street1}: *Monte Vista*"
+              />
+              <FilterSyntaxExample
+                title="Value inside a scalar array"
+                path="location.geo.coordinates[]"
+                source="{geo}{coordinates}: has -121.96328"
+              />
+              <FilterSyntaxExample
+                title="Exact scalar array"
+                path="location.geo.coordinates"
+                source="{geo}{coordinates}: [-121.96328, 38.367649]"
+              />
+              <FilterSyntaxExample
+                title="Array of objects"
+                path="products[].name"
+                source="[{name}]: *Com*"
+              />
+              <FilterSyntaxExample
+                title="Nested arrays of objects"
+                path="orders[].items[].sku"
+                source="[{items}][{sku}]: A-42"
+              />
+              <FilterSyntaxExample
+                title="Object then array of objects"
+                path="container.items[].price"
+                source="{items}[{price}]: 100..200"
+              />
+              <FilterSyntaxExample
+                title="Same array element"
+                path="products[].name + products[].price"
+                source="[{name}]: *Com* AND [{price}]: < 200"
+              />
+              <FilterSyntaxExample
+                title="Nested array length and membership"
+                path="orders[].items[].tags"
+                source="[{items}][{tags}]: len >= 2 AND has *wifi*"
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -849,7 +953,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
                         ...(columnFilterErrors[column] ? { borderColor: theme.colors.danger } : {}),
                       }}
                       value={columnFilters[column] ?? ''}
-                      placeholder="exact, 100..200, has, len = 3"
+                      placeholder="exact, {field}: value, [{field}]: value"
                       aria-invalid={columnFilterErrors[column] ? 'true' : undefined}
                       title={columnFilterErrors[column] ?? columnFilterHelpText()}
                       onDragStart={(event) => event.stopPropagation()}
@@ -963,20 +1067,31 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
               Count failed: {countError}
             </span>
           )}
-          <label>Page size&nbsp;
-            <select
-              style={s.select}
-              value={pageSize}
-              disabled={busy}
-              onChange={(event) => setPageSize(Number(event.target.value))}
-            >
-              {[25, 50, 100, 250, 500].map((size) => <option key={size} value={size}>{size}</option>)}
-            </select>
-          </label>
+          <span title="Change the global page size in Settings">
+            Page size {cursorId ? cursorPageSize : configuredPageSize}
+          </span>
           <ToolbarButton secondary onClick={() => void fetchPage('previous')} disabled={busy || pageIndex === 0}>Previous</ToolbarButton>
           <ToolbarButton secondary onClick={() => void fetchPage('next')} disabled={busy || !hasMore}>Next</ToolbarButton>
         </span>
       </div>
+    </div>
+  );
+}
+
+function FilterSyntaxExample({
+  title,
+  path,
+  source,
+}: {
+  title: string;
+  path: string;
+  source: string;
+}) {
+  return (
+    <div style={s.filterHelpExample}>
+      <strong style={s.filterHelpExampleTitle}>{title}</strong>
+      <span style={s.filterHelpExamplePath}>{path}</span>
+      <code style={s.filterHelpExampleCode}>{source}</code>
     </div>
   );
 }

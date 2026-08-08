@@ -12,6 +12,8 @@ interface SettingsState {
   load: () => Promise<void>;
   setTheme: (theme: ThemePreference) => Promise<void>;
   setBsonDisplayMode: (mode: BsonDisplayMode) => Promise<void>;
+  setCollectionDefaults: (collection: ApplicationSettings['collection']) => Promise<void>;
+  setPageSize: (pageSize: number) => Promise<void>;
   setAuditSettings: (audit: ApplicationSettings['audit']) => Promise<void>;
 }
 
@@ -54,6 +56,51 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     if (get().saving || get().settings.ejson.defaultMode === mode) return;
     const previous = get().settings;
     const settings = { ...previous, ejson: { ...previous.ejson, defaultMode: mode } };
+    set({ settings, saving: true, error: null });
+    try {
+      await window.mongog.settings.save(settings);
+      set({ saving: false });
+    } catch (error) {
+      set({ settings: previous, saving: false, error: errorMessage(error) });
+    }
+  },
+
+  setCollectionDefaults: async (collection) => {
+    if (get().saving) return;
+    const previous = get().settings;
+    const normalized: ApplicationSettings['collection'] = {
+      defaultView: collection.defaultView,
+      autoExecuteDefaultQuery: collection.defaultView === 'query'
+        ? collection.autoExecuteDefaultQuery
+        : false,
+    };
+    if (
+      previous.collection.defaultView === normalized.defaultView &&
+      previous.collection.autoExecuteDefaultQuery === normalized.autoExecuteDefaultQuery
+    ) return;
+    const settings = { ...previous, collection: normalized };
+    set({ settings, saving: true, error: null });
+    try {
+      await window.mongog.settings.save(settings);
+      set({ saving: false });
+    } catch (error) {
+      set({ settings: previous, saving: false, error: errorMessage(error) });
+    }
+  },
+
+  setPageSize: async (pageSize) => {
+    if (
+      get().saving ||
+      !Number.isInteger(pageSize) ||
+      pageSize < 1 ||
+      pageSize > 500 ||
+      get().settings.execution.pageSize === pageSize
+    ) return;
+    const previous = get().settings;
+    const settings = {
+      ...previous,
+      execution: { ...previous.execution, pageSize },
+    };
     set({ settings, saving: true, error: null });
     try {
       await window.mongog.settings.save(settings);

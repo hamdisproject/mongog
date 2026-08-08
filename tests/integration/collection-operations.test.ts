@@ -247,6 +247,137 @@ describe('collection browser operations', () => {
       .toEqual(['empty', 'three']);
   });
 
+  it('matches quoted empty strings without including null, missing, or whitespace values', async () => {
+    const collection = client!.db(DATABASE).collection('column_empty_strings');
+    await collection.insertMany([
+      {
+        name: 'empty',
+        label: '',
+        profile: { nickname: '' },
+        aliases: [{ value: '' }],
+        tags: [''],
+      },
+      {
+        name: 'null',
+        label: null,
+        profile: { nickname: null },
+        aliases: [{ value: null }],
+        tags: [null],
+      },
+      { name: 'missing', profile: {}, aliases: [{}], tags: [] },
+      {
+        name: 'whitespace',
+        label: '   ',
+        profile: { nickname: '   ' },
+        aliases: [{ value: '   ' }],
+        tags: ['   '],
+      },
+    ]);
+
+    const findNames = async (tabId: string, filterEjson: string): Promise<string[]> => {
+      const page = await findCollectionDocuments(client!, registry!, {
+        database: DATABASE,
+        collection: 'column_empty_strings',
+        owner: { connectionId: 'phase3', tabId },
+        filterEjson,
+        sortEjson: '{ name: 1 }',
+        pageSize: 20,
+      });
+      return page.documents.map((item) => parseEjson<{ name: string }>(item).name);
+    };
+
+    expect(await findNames('empty-string-top-level-tab', buildColumnFilterExpression({
+      label: '""',
+    }))).toEqual(['empty']);
+    expect(await findNames('empty-string-nested-tab', buildColumnFilterExpression({
+      profile: '{nickname}: ""',
+    }))).toEqual(['empty']);
+    expect(await findNames('empty-string-array-object-tab', buildColumnFilterExpression({
+      aliases: '[{value}]: ""',
+    }))).toEqual(['empty']);
+    expect(await findNames('empty-string-membership-tab', buildColumnFilterExpression({
+      tags: 'has ""',
+    }))).toEqual(['empty']);
+  });
+
+  it('applies nested object and same-element array selectors across mixed schemas', async () => {
+    const collection = client!.db(DATABASE).collection('column_nested_filters');
+    await collection.insertMany([
+      {
+        name: 'same-element',
+        profile: { city: 'Istanbul' },
+        products: [
+          { name: 'Computer Pro', price: 150, tags: ['wifi', 'office'] },
+          { name: 'Phone', price: 500 },
+        ],
+        orders: [
+          { status: 'open', items: [{ sku: 'A-42', tags: ['wifi'] }, { sku: 'B-1' }] },
+        ],
+      },
+      {
+        name: 'split-elements',
+        profile: { city: 'Ankara' },
+        products: [
+          { name: 'Computer Basic', price: 300 },
+          { name: 'Accessory', price: 120 },
+        ],
+        orders: [
+          { status: 'open', items: [{ sku: 'short' }] },
+          { status: 'closed', items: [{ sku: 'A-42' }, { sku: 'B-2' }, { sku: 'C-3' }] },
+        ],
+      },
+      {
+        name: 'missing-leaf',
+        profile: { city: 'Istanbul' },
+        products: [{ name: 'Other', price: 50 }],
+        orders: [{ status: 'open', items: [] }],
+      },
+      { name: 'null-shapes', profile: null, products: null, orders: null },
+      { name: 'scalar-shapes', profile: 'Istanbul', products: 'Computer', orders: 2 },
+      { name: 'missing-shapes' },
+    ]);
+
+    const findNames = async (tabId: string, filterEjson: string): Promise<string[]> => {
+      const page = await findCollectionDocuments(client!, registry!, {
+        database: DATABASE,
+        collection: 'column_nested_filters',
+        owner: { connectionId: 'phase3', tabId },
+        filterEjson,
+        sortEjson: '{ name: 1 }',
+        pageSize: 20,
+      });
+      return page.documents.map((item) => parseEjson<{ name: string }>(item).name);
+    };
+
+    expect(await findNames('nested-object-tab', buildColumnFilterExpression({
+      profile: '{city}: Istanbul',
+    }))).toEqual(['missing-leaf', 'same-element']);
+
+    expect(await findNames('nested-same-element-tab', buildColumnFilterExpression({
+      products: '[{name}]: *Computer* AND [{price}]: < 200',
+    }))).toEqual(['same-element']);
+
+    expect(await findNames('nested-array-array-tab', buildColumnFilterExpression({
+      orders: '[{items}][{sku}]: A-42',
+    }))).toEqual(['same-element', 'split-elements']);
+
+    expect(await findNames('nested-membership-tab', buildColumnFilterExpression({
+      orders: '[{items}][{tags}]: has *wifi*',
+    }))).toEqual(['same-element']);
+
+    expect(await findNames('nested-not-membership-tab', buildColumnFilterExpression({
+      products: '[{tags}]: !has *wifi*',
+    }))).toEqual(['missing-leaf', 'same-element', 'split-elements']);
+
+    expect(await findNames('nested-length-tab', buildColumnFilterExpression({
+      orders: '[{items}]: len >= 2 AND [{status}]: open',
+    }))).toEqual(['same-element']);
+
+    expect(await findNames('nested-length-membership-tab', buildColumnFilterExpression({
+      products: '[{tags}]: len >= 1 AND has *wifi*',
+    }))).toEqual(['same-element']);
+  });
+
   it('applies header-managed multi-column sort with a fresh first-page cursor', async () => {
     const collection = client!.db(DATABASE).collection('column_header_sort');
     await collection.insertMany([

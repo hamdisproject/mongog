@@ -13,8 +13,10 @@ import {
   collectionDocumentsOwnerId,
   collectionQueryTemplate,
   emptyDocumentCriteriaState,
+  renameCollectionQueryTemplate,
   type CollectionViewMode,
 } from '../collection-workspace.js';
+import { useSettingsStore } from './settings.js';
 
 export type ExecutionStatus =
   | 'idle'
@@ -71,7 +73,12 @@ interface WorkspaceState {
 
   createTab: (kind: WorkspaceTab['kind'], connectionId?: string | null) => string;
   openQuery: (options?: { connectionId?: string | null; database?: string; title?: string; editorContent?: string }) => string;
-  openCollection: (options: { connectionId: string | null; database: string; collection: string }) => string;
+  openCollection: (options: {
+    connectionId: string | null;
+    database: string;
+    collection: string;
+    viewMode?: CollectionViewMode;
+  }) => string;
   openSavedItem: (item: SavedItem) => string;
   openAdmin: (options: { connectionId: string; database: string; collection?: string; section: NonNullable<WorkspaceTab['adminSection']> }) => string;
   openChangeStream: (options: { connectionId: string; database: string; collection?: string }) => string;
@@ -238,13 +245,19 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
       set({ activeTabId: existing.id });
       return existing.id;
     }
+    const settings = useSettingsStore.getState().settings;
+    const viewMode = options.viewMode ?? settings.collection.defaultView;
     const id = get().createTab('collection', options.connectionId);
     get().updateTab(id, {
       title: `${options.database}.${options.collection}`,
       database: options.database,
       collection: options.collection,
-      collectionViewMode: 'documents',
+      collectionViewMode: viewMode,
       documentsState: emptyDocumentCriteriaState(),
+      ...(viewMode === 'query' ? {
+        editorContent: collectionQueryTemplate(options.collection, settings.execution.pageSize),
+        autoExecuteOnOpen: options.viewMode === undefined && settings.collection.autoExecuteDefaultQuery,
+      } : {}),
     });
     return id;
   },
@@ -440,7 +453,12 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
           collectionViewMode: view,
           ...(tab.savedItemId && tab.collectionViewMode !== view ? { dirty: true } : {}),
           ...(view === 'query' && tab.editorContent === undefined && tab.collection
-            ? { editorContent: collectionQueryTemplate(tab.collection) }
+            ? {
+                editorContent: collectionQueryTemplate(
+                  tab.collection,
+                  useSettingsStore.getState().settings.execution.pageSize,
+                ),
+              }
             : {}),
         };
       }),
@@ -483,9 +501,7 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
           tab.database !== database ||
           tab.collection !== oldName
         ) return tab;
-        const editorContent = tab.editorContent === collectionQueryTemplate(oldName)
-          ? collectionQueryTemplate(newName)
-          : tab.editorContent;
+        const editorContent = renameCollectionQueryTemplate(tab.editorContent, oldName, newName);
         return {
           ...tab,
           collection: newName,

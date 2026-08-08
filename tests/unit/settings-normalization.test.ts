@@ -9,6 +9,11 @@ describe('application settings normalization', () => {
     expect(DEFAULT_SETTINGS.ejson.defaultMode).toBe('mongosh');
     expect(normalizeApplicationSettings(undefined).ejson.defaultMode).toBe('mongosh');
     expect(normalizeApplicationSettings({ theme: 'dark' }).ejson.defaultMode).toBe('mongosh');
+    expect(DEFAULT_SETTINGS.collection).toEqual({
+      defaultView: 'documents',
+      autoExecuteDefaultQuery: false,
+    });
+    expect(DEFAULT_SETTINGS.execution.pageSize).toBe(50);
   });
 
   it.each(['relaxed', 'canonical', 'mongosh'] as const)('preserves the valid %s preference', (mode) => {
@@ -33,7 +38,26 @@ describe('application settings normalization', () => {
     expect(settings.execution.confirmDestructive).toBe(false);
     expect(settings.history).toEqual(DEFAULT_SETTINGS.history);
     expect(settings.audit).toEqual(DEFAULT_SETTINGS.audit);
+    expect(settings.collection).toEqual(DEFAULT_SETTINGS.collection);
     expect(settings.ejson.defaultMode).toBe('mongosh');
+  });
+
+  it('preserves valid collection defaults and disables auto-run for Documents', () => {
+    expect(normalizeApplicationSettings({
+      collection: { defaultView: 'query', autoExecuteDefaultQuery: true },
+    }).collection).toEqual({ defaultView: 'query', autoExecuteDefaultQuery: true });
+
+    expect(normalizeApplicationSettings({
+      collection: { defaultView: 'documents', autoExecuteDefaultQuery: true },
+    }).collection).toEqual({ defaultView: 'documents', autoExecuteDefaultQuery: false });
+  });
+
+  it('accepts only page sizes from 1 through 500', () => {
+    expect(normalizeApplicationSettings({ execution: { pageSize: 1 } }).execution.pageSize).toBe(1);
+    expect(normalizeApplicationSettings({ execution: { pageSize: 500 } }).execution.pageSize).toBe(500);
+    expect(normalizeApplicationSettings({ execution: { pageSize: 0 } }).execution.pageSize).toBe(50);
+    expect(normalizeApplicationSettings({ execution: { pageSize: 501 } }).execution.pageSize).toBe(50);
+    expect(normalizeApplicationSettings({ execution: { pageSize: 12.5 } }).execution.pageSize).toBe(50);
   });
 
   it('preserves and bounds the local audit retention policy', () => {

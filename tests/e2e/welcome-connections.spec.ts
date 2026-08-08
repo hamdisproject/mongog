@@ -20,8 +20,30 @@ test.beforeAll(async () => {
   await client.connect();
   try {
     await client.db('mongog_e2e').collection('inventory').insertMany([
-      { sku: 'alpha', quantity: 3, amenities: ['wifi', 'balcony'] },
-      { sku: 'beta', quantity: 7, amenities: ['pool'] },
+      {
+        sku: 'alpha',
+        quantity: 3,
+        amenities: ['wifi', 'balcony'],
+        catalog: {
+          city: 'Istanbul',
+          products: [
+            { name: 'Computer Pro', price: 150, tags: ['wifi'] },
+            { name: 'Accessory', price: 300 },
+          ],
+        },
+      },
+      {
+        sku: 'beta',
+        quantity: 7,
+        amenities: ['pool'],
+        catalog: {
+          city: '',
+          products: [
+            { name: 'Computer Basic', price: 300 },
+            { name: 'Accessory', price: 150 },
+          ],
+        },
+      },
     ]);
   } finally {
     await client.close();
@@ -74,6 +96,11 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   )).toBe('rgb(247, 248, 250)');
   await expect(page.getByRole('radio', { name: 'MongoDB Shell data display' }))
     .toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('radio', { name: 'Documents default collection view' }))
+    .toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('switch', { name: 'Run default collection query automatically' }))
+    .toBeDisabled();
+  await expect(page.getByLabel('Global page size')).toHaveValue('50');
   await page.getByRole('radio', { name: 'Canonical EJSON data display' }).click();
   await expect(page.getByRole('radio', { name: 'Canonical EJSON data display' }))
     .toHaveAttribute('aria-checked', 'true');
@@ -385,10 +412,49 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.getByRole('button', { name: 'Show column filter syntax' }).click();
   await expect(page.getByRole('note')).toContainText('100..200');
   await expect(page.getByRole('note')).toContainText('len = 3');
+  await page.getByRole('button', { name: 'More examples' }).click();
+  await expect(page.getByTestId('column-filter-examples')).toContainText('{address}{street1}: *Monte Vista*');
+  await expect(page.getByTestId('column-filter-examples')).toContainText('{geo}{coordinates}: has -121.96328');
+  await expect(page.getByTestId('column-filter-examples')).toContainText('{nickname}: ""');
+  await expect(page.getByTestId('column-filter-examples')).toContainText('has ""');
+  await expect(page.getByTestId('column-filter-examples')).toContainText('[{name}]: *Com*');
+  await expect(page.getByTestId('column-filter-examples')).toContainText('[{items}][{sku}]: A-42');
   await page.getByRole('button', { name: 'Show column filter syntax' }).click();
 
   const quickQuantityFilter = page.getByLabel('Filter quantity column');
   const amenitiesFilter = page.getByLabel('Filter amenities column');
+  const catalogFilter = page.getByLabel('Filter catalog column');
+  await catalogFilter.fill('{city}: ""');
+  await catalogFilter.press('Enter');
+  await expect(page.getByText('"beta"', { exact: true })).toBeVisible();
+  await expect(page.getByText('"alpha"', { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId('criteria-editor-filter')).toContainText('catalog.city');
+  await expect(page.getByTestId('criteria-editor-filter')).toContainText('""');
+  await catalogFilter.fill('{products}[{name}]: *Com* AND {products}[{price}]: < 200');
+  await catalogFilter.press('Enter');
+  await expect(page.getByText('"alpha"', { exact: true })).toBeVisible();
+  await expect(page.getByText('"beta"', { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId('criteria-editor-filter')).toContainText('$elemMatch');
+  await catalogFilter.fill('{products}[{tags}]: len >= 1');
+  await catalogFilter.press('Enter');
+  await expect(page.getByText('"alpha"', { exact: true })).toBeVisible();
+  await expect(page.getByText('"beta"', { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId('criteria-editor-filter')).toContainText('$anyElementTrue');
+  await catalogFilter.fill('{bad.name}: value');
+  await expect(catalogFilter).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.getByRole('button', { name: 'Apply', exact: true })).toBeDisabled();
+  await catalogFilter.fill('');
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  const nestedCleanupClient = new MongoClient(mongoUri);
+  await nestedCleanupClient.connect();
+  try {
+    await nestedCleanupClient.db('mongog_e2e').collection('inventory').updateMany(
+      {},
+      { $unset: { catalog: '' } },
+    );
+  } finally {
+    await nestedCleanupClient.close();
+  }
   await amenitiesFilter.fill('len = 2');
   await amenitiesFilter.press('Enter');
   await expect(page.getByText('"alpha"', { exact: true })).toBeVisible();
@@ -631,6 +697,63 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(renamedGroupNode).toHaveCount(0);
   await page.getByTitle('Close Pinned query').click();
   await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toHaveCount(0);
+});
+
+test('global collection defaults persist and auto-run a new Query collection once', async () => {
+  let page = await launch();
+  await page.getByRole('button', { name: 'Open application settings' }).click();
+  await expect(page.getByTestId('collection-defaults-settings')).toBeVisible();
+
+  const queryDefault = page.getByRole('radio', { name: 'Query default collection view' });
+  if (await queryDefault.getAttribute('aria-checked') !== 'true') await queryDefault.click();
+  await expect(queryDefault).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByText('Preferences are saved automatically.')).toBeVisible();
+
+  const autoRun = page.getByRole('switch', { name: 'Run default collection query automatically' });
+  if (await autoRun.getAttribute('aria-checked') !== 'true') await autoRun.click();
+  await expect(autoRun).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByText('Preferences are saved automatically.')).toBeVisible();
+
+  const globalPageSize = page.getByLabel('Global page size');
+  await globalPageSize.fill('100');
+  await globalPageSize.press('Enter');
+  await expect(globalPageSize).toHaveValue('100');
+  await expect(page.getByText('Preferences are saved automatically.')).toBeVisible();
+
+  await application!.close();
+  application = null;
+  page = await launch();
+  await page.getByRole('button', { name: 'Open application settings' }).click();
+  await expect(page.getByRole('radio', { name: 'Query default collection view' }))
+    .toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('switch', { name: 'Run default collection query automatically' }))
+    .toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByLabel('Global page size')).toHaveValue('100');
+
+  await page.locator('[title^="welcome: Welcome"]').click();
+  await page.getByRole('button', { name: 'New Connection', exact: true }).click();
+  await page.getByLabel('Connection name').fill('Defaults E2E');
+  await page.getByLabel('Connection URI').fill(mongoUri);
+  await page.getByLabel('Default database').fill('mongog_e2e');
+  await page.getByRole('button', { name: 'Test, Save & Connect' }).click();
+  await expect(page.getByText('Connection tested, saved, and connected.')).toBeVisible({ timeout: 30_000 });
+
+  await page.getByRole('button', { name: 'Open global search' }).click();
+  const search = page.getByLabel('Search databases and collections');
+  await search.fill('inventory');
+  const collectionResult = page.getByRole('option', { name: /inventory Defaults E2E/ });
+  await expect(collectionResult).toBeVisible({ timeout: 15_000 });
+  await collectionResult.click();
+
+  await expect(page.getByRole('button', { name: 'Query', exact: true }))
+    .toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('query-editor-surface').locator('.view-lines'))
+    .toContainText('limit(100)');
+  await expect(page.getByTestId('query-results-region')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Statement 1', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Documents', exact: true }).click();
+  await expect(page.getByText('Page size 100', { exact: true })).toBeVisible();
 });
 
 async function setMonacoValue(page: Page, label: string, value: string): Promise<void> {

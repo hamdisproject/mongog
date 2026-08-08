@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   collectionDocumentsOwnerId,
   collectionQueryTemplate,
+  renameCollectionQueryTemplate,
 } from '../../src/renderer/collection-workspace.js';
 import { parseScript } from '../../src/features/script-analysis/parse.js';
 import { workspaceSaveSchema } from '../../src/shared/ipc/index.js';
@@ -13,6 +14,15 @@ describe('collection workspace helpers', () => {
 
     expect(source).toBe(`db.collection(${JSON.stringify(collection)}).find({}).limit(50);\n`);
     expect(parseScript(source).diagnostics).toEqual([]);
+  });
+
+  it('uses the configured page size and preserves it when an untouched template is renamed', () => {
+    const source = collectionQueryTemplate('old/name', 125);
+    expect(source).toBe('db.collection("old/name").find({}).limit(125);\n');
+    expect(renameCollectionQueryTemplate(source, 'old/name', 'new/name'))
+      .toBe('db.collection("new/name").find({}).limit(125);\n');
+    expect(renameCollectionQueryTemplate(`${source}// edited`, 'old/name', 'new/name'))
+      .toBe(`${source}// edited`);
   });
 
   it('keeps document cursor ownership separate from query ownership', () => {
@@ -31,6 +41,7 @@ describe('collection workspace helpers', () => {
           database: 'db',
           collection: 'items',
           collectionViewMode: 'query',
+          autoExecuteOnOpen: true,
           editorContent: 'db.collection("items").find({});',
           savedItemId: 'saved-view-1',
           documentsState: {
@@ -43,6 +54,16 @@ describe('collection workspace helpers', () => {
         activeTabId: 'tab-1',
       },
     }).success).toBe(true);
+    const parsed = workspaceSaveSchema.parse({
+      state: {
+        tabs: [{
+          id: 'runtime-only', kind: 'collection', title: 'db.items', connectionId: 'conn-1',
+          collectionViewMode: 'query', autoExecuteOnOpen: true,
+        }],
+        activeTabId: 'runtime-only',
+      },
+    });
+    expect('autoExecuteOnOpen' in parsed.state.tabs[0]!).toBe(false);
   });
 
   it('accepts a persisted namespace-locked change stream tab', () => {

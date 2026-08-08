@@ -24,6 +24,8 @@ export interface WorkspaceTab {
   collection?: string;
   /** collection tabs: embedded browser/query surface */
   collectionViewMode?: 'documents' | 'query';
+  /** Renderer-only one-shot request; deliberately omitted from workspace persistence. */
+  autoExecuteOnOpen?: boolean;
   /** query tabs */
   editorContent?: string;
   mode?: 'query' | 'trusted';
@@ -100,6 +102,10 @@ export interface ApplicationSettings {
   };
   history: { retentionDays: number; maxEntries: number };
   audit: { retentionDays: number; maxEntries: number };
+  collection: {
+    defaultView: 'documents' | 'query';
+    autoExecuteDefaultQuery: boolean;
+  };
   ejson: { defaultMode: BsonDisplayMode };
   window?: { bounds?: { x: number; y: number; width: number; height: number } };
 }
@@ -119,6 +125,7 @@ export const DEFAULT_SETTINGS: ApplicationSettings = {
   },
   history: { retentionDays: 90, maxEntries: 10_000 },
   audit: { retentionDays: 90, maxEntries: 50_000 },
+  collection: { defaultView: 'documents', autoExecuteDefaultQuery: false },
   ejson: { defaultMode: 'mongosh' },
 };
 
@@ -129,6 +136,7 @@ export function normalizeApplicationSettings(value: unknown): ApplicationSetting
   const execution = isRecord(source.execution) ? source.execution : {};
   const history = isRecord(source.history) ? source.history : {};
   const audit = isRecord(source.audit) ? source.audit : {};
+  const collection = isRecord(source.collection) ? source.collection : {};
   const ejson = isRecord(source.ejson) ? source.ejson : {};
   const mode = ejson.defaultMode;
 
@@ -159,6 +167,17 @@ export function normalizeApplicationSettings(value: unknown): ApplicationSetting
     audit: {
       retentionDays: integerInRange(audit.retentionDays, 1, 36_500, DEFAULT_SETTINGS.audit.retentionDays),
       maxEntries: integerInRange(audit.maxEntries, 100, 1_000_000, DEFAULT_SETTINGS.audit.maxEntries),
+    },
+    collection: {
+      defaultView: collection.defaultView === 'query' || collection.defaultView === 'documents'
+        ? collection.defaultView
+        : DEFAULT_SETTINGS.collection.defaultView,
+      autoExecuteDefaultQuery: collection.defaultView === 'query'
+        ? booleanValue(
+            collection.autoExecuteDefaultQuery,
+            DEFAULT_SETTINGS.collection.autoExecuteDefaultQuery,
+          )
+        : false,
     },
     ejson: {
       defaultMode: mode === 'relaxed' || mode === 'canonical' || mode === 'mongosh'

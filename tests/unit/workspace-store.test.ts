@@ -1,15 +1,23 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { EngineEvent } from '../../src/shared/domain/index.js';
+import { DEFAULT_SETTINGS } from '../../src/shared/domain/workspace.js';
 import {
   bulkClosableTabIds,
   useWorkspaceStore,
 } from '../../src/renderer/stores/workspace.js';
+import { useSettingsStore } from '../../src/renderer/stores/settings.js';
 
 const range = { startLine: 1, startCol: 1, endLine: 1, endCol: 10 };
 
 describe('workspace execution store', () => {
   beforeEach(() => {
     useWorkspaceStore.setState({ tabs: [], activeTabId: null, results: {} });
+    useSettingsStore.setState({
+      settings: structuredClone(DEFAULT_SETTINGS),
+      loaded: true,
+      saving: false,
+      error: null,
+    });
   });
 
   it('routes early engine events by run token before execute IPC resolves', () => {
@@ -337,6 +345,56 @@ describe('workspace execution store', () => {
     useWorkspaceStore.getState().setCollectionView(tabId, 'documents');
     useWorkspaceStore.getState().setCollectionView(tabId, 'query');
     expect(useWorkspaceStore.getState().tabs[0]?.editorContent).toBe('');
+  });
+
+  it('opens a new collection with the global Query, auto-run and page-size defaults', () => {
+    useSettingsStore.setState((state) => ({
+      settings: {
+        ...state.settings,
+        collection: { defaultView: 'query', autoExecuteDefaultQuery: true },
+        execution: { ...state.settings.execution, pageSize: 125 },
+      },
+    }));
+
+    const tabId = useWorkspaceStore.getState().openCollection({
+      connectionId: 'conn-1',
+      database: 'db',
+      collection: 'odd"/ü',
+    });
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === tabId)).toMatchObject({
+      collectionViewMode: 'query',
+      editorContent: 'db.collection("odd\\"/ü").find({}).limit(125);\n',
+      autoExecuteOnOpen: true,
+    });
+
+    useWorkspaceStore.getState().updateTab(tabId, {
+      editorContent: '// user content',
+      collectionViewMode: 'documents',
+      autoExecuteOnOpen: undefined,
+    });
+    expect(useWorkspaceStore.getState().openCollection({
+      connectionId: 'conn-1', database: 'db', collection: 'odd"/ü',
+    })).toBe(tabId);
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === tabId)).toMatchObject({
+      collectionViewMode: 'documents',
+      editorContent: '// user content',
+    });
+  });
+
+  it('allows an explicit Documents open to override the global Query default', () => {
+    useSettingsStore.setState((state) => ({
+      settings: {
+        ...state.settings,
+        collection: { defaultView: 'query', autoExecuteDefaultQuery: true },
+      },
+    }));
+    const tabId = useWorkspaceStore.getState().openCollection({
+      connectionId: 'conn-1', database: 'db', collection: 'items', viewMode: 'documents',
+    });
+    const tab = useWorkspaceStore.getState().tabs.find((candidate) => candidate.id === tabId);
+    expect(tab?.collectionViewMode).toBe('documents');
+    expect(tab?.editorContent).toBeUndefined();
+    expect(tab?.autoExecuteOnOpen).toBeUndefined();
   });
 
   it('normalizes restored legacy collection tabs to Documents', () => {

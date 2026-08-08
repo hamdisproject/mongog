@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSettingsStore } from '../../stores/settings.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
 import type { BsonDisplayMode } from '../../../shared/ejson/index.js';
@@ -56,10 +56,50 @@ const dataDisplayOptions: Array<{
   },
 ];
 
+const collectionViewOptions = [
+  {
+    id: 'documents' as const,
+    label: 'Documents',
+    description: 'Open collections in the table and document editor.',
+  },
+  {
+    id: 'query' as const,
+    label: 'Query',
+    description: 'Open collections in a namespace-locked query editor.',
+  },
+];
+
 export function SettingsView() {
-  const { settings, loaded, saving, error, setTheme, setBsonDisplayMode, setAuditSettings } = useSettingsStore();
+  const {
+    settings,
+    loaded,
+    saving,
+    error,
+    setTheme,
+    setBsonDisplayMode,
+    setCollectionDefaults,
+    setPageSize,
+    setAuditSettings,
+  } = useSettingsStore();
   const openActivityLog = useWorkspaceStore((state) => state.openActivityLog);
   const [auditMessage, setAuditMessage] = useState<string | null>(null);
+  const [pageSizeDraft, setPageSizeDraft] = useState(String(settings.execution.pageSize));
+  const [pageSizeError, setPageSizeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPageSizeDraft(String(settings.execution.pageSize));
+    setPageSizeError(null);
+  }, [settings.execution.pageSize]);
+
+  const savePageSize = () => {
+    const value = Number(pageSizeDraft);
+    if (!Number.isInteger(value) || value < 1 || value > 500) {
+      setPageSizeError('Page size must be a whole number between 1 and 500.');
+      return;
+    }
+    setPageSizeError(null);
+    void setPageSize(value);
+  };
 
   const clearAllLogs = async () => {
     if (!window.confirm('Permanently delete all MongoDB activity logs? This cannot be undone.')) return;
@@ -171,6 +211,119 @@ export function SettingsView() {
                 </button>
               );
             })}
+          </div>
+        </section>
+
+        <section data-testid="collection-defaults-settings" style={{ marginTop: 18, border: `1px solid ${theme.colors.border}`, borderRadius: 7, background: theme.colors.panel, overflow: 'hidden' }}>
+          <div style={{ padding: '15px 17px', borderBottom: `1px solid ${theme.colors.border}` }}>
+            <h2 style={{ margin: 0, fontSize: 14 }}>Collection &amp; query defaults</h2>
+            <div style={{ marginTop: 5, color: theme.colors.textMuted, fontSize: 11, lineHeight: 1.45 }}>
+              Choose how newly opened collections start and how many documents each new result page reads.
+            </div>
+          </div>
+
+          <div role="radiogroup" aria-label="Default collection view" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, padding: '16px 16px 0' }}>
+            {collectionViewOptions.map((option) => {
+              const selected = settings.collection.defaultView === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  aria-label={`${option.label} default collection view`}
+                  disabled={!loaded || saving}
+                  onClick={() => void setCollectionDefaults({
+                    defaultView: option.id,
+                    autoExecuteDefaultQuery: option.id === 'query'
+                      ? settings.collection.autoExecuteDefaultQuery
+                      : false,
+                  })}
+                  style={{
+                    minHeight: 70,
+                    border: `1px solid ${selected ? theme.colors.accentHover : theme.colors.borderStrong}`,
+                    borderRadius: 6,
+                    background: selected ? theme.colors.selected : theme.colors.input,
+                    color: theme.colors.text,
+                    padding: '12px 13px',
+                    textAlign: 'left',
+                    cursor: !loaded || saving ? 'default' : 'pointer',
+                    boxShadow: selected ? `0 0 0 1px ${theme.colors.accentHover}` : 'none',
+                  }}
+                >
+                  <strong style={{ display: 'block', fontSize: 12 }}>{option.label}</strong>
+                  <span style={{ display: 'block', marginTop: 5, color: theme.colors.textMuted, fontSize: 10, lineHeight: 1.45 }}>
+                    {option.description}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: '16px 24px', padding: 16 }}>
+            <div>
+              <strong style={{ display: 'block', fontSize: 12 }}>Run the default query automatically</strong>
+              <span style={{ display: 'block', marginTop: 4, color: theme.colors.textMuted, fontSize: 10, lineHeight: 1.45 }}>
+                Runs once only when a new collection opens in Query and its connection is already online.
+              </span>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-label="Run default collection query automatically"
+              aria-checked={settings.collection.autoExecuteDefaultQuery}
+              disabled={!loaded || saving || settings.collection.defaultView !== 'query'}
+              onClick={() => void setCollectionDefaults({
+                ...settings.collection,
+                autoExecuteDefaultQuery: !settings.collection.autoExecuteDefaultQuery,
+              })}
+              style={{
+                position: 'relative', width: 38, height: 21, border: `1px solid ${theme.colors.borderStrong}`,
+                borderRadius: 12, padding: 0,
+                background: settings.collection.autoExecuteDefaultQuery ? theme.colors.accent : theme.colors.input,
+                cursor: !loaded || saving || settings.collection.defaultView !== 'query' ? 'default' : 'pointer',
+                opacity: settings.collection.defaultView === 'query' ? 1 : 0.5,
+              }}
+            >
+              <span aria-hidden="true" style={{
+                position: 'absolute', top: 3, left: settings.collection.autoExecuteDefaultQuery ? 20 : 3,
+                width: 13, height: 13, borderRadius: '50%', background: '#fff', transition: 'left 120ms ease',
+              }} />
+            </button>
+
+            <div>
+              <strong style={{ display: 'block', fontSize: 12 }}>Global page size</strong>
+              <span style={{ display: 'block', marginTop: 4, color: theme.colors.textMuted, fontSize: 10, lineHeight: 1.45 }}>
+                Used by new Documents cursors, Query result pages and generated collection query limits.
+              </span>
+              {pageSizeError && <span role="alert" style={{ display: 'block', marginTop: 5, color: theme.colors.danger, fontSize: 10 }}>{pageSizeError}</span>}
+            </div>
+            <label style={{ display: 'grid', gap: 4, color: theme.colors.textMuted, fontSize: 9 }}>
+              PAGE SIZE
+              <input
+                aria-label="Global page size"
+                aria-invalid={pageSizeError !== null}
+                type="number"
+                min={1}
+                max={500}
+                step={1}
+                value={pageSizeDraft}
+                disabled={!loaded || saving}
+                onChange={(event) => {
+                  setPageSizeDraft(event.target.value);
+                  setPageSizeError(null);
+                }}
+                onBlur={savePageSize}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') event.currentTarget.blur();
+                }}
+                style={{
+                  width: 112, height: 29, boxSizing: 'border-box',
+                  border: `1px solid ${pageSizeError ? theme.colors.danger : theme.colors.borderStrong}`,
+                  borderRadius: 4, background: theme.colors.input, color: theme.colors.text, padding: '0 8px',
+                }}
+              />
+            </label>
           </div>
         </section>
 

@@ -4,6 +4,7 @@ import { bootMonaco } from '../../monaco/setup.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
 import { useConnectionStore } from '../../stores/connections.js';
 import { useEditorContext } from '../../stores/editor-context.js';
+import { useSettingsStore } from '../../stores/settings.js';
 import { getMonacoTheme } from '../../theme.js';
 import { SavedActions } from '../Saved/SavedActions.js';
 
@@ -55,6 +56,7 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
     clearResults,
   } = useWorkspaceStore();
   const { connected, databases, profiles, loadDatabases, connect } = useConnectionStore();
+  const globalPageSize = useSettingsStore((state) => state.settings.execution.pageSize);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
   const selectedConnId = activeTab?.connectionId ?? null;
@@ -119,6 +121,7 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
         source,
         sourceOffset,
         readOnly: profile?.readOnly ?? false,
+        pageSize: globalPageSize,
       });
       setExecutionId(tabId, runId, response.executionId);
       if (!activeTab.customTitle && activeTab.title === 'Untitled') {
@@ -133,6 +136,7 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
     selectedConnId,
     selectedIsConnected,
     profiles,
+    globalPageSize,
     prepareExecution,
     setExecutionId,
     updateTab,
@@ -184,7 +188,19 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
       editorRef.current = editor;
       resizeObserver = new ResizeObserver(() => editor?.layout());
       resizeObserver.observe(editorHost.current);
-      layoutFrame = requestAnimationFrame(() => editor?.layout());
+      const shouldAutoExecute = tab?.autoExecuteOnOpen === true;
+      if (shouldAutoExecute && tab) {
+        updateTab(tab.id, { autoExecuteOnOpen: undefined });
+      }
+      const connectedAtOpen = !!(
+        shouldAutoExecute &&
+        tab?.connectionId &&
+        useConnectionStore.getState().connected[tab.connectionId]
+      );
+      layoutFrame = requestAnimationFrame(() => {
+        editor?.layout();
+        if (connectedAtOpen) void runRef.current();
+      });
       editor.focus();
     });
     return () => {

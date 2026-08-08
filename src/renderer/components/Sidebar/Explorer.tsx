@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useConnectionStore } from '../../stores/connections.js';
+import { useSettingsStore } from '../../stores/settings.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
 import { collectionQueryTemplate } from '../../collection-workspace.js';
 import type { ConnectionGroup } from '../../../shared/domain/connections.js';
@@ -615,7 +616,12 @@ function ProfileNode({
       items: [
         {
           label: 'Open Documents',
-          onSelect: () => openCollection({ connectionId: profile.id, database, collection }),
+          onSelect: () => openCollection({
+            connectionId: profile.id,
+            database,
+            collection,
+            viewMode: 'documents',
+          }),
         },
         {
           label: 'New Query for Collection',
@@ -623,7 +629,10 @@ function ProfileNode({
             connectionId: profile.id,
             database,
             title: `${database}.${collection} query`,
-            editorContent: collectionQueryTemplate(collection),
+            editorContent: collectionQueryTemplate(
+              collection,
+              useSettingsStore.getState().settings.execution.pageSize,
+            ),
           }),
         },
         {

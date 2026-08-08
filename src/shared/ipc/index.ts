@@ -319,6 +319,10 @@ export const applicationSettingsSchema = z.object({
     retentionDays: z.number().int().min(1).max(36_500),
     maxEntries: z.number().int().min(100).max(1_000_000),
   }),
+  collection: z.object({
+    defaultView: z.enum(['documents', 'query']),
+    autoExecuteDefaultQuery: z.boolean(),
+  }),
   ejson: z.object({ defaultMode: z.enum(['mongosh', 'relaxed', 'canonical']) }),
   window: z.object({
     bounds: z.object({

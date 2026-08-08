@@ -229,6 +229,7 @@ describe('Database', () => {
         execution: { defaultTimeoutMS: 30000, pageSize: 50, maxRetainedPages: 20, maxPreviewBytes: 256000, cursorIdleTimeoutMS: 600000, maxRuntimes: 10, confirmDestructive: true },
         history: { retentionDays: 90, maxEntries: 10000 },
         audit: { retentionDays: 90, maxEntries: 50000 },
+        collection: { defaultView: 'documents', autoExecuteDefaultQuery: false },
         ejson: { defaultMode: 'relaxed' },
       });
 
