@@ -153,9 +153,45 @@ export default function App() {
         flexDirection: 'column', overflow: 'hidden',
       }}>
         <TabBar />
-        {renderTabContent(activeTabId, tabs)}
+        {renderWorkspaceContent(activeTabId, tabs)}
       </div>
     </div>
+  );
+}
+
+/**
+ * Change streams keep polling while another tab is active. Keeping those
+ * surfaces mounted also means their existing unmount cleanup remains the
+ * single owner of closing a stream when its tab is actually removed.
+ */
+function renderWorkspaceContent(activeTabId: string | null, tabs: WorkspaceTab[]) {
+  const activeTab = tabs.find((tab) => tab.id === activeTabId);
+  const changeStreamTabs = tabs.filter((tab) => tab.kind === 'change-stream');
+
+  return (
+    <>
+      {activeTab?.kind !== 'change-stream' && renderTabContent(activeTabId, tabs)}
+      {changeStreamTabs.map((tab) => {
+        const active = tab.id === activeTabId;
+        return (
+          <div
+            key={tab.id}
+            data-change-stream-surface={tab.id}
+            aria-hidden={!active}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              minHeight: 0,
+              display: active ? 'flex' : 'none',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+          >
+            <ChangeStreamView tab={tab} />
+          </div>
+        );
+      })}
+    </>
   );
 }
 
@@ -194,7 +230,7 @@ function renderTabContent(activeTabId: string | null, tabs: WorkspaceTab[]) {
     case 'admin':
       return <AdminView tab={activeTab} />;
     case 'change-stream':
-      return <ChangeStreamView tab={activeTab} />;
+      return null;
     case 'connection-settings':
       return <ConnectionsView tab={activeTab} />;
     case 'settings':

@@ -3,16 +3,18 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { MongoClient } from 'mongodb';
 
-let mongo: MongoMemoryServer;
+let mongo: MongoMemoryReplSet;
 let mongoUri: string;
 let userDataPath: string;
 let application: ElectronApplication | null = null;
 
 test.beforeAll(async () => {
-  mongo = await MongoMemoryServer.create();
+  mongo = await MongoMemoryReplSet.create({
+    replSet: { count: 1, storageEngine: 'wiredTiger' },
+  });
   mongoUri = mongo.getUri('mongog_e2e');
   const client = new MongoClient(mongoUri);
   await client.connect();
@@ -285,8 +287,40 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByText('Indexes', { exact: true }).first()).toBeVisible();
   await page.getByTitle('Open mongog_e2e.inventory').click({ button: 'right' });
   await page.getByRole('menuitem', { name: 'Watch Changes' }).click();
-  await expect(page.locator('[title^="change-stream: Changes · mongog_e2e.inventory"]')).toBeVisible();
+  const changeStreamTab = page.locator('[title^="change-stream: Changes · mongog_e2e.inventory"]');
+  await expect(changeStreamTab).toBeVisible();
   await expect(page.getByRole('button', { name: 'Status field changes' })).toBeVisible();
+  await page.getByRole('button', { name: 'Start stream' }).click();
+  await expect(page.getByRole('status', { name: 'Change stream live' })).toBeVisible();
+  const liveDot = page.getByTestId('change-stream-live-dot');
+  await expect(liveDot).toBeVisible();
+  await expect.poll(() => liveDot.evaluate((element) => {
+    const rootColor = getComputedStyle(document.documentElement).getPropertyValue('--color-danger').trim();
+    const probe = document.createElement('span');
+    probe.style.color = rootColor;
+    document.body.appendChild(probe);
+    const expected = getComputedStyle(probe).color;
+    probe.remove();
+    return getComputedStyle(element).backgroundColor === expected;
+  })).toBe(true);
+
+  await page.getByTitle('Open mongog_e2e.inventory').click();
+  await expect(page.locator('[data-change-stream-surface]')).toHaveCount(1);
+  const eventClient = new MongoClient(mongoUri);
+  await eventClient.connect();
+  try {
+    await eventClient.db('mongog_e2e').collection('inventory').updateOne(
+      { sku: 'alpha' },
+      { $set: { status: 'changed-while-hidden' } },
+    );
+  } finally {
+    await eventClient.close();
+  }
+  await changeStreamTab.click();
+  await expect(page.getByRole('status', { name: 'Change stream live' })).toBeVisible();
+  await expect(page.getByText(/changed-while-hidden/)).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'Stop stream' }).click();
+  await expect(page.getByRole('status', { name: 'Change stream stopped' })).toBeVisible();
 
   await page.getByTitle('Open mongog_e2e.inventory').click();
   await expect(page.getByRole('button', { name: 'Documents', exact: true })).toHaveAttribute('aria-pressed', 'true');

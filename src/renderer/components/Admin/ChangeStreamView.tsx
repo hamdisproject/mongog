@@ -28,6 +28,8 @@ const ui: Record<string, React.CSSProperties> = {
   select: { border: `1px solid ${theme.colors.borderStrong}`, borderRadius: theme.radius, background: theme.colors.input, color: theme.colors.text, padding: '5px 7px', fontSize: 12 },
   muted: { color: theme.colors.textMuted, fontSize: 11 },
   pre: { margin: 0, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11, lineHeight: 1.45 },
+  status: { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11 },
+  stoppedDot: { boxSizing: 'border-box', width: 8, height: 8, borderRadius: '50%', border: `1px solid ${theme.colors.textMuted}`, flexShrink: 0 },
 };
 
 export function ChangeStreamView({ tab }: { tab: WorkspaceTab }) {
@@ -107,8 +109,22 @@ export function ChangeStreamView({ tab }: { tab: WorkspaceTab }) {
         <strong style={{ fontSize: 13 }}>Change Stream</strong>
         <span style={{ color: 'var(--color-warning-text)', fontFamily: 'monospace', fontSize: 12 }}>{namespace}</span>
         <span style={{ flex: 1 }} />
-        <span style={{ color: streamId ? theme.colors.success : theme.colors.textMuted, fontSize: 11 }}>
-          {streamId ? '● Listening' : '○ Stopped'}
+        <span
+          role="status"
+          aria-live="polite"
+          aria-label={streamId ? 'Change stream live' : 'Change stream stopped'}
+          style={{ ...ui.status, color: streamId ? theme.colors.danger : theme.colors.textMuted }}
+        >
+          {streamId ? (
+            <span
+              className="change-stream-live-dot"
+              data-testid="change-stream-live-dot"
+              aria-hidden="true"
+            />
+          ) : (
+            <span style={ui.stoppedDot} aria-hidden="true" />
+          )}
+          {streamId ? 'Live' : 'Stopped'}
         </span>
       </div>
       <div style={ui.body}>

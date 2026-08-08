@@ -110,3 +110,22 @@ body {
   background: var(--color-panel-raised) !important;
   color: var(--color-text) !important;
 }
+
+.change-stream-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--color-danger);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-danger) 55%, transparent);
+  animation: change-stream-live-pulse 1.8s ease-out infinite;
+}
+
+@keyframes change-stream-live-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-danger) 55%, transparent); }
+  70%, 100% { box-shadow: 0 0 0 5px transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .change-stream-live-dot { animation: none; }
+}
