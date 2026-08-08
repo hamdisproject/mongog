@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { parseDocumentExpression } from '../../../features/script-analysis/index.js';
 import type { DocumentsPage, WorkspaceTab } from '../../../shared/domain/index.js';
 import type { EjsonEnvelope } from '../../../shared/ejson/index.js';
@@ -215,6 +215,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [countLoading, setCountLoading] = useState(false);
   const [countError, setCountError] = useState<string | null>(null);
+  const countRequestGeneration = useRef(0);
 
   useEffect(() => {
     setColumnOrder((current) => {
@@ -227,7 +228,9 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   }, [discoveredColumns]);
 
   useEffect(() => {
+    countRequestGeneration.current += 1;
     setTotalCount(null);
+    setCountLoading(false);
     setCountError(null);
   }, [connectionId, database, collection, criteria.filter]);
 
@@ -335,6 +338,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   };
 
   const calculateTotalCount = async () => {
+    const generation = ++countRequestGeneration.current;
     setCountLoading(true);
     setCountError(null);
     try {
@@ -344,11 +348,13 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
         collection,
         filterEjson: criteria.filter || EMPTY_FILTER,
       });
+      if (generation !== countRequestGeneration.current) return;
       setTotalCount(result.count);
     } catch (caught) {
+      if (generation !== countRequestGeneration.current) return;
       setCountError(errorMessage(caught));
     } finally {
-      setCountLoading(false);
+      if (generation === countRequestGeneration.current) setCountLoading(false);
     }
   };
 
@@ -709,12 +715,29 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
         <span>{loading || editorBusy ? 'Working…' : `${rows.length} document(s)`}</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span>Page {pageIndex + 1}</span>
-          <span style={{ color: countError ? theme.colors.danger : undefined }} title={countError ?? undefined}>
-            Total: {countLoading ? 'counting…' : totalCount === null ? '—' : totalCount.toLocaleString()}
-          </span>
-          <ToolbarButton secondary onClick={() => void calculateTotalCount()} disabled={busy || countLoading}>
-            Count
-          </ToolbarButton>
+          <button
+            type="button"
+            aria-label="Calculate total document count"
+            aria-busy={countLoading}
+            style={{
+              ...s.secondaryButton,
+              ...(busy || countLoading ? s.disabled : {}),
+              color: countError ? theme.colors.danger : totalCount === null ? '#ddd' : theme.colors.success,
+            }}
+            disabled={busy || countLoading}
+            onClick={() => void calculateTotalCount()}
+          >
+            {countLoading
+              ? 'Total count: calculating…'
+              : totalCount === null
+                ? countError ? 'Total count: retry' : 'Total count: calculate'
+                : `Total count: ${totalCount.toLocaleString()}`}
+          </button>
+          {countError && (
+            <span role="alert" style={{ color: theme.colors.danger, maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={countError}>
+              Count failed: {countError}
+            </span>
+          )}
           <label>Page size&nbsp;
             <select
               style={s.select}

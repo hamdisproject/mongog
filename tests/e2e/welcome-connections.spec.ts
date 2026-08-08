@@ -135,8 +135,9 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page.getByText('alpha', { exact: true })).toBeVisible();
   await expect(page.getByText('beta', { exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Count', exact: true }).click();
-  await expect(page.getByText('Total: 1', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Calculate total document count' }).click();
+  await expect(page.getByRole('button', { name: 'Calculate total document count' }))
+    .toHaveText('Total count: 1');
 
   const quantityColumn = page.getByLabel('Filter quantity column');
   await quantityColumn.fill('> 4');

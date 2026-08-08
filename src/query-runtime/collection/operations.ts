@@ -92,7 +92,10 @@ export async function countCollectionDocuments(
   const count = await client
     .db(options.database)
     .collection(options.collection)
-    .countDocuments(filter as Filter<Document>, { maxTimeMS: 30_000 });
+    // Exact counts on large or weakly indexed filtered collections can take
+    // longer than the browser page request. Keep this below the runtime IPC
+    // ceiling while avoiding the former, surprisingly short 30 second cap.
+    .countDocuments(filter as Filter<Document>, { maxTimeMS: 110_000 });
   return { count };
 }
 

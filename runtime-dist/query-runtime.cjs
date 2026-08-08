@@ -251051,7 +251051,7 @@ async function findCollectionDocuments(client2, registry2, options) {
 }
 async function countCollectionDocuments(client2, options) {
   const filter = parseQueryDocumentExpression(options.filterEjson, "Filter");
-  const count2 = await client2.db(options.database).collection(options.collection).countDocuments(filter, { maxTimeMS: 3e4 });
+  const count2 = await client2.db(options.database).collection(options.collection).countDocuments(filter, { maxTimeMS: 11e4 });
   return { count: count2 };
 }
 async function insertCollectionDocument(client2, options) {
