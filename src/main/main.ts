@@ -9,6 +9,7 @@ import { secretVault } from './security/secret-vault.js';
 import { loadWindowState, startWindowStateSaver } from './window-state.js';
 import { IpcEvents } from '../shared/ipc/index.js';
 import { serializeError } from '../shared/errors/index.js';
+import { AuditService } from './services/audit-service.js';
 
 const supervisor = new RuntimeSupervisor({ maxRuntimes: 10, idleTimeoutMS: 15 * 60 * 1000 });
 const smokeUserDataPath = process.env.MONGOG_SMOKE === '1'
@@ -22,6 +23,7 @@ if (smokeUserDataPath || e2eUserDataPath) {
 
 let spikeMongoUri: string | null = null;
 let db: Database | null = null;
+let audit: AuditService | null = null;
 
 function getDb(): Database {
   if (!db) throw new Error('Database not initialized');
@@ -57,6 +59,13 @@ async function getSpikeMongoUri(): Promise<string | null> {
 void app.whenReady().then(async () => {
   db = Database.openOrCreate(join(app.getPath('userData'), 'mongog.db'));
   secretVault.bind(db.secrets);
+  audit = new AuditService(db);
+  audit.setChangeEmitter((event) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send(IpcEvents.auditChanged, event);
+    }
+  });
+  audit.initialize();
 
   if (process.env.MONGOG_SMOKE === '1') {
     const { runSmokeChecks } = await import('./smoke.js');
@@ -74,11 +83,13 @@ void app.whenReady().then(async () => {
       getSpikeMongoUri,
       getDb,
       secretStore: secretVault,
+      audit,
     },
     validateSender,
   );
 
   supervisor.on('engine-event', (connectionId, executionId, event, tabId, runId) => {
+    audit?.handleEngineEvent(runId, event);
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IpcEvents.engine, {
         connectionId,
@@ -118,6 +129,7 @@ void app.whenReady().then(async () => {
     }
   });
   supervisor.on('runtime-exit', (connectionId) => {
+    audit?.failQueriesForConnection(connectionId, 'Query runtime exited before execution completed.');
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IpcEvents.connectionState, {
         connectionId,
@@ -135,6 +147,7 @@ void app.whenReady().then(async () => {
     }
   });
   supervisor.on('runtime-force-killed', (connectionId) => {
+    audit?.failQueriesForConnection(connectionId, 'Query runtime was force-killed before execution completed.');
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IpcEvents.connectionState, {
         connectionId,
@@ -174,6 +187,7 @@ app.on('before-quit', () => {
     void import('./spike-mongo.js').then((m) => m.stopSpikeMongo());
   }
   void supervisor.disposeAll();
+  audit?.dispose();
   db?.close();
   if (smokeUserDataPath) {
     rmSync(smokeUserDataPath, { recursive: true, force: true });

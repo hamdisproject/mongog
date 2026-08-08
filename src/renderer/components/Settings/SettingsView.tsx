@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useSettingsStore } from '../../stores/settings.js';
+import { useWorkspaceStore } from '../../stores/workspace.js';
 import type { BsonDisplayMode } from '../../../shared/ejson/index.js';
 import { theme, type ThemePreference } from '../../theme.js';
 
@@ -55,7 +57,19 @@ const dataDisplayOptions: Array<{
 ];
 
 export function SettingsView() {
-  const { settings, loaded, saving, error, setTheme, setBsonDisplayMode } = useSettingsStore();
+  const { settings, loaded, saving, error, setTheme, setBsonDisplayMode, setAuditSettings } = useSettingsStore();
+  const openActivityLog = useWorkspaceStore((state) => state.openActivityLog);
+  const [auditMessage, setAuditMessage] = useState<string | null>(null);
+
+  const clearAllLogs = async () => {
+    if (!window.confirm('Permanently delete all MongoDB activity logs? This cannot be undone.')) return;
+    try {
+      const result = await window.mongog.audit.clear({ scope: 'all' });
+      setAuditMessage(`${result.deleted.toLocaleString()} activity log entries deleted.`);
+    } catch (reason) {
+      setAuditMessage(reason && typeof reason === 'object' && 'message' in reason ? String(reason.message) : String(reason));
+    }
+  };
 
   return (
     <main
@@ -158,6 +172,77 @@ export function SettingsView() {
               );
             })}
           </div>
+        </section>
+
+        <section data-testid="audit-settings" style={{ marginTop: 18, border: `1px solid ${theme.colors.border}`, borderRadius: 7, background: theme.colors.panel, overflow: 'hidden' }}>
+          <div style={{ padding: '15px 17px', borderBottom: `1px solid ${theme.colors.border}` }}>
+            <h2 style={{ margin: 0, fontSize: 14 }}>Activity &amp; audit</h2>
+            <div style={{ marginTop: 5, color: theme.colors.textMuted, fontSize: 11, lineHeight: 1.45 }}>
+              Review MongoDB operations performed by MongoG. Logs stay on this device and never include credentials, document bodies or file paths.
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: '15px 24px', padding: 17 }}>
+            <div>
+              <strong style={{ display: 'block', fontSize: 12 }}>Retention policy</strong>
+              <span style={{ display: 'block', marginTop: 4, color: theme.colors.textMuted, fontSize: 10, lineHeight: 1.45 }}>
+                Oldest entries are pruned by age and entry count at startup and periodically while the app is running.
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <label style={{ display: 'grid', gap: 4, color: theme.colors.textMuted, fontSize: 9 }}>
+                RETENTION DAYS
+                <input
+                  key={`audit-days-${settings.audit.retentionDays}`}
+                  aria-label="Audit retention days"
+                  type="number"
+                  min={1}
+                  max={36500}
+                  defaultValue={settings.audit.retentionDays}
+                  disabled={!loaded || saving}
+                  onBlur={(event) => void setAuditSettings({ ...settings.audit, retentionDays: Number(event.target.value) })}
+                  style={{ width: 112, height: 29, boxSizing: 'border-box', border: `1px solid ${theme.colors.borderStrong}`, borderRadius: 4, background: theme.colors.input, color: theme.colors.text, padding: '0 8px' }}
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 4, color: theme.colors.textMuted, fontSize: 9 }}>
+                MAXIMUM ENTRIES
+                <input
+                  key={`audit-max-${settings.audit.maxEntries}`}
+                  aria-label="Maximum audit entries"
+                  type="number"
+                  min={100}
+                  max={1000000}
+                  step={100}
+                  defaultValue={settings.audit.maxEntries}
+                  disabled={!loaded || saving}
+                  onBlur={(event) => void setAuditSettings({ ...settings.audit, maxEntries: Number(event.target.value) })}
+                  style={{ width: 140, height: 29, boxSizing: 'border-box', border: `1px solid ${theme.colors.borderStrong}`, borderRadius: 4, background: theme.colors.input, color: theme.colors.text, padding: '0 8px' }}
+                />
+              </label>
+            </div>
+            <div>
+              <strong style={{ display: 'block', fontSize: 12 }}>Activity Log</strong>
+              <span style={{ display: 'block', marginTop: 4, color: theme.colors.textMuted, fontSize: 10 }}>
+                Explore reports, filter operations, inspect safe details and remove entries.
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={openActivityLog}
+                style={{ minHeight: 30, border: `1px solid ${theme.colors.accentHover}`, borderRadius: 4, background: theme.colors.accent, color: '#fff', padding: '0 12px', cursor: 'pointer', fontSize: 11 }}
+              >
+                Open Activity Log
+              </button>
+              <button
+                type="button"
+                onClick={() => void clearAllLogs()}
+                style={{ minHeight: 30, border: `1px solid ${theme.colors.danger}`, borderRadius: 4, background: 'transparent', color: theme.colors.danger, padding: '0 12px', cursor: 'pointer', fontSize: 11 }}
+              >
+                Clear All Logs…
+              </button>
+            </div>
+          </div>
+          {auditMessage && <div aria-live="polite" style={{ padding: '0 17px 14px', color: theme.colors.textMuted, fontSize: 10 }}>{auditMessage}</div>}
         </section>
 
         <div aria-live="polite" style={{ minHeight: 20, marginTop: 10, color: error ? theme.colors.danger : theme.colors.textMuted, fontSize: 11 }}>

@@ -2,6 +2,10 @@ import { z } from 'zod';
 import type { AppError } from '../errors/index.js';
 import type { EjsonEnvelope } from '../ejson/index.js';
 import type {
+  AuditBucket,
+  AuditFilter,
+  AuditListPage,
+  AuditSummary,
   ConnectionState,
   CollectionDocumentsPage,
   CollectionMutationResult,
@@ -34,6 +38,11 @@ import type {
   CreateSavedItemInput,
   UpdateSavedItemInput,
   DeleteSavedFolderResult,
+} from '../domain/index.js';
+import {
+  AUDIT_CATEGORIES,
+  AUDIT_ORIGINS,
+  AUDIT_STATUSES,
 } from '../domain/index.js';
 
 export const IpcChannels = {
@@ -108,11 +117,17 @@ export const IpcChannels = {
   savedCreateItem: 'mongog:saved:item:create',
   savedUpdateItem: 'mongog:saved:item:update',
   savedDeleteItem: 'mongog:saved:item:delete',
+  // ── Local MongoDB activity audit ──
+  auditList: 'mongog:audit:list',
+  auditSummary: 'mongog:audit:summary',
+  auditDelete: 'mongog:audit:delete',
+  auditClear: 'mongog:audit:clear',
 } as const;
 
 export const IpcEvents = {
   engine: 'mongog:event:engine',
   connectionState: 'mongog:event:connection-state',
+  auditChanged: 'mongog:event:audit-changed',
 } as const;
 
 // ── Existing schemas ──
@@ -289,6 +304,10 @@ export const applicationSettingsSchema = z.object({
     retentionDays: z.number().int().min(1).max(36_500),
     maxEntries: z.number().int().min(1),
   }),
+  audit: z.object({
+    retentionDays: z.number().int().min(1).max(36_500),
+    maxEntries: z.number().int().min(100).max(1_000_000),
+  }),
   ejson: z.object({ defaultMode: z.enum(['mongosh', 'relaxed', 'canonical']) }),
   window: z.object({
     bounds: z.object({
@@ -378,6 +397,40 @@ export const savedUpdateItemSchema = z.discriminatedUnion('type', [
 ]) satisfies z.ZodType<UpdateSavedItemInput>;
 
 export const savedDeleteItemSchema = z.object({ id: z.string().min(1) });
+
+// ── MongoDB activity audit ──
+
+export const auditFilterSchema = z.object({
+  text: z.string().trim().max(1_000).optional(),
+  connectionId: z.string().min(1).optional(),
+  database: z.string().max(255).optional(),
+  collection: z.string().max(255).optional(),
+  category: z.enum(AUDIT_CATEGORIES).optional(),
+  action: z.string().max(200).optional(),
+  origin: z.enum(AUDIT_ORIGINS).optional(),
+  status: z.enum(AUDIT_STATUSES).optional(),
+  fromTs: z.number().int().nonnegative().optional(),
+  toTs: z.number().int().nonnegative().optional(),
+}) satisfies z.ZodType<AuditFilter>;
+
+export const auditListSchema = z.object({
+  filter: auditFilterSchema.default({}),
+  limit: z.number().int().min(1).max(500).default(100),
+  offset: z.number().int().nonnegative().default(0),
+});
+
+export const auditSummarySchema = z.object({
+  filter: auditFilterSchema.default({}),
+  bucket: z.enum(['hour', 'day']).default('day'),
+});
+
+// Migrated query-history rows use a stable `legacy-history:<id>` key, while
+// new rows use UUIDs. Both are valid deletable audit identifiers.
+export const auditDeleteSchema = z.object({ id: z.string().min(1).max(200) });
+export const auditClearSchema = z.discriminatedUnion('scope', [
+  z.object({ scope: z.literal('all') }),
+  z.object({ scope: z.literal('filtered'), filter: auditFilterSchema }),
+]);
 
 // ── Phase 2: Query schemas ──
 
@@ -617,6 +670,7 @@ export interface MongoGDesktopApi {
       event: EngineEvent;
     }) => void): () => void;
     onConnectionState(cb: (s: ConnectionState & { connectionId: string }) => void): () => void;
+    onAuditChanged(cb: (event: import('../domain/index.js').AuditChangedEvent) => void): () => void;
   };
   connections: {
     listGroups(): Promise<ConnectionGroup[]>;
@@ -800,6 +854,12 @@ export interface MongoGDesktopApi {
     createItem(input: CreateSavedItemInput): Promise<SavedItem>;
     updateItem(input: UpdateSavedItemInput): Promise<SavedItem>;
     deleteItem(id: string): Promise<void>;
+  };
+  audit: {
+    list(filter?: AuditFilter, page?: { limit?: number; offset?: number }): Promise<AuditListPage>;
+    summary(filter?: AuditFilter, bucket?: AuditBucket): Promise<AuditSummary>;
+    deleteEntry(id: string): Promise<{ deleted: number }>;
+    clear(input: { scope: 'all' } | { scope: 'filtered'; filter: AuditFilter }): Promise<{ deleted: number }>;
   };
 }
 

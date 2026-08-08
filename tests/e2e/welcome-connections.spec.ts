@@ -322,6 +322,25 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.getByRole('button', { name: 'Stop stream' }).click();
   await expect(page.getByRole('status', { name: 'Change stream stopped' })).toBeVisible();
 
+  await page.getByRole('button', { name: 'Open application settings' }).click();
+  await expect(page.getByTestId('audit-settings')).toBeVisible();
+  await expect(page.getByLabel('Audit retention days')).toHaveValue('90');
+  await expect(page.getByLabel('Maximum audit entries')).toHaveValue('50000');
+  await page.getByRole('button', { name: 'Open Activity Log' }).click();
+  await expect(page.getByTestId('activity-log-view')).toBeVisible();
+  await expect(page.locator('[data-tab-kind="history"]')).toHaveCount(1);
+  await page.locator('[data-tab-kind="history"]').click({ button: 'right' });
+  await expect(page.getByRole('menuitem', { name: 'Rename Tab…' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Log table' }).click();
+  await expect.poll(() => page.locator('[data-audit-entry]').count()).toBeGreaterThan(0);
+  await page.getByLabel('Filter by action').fill('connection.connect');
+  await expect(page.getByTestId('activity-log-table')).toContainText('connection.connect');
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Delete filtered…' }).click();
+  await expect(page.getByTestId('activity-log-table')).toContainText('No entries');
+  await page.getByRole('button', { name: 'Reset' }).click();
+
   await page.getByTitle('Open mongog_e2e.inventory').click();
   await expect(page.getByRole('button', { name: 'Documents', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByText('"alpha"', { exact: true })).toBeVisible();

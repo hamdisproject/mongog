@@ -12,6 +12,7 @@ interface SettingsState {
   load: () => Promise<void>;
   setTheme: (theme: ThemePreference) => Promise<void>;
   setBsonDisplayMode: (mode: BsonDisplayMode) => Promise<void>;
+  setAuditSettings: (audit: ApplicationSettings['audit']) => Promise<void>;
 }
 
 const initialSettings: ApplicationSettings = structuredClone(DEFAULT_SETTINGS);
@@ -53,6 +54,27 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     if (get().saving || get().settings.ejson.defaultMode === mode) return;
     const previous = get().settings;
     const settings = { ...previous, ejson: { ...previous.ejson, defaultMode: mode } };
+    set({ settings, saving: true, error: null });
+    try {
+      await window.mongog.settings.save(settings);
+      set({ saving: false });
+    } catch (error) {
+      set({ settings: previous, saving: false, error: errorMessage(error) });
+    }
+  },
+
+  setAuditSettings: async (audit) => {
+    if (get().saving) return;
+    const previous = get().settings;
+    const normalized = {
+      retentionDays: Math.max(1, Math.min(36_500, Math.trunc(audit.retentionDays))),
+      maxEntries: Math.max(100, Math.min(1_000_000, Math.trunc(audit.maxEntries))),
+    };
+    if (
+      previous.audit.retentionDays === normalized.retentionDays &&
+      previous.audit.maxEntries === normalized.maxEntries
+    ) return;
+    const settings = { ...previous, audit: normalized };
     set({ settings, saving: true, error: null });
     try {
       await window.mongog.settings.save(settings);

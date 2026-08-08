@@ -1,5 +1,6 @@
 import type BetterSqlite3 from 'better-sqlite3';
 import { randomUUID } from 'node:crypto';
+import { containsKnownSecretMaterial, redactForLog } from '../../shared/redaction/index.js';
 
 interface Migration {
   version: number;
@@ -192,6 +193,88 @@ const migrations: Migration[] = [
       db.exec('DROP TABLE saved_scripts');
     },
   },
+  {
+    version: 3,
+    description: 'Persistent MongoDB operation audit log',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS operation_audit (
+          id                TEXT PRIMARY KEY NOT NULL,
+          correlation_id    TEXT,
+          started_at        INTEGER NOT NULL,
+          completed_at      INTEGER,
+          duration_ms       REAL,
+          connection_id     TEXT,
+          connection_name   TEXT NOT NULL,
+          database_name     TEXT,
+          collection_name   TEXT,
+          category          TEXT NOT NULL,
+          action            TEXT NOT NULL,
+          origin            TEXT NOT NULL CHECK(origin IN ('user','background','system')),
+          operation_class   TEXT NOT NULL CHECK(operation_class IN ('read','write','connection','background','admin')),
+          status            TEXT NOT NULL CHECK(status IN ('running','success','error','cancelled','interrupted')),
+          summary           TEXT NOT NULL,
+          detail_json       TEXT,
+          error_category    TEXT,
+          error_message     TEXT,
+          result_count      INTEGER,
+          affected_count    INTEGER
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_audit_started ON operation_audit(started_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_audit_connection ON operation_audit(connection_id, started_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_audit_category ON operation_audit(category, action, started_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_audit_status ON operation_audit(status, started_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_audit_correlation ON operation_audit(correlation_id);
+      `);
+
+      const historyExists = db.prepare(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'query_history'",
+      ).get();
+      if (!historyExists) return;
+
+      const rows = db.prepare(`
+        SELECT h.*, p.name AS connection_name
+        FROM query_history h
+        LEFT JOIN connection_profiles p ON p.id = h.connection_id
+        ORDER BY h.executed_at ASC
+      `).all() as Array<Record<string, unknown>>;
+      const insert = db.prepare(`
+        INSERT OR IGNORE INTO operation_audit
+          (id, started_at, completed_at, duration_ms, connection_id, connection_name,
+           database_name, category, action, origin, operation_class, status, summary,
+           detail_json, result_count, affected_count)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'query', 'query.execute', 'user', 'read', ?, ?, ?, ?, ?)
+      `);
+      for (const row of rows) {
+        const script = String(row.script ?? '');
+        const selection = typeof row.selection === 'string' ? row.selection : undefined;
+        const detail = containsKnownSecretMaterial({ script, selection })
+          ? { source: '[redacted: credential material detected]' }
+          : redactForLog({
+              source: truncateUtf8(script, 32 * 1024),
+              ...(selection ? { selection: truncateUtf8(selection, 32 * 1024) } : {}),
+            });
+        const status = row.status === 'success' ? 'success' : row.status === 'cancelled' ? 'cancelled' : 'error';
+        const startedAt = Number(row.executed_at);
+        const durationMs = Number(row.duration_ms ?? 0);
+        insert.run(
+          `legacy-history:${String(row.id)}`,
+          startedAt,
+          startedAt + durationMs,
+          durationMs,
+          String(row.connection_id),
+          String(row.connection_name ?? 'Deleted connection'),
+          String(row.database ?? ''),
+          status,
+          'Legacy query history',
+          JSON.stringify(detail),
+          row.returned_count ?? null,
+          row.modified_count ?? null,
+        );
+      }
+    },
+  },
 ];
 
 export function migrateUp(db: BetterSqlite3.Database): void {
@@ -224,4 +307,10 @@ export function migrateUp(db: BetterSqlite3.Database): void {
     });
     apply();
   }
+}
+
+function truncateUtf8(value: string, maxBytes: number): string {
+  const bytes = Buffer.from(value, 'utf8');
+  if (bytes.length <= maxBytes) return value;
+  return bytes.subarray(0, maxBytes).toString('utf8');
 }

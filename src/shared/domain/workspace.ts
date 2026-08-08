@@ -99,6 +99,7 @@ export interface ApplicationSettings {
     confirmDestructive: boolean;
   };
   history: { retentionDays: number; maxEntries: number };
+  audit: { retentionDays: number; maxEntries: number };
   ejson: { defaultMode: BsonDisplayMode };
   window?: { bounds?: { x: number; y: number; width: number; height: number } };
 }
@@ -117,6 +118,7 @@ export const DEFAULT_SETTINGS: ApplicationSettings = {
     confirmDestructive: true,
   },
   history: { retentionDays: 90, maxEntries: 10_000 },
+  audit: { retentionDays: 90, maxEntries: 50_000 },
   ejson: { defaultMode: 'mongosh' },
 };
 
@@ -126,6 +128,7 @@ export function normalizeApplicationSettings(value: unknown): ApplicationSetting
   const editor = isRecord(source.editor) ? source.editor : {};
   const execution = isRecord(source.execution) ? source.execution : {};
   const history = isRecord(source.history) ? source.history : {};
+  const audit = isRecord(source.audit) ? source.audit : {};
   const ejson = isRecord(source.ejson) ? source.ejson : {};
   const mode = ejson.defaultMode;
 
@@ -152,6 +155,10 @@ export function normalizeApplicationSettings(value: unknown): ApplicationSetting
     history: {
       retentionDays: integerInRange(history.retentionDays, 1, 36_500, DEFAULT_SETTINGS.history.retentionDays),
       maxEntries: positiveInteger(history.maxEntries, DEFAULT_SETTINGS.history.maxEntries),
+    },
+    audit: {
+      retentionDays: integerInRange(audit.retentionDays, 1, 36_500, DEFAULT_SETTINGS.audit.retentionDays),
+      maxEntries: integerInRange(audit.maxEntries, 100, 1_000_000, DEFAULT_SETTINGS.audit.maxEntries),
     },
     ejson: {
       defaultMode: mode === 'relaxed' || mode === 'canonical' || mode === 'mongosh'

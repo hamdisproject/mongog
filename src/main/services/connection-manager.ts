@@ -293,8 +293,15 @@ export class ConnectionManager {
     }
   }
 
-  async saveAndConnect(input: ConnectionDraftRequest): Promise<SaveAndConnectResult> {
-    const test = await this.testDraft(input);
+  async saveAndConnect(
+    input: ConnectionDraftRequest,
+    steps?: {
+      test: (operation: () => Promise<TestConnectionResult>) => Promise<TestConnectionResult>;
+      connect: (profile: ConnectionProfile, operation: () => Promise<void>) => Promise<void>;
+    },
+  ): Promise<SaveAndConnectResult> {
+    const testOperation = () => this.testDraft(input);
+    const test = steps ? await steps.test(testOperation) : await testOperation();
     if (!test.ok) return { test, saved: false, connected: false };
 
     const { draft, secretAction } = input;
@@ -338,7 +345,9 @@ export class ConnectionManager {
     // test and its profile/vault update has succeeded.
     await this.supervisor.dispose(profile.id).catch(() => undefined);
     try {
-      await this.connect(profile.id);
+      const connectOperation = () => this.connect(profile.id);
+      if (steps) await steps.connect(profile, connectOperation);
+      else await connectOperation();
       return { test, saved: true, connected: true, profile };
     } catch (error) {
       return {

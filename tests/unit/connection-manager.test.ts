@@ -329,6 +329,29 @@ describe('ConnectionManager', () => {
       );
     });
 
+    it('exposes the isolated test and final connect as observable save-connect steps', async () => {
+      const tester = vi.fn(async (): Promise<TestConnectionResult> => ({ ok: true, roundTripMs: 4 }));
+      const mgr = createManager(tester);
+      const calls: string[] = [];
+
+      const result = await mgr.saveAndConnect(draftRequest(), {
+        test: async (operation) => {
+          calls.push('test:start');
+          const value = await operation();
+          calls.push('test:end');
+          return value;
+        },
+        connect: async (_profile, operation) => {
+          calls.push('connect:start');
+          await operation();
+          calls.push('connect:end');
+        },
+      });
+
+      expect(result).toMatchObject({ saved: true, connected: true });
+      expect(calls).toEqual(['test:start', 'test:end', 'connect:start', 'connect:end']);
+    });
+
     it('tests an edit with the stored secret before replacing its active runtime', async () => {
       const tester = vi.fn(async (): Promise<TestConnectionResult> => ({ ok: true, roundTripMs: 2 }));
       const mgr = createManager(tester);

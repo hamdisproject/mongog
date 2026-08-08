@@ -8,6 +8,7 @@ import { ChangeStreamView } from './components/Admin/ChangeStreamView.js';
 import { WelcomeView } from './components/Welcome/WelcomeView.js';
 import { ConnectionsView } from './components/Connections/ConnectionsView.js';
 import { SettingsView } from './components/Settings/SettingsView.js';
+import { ActivityLogView } from './components/Activity/ActivityLogView.js';
 import { CommandPalette } from './components/CommandPalette/CommandPalette.js';
 import type { WorkspaceTab } from '../shared/domain/index.js';
 import { useWorkspaceStore } from './stores/workspace.js';
@@ -235,6 +236,8 @@ function renderTabContent(activeTabId: string | null, tabs: WorkspaceTab[]) {
       return <ConnectionsView tab={activeTab} />;
     case 'settings':
       return <SettingsView />;
+    case 'history':
+      return <ActivityLogView />;
     default:
       return <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-faint)' }}>
         {activeTab.kind} tab

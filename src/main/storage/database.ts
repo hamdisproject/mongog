@@ -9,6 +9,7 @@ import { WorkspaceRepo } from './repositories/workspace.js';
 import { SettingsRepo } from './repositories/settings.js';
 import { SecretsRepo } from './repositories/secrets.js';
 import { SavedLibraryRepo } from './repositories/saved-library.js';
+import { AuditRepo } from './repositories/audit.js';
 
 export interface DbConfig {
   path: string;
@@ -30,6 +31,7 @@ export class Database {
   readonly workspace: WorkspaceRepo;
   readonly settings: SettingsRepo;
   readonly saved: SavedLibraryRepo;
+  readonly audit: AuditRepo;
 
   private constructor(db: BetterSqlite3.Database) {
     this.db = db;
@@ -40,6 +42,7 @@ export class Database {
     this.workspace = new WorkspaceRepo(db);
     this.settings = new SettingsRepo(db);
     this.saved = new SavedLibraryRepo(db);
+    this.audit = new AuditRepo(db);
   }
 
   static open(config: DbConfig): Database {

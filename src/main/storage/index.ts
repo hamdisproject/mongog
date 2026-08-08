@@ -7,4 +7,5 @@ export { SecretsRepo } from './repositories/secrets.js';
 export { QueryHistoryRepo } from './repositories/query-history.js';
 export { WorkspaceRepo } from './repositories/workspace.js';
 export { SettingsRepo } from './repositories/settings.js';
+export { AuditRepo } from './repositories/audit.js';
 export { SavedLibraryRepo } from './repositories/saved-library.js';

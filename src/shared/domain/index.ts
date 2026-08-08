@@ -62,6 +62,26 @@ export type {
   DeleteSavedFolderResult,
 } from './saved.js';
 
+export {
+  AUDIT_CATEGORIES,
+  AUDIT_STATUSES,
+  AUDIT_ORIGINS,
+  AUDIT_OPERATION_CLASSES,
+} from './audit.js';
+
+export type {
+  AuditCategory,
+  AuditStatus,
+  AuditOrigin,
+  AuditOperationClass,
+  AuditLogEntry,
+  AuditFilter,
+  AuditListPage,
+  AuditSummary,
+  AuditBucket,
+  AuditChangedEvent,
+} from './audit.js';
+
 export { MAX_SAVED_FOLDER_DEPTH } from './saved.js';
 
 export { DEFAULT_WORKSPACE, DEFAULT_SETTINGS, normalizeApplicationSettings } from './workspace.js';

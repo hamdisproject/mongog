@@ -172,6 +172,25 @@ describe('workspace execution store', () => {
     expect(useWorkspaceStore.getState().activeTabId).toBe(first);
   });
 
+  it('reuses and restores one non-renamable Activity Log tab', () => {
+    const first = useWorkspaceStore.getState().openActivityLog();
+    const second = useWorkspaceStore.getState().openActivityLog();
+    expect(second).toBe(first);
+    expect(useWorkspaceStore.getState().renameTab(first, 'My report')).toBe(false);
+
+    useWorkspaceStore.getState().restore({
+      tabs: [
+        { id: 'history-1', kind: 'history', title: 'Old history', connectionId: null },
+        { id: 'history-2', kind: 'history', title: 'Duplicate', connectionId: null },
+      ],
+      activeTabId: 'history-2',
+    });
+    const tabs = useWorkspaceStore.getState().tabs;
+    expect(tabs).toHaveLength(1);
+    expect(tabs[0]).toMatchObject({ id: 'history-1', title: 'Activity Log', customTitle: false });
+    expect(useWorkspaceStore.getState().activeTabId).toBe('history-1');
+  });
+
   it('moves pinned tabs into a stable leading group and unpins at the normal-group boundary', () => {
     const first = useWorkspaceStore.getState().openQuery({ title: 'first' });
     const second = useWorkspaceStore.getState().openQuery({ title: 'second' });

@@ -32,6 +32,14 @@ describe('application settings normalization', () => {
     expect(settings.execution.pageSize).toBe(DEFAULT_SETTINGS.execution.pageSize);
     expect(settings.execution.confirmDestructive).toBe(false);
     expect(settings.history).toEqual(DEFAULT_SETTINGS.history);
+    expect(settings.audit).toEqual(DEFAULT_SETTINGS.audit);
     expect(settings.ejson.defaultMode).toBe('mongosh');
+  });
+
+  it('preserves and bounds the local audit retention policy', () => {
+    expect(normalizeApplicationSettings({ audit: { retentionDays: 30, maxEntries: 2_500 } }).audit)
+      .toEqual({ retentionDays: 30, maxEntries: 2_500 });
+    expect(normalizeApplicationSettings({ audit: { retentionDays: 0, maxEntries: 20 } }).audit)
+      .toEqual(DEFAULT_SETTINGS.audit);
   });
 });

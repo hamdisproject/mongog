@@ -78,6 +78,7 @@ interface WorkspaceState {
   openWelcome: () => string;
   openConnections: (options?: { mode?: 'list' | 'create' | 'edit'; profileId?: string }) => string;
   openSettings: () => string;
+  openActivityLog: () => string;
   setCollectionView: (tabId: string, view: CollectionViewMode) => void;
   detachConnection: (connectionId: string) => void;
   detachSavedItems: (savedItemIds: string[]) => void;
@@ -113,7 +114,6 @@ let tabCounter = 0;
 const RENAMEABLE_TAB_KINDS = new Set<WorkspaceTab['kind']>([
   'query',
   'collection',
-  'history',
   'admin',
   'change-stream',
 ]);
@@ -197,6 +197,8 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
               ? 'Connections'
               : kind === 'settings'
                 ? 'Settings'
+                : kind === 'history'
+                  ? 'Activity Log'
               : kind,
       connectionId,
       pinned: false,
@@ -405,6 +407,28 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
       return existing.id;
     }
     return get().createTab('settings', null);
+  },
+
+  openActivityLog: () => {
+    const current = get();
+    const historyTabs = current.tabs.filter((tab) => tab.kind === 'history');
+    const keep = historyTabs[0];
+    if (keep) {
+      const duplicateIds = new Set(historyTabs.slice(1).map((tab) => tab.id));
+      const results = { ...current.results };
+      for (const id of duplicateIds) delete results[id];
+      set({
+        tabs: current.tabs
+          .filter((tab) => !duplicateIds.has(tab.id))
+          .map((tab) => tab.id === keep.id
+            ? { ...tab, title: 'Activity Log', customTitle: false }
+            : tab),
+        activeTabId: keep.id,
+        results,
+      });
+      return keep.id;
+    }
+    return get().createTab('history', null);
   },
 
   setCollectionView: (tabId, view) => {
@@ -779,8 +803,15 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
   },
 
   restore: (state) => {
-    const normalizedTabs = state.tabs.map((tab) => ({
+    const seenHistory = new Set<string>();
+    const normalizedTabs = state.tabs.filter((tab) => {
+      if (tab.kind !== 'history') return true;
+      if (seenHistory.size) return false;
+      seenHistory.add(tab.id);
+      return true;
+    }).map((tab) => ({
       ...tab,
+      ...(tab.kind === 'history' ? { title: 'Activity Log', customTitle: false } : {}),
       pinned: tab.pinned ?? false,
       customTitle: tab.customTitle ?? false,
       ...(tab.kind === 'collection' && tab.collectionViewMode === undefined
