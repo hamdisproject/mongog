@@ -20,8 +20,8 @@ test.beforeAll(async () => {
   await client.connect();
   try {
     await client.db('mongog_e2e').collection('inventory').insertMany([
-      { sku: 'alpha', quantity: 3 },
-      { sku: 'beta', quantity: 7 },
+      { sku: 'alpha', quantity: 3, amenities: ['wifi'] },
+      { sku: 'beta', quantity: 7, amenities: ['pool'] },
     ]);
   } finally {
     await client.close();
@@ -348,6 +348,32 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByLabel('Collection sort')).toBeVisible();
   await expect(page.getByLabel('Collection projection')).toBeVisible();
   await expectViewportLocked(page);
+  await page.getByRole('button', { name: 'Show column filter syntax' }).click();
+  await expect(page.getByRole('note')).toContainText('100..200');
+  await page.getByRole('button', { name: 'Show column filter syntax' }).click();
+
+  const quickQuantityFilter = page.getByLabel('Filter quantity column');
+  const amenitiesFilter = page.getByLabel('Filter amenities column');
+  await quickQuantityFilter.fill('3..7');
+  await quickQuantityFilter.press('Enter');
+  await expect(page.getByText('"alpha"', { exact: true })).toBeVisible();
+  await expect(page.getByText('"beta"', { exact: true })).toBeVisible();
+  await amenitiesFilter.fill('has "*if*" OR has "*oo*"');
+  await amenitiesFilter.press('Enter');
+  await expect(page.getByText('"alpha"', { exact: true })).toBeVisible();
+  await expect(page.getByText('"beta"', { exact: true })).toBeVisible();
+  await amenitiesFilter.fill('has "*i*" AND !has "*oo*"');
+  await amenitiesFilter.press('Enter');
+  await expect(page.getByText('"alpha"', { exact: true })).toBeVisible();
+  await expect(page.getByText('"beta"', { exact: true })).toHaveCount(0);
+  await quickQuantityFilter.fill('7..3');
+  await expect(quickQuantityFilter).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.getByRole('button', { name: 'Apply', exact: true })).toBeDisabled();
+  await quickQuantityFilter.fill('');
+  await amenitiesFilter.fill('');
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(page.getByText('"beta"', { exact: true })).toBeVisible();
+
   const initialFilterHeight = await page.getByTestId('criteria-editor-filter').evaluate(
     (element) => element.getBoundingClientRect().height,
   );

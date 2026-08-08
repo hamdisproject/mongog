@@ -18,7 +18,11 @@ import { useSchemaCache } from '../../stores/schema-cache.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
 import { useSettingsStore } from '../../stores/settings.js';
 import { collectionDocumentsOwnerId, emptyDocumentCriteriaState } from '../../collection-workspace.js';
-import { buildColumnFilterExpression, reorderColumns } from '../../collection-column-filter.js';
+import {
+  columnFilterHelpText,
+  compileColumnFilters,
+  reorderColumns,
+} from '../../collection-column-filter.js';
 import { theme } from '../../theme.js';
 import { QueryWorkspace } from '../Editor/QueryWorkspace.js';
 import { CollectionCriteriaEditor } from './CollectionCriteriaEditor.js';
@@ -94,6 +98,10 @@ const s: Record<string, React.CSSProperties> = {
     boxSizing: 'border-box', display: 'block', width: 'calc(100% - 10px)', margin: '1px 5px 5px',
     border: '1px solid var(--color-border)', borderRadius: 2, background: 'var(--color-input)', color: 'var(--color-text)',
     padding: '3px 5px', fontSize: 10, outline: 0, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+  },
+  filterHelp: {
+    padding: '5px 10px', color: 'var(--color-text-muted)', background: 'var(--color-panel)',
+    borderBottom: '1px solid var(--color-border)', fontSize: 11, flexShrink: 0,
   },
   resizeHandle: {
     position: 'absolute', top: 0, right: -3, width: 7, height: '100%', cursor: 'col-resize', zIndex: 3,
@@ -231,6 +239,8 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const [columnOrder, setColumnOrder] = useState<string[]>([]);
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [columnFilterErrors, setColumnFilterErrors] = useState<Record<string, string>>({});
+  const [columnFilterHelpOpen, setColumnFilterHelpOpen] = useState(false);
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
   const columns = useMemo(() => {
     const retained = columnOrder.filter((column) => discoveredColumns.includes(column));
@@ -316,6 +326,9 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   }, [connectionId, documentsOwnerId, loadInitial]);
 
   const applyCriteria = () => {
+    const compiledColumns = compileColumnFilters(columnFilters);
+    setColumnFilterErrors(compiledColumns.errors);
+    if (Object.keys(compiledColumns.errors).length > 0) return;
     const next = {
       filter: draftFilter.trim() || EMPTY_FILTER,
       sort: draftSort.trim(),
@@ -332,6 +345,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
 
   const clearCriteria = () => {
     setColumnFilters({});
+    setColumnFilterErrors({});
     setCriteriaErrors({ filter: null, sort: null, projection: null });
     const cleared = { filter: EMPTY_FILTER, sort: '', projection: '' };
     updateTab(tab.id, {
@@ -344,8 +358,12 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     const next = { ...columnFilters, [column]: value };
     if (!value) delete next[column];
     setColumnFilters(next);
-    setDraftCriteria({ filter: buildColumnFilterExpression(next) });
-    setCriteriaErrors((current) => ({ ...current, filter: null }));
+    const compiled = compileColumnFilters(next);
+    setColumnFilterErrors(compiled.errors);
+    if (Object.keys(compiled.errors).length === 0) {
+      setDraftCriteria({ filter: compiled.expression });
+      setCriteriaErrors((current) => ({ ...current, filter: null }));
+    }
   };
 
   const moveColumn = (source: string, target: string) => {
@@ -528,7 +546,8 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     projection: draftProjection.trim(),
   };
   const unappliedCriteria = !sameCriteria(criteria, normalizedDraft);
-  const invalidCriteria = Object.values(criteriaErrors).some(Boolean);
+  const invalidCriteria = Object.values(criteriaErrors).some(Boolean) ||
+    Object.keys(columnFilterErrors).length > 0;
   const criteriaCount = [
     criteria.filter.trim() !== EMPTY_FILTER,
     criteria.sort.length > 0,
@@ -537,7 +556,10 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const criteriaSummary = `Criteria · ${criteriaCount}${
     unappliedCriteria ? ' · edited' : ''
   }${invalidCriteria ? ' · invalid' : ''}`;
-  const criteriaError = Object.values(criteriaErrors).find(Boolean) ?? null;
+  const firstColumnError = Object.entries(columnFilterErrors)[0];
+  const criteriaError = firstColumnError
+    ? `${firstColumnError[0]}: ${firstColumnError[1]}`
+    : Object.values(criteriaErrors).find(Boolean) ?? null;
 
   const handleCriteriaValidation = (kind: CriteriaKind, message: string | null) => {
     setCriteriaErrors((current) => current[kind] === message
@@ -588,6 +610,16 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
         >
           {criteriaSummary}
         </button>
+        <button
+          type="button"
+          style={{ ...s.secondaryButton, ...(columnFilterHelpOpen ? { borderColor: theme.colors.accentHover } : {}) }}
+          aria-label="Show column filter syntax"
+          aria-expanded={columnFilterHelpOpen}
+          title={columnFilterHelpText()}
+          onClick={() => setColumnFilterHelpOpen((open) => !open)}
+        >
+          Filter syntax ?
+        </button>
         <ToolbarButton secondary onClick={() => void loadInitial()} disabled={busy}>Refresh</ToolbarButton>
         <ToolbarButton secondary onClick={() => setExportOpen(true)} disabled={busy || !cursorId}>Export…</ToolbarButton>
         {!isConnected && connectionId && (
@@ -605,6 +637,15 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
           onCancel={() => setExportOpen(false)}
           onExport={(format, scope) => void startExport(format, scope)}
         />
+      )}
+
+      {columnFilterHelpOpen && (
+        <div style={s.filterHelp} role="note">
+          <strong>Column filters:</strong>{' '}
+          exact text · <code>*text*</code> · <code>&lt;&gt; 10</code> · <code>100..200</code> ·{' '}
+          <code>has *Com*</code> · <code>!has *Com*</code> · <code>has *Com* OR has *Phone*</code> ·{' '}
+          <code>has *Com* AND !has *Used*</code>
+        </div>
       )}
 
       {criteriaOpen && (
@@ -728,9 +769,14 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
                     <input
                       aria-label={`Filter ${column} column`}
                       draggable={false}
-                      style={s.columnFilter}
+                      style={{
+                        ...s.columnFilter,
+                        ...(columnFilterErrors[column] ? { borderColor: theme.colors.danger } : {}),
+                      }}
                       value={columnFilters[column] ?? ''}
-                      placeholder="exact, *text*, >, <"
+                      placeholder="exact, <> 10, 100..200, has"
+                      aria-invalid={columnFilterErrors[column] ? 'true' : undefined}
+                      title={columnFilterErrors[column] ?? columnFilterHelpText()}
                       onDragStart={(event) => event.stopPropagation()}
                       onPointerDown={(event) => event.stopPropagation()}
                       onChange={(event) => updateColumnFilter(column, event.target.value)}

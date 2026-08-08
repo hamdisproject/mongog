@@ -12,6 +12,7 @@ import {
   replaceCollectionDocument,
 } from '../../src/query-runtime/collection/operations.js';
 import { CursorRegistry } from '../../src/query-runtime/registry/cursors.js';
+import { buildColumnFilterExpression } from '../../src/renderer/collection-column-filter.js';
 import { parseEjson, serializeToEjson } from '../../src/shared/ejson/index.js';
 import { getStandaloneUri, newClient, stopAll } from './helpers/mongo.js';
 
@@ -79,6 +80,104 @@ describe('collection browser operations', () => {
     const documents = page.documents.map((envelope) => parseEjson<Record<string, unknown>>(envelope));
     expect(documents.map((document) => (document.rank as Int32).valueOf())).toEqual([3, 1]);
     expect(documents.every((document) => !Object.hasOwn(document, 'hidden'))).toBe(true);
+  });
+
+  it('applies table-column ranges and array membership filters', async () => {
+    const collection = client!.db(DATABASE).collection('column_quick_filters');
+    await collection.insertMany([
+      { name: 'lower', price: 100, amenities: ['wifi'], products: ['Computer'] },
+      { name: 'middle', price: 150, amenities: ['pool'], products: ['Camera'] },
+      { name: 'upper', price: 200, amenities: ['wifi', 'pool'], products: ['Compressor'] },
+      { name: 'outside', price: 250 },
+    ]);
+
+    const inRangeWithWifi = await findCollectionDocuments(client!, registry!, {
+      database: DATABASE,
+      collection: 'column_quick_filters',
+      owner: { connectionId: 'phase3', tabId: 'column-range-membership-tab' },
+      filterEjson: buildColumnFilterExpression({ price: '100..200', amenities: 'has "wifi"' }),
+      sortEjson: '{ price: 1 }',
+      pageSize: 10,
+    });
+    expect(inRangeWithWifi.documents.map((item) => (
+      parseEjson<{ name: string }>(item).name
+    ))).toEqual(['lower', 'upper']);
+
+    const withoutWifi = await findCollectionDocuments(client!, registry!, {
+      database: DATABASE,
+      collection: 'column_quick_filters',
+      owner: { connectionId: 'phase3', tabId: 'column-not-membership-tab' },
+      filterEjson: buildColumnFilterExpression({ amenities: '!has "wifi"' }),
+      sortEjson: '{ price: 1 }',
+      pageSize: 10,
+    });
+    expect(withoutWifi.documents.map((item) => (
+      parseEjson<{ name: string }>(item).name
+    ))).toEqual(['middle', 'outside']);
+
+    const notEqual = await findCollectionDocuments(client!, registry!, {
+      database: DATABASE,
+      collection: 'column_quick_filters',
+      owner: { connectionId: 'phase3', tabId: 'column-not-equal-tab' },
+      filterEjson: buildColumnFilterExpression({ price: '<> 150' }),
+      sortEjson: '{ price: 1 }',
+      pageSize: 10,
+    });
+    expect(notEqual.documents.map((item) => (
+      parseEjson<{ name: string }>(item).name
+    ))).toEqual(['lower', 'upper', 'outside']);
+
+    const productWildcard = await findCollectionDocuments(client!, registry!, {
+      database: DATABASE,
+      collection: 'column_quick_filters',
+      owner: { connectionId: 'phase3', tabId: 'column-membership-regex-tab' },
+      filterEjson: buildColumnFilterExpression({ products: 'has "*com*"' }),
+      sortEjson: '{ price: 1 }',
+      pageSize: 10,
+    });
+    expect(productWildcard.documents.map((item) => (
+      parseEjson<{ name: string }>(item).name
+    ))).toEqual(['lower', 'upper']);
+
+    const withoutProductWildcard = await findCollectionDocuments(client!, registry!, {
+      database: DATABASE,
+      collection: 'column_quick_filters',
+      owner: { connectionId: 'phase3', tabId: 'column-not-membership-regex-tab' },
+      filterEjson: buildColumnFilterExpression({ products: '!has *com*' }),
+      sortEjson: '{ price: 1 }',
+      pageSize: 10,
+    });
+    expect(withoutProductWildcard.documents.map((item) => (
+      parseEjson<{ name: string }>(item).name
+    ))).toEqual(['middle', 'outside']);
+
+    const productOr = await findCollectionDocuments(client!, registry!, {
+      database: DATABASE,
+      collection: 'column_quick_filters',
+      owner: { connectionId: 'phase3', tabId: 'column-membership-or-tab' },
+      filterEjson: buildColumnFilterExpression({
+        products: 'has *computer* OR has *camera*',
+      }),
+      sortEjson: '{ price: 1 }',
+      pageSize: 10,
+    });
+    expect(productOr.documents.map((item) => (
+      parseEjson<{ name: string }>(item).name
+    ))).toEqual(['lower', 'middle']);
+
+    const productAnd = await findCollectionDocuments(client!, registry!, {
+      database: DATABASE,
+      collection: 'column_quick_filters',
+      owner: { connectionId: 'phase3', tabId: 'column-membership-and-tab' },
+      filterEjson: buildColumnFilterExpression({
+        products: 'has *com* AND !has *press*',
+      }),
+      sortEjson: '{ price: 1 }',
+      pageSize: 10,
+    });
+    expect(productAnd.documents.map((item) => (
+      parseEjson<{ name: string }>(item).name
+    ))).toEqual(['lower']);
   });
 
   it('applies Compass-style BSON filters and document mutations with type preservation', async () => {
