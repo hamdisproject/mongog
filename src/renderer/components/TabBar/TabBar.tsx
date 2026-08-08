@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useWorkspaceStore } from '../../stores/workspace.js';
 import type { WorkspaceTab } from '../../../shared/domain/index.js';
 import { ContextMenu, type ContextMenuItem } from '../Common/ContextMenu.js';
+import { useCommandPaletteStore } from '../../stores/command-palette.js';
 
 const s: Record<string, React.CSSProperties> = {
   bar: {
@@ -38,6 +39,7 @@ const kindIcon: Record<string, string> = {
 
 export function TabBar() {
   const { tabs, activeTabId, closeTabs, openQuery } = useWorkspaceStore();
+  const openGlobalSearch = useCommandPaletteStore((state) => state.open);
   const [menu, setMenu] = useState<{ tabId: string; x: number; y: number } | null>(null);
 
   const handleNewTab = () => {
@@ -61,6 +63,17 @@ export function TabBar() {
     <div style={s.bar}>
       <button type="button" onClick={handleNewTab} style={s.newBtn} title="New query tab">
         <span style={{ color: '#4ec9b0', fontSize: 15 }}>+</span> Query
+      </button>
+      <button
+        type="button"
+        aria-label="Open global search"
+        onClick={openGlobalSearch}
+        style={s.newBtn}
+        title="Global search (Cmd/Ctrl+K)"
+      >
+        <span style={{ color: '#4ec9b0', fontSize: 15 }} aria-hidden="true">⌕</span>
+        Search
+        <span style={{ color: '#777', fontSize: 9, marginLeft: 2 }}>⌘/Ctrl K</span>
       </button>
       {tabs.map((tab) => (
         <Tab

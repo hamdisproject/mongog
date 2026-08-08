@@ -43,6 +43,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByText('Welcome back')).toBeVisible();
   await expect(page.locator('[title^="welcome: Welcome"]')).toHaveCount(1);
   await expect(page.getByTitle('New query tab')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open global search' })).toBeVisible();
   await expect(page.getByTitle('Open administration')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'New Connection' }).click();
@@ -86,7 +87,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await explorer.getByRole('button', { name: 'Connect', exact: true }).click();
   await expect(explorer.getByRole('button', { name: 'Disconnect', exact: true })).toBeVisible();
 
-  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K');
+  await page.getByRole('button', { name: 'Open global search' }).click();
   const quickOpen = page.getByLabel('Search databases and collections');
   await expect(quickOpen).toBeVisible();
   await quickOpen.fill('inventory');

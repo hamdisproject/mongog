@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useConnectionStore } from '../../stores/connections.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
+import { useCommandPaletteStore } from '../../stores/command-palette.js';
 import { theme } from '../../theme.js';
 
 interface PaletteItem {
@@ -14,10 +15,10 @@ interface PaletteItem {
 }
 
 export function CommandPalette() {
-  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { isOpen, close, toggle } = useCommandPaletteStore();
   const { profiles, connected, databases, collections, loadDatabases, loadCollections } = useConnectionStore();
   const { openQuery, openCollection, openAdmin, openConnections, openWelcome } = useWorkspaceStore();
 
@@ -25,35 +26,35 @@ export function CommandPalette() {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === 'k') {
         event.preventDefault();
-        setOpen((current) => !current);
+        toggle();
       }
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key === 'Escape') close();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [close, toggle]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!isOpen) return;
     setQuery('');
     setSelectedIndex(0);
     window.setTimeout(() => inputRef.current?.focus(), 0);
     for (const connectionId of Object.keys(connected)) void loadDatabases(connectionId);
-  }, [open, connected, loadDatabases]);
+  }, [isOpen, connected, loadDatabases]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!isOpen) return;
     for (const connectionId of Object.keys(connected)) {
       for (const database of databases[connectionId] ?? []) {
         void loadCollections(connectionId, database.name);
       }
     }
-  }, [open, connected, databases, loadCollections]);
+  }, [isOpen, connected, databases, loadCollections]);
 
   const items = useMemo<PaletteItem[]>(() => {
     const closeAfter = (action: () => void) => () => {
       action();
-      setOpen(false);
+      close();
     };
     const result: PaletteItem[] = [
       {
@@ -123,7 +124,7 @@ export function CommandPalette() {
       }
     }
     return result;
-  }, [profiles, connected, databases, collections, openQuery, openCollection, openAdmin, openConnections, openWelcome]);
+  }, [profiles, connected, databases, collections, openQuery, openCollection, openAdmin, openConnections, openWelcome, close]);
 
   const visibleItems = useMemo(() => {
     const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
@@ -139,7 +140,7 @@ export function CommandPalette() {
     setSelectedIndex((current) => Math.min(current, Math.max(0, visibleItems.length - 1)));
   }, [visibleItems.length]);
 
-  if (!open) return null;
+  if (!isOpen) return null;
 
   return createPortal(
     <div
@@ -148,7 +149,7 @@ export function CommandPalette() {
         position: 'fixed', inset: 0, zIndex: 15_000, display: 'flex', justifyContent: 'center',
         alignItems: 'flex-start', paddingTop: '12vh', background: 'rgba(0,0,0,.42)',
       }}
-      onPointerDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}
+      onPointerDown={(event) => { if (event.target === event.currentTarget) close(); }}
     >
       <div
         role="dialog"
