@@ -323,6 +323,8 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByRole('button', { name: /^Criteria.*edited/ })).toBeVisible();
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page.getByText('"beta"', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('collection-documents-table').locator('[data-bson-syntax]').first()).toBeVisible();
+  await expect(page.getByTestId('collection-documents-table').locator('[data-bson-token="string"]').first()).toBeVisible();
   await expect(page.getByText('"alpha"', { exact: true })).toHaveCount(0);
   const initialQuantityWidth = await quantityColumn.evaluate((element) => element.closest('th')!.getBoundingClientRect().width);
   const quantityResizer = page.getByRole('separator', { name: 'Resize quantity column' });
@@ -422,6 +424,8 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByTestId('query-documents-table')).toHaveCount(0);
   await statement.click();
   await expect(page.getByTestId('query-documents-table')).toBeVisible();
+  await expect(page.getByTestId('query-documents-table').locator('[data-bson-syntax]').first()).toBeVisible();
+  await expect(page.getByTestId('query-documents-table').locator('[data-bson-token="string"]').first()).toBeVisible();
 
   await page.getByRole('button', { name: 'Documents', exact: true }).click();
   await expect(page.getByRole('button', { name: /^Criteria · 3/ })).toBeVisible();

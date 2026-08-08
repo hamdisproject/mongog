@@ -19,6 +19,7 @@ import { CollectionCriteriaEditor } from './CollectionCriteriaEditor.js';
 import type { CriteriaKind } from '../../monaco/object-expression.js';
 import { SavedActions } from '../Saved/SavedActions.js';
 import { DocumentBsonEditor } from './DocumentBsonEditor.js';
+import { BsonSyntaxText } from '../Common/BsonSyntaxText.js';
 
 const s: Record<string, React.CSSProperties> = {
   workspace: { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' },
@@ -706,9 +707,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
                       key={column}
                       style={{ ...s.td, width: columnWidths[column] ?? (column === '_id' ? 220 : 180) }}
                     >
-                      <span title={formatCellValue(row.value?.[column], displayMode, false)}>
-                        {formatCellValue(row.value?.[column], displayMode, true)}
-                      </span>
+                      <CollectionBsonCell value={row.value?.[column]} mode={displayMode} />
                     </td>
                   ))}
                 </tr>
@@ -874,15 +873,18 @@ function extractColumns(documents: Array<Record<string, unknown>>): string[] {
   return ['_id', ...Array.from(keys).filter((key) => key !== '_id').sort()];
 }
 
-function formatCellValue(value: unknown, mode: BsonDisplayMode, truncateValue: boolean): string {
+function CollectionBsonCell({ value, mode }: { value: unknown; mode: BsonDisplayMode }) {
+  const fullText = formatCellValue(value, mode);
+  return <BsonSyntaxText text={truncate(fullText, 100)} title={fullText} />;
+}
+
+function formatCellValue(value: unknown, mode: BsonDisplayMode): string {
   if (value === null || value === undefined) return 'null';
-  let rendered: string;
   try {
-    rendered = renderBson(value, mode, false);
+    return renderBson(value, mode, false);
   } catch {
-    rendered = String(value);
+    return String(value);
   }
-  return truncateValue ? truncate(rendered, 100) : rendered;
 }
 
 function displayModeLabel(mode: BsonDisplayMode): string {

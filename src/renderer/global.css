@@ -38,6 +38,14 @@ body,
   --color-warning-text: #dcdcaa;
   --color-code-text: #c9d1d9;
   --color-focus: #3794ff;
+  --color-syntax-property: #9cdcfe;
+  --color-syntax-string: #ce9178;
+  --color-syntax-escape: #d7ba7d;
+  --color-syntax-number: #b5cea8;
+  --color-syntax-constructor: #4ec9b0;
+  --color-syntax-keyword: #569cd6;
+  --color-syntax-operator: #c586c0;
+  --color-syntax-delimiter: #d4d4d4;
 }
 
 :root[data-theme='light'] {
@@ -68,6 +76,14 @@ body,
   --color-warning-text: #765400;
   --color-code-text: #344054;
   --color-focus: #0969a5;
+  --color-syntax-property: #001080;
+  --color-syntax-string: #a31515;
+  --color-syntax-escape: #ee0000;
+  --color-syntax-number: #098658;
+  --color-syntax-constructor: #267f99;
+  --color-syntax-keyword: #0000ff;
+  --color-syntax-operator: #af00db;
+  --color-syntax-delimiter: #393a34;
 }
 
 html,

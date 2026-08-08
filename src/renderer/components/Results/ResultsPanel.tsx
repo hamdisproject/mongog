@@ -19,6 +19,7 @@ import {
   type StatementResultState,
 } from '../../stores/workspace.js';
 import { useSettingsStore } from '../../stores/settings.js';
+import { BsonSyntaxText } from '../Common/BsonSyntaxText.js';
 
 const s: Record<string, React.CSSProperties> = {
   panel: {
@@ -257,11 +258,7 @@ function DocumentsResult({
         size: column === '_id' ? 220 : 180,
         cell: ({ getValue }: { getValue: () => unknown }) => {
           const value = getValue();
-          return (
-            <span title={formatCell(value, displayMode, false)}>
-              {formatCell(value, displayMode, true)}
-            </span>
-          );
+          return <QueryBsonCell value={value} mode={displayMode} />;
         },
       })),
     ],
@@ -563,14 +560,18 @@ function renderEnvelope(envelope: EjsonEnvelope, mode: BsonDisplayMode, pretty: 
   }
 }
 
-function formatCell(value: unknown, mode: BsonDisplayMode, truncate: boolean): string {
-  let rendered: string;
+function QueryBsonCell({ value, mode }: { value: unknown; mode: BsonDisplayMode }) {
+  const fullText = formatCell(value, mode);
+  const visibleText = fullText.length > 100 ? `${fullText.slice(0, 100)}…` : fullText;
+  return <BsonSyntaxText text={visibleText} title={fullText} />;
+}
+
+function formatCell(value: unknown, mode: BsonDisplayMode): string {
   try {
-    rendered = renderBson(value, mode, false);
+    return renderBson(value, mode, false);
   } catch {
-    rendered = String(value);
+    return String(value);
   }
-  return truncate && rendered.length > 100 ? `${rendered.slice(0, 100)}…` : rendered;
 }
 
 function countEntries(result: Extract<QueryResult, { kind: 'write' }>): Array<[string, number]> {
