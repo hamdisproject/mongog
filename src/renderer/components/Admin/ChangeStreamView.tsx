@@ -24,7 +24,7 @@ const ui: Record<string, React.CSSProperties> = {
   row: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   button: { border: 0, borderRadius: theme.radius, background: theme.colors.accent, color: '#fff', padding: '6px 11px', fontSize: 12, cursor: 'pointer' },
   secondary: { border: `1px solid ${theme.colors.borderStrong}`, borderRadius: theme.radius, background: theme.colors.inputSoft, color: theme.colors.text, padding: '5px 9px', fontSize: 11, cursor: 'pointer' },
-  danger: { border: 0, borderRadius: theme.radius, background: '#8b2f36', color: '#fff', padding: '6px 11px', fontSize: 12, cursor: 'pointer' },
+  danger: { border: 0, borderRadius: theme.radius, background: 'var(--color-danger-button)', color: '#fff', padding: '6px 11px', fontSize: 12, cursor: 'pointer' },
   select: { border: `1px solid ${theme.colors.borderStrong}`, borderRadius: theme.radius, background: theme.colors.input, color: theme.colors.text, padding: '5px 7px', fontSize: 12 },
   muted: { color: theme.colors.textMuted, fontSize: 11 },
   pre: { margin: 0, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11, lineHeight: 1.45 },
@@ -105,7 +105,7 @@ export function ChangeStreamView({ tab }: { tab: WorkspaceTab }) {
     <div style={ui.root}>
       <div style={ui.header}>
         <strong style={{ fontSize: 13 }}>Change Stream</strong>
-        <span style={{ color: '#dcdcaa', fontFamily: 'monospace', fontSize: 12 }}>{namespace}</span>
+        <span style={{ color: 'var(--color-warning-text)', fontFamily: 'monospace', fontSize: 12 }}>{namespace}</span>
         <span style={{ flex: 1 }} />
         <span style={{ color: streamId ? theme.colors.success : theme.colors.textMuted, fontSize: 11 }}>
           {streamId ? '● Listening' : '○ Stopped'}
@@ -165,7 +165,7 @@ export function ChangeStreamView({ tab }: { tab: WorkspaceTab }) {
               )}
             </div>
           </div>
-          {error && <div role="alert" style={{ ...ui.card, color: theme.colors.danger, borderColor: '#8b2f36' }}>{error}</div>}
+          {error && <div role="alert" style={{ ...ui.card, color: theme.colors.danger, borderColor: 'var(--color-danger-button)' }}>{error}</div>}
           {events.length === 0 && streamId && <div style={{ ...ui.card, ...ui.muted }}>Waiting for matching changes…</div>}
           {events.map((event, index) => (
             <div key={`${event.byteSize}:${index}`} style={ui.card}>

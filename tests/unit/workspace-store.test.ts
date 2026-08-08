@@ -157,6 +157,18 @@ describe('workspace execution store', () => {
     });
   });
 
+  it('reuses a singleton Settings tab', () => {
+    const first = useWorkspaceStore.getState().openSettings();
+    const second = useWorkspaceStore.getState().openSettings();
+    expect(second).toBe(first);
+    expect(useWorkspaceStore.getState().tabs.filter((tab) => tab.kind === 'settings')).toHaveLength(1);
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === first)).toMatchObject({
+      title: 'Settings',
+      connectionId: null,
+    });
+    expect(useWorkspaceStore.getState().activeTabId).toBe(first);
+  });
+
   it('opens contextual tools once per namespace while new queries remain independent', () => {
     const firstQuery = useWorkspaceStore.getState().openQuery({ connectionId: 'conn-1', database: 'db' });
     const secondQuery = useWorkspaceStore.getState().openQuery({ connectionId: 'conn-1', database: 'db' });

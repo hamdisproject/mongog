@@ -23,47 +23,47 @@ const s: Record<string, React.CSSProperties> = {
   panel: {
     display: 'flex', flexDirection: 'column', width: '100%', height: '100%',
     minWidth: 0, minHeight: 0,
-    background: '#1e1e1e', borderTop: '1px solid #333', overflow: 'hidden',
+    background: 'var(--color-app)', borderTop: '1px solid var(--color-border)', overflow: 'hidden',
   },
   header: {
-    minHeight: 28, padding: '2px 8px', fontSize: 11, color: '#aaa', background: '#252526',
-    borderBottom: '1px solid #333', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8,
+    minHeight: 28, padding: '2px 8px', fontSize: 11, color: 'var(--color-text-muted)', background: 'var(--color-panel)',
+    borderBottom: '1px solid var(--color-border)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8,
   },
   headerSpacer: { flex: 1 },
   select: {
-    background: '#3c3c3c', color: '#ddd', border: '1px solid #555',
+    background: 'var(--color-input-soft)', color: 'var(--color-text)', border: '1px solid var(--color-border-strong)',
     padding: '1px 5px', borderRadius: 2, fontSize: 11,
   },
   content: { flex: 1, minWidth: 0, overflow: 'auto', padding: 6, fontSize: 12 },
   card: {
     border: '1px solid #353535', borderRadius: 3, marginBottom: 6,
-    background: '#202020', overflow: 'hidden',
+    background: 'var(--color-app)', overflow: 'hidden',
   },
   cardHeader: {
-    padding: '4px 8px', background: '#292929', color: '#aaa',
+    padding: '4px 8px', background: 'var(--color-panel-raised)', color: 'var(--color-text-muted)',
     fontSize: 11, display: 'flex', alignItems: 'center', gap: 8,
   },
   cardBody: { padding: 8 },
   code: {
     margin: 0, fontFamily: 'monospace', fontSize: 12, lineHeight: 1.45,
-    whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', color: '#d4d4d4',
+    whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', color: 'var(--color-text)',
   },
   errorCard: {
-    border: '1px solid #6e3030', background: '#2a1f1f', color: '#f48771',
+    border: '1px solid var(--color-danger-border)', background: 'var(--color-danger-surface)', color: 'var(--color-danger)',
     borderRadius: 3, padding: 8, marginBottom: 6,
   },
   console: {
-    border: '1px solid #4c472c', background: '#282619', borderRadius: 3,
-    padding: 8, marginBottom: 6, color: '#dcdcaa',
+    border: '1px solid var(--color-warning-border)', background: 'var(--color-warning-surface)', borderRadius: 3,
+    padding: 8, marginBottom: 6, color: 'var(--color-warning-text)',
   },
   tableWrap: {
     width: '100%', maxWidth: '100%', minWidth: 0, overflow: 'auto',
-    maxHeight: 300, border: '1px solid #333',
+    maxHeight: 300, border: '1px solid var(--color-border)',
   },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 11 },
   th: {
     position: 'sticky', top: 0, textAlign: 'left', padding: '4px 7px',
-    background: '#2d2d2d', color: '#aaa', borderBottom: '1px solid #444',
+    background: 'var(--color-panel-raised)', color: 'var(--color-text-muted)', borderBottom: '1px solid var(--color-border)',
     whiteSpace: 'nowrap', zIndex: 1,
   },
   td: {
@@ -71,20 +71,20 @@ const s: Record<string, React.CSSProperties> = {
     maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
     fontFamily: 'monospace',
   },
-  selectedRow: { background: '#094771' },
-  controls: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, color: '#888', fontSize: 11 },
+  selectedRow: { background: 'var(--color-selected)' },
+  controls: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, color: 'var(--color-text-muted)', fontSize: 11 },
   btn: {
-    background: '#3a3d41', color: '#ddd', border: '1px solid #555',
+    background: 'var(--color-input-soft)', color: 'var(--color-text)', border: '1px solid var(--color-border-strong)',
     padding: '2px 7px', borderRadius: 2, fontSize: 11, cursor: 'pointer',
   },
   btnDisabled: { opacity: 0.4, cursor: 'default' },
-  empty: { padding: 18, color: '#666', fontSize: 12, textAlign: 'center' },
+  empty: { padding: 18, color: 'var(--color-text-faint)', fontSize: 12, textAlign: 'center' },
   status: {
-    padding: '2px 8px', fontSize: 11, color: '#888', flexShrink: 0,
-    borderTop: '1px solid #333', background: '#252526',
+    padding: '2px 8px', fontSize: 11, color: 'var(--color-text-muted)', flexShrink: 0,
+    borderTop: '1px solid var(--color-border)', background: 'var(--color-panel)',
   },
   badge: {
-    padding: '1px 5px', borderRadius: 8, background: '#333', color: '#bbb',
+    padding: '1px 5px', borderRadius: 8, background: 'var(--color-border)', color: 'var(--color-text-muted)',
     fontSize: 10,
   },
 };
@@ -162,7 +162,7 @@ export function ResultsPanel() {
         )}
 
         {execution.skippedStatements.map((item) => (
-          <div key={`skipped:${item.index}`} style={{ color: '#888', padding: '2px 4px' }}>
+          <div key={`skipped:${item.index}`} style={{ color: 'var(--color-text-muted)', padding: '2px 4px' }}>
             Statement {item.index + 1} skipped ({item.reason})
           </div>
         ))}
@@ -204,7 +204,7 @@ function ResultCard({
           }
         }}
       >
-        <span style={{ width: 12, color: '#888' }}>{collapsed ? '▶' : '▼'}</span>
+        <span style={{ width: 12, color: 'var(--color-text-muted)' }}>{collapsed ? '▶' : '▼'}</span>
         <span>Statement {item.index + 1}</span>
         <span style={s.badge}>{item.result.kind}</span>
         <span style={{ marginLeft: 'auto' }}>{item.durationMs.toFixed(1)} ms</span>
@@ -483,7 +483,7 @@ function DocumentsResult({
         <span>{formatBytes(item.retainedBytes)} retained</span>
         {item.cursorClosed && <span>cursor closed</span>}
         {loading && <span>{loading}…</span>}
-        {error && <span style={{ color: '#f48771' }}>{error}</span>}
+        {error && <span style={{ color: 'var(--color-danger)' }}>{error}</span>}
       </div>
     </>
   );

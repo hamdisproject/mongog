@@ -19,7 +19,7 @@ const s: Record<string, React.CSSProperties> = {
     background: theme.colors.panel, borderBottom: `1px solid ${theme.colors.border}`, flexShrink: 0,
   },
   contextNamespace: {
-    color: '#dcdcaa', display: 'flex', alignItems: 'center', marginRight: 12,
+    color: 'var(--color-warning-text)', display: 'flex', alignItems: 'center', marginRight: 12,
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12,
   },
   viewButton: {
@@ -30,8 +30,8 @@ const s: Record<string, React.CSSProperties> = {
   surface: { flex: 1, minHeight: 0, overflow: 'hidden' },
   container: { display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' },
   toolbar: {
-    display: 'flex', gap: 6, padding: '5px 8px', background: '#2d2d2d',
-    borderBottom: '1px solid #3c3c3c', alignItems: 'center', flexShrink: 0, fontSize: 12,
+    display: 'flex', gap: 6, padding: '5px 8px', background: 'var(--color-panel-raised)',
+    borderBottom: '1px solid var(--color-input-soft)', alignItems: 'center', flexShrink: 0, fontSize: 12,
   },
   criteriaPanel: {
     padding: '9px 10px 10px', background: theme.colors.panel, borderBottom: `1px solid ${theme.colors.border}`,
@@ -45,69 +45,69 @@ const s: Record<string, React.CSSProperties> = {
   },
   criteriaError: { color: theme.colors.danger, fontSize: 11 },
   button: {
-    background: '#0e639c', color: '#fff', border: '1px solid #1177bb', padding: '3px 9px',
+    background: 'var(--color-accent)', color: '#fff', border: '1px solid var(--color-accent-hover)', padding: '3px 9px',
     borderRadius: 2, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap',
   },
   secondaryButton: {
-    background: '#3c3c3c', color: '#ddd', border: '1px solid #555', padding: '3px 9px',
+    background: 'var(--color-input-soft)', color: 'var(--color-text)', border: '1px solid var(--color-border-strong)', padding: '3px 9px',
     borderRadius: 2, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap',
   },
   dangerButton: {
-    background: '#8b2d2d', color: '#fff', border: '1px solid #b33a3a', padding: '3px 9px',
+    background: 'var(--color-danger-button)', color: '#fff', border: '1px solid #b33a3a', padding: '3px 9px',
     borderRadius: 2, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap',
   },
   disabled: { opacity: 0.45, cursor: 'default' },
   error: {
-    padding: '6px 10px', color: '#f7b3b3', background: '#4a1f1f', borderBottom: '1px solid #6f2929',
+    padding: '6px 10px', color: '#f7b3b3', background: 'var(--color-danger-surface)', borderBottom: '1px solid #6f2929',
     fontSize: 11, display: 'flex', justifyContent: 'space-between', gap: 8,
   },
   notice: {
-    padding: '5px 10px', color: '#b9e4c9', background: '#193927', borderBottom: '1px solid #27543b',
+    padding: '5px 10px', color: 'var(--color-success-text)', background: 'var(--color-success-surface)', borderBottom: '1px solid var(--color-success-border)',
     fontSize: 11,
   },
   tableWrap: { flex: 1, minHeight: 0, overflow: 'auto', fontSize: 12 },
   table: { borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' },
   th: {
-    padding: 0, textAlign: 'left', background: '#252526', color: '#aaa',
-    borderBottom: '1px solid #444', position: 'sticky', top: 0, whiteSpace: 'nowrap',
+    padding: 0, textAlign: 'left', background: 'var(--color-panel)', color: 'var(--color-text-muted)',
+    borderBottom: '1px solid var(--color-border)', position: 'sticky', top: 0, whiteSpace: 'nowrap',
     fontWeight: 500, fontSize: 11, zIndex: 1, overflow: 'visible',
   },
   columnTitle: { display: 'flex', alignItems: 'center', position: 'relative', gap: 5, padding: '4px 7px 2px' },
   columnFilter: {
     boxSizing: 'border-box', display: 'block', width: 'calc(100% - 10px)', margin: '1px 5px 5px',
-    border: '1px solid #444', borderRadius: 2, background: '#181818', color: '#ddd',
+    border: '1px solid var(--color-border)', borderRadius: 2, background: 'var(--color-input)', color: 'var(--color-text)',
     padding: '3px 5px', fontSize: 10, outline: 0, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
   },
   resizeHandle: {
     position: 'absolute', top: 0, right: -3, width: 7, height: '100%', cursor: 'col-resize', zIndex: 3,
   },
   td: {
-    padding: '3px 8px', borderBottom: '1px solid #333', maxWidth: 340,
+    padding: '3px 8px', borderBottom: '1px solid var(--color-border)', maxWidth: 340,
     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
   },
   row: { cursor: 'pointer' },
-  selectedRow: { background: '#094771' },
-  rowNumber: { color: '#777', fontSize: 10, width: 45 },
-  empty: { flex: 1, padding: 28, color: '#777', fontSize: 12, textAlign: 'center' },
+  selectedRow: { background: 'var(--color-selected)' },
+  rowNumber: { color: 'var(--color-text-faint)', fontSize: 10, width: 45 },
+  empty: { flex: 1, padding: 28, color: 'var(--color-text-faint)', fontSize: 12, textAlign: 'center' },
   editorPanel: {
     height: '38%', minHeight: 180, maxHeight: 440, display: 'flex', flexDirection: 'column',
-    borderTop: '1px solid #444', background: '#1e1e1e', flexShrink: 0,
+    borderTop: '1px solid var(--color-border)', background: 'var(--color-app)', flexShrink: 0,
   },
   editorHeader: {
-    display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', background: '#252526',
-    borderBottom: '1px solid #333', fontSize: 11,
+    display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', background: 'var(--color-panel)',
+    borderBottom: '1px solid var(--color-border)', fontSize: 11,
   },
   editor: {
-    flex: 1, resize: 'none', border: 0, outline: 0, padding: 10, background: '#181818',
-    color: '#d4d4d4', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+    flex: 1, resize: 'none', border: 0, outline: 0, padding: 10, background: 'var(--color-input)',
+    color: 'var(--color-text)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
     fontSize: 12, lineHeight: 1.45,
   },
   status: {
     display: 'flex', justifyContent: 'space-between', gap: 10, padding: '3px 8px', fontSize: 11,
-    color: '#999', background: '#252526', borderTop: '1px solid #333', flexShrink: 0,
+    color: 'var(--color-text-muted)', background: 'var(--color-panel)', borderTop: '1px solid var(--color-border)', flexShrink: 0,
   },
   select: {
-    background: '#3c3c3c', color: '#ddd', border: '1px solid #555', fontSize: 11, borderRadius: 2,
+    background: 'var(--color-input-soft)', color: 'var(--color-text)', border: '1px solid var(--color-border-strong)', fontSize: 11, borderRadius: 2,
   },
 };
 
@@ -676,7 +676,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
         <div style={s.editorPanel}>
           <div style={s.editorHeader}>
             <strong>{editorMode === 'new' ? 'New document' : editorMode === 'edit' ? 'Edit document' : 'Document'}</strong>
-            <span style={{ flex: 1, color: '#888' }}>
+            <span style={{ flex: 1, color: 'var(--color-text-muted)' }}>
               Canonical Extended JSON{projectionActive ? ' — projected documents cannot be edited' : ''}
             </span>
             {editorMode === 'view' ? (
@@ -722,7 +722,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
             style={{
               ...s.secondaryButton,
               ...(busy || countLoading ? s.disabled : {}),
-              color: countError ? theme.colors.danger : totalCount === null ? '#ddd' : theme.colors.success,
+              color: countError ? theme.colors.danger : totalCount === null ? 'var(--color-text)' : theme.colors.success,
             }}
             disabled={busy || countLoading}
             onClick={() => void calculateTotalCount()}

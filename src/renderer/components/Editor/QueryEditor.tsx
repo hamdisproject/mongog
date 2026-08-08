@@ -4,6 +4,7 @@ import { bootMonaco } from '../../monaco/setup.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
 import { useConnectionStore } from '../../stores/connections.js';
 import { useEditorContext } from '../../stores/editor-context.js';
+import { getMonacoTheme } from '../../theme.js';
 
 const s: Record<string, React.CSSProperties> = {
   container: {
@@ -11,21 +12,21 @@ const s: Record<string, React.CSSProperties> = {
     minWidth: 0, minHeight: 0, overflow: 'hidden',
   },
   toolbar: {
-    display: 'flex', gap: 6, padding: '4px 8px', background: '#2d2d2d',
-    borderBottom: '1px solid #333', alignItems: 'center', flexShrink: 0,
+    display: 'flex', gap: 6, padding: '4px 8px', background: 'var(--color-panel-raised)',
+    borderBottom: '1px solid var(--color-border)', alignItems: 'center', flexShrink: 0,
   },
   select: {
-    background: '#3c3c3c', color: '#ddd', border: '1px solid #555',
+    background: 'var(--color-input-soft)', color: 'var(--color-text)', border: '1px solid var(--color-border-strong)',
     padding: '2px 6px', borderRadius: 2, fontSize: 12,
   },
   btn: {
-    background: '#0e639c', color: '#fff', border: 'none', padding: '3px 10px',
+    background: 'var(--color-accent)', color: '#fff', border: 'none', padding: '3px 10px',
     borderRadius: 2, fontSize: 12, cursor: 'pointer',
   },
   btnDisabled: { opacity: 0.45, cursor: 'default' },
   btnDanger: { background: '#6b3030' },
-  status: { fontSize: 11, color: '#999', marginLeft: 'auto' },
-  error: { fontSize: 11, color: '#f48771', maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis' },
+  status: { fontSize: 11, color: 'var(--color-text-muted)', marginLeft: 'auto' },
+  error: { fontSize: 11, color: 'var(--color-danger)', maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis' },
   editor: { flex: 1, width: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden' },
 };
 
@@ -162,7 +163,7 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
       editor = monaco.editor.create(editorHost.current, {
         value: tab?.editorContent ?? DEFAULT_CODE,
         language: 'typescript',
-        theme: 'vs-dark',
+        theme: getMonacoTheme(),
         automaticLayout: true,
         minimap: { enabled: false },
         fontSize: 13,

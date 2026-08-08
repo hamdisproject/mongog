@@ -6,6 +6,7 @@ export type WorkspaceTabKind =
   | 'collection'
   | 'history'
   | 'connection-settings'
+  | 'settings'
   | 'admin'
   | 'change-stream';
 

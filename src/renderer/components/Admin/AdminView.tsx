@@ -19,22 +19,22 @@ const sections: Array<{ id: AdminSection; label: string }> = [
 ];
 
 const ui: Record<string, React.CSSProperties> = {
-  root: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#1e1e1e' },
-  context: { display: 'flex', gap: 8, alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid #333', background: '#252526' },
-  nav: { display: 'flex', gap: 2, padding: '0 14px', borderBottom: '1px solid #333', background: '#252526' },
-  navButton: { border: 0, borderBottom: '2px solid transparent', background: 'transparent', color: '#999', padding: '9px 12px', cursor: 'pointer', fontSize: 12 },
+  root: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--color-app)' },
+  context: { display: 'flex', gap: 8, alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-panel)' },
+  nav: { display: 'flex', gap: 2, padding: '0 14px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-panel)' },
+  navButton: { border: 0, borderBottom: '2px solid transparent', background: 'transparent', color: 'var(--color-text-muted)', padding: '9px 12px', cursor: 'pointer', fontSize: 12 },
   body: { flex: 1, overflow: 'auto', padding: 18 },
   panel: { maxWidth: 1100, margin: '0 auto' },
   row: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
-  input: { background: '#181818', color: '#ddd', border: '1px solid #444', borderRadius: 3, padding: '6px 8px', fontSize: 12 },
-  textarea: { width: '100%', minHeight: 82, resize: 'vertical', fontFamily: 'monospace', background: '#181818', color: '#ddd', border: '1px solid #444', borderRadius: 3, padding: 8, boxSizing: 'border-box' },
-  button: { background: '#0e639c', border: 0, borderRadius: 3, color: 'white', padding: '6px 11px', cursor: 'pointer', fontSize: 12 },
-  secondary: { background: '#3a3d41', border: '1px solid #555', borderRadius: 3, color: '#ddd', padding: '5px 10px', cursor: 'pointer', fontSize: 12 },
-  danger: { background: '#8b2f36', border: 0, borderRadius: 3, color: 'white', padding: '5px 9px', cursor: 'pointer', fontSize: 12 },
-  card: { border: '1px solid #383838', borderRadius: 4, background: '#252526', padding: 12, marginTop: 10 },
-  pre: { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontFamily: 'monospace', fontSize: 11, color: '#c9d1d9', margin: 0 },
-  label: { color: '#999', fontSize: 11, display: 'block', marginBottom: 4 },
-  muted: { color: '#888', fontSize: 12 },
+  input: { background: 'var(--color-input)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 3, padding: '6px 8px', fontSize: 12 },
+  textarea: { width: '100%', minHeight: 82, resize: 'vertical', fontFamily: 'monospace', background: 'var(--color-input)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 3, padding: 8, boxSizing: 'border-box' },
+  button: { background: 'var(--color-accent)', border: 0, borderRadius: 3, color: 'white', padding: '6px 11px', cursor: 'pointer', fontSize: 12 },
+  secondary: { background: 'var(--color-input-soft)', border: '1px solid var(--color-border-strong)', borderRadius: 3, color: 'var(--color-text)', padding: '5px 10px', cursor: 'pointer', fontSize: 12 },
+  danger: { background: 'var(--color-danger-button)', border: 0, borderRadius: 3, color: 'white', padding: '5px 9px', cursor: 'pointer', fontSize: 12 },
+  card: { border: '1px solid #383838', borderRadius: 4, background: 'var(--color-panel)', padding: 12, marginTop: 10 },
+  pre: { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontFamily: 'monospace', fontSize: 11, color: 'var(--color-code-text)', margin: 0 },
+  label: { color: 'var(--color-text-muted)', fontSize: 11, display: 'block', marginBottom: 4 },
+  muted: { color: 'var(--color-text-muted)', fontSize: 12 },
 };
 
 export function AdminView({ tab }: { tab: WorkspaceTab }) {
@@ -97,13 +97,13 @@ export function AdminView({ tab }: { tab: WorkspaceTab }) {
           <option value="">Select collection</option>
           {collections.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}
         </select>
-        {profile?.readOnly && <span style={{ color: '#e5c07b', fontSize: 11 }}>Read-only connection</span>}
+        {profile?.readOnly && <span style={{ color: 'var(--color-warning)', fontSize: 11 }}>Read-only connection</span>}
       </div>
       <div style={ui.nav}>
         {sections.map((item) => (
           <button
             key={item.id}
-            style={{ ...ui.navButton, ...(section === item.id ? { color: '#fff', borderBottomColor: '#3794ff' } : {}) }}
+            style={{ ...ui.navButton, ...(section === item.id ? { color: '#fff', borderBottomColor: 'var(--color-focus)' } : {}) }}
             onClick={() => updateTab(tab.id, { adminSection: item.id })}
           >{item.label}</button>
         ))}
@@ -330,7 +330,7 @@ function ChangesSection({ connectionId, database, collection, tabId }: Collectio
           <option value="default">default</option><option value="updateLookup">updateLookup</option><option value="whenAvailable">whenAvailable</option><option value="required">required</option>
         </select>
         {!streamId ? <button style={ui.button} disabled={!databaseWide && !collection} onClick={() => void start()}>Start stream</button> : <button style={ui.danger} onClick={() => void stop()}>Stop stream</button>}
-        <span style={{ color: streamId ? '#89d185' : '#888', fontSize: 12 }}>{streamId ? 'Listening' : 'Stopped'}</span>
+        <span style={{ color: streamId ? '#89d185' : 'var(--color-text-muted)', fontSize: 12 }}>{streamId ? 'Listening' : 'Stopped'}</span>
       </div>
     </div>
     {error && <ErrorBox message={error} />}
@@ -398,7 +398,7 @@ function SectionTitle({ title, detail }: { title: string; detail: string }) {
 }
 
 function ErrorBox({ message }: { message: string }) {
-  return <div style={{ ...ui.card, borderColor: '#8b2f36', color: '#f48771' }}>{message}</div>;
+  return <div style={{ ...ui.card, borderColor: 'var(--color-danger-button)', color: 'var(--color-danger)' }}>{message}</div>;
 }
 
 function prettyEnvelope(envelope: EjsonEnvelope): string {

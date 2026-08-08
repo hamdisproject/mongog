@@ -74,6 +74,7 @@ interface WorkspaceState {
   openChangeStream: (options: { connectionId: string; database: string; collection?: string }) => string;
   openWelcome: () => string;
   openConnections: (options?: { mode?: 'list' | 'create' | 'edit'; profileId?: string }) => string;
+  openSettings: () => string;
   setCollectionView: (tabId: string, view: CollectionViewMode) => void;
   detachConnection: (connectionId: string) => void;
   renameCollectionContext: (connectionId: string, database: string, oldName: string, newName: string) => void;
@@ -156,6 +157,8 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
               ? 'Change Stream'
             : kind === 'connection-settings'
               ? 'Connections'
+              : kind === 'settings'
+                ? 'Settings'
               : kind,
       connectionId,
       dirty: false,
@@ -287,6 +290,15 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
       profileId: options.profileId,
     });
     return id;
+  },
+
+  openSettings: () => {
+    const existing = get().tabs.find((tab) => tab.kind === 'settings');
+    if (existing) {
+      set({ activeTabId: existing.id });
+      return existing.id;
+    }
+    return get().createTab('settings', null);
   },
 
   setCollectionView: (tabId, view) => {

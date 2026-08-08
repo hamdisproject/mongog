@@ -8,51 +8,63 @@ import { ContextMenu, type ContextMenuItem } from '../Common/ContextMenu.js';
 
 const s: Record<string, React.CSSProperties> = {
   sidebar: {
-    width: '100%', height: '100%', background: '#252526', color: '#ccc',
-    display: 'flex', flexDirection: 'column', borderRight: '1px solid #333',
+    width: '100%', height: '100%', background: 'var(--color-panel)', color: 'var(--color-text)',
+    display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--color-border)',
     fontFamily: 'system-ui', fontSize: 13, userSelect: 'none', overflow: 'hidden',
   },
   header: {
     padding: '8px 12px', fontWeight: 600, fontSize: 11, textTransform: 'uppercase',
-    letterSpacing: '0.5px', color: '#888', borderBottom: '1px solid #333',
+    letterSpacing: '0.5px', color: 'var(--color-text-muted)', borderBottom: '1px solid var(--color-border)',
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
   },
   tree: { flex: 1, overflow: 'auto', padding: '4px 0' },
-  searchWrap: { padding: '7px 8px', borderBottom: '1px solid #333' },
+  searchWrap: { padding: '7px 8px', borderBottom: '1px solid var(--color-border)' },
   search: {
-    boxSizing: 'border-box', width: '100%', background: '#181818', color: '#ddd',
-    border: '1px solid #444', borderRadius: 3, padding: '5px 8px', fontSize: 11, outline: 0,
+    boxSizing: 'border-box', width: '100%', background: 'var(--color-input)', color: 'var(--color-text)',
+    border: '1px solid var(--color-border)', borderRadius: 3, padding: '5px 8px', fontSize: 11, outline: 0,
   },
   treeItem: {
     display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px 3px 4px',
     cursor: 'pointer', borderRadius: 3, margin: '0 4px',
   },
-  treeItemSelected: { background: '#094771' },
-  treeItemDropTarget: { background: '#264f78', outline: '1px solid #3794ff', outlineOffset: -1 },
+  treeItemSelected: { background: 'var(--color-selected)' },
+  treeItemDropTarget: { background: '#264f78', outline: '1px solid var(--color-focus)', outlineOffset: -1 },
   groupChildren: { marginLeft: 16 },
   dbChildren: { marginLeft: 20 },
   colChildren: { marginLeft: 36 },
   dot: { width: 8, height: 8, borderRadius: '50%', flexShrink: 0 },
-  dotConnected: { background: '#4ec9b0' },
-  dotDisconnected: { background: '#666' },
+  dotConnected: { background: 'var(--color-success)' },
+  dotDisconnected: { background: 'var(--color-text-faint)' },
   name: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  actions: {
-    fontSize: 16, lineHeight: '16px', cursor: 'pointer', opacity: 0.5, padding: '0 2px',
+  headerAction: {
+    display: 'grid', placeItems: 'center', width: 24, height: 24, flexShrink: 0,
+    border: 0, borderRadius: 3, padding: 0, background: 'transparent',
+    color: 'var(--color-text-muted)', cursor: 'pointer',
   },
   connectionButton: {
-    minWidth: 62, border: '1px solid #555', borderRadius: 3, background: '#333',
-    padding: '2px 6px', color: '#ccc', fontSize: 10, lineHeight: '14px',
+    minWidth: 62, border: '1px solid var(--color-border-strong)', borderRadius: 3, background: 'var(--color-border)',
+    padding: '2px 6px', color: 'var(--color-text)', fontSize: 10, lineHeight: '14px',
     cursor: 'pointer', flexShrink: 0,
   },
   settingsButton: {
     width: 22, height: 22, border: 0, borderRadius: 3, background: 'transparent',
-    color: '#aaa', padding: 0, fontSize: 13, lineHeight: '22px', cursor: 'pointer',
+    color: 'var(--color-text-muted)', padding: 0, fontSize: 13, lineHeight: '22px', cursor: 'pointer',
     flexShrink: 0,
   },
   collapseButton: {
     width: 18, height: 18, flexShrink: 0, border: 0, borderRadius: 2,
-    background: 'transparent', color: '#aaa', padding: 0, fontSize: 10,
+    background: 'transparent', color: 'var(--color-text-muted)', padding: 0, fontSize: 10,
     lineHeight: '18px', cursor: 'pointer', textAlign: 'center',
+  },
+  footer: {
+    display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
+    padding: '7px 8px', borderTop: '1px solid var(--color-border)',
+    background: 'var(--color-panel)',
+  },
+  footerButton: {
+    display: 'flex', alignItems: 'center', gap: 7, flex: 1, minWidth: 0,
+    border: 0, borderRadius: 3, background: 'transparent', color: 'var(--color-text-muted)',
+    padding: '5px 6px', cursor: 'pointer', fontSize: 11, textAlign: 'left',
   },
 };
 
@@ -70,7 +82,7 @@ function ExplorerTree() {
     updateGroup, deleteGroup, connect, disconnect, loadDatabases, loadCollections,
     createGroup, moveProfileToGroup,
   } = useConnectionStore();
-  const { openWelcome, openConnections } = useWorkspaceStore();
+  const { openWelcome, openConnections, openSettings } = useWorkspaceStore();
 
   const [showNewGroup, setShowNewGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
@@ -86,6 +98,7 @@ function ExplorerTree() {
   const [groupAction, setGroupAction] = useState<GroupAction | null>(null);
   const [groupActionBusy, setGroupActionBusy] = useState(false);
   const [groupActionError, setGroupActionError] = useState<string | null>(null);
+  const [appVersion, setAppVersion] = useState('0.0.1');
   const normalizedSearch = search.trim().toLocaleLowerCase();
 
   const matchesProfile = (profileId: string, profileName: string) => {
@@ -112,6 +125,12 @@ function ExplorerTree() {
       }
     }
   }, [normalizedSearch, connected, databases, loadCollections]);
+
+  useEffect(() => {
+    void window.mongog.system.info()
+      .then((info) => setAppVersion(info.appVersion))
+      .catch(() => undefined);
+  }, []);
 
   const handleNewGroup = async () => {
     if (!newGroupName.trim()) return;
@@ -172,10 +191,37 @@ function ExplorerTree() {
     <div style={s.sidebar}>
       <div style={s.header}>
         <span>Connections</span>
-        <div style={{ display: 'flex', gap: 4 }}>
-          <span style={{ ...s.actions, fontSize: 13 }} title="Welcome" onClick={() => openWelcome()}>&#x2302;</span>
-          <span style={s.actions} title="New connection" onClick={() => openConnections({ mode: 'create' })}>+</span>
-          <span style={s.actions} title="New group" onClick={() => setShowNewGroup((v) => !v)}>&#x1F4C1;</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          <button
+            type="button"
+            className="sidebar-header-action"
+            style={s.headerAction}
+            aria-label="Open Welcome"
+            title="Open Welcome — return to the start page"
+            onClick={() => openWelcome()}
+          >
+            <SidebarHeaderIcon kind="home" />
+          </button>
+          <button
+            type="button"
+            className="sidebar-header-action"
+            style={s.headerAction}
+            aria-label="New connection"
+            title="New Connection — create a connection profile"
+            onClick={() => openConnections({ mode: 'create' })}
+          >
+            <SidebarHeaderIcon kind="plus" />
+          </button>
+          <button
+            type="button"
+            className="sidebar-header-action"
+            style={s.headerAction}
+            aria-label="New group"
+            title="New Group — organize connections in a group"
+            onClick={() => setShowNewGroup((v) => !v)}
+          >
+            <SidebarHeaderIcon kind="folder" />
+          </button>
         </div>
       </div>
 
@@ -194,10 +240,10 @@ function ExplorerTree() {
           <input autoFocus placeholder="Group name" value={newGroupName}
             onChange={(e) => setNewGroupName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleNewGroup()}
-            style={{ flex: 1, background: '#3c3c3c', color: '#ddd', border: '1px solid #555', padding: '2px 6px', borderRadius: 2, fontSize: 12 }}
+            style={{ flex: 1, background: 'var(--color-input-soft)', color: 'var(--color-text)', border: '1px solid var(--color-border-strong)', padding: '2px 6px', borderRadius: 2, fontSize: 12 }}
           />
           <button
-            style={{ background: '#0e639c', color: '#fff', border: 'none', padding: '2px 8px', borderRadius: 2, fontSize: 11, cursor: 'pointer' }}
+            style={{ background: 'var(--color-accent)', color: '#fff', border: 'none', padding: '2px 8px', borderRadius: 2, fontSize: 11, cursor: 'pointer' }}
             onClick={handleNewGroup}
           >Add</button>
         </div>
@@ -205,14 +251,14 @@ function ExplorerTree() {
 
       <div style={s.tree} role="tree" aria-label="MongoDB connections">
         {profileError && (
-          <div style={{ padding: '4px 8px', fontSize: 11, color: '#f44747', borderBottom: '1px solid #333' }}>
+          <div style={{ padding: '4px 8px', fontSize: 11, color: '#f44747', borderBottom: '1px solid var(--color-border)' }}>
             {profileError}
           </div>
         )}
-        {loading && <div style={{ padding: '8px 12px', color: '#888', fontSize: 12 }}>Loading...</div>}
+        {loading && <div style={{ padding: '8px 12px', color: 'var(--color-text-muted)', fontSize: 12 }}>Loading...</div>}
 
         {!loading && groups.length === 0 && profiles.length === 0 && (
-          <div style={{ padding: '8px 12px', color: '#666', fontSize: 12 }}>No connections. Click + to add.</div>
+          <div style={{ padding: '8px 12px', color: 'var(--color-text-faint)', fontSize: 12 }}>No connections. Click + to add.</div>
         )}
 
         {groups.map((g) => {
@@ -327,7 +373,7 @@ function ExplorerTree() {
             aria-level={1}
             tabIndex={-1}
             style={{
-              ...s.treeItem, marginTop: 7, border: '1px dashed #555', color: '#999',
+              ...s.treeItem, marginTop: 7, border: '1px dashed var(--color-border-strong)', color: 'var(--color-text-muted)',
               justifyContent: 'center', fontSize: 11,
               ...(dragOverGroupId === '__ungrouped__' ? s.treeItemDropTarget : {}),
             }}
@@ -390,6 +436,23 @@ function ExplorerTree() {
           onConfirm={(value) => void performGroupAction(value)}
         />
       )}
+      <div style={s.footer}>
+        <button
+          type="button"
+          style={s.footerButton}
+          aria-label="Open application settings"
+          title="Open settings"
+          onClick={() => openSettings()}
+          onMouseEnter={(event) => { event.currentTarget.style.background = 'var(--color-panel-raised)'; }}
+          onMouseLeave={(event) => { event.currentTarget.style.background = 'transparent'; }}
+        >
+          <span aria-hidden="true" style={{ fontSize: 15 }}>⚙</span>
+          <span>Settings</span>
+        </button>
+        <span title={`MongoG version ${appVersion}`} style={{ color: 'var(--color-text-faint)', fontSize: 10, whiteSpace: 'nowrap' }}>
+          v{appVersion}
+        </span>
+      </div>
     </div>
   );
 }
@@ -629,7 +692,7 @@ function ProfileNode({
         <button
           style={{
             ...s.connectionButton,
-            color: isConnected ? '#e5c07b' : '#4ec9b0',
+            color: isConnected ? 'var(--color-warning)' : 'var(--color-success)',
             ...(connectionBusy ? { opacity: 0.55, cursor: 'default' } : {}),
           }}
           disabled={connectionBusy}
@@ -701,7 +764,7 @@ function ProfileNode({
                         tabIndex={0}
                         data-tree-node-key={`collection:${profile.id}:${encodeURIComponent(db.name)}:${encodeURIComponent(col.name)}`}
                         data-tree-parent-key={databaseKey}
-                        style={{ ...s.treeItem, paddingLeft: 2, fontSize: 12, color: '#aaa' }}
+                        style={{ ...s.treeItem, paddingLeft: 2, fontSize: 12, color: 'var(--color-text-muted)' }}
                         onClick={() => handleCollectionClick(db.name, col.name)}
                         onContextMenu={(event) => showCollectionMenu(event, db.name, col.name)}
                         onKeyDown={(event) => handleTreeKeyDown(event, {
@@ -718,7 +781,7 @@ function ProfileNode({
                       </div>
                     ))}
                     {visibleCollections.length === 0 && (
-                      <div style={{ padding: '2px 8px', fontSize: 11, color: '#666' }}>(empty)</div>
+                      <div style={{ padding: '2px 8px', fontSize: 11, color: 'var(--color-text-faint)' }}>(empty)</div>
                     )}
                   </div>
                 )}
@@ -855,4 +918,36 @@ function handleTreeKeyDown(
 function errorMessage(error: unknown): string {
   if (error && typeof error === 'object' && 'message' in error) return String(error.message);
   return String(error);
+}
+
+function SidebarHeaderIcon({ kind }: { kind: 'home' | 'plus' | 'folder' }) {
+  return (
+    <svg
+      aria-hidden="true"
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {kind === 'home' && (
+        <>
+          <path d="M2 7.25 8 2.5l6 4.75" />
+          <path d="M3.5 6.5v7h3v-4h3v4h3v-7" />
+        </>
+      )}
+      {kind === 'plus' && (
+        <>
+          <path d="M8 3v10" />
+          <path d="M3 8h10" />
+        </>
+      )}
+      {kind === 'folder' && (
+        <path d="M1.75 4.25h4.5l1.35 1.5h6.65v7H1.75z" />
+      )}
+    </svg>
+  );
 }

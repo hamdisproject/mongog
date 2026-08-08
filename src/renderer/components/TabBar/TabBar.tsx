@@ -6,24 +6,24 @@ import { useCommandPaletteStore } from '../../stores/command-palette.js';
 
 const s: Record<string, React.CSSProperties> = {
   bar: {
-    display: 'flex', background: '#2d2d2d', borderBottom: '1px solid #333',
+    display: 'flex', background: 'var(--color-panel-raised)', borderBottom: '1px solid var(--color-border)',
     minHeight: 32, overflowX: 'auto', overflowY: 'hidden', flexShrink: 0,
   },
   tab: {
     display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px',
-    fontSize: 12, cursor: 'pointer', borderRight: '1px solid #333',
-    whiteSpace: 'nowrap', color: '#999', minWidth: 0, flexShrink: 0,
+    fontSize: 12, cursor: 'pointer', borderRight: '1px solid var(--color-border)',
+    whiteSpace: 'nowrap', color: 'var(--color-text-muted)', minWidth: 0, flexShrink: 0,
   },
-  tabActive: { background: '#1e1e1e', color: '#ddd' },
+  tabActive: { background: 'var(--color-app)', color: 'var(--color-text)' },
   closeBtn: {
     fontSize: 14, lineHeight: '14px', cursor: 'pointer', opacity: 0.4,
     padding: '0 2px', borderRadius: 2,
   },
-  dirtyDot: { width: 6, height: 6, borderRadius: '50%', background: '#e5c07b', flexShrink: 0 },
+  dirtyDot: { width: 6, height: 6, borderRadius: '50%', background: 'var(--color-warning)', flexShrink: 0 },
   newBtn: {
-    padding: '4px 11px', cursor: 'pointer', color: '#ccc', fontSize: 12,
+    padding: '4px 11px', cursor: 'pointer', color: 'var(--color-text)', fontSize: 12,
     display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
-    border: 0, borderRight: '1px solid #3a3a3a', background: '#252526',
+    border: 0, borderRight: '1px solid var(--color-border)', background: 'var(--color-panel)',
   },
 };
 
@@ -33,6 +33,7 @@ const kindIcon: Record<string, string> = {
   collection: '{ }',
   history: 'H',
   'connection-settings': 'C',
+  settings: '⚙',
   admin: 'A',
   'change-stream': '⇄',
 };
@@ -62,7 +63,7 @@ export function TabBar() {
   return (
     <div style={s.bar}>
       <button type="button" onClick={handleNewTab} style={s.newBtn} title="New query tab">
-        <span style={{ color: '#4ec9b0', fontSize: 15 }}>+</span> Query
+        <span style={{ color: 'var(--color-success)', fontSize: 15 }}>+</span> Query
       </button>
       <button
         type="button"
@@ -71,9 +72,9 @@ export function TabBar() {
         style={s.newBtn}
         title="Global search (Cmd/Ctrl+K)"
       >
-        <span style={{ color: '#4ec9b0', fontSize: 15 }} aria-hidden="true">⌕</span>
+        <span style={{ color: 'var(--color-success)', fontSize: 15 }} aria-hidden="true">⌕</span>
         Search
-        <span style={{ color: '#777', fontSize: 9, marginLeft: 2 }}>⌘/Ctrl K</span>
+        <span style={{ color: 'var(--color-text-faint)', fontSize: 9, marginLeft: 2 }}>⌘/Ctrl K</span>
       </button>
       {tabs.map((tab) => (
         <Tab

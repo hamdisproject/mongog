@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { basename } from 'node:path';
-import { dialog, type BrowserWindow } from 'electron';
+import { app, dialog, type BrowserWindow } from 'electron';
 import { registerChannel, type SenderValidator } from './registry.js';
 import {
   cursorCloseSchema,
@@ -50,10 +50,12 @@ import {
   connGridFsDownloadSchema,
   connGridFsDeleteSchema,
   workspaceSaveSchema,
+  settingsSaveSchema,
   type ExecuteResponse,
   type PingRuntimeResponse,
   type SystemInfoResponse,
 } from '../../shared/ipc/index.js';
+import { DEFAULT_SETTINGS } from '../../shared/domain/workspace.js';
 import type {
   CollectionDocumentsPage,
   CollectionMutationResult,
@@ -172,7 +174,7 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
     IpcChannels.systemInfo,
     emptySchema,
     async (): Promise<SystemInfoResponse> => ({
-      appVersion: process.env.npm_package_version ?? '0.0.1',
+      appVersion: app.getVersion(),
       electron: process.versions.electron ?? 'unknown',
       chrome: process.versions.chrome ?? 'unknown',
       node: process.versions.node ?? 'unknown',
@@ -495,4 +497,12 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
     if (!ws) return null;
     return { tabs: ws.tabs, activeTabId: ws.activeTabId };
   }, validateSender);
+
+  registerChannel(IpcChannels.settingsSave, settingsSaveSchema, async ({ settings }) => {
+    ctx.getDb().settings.upsert(settings);
+  }, validateSender);
+
+  registerChannel(IpcChannels.settingsLoad, emptySchema, async () => (
+    ctx.getDb().settings.get() ?? structuredClone(DEFAULT_SETTINGS)
+  ), validateSender);
 }

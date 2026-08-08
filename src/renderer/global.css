@@ -10,14 +10,87 @@ body,
   overflow: hidden;
 }
 
+:root {
+  --color-app: #1e1e1e;
+  --color-panel: #252526;
+  --color-panel-raised: #2d2d2d;
+  --color-input: #181818;
+  --color-input-soft: #3c3c3c;
+  --color-border: #3a3a3a;
+  --color-border-strong: #555;
+  --color-text: #ddd;
+  --color-text-muted: #969696;
+  --color-text-faint: #6f6f6f;
+  --color-accent: #0e639c;
+  --color-accent-hover: #1177bb;
+  --color-selected: #094771;
+  --color-success: #4ec9b0;
+  --color-warning: #e5c07b;
+  --color-danger: #f48771;
+  --color-danger-surface: #4a1f1f;
+  --color-danger-button: #8b2f36;
+  --color-danger-border: #6e3030;
+  --color-success-surface: #193927;
+  --color-success-border: #27543b;
+  --color-success-text: #b9e4c9;
+  --color-warning-surface: #282619;
+  --color-warning-border: #4c472c;
+  --color-warning-text: #dcdcaa;
+  --color-code-text: #c9d1d9;
+  --color-focus: #3794ff;
+}
+
+:root[data-theme='light'] {
+  --color-app: #f7f8fa;
+  --color-panel: #f0f2f5;
+  --color-panel-raised: #e6e9ef;
+  --color-input: #fff;
+  --color-input-soft: #e7eaf0;
+  --color-border: #d4d9e1;
+  --color-border-strong: #aeb7c4;
+  --color-text: #202733;
+  --color-text-muted: #5f6978;
+  --color-text-faint: #8993a1;
+  --color-accent: #0969a5;
+  --color-accent-hover: #075b90;
+  --color-selected: #cce6f8;
+  --color-success: #087f5b;
+  --color-warning: #946200;
+  --color-danger: #bf3545;
+  --color-danger-surface: #feecef;
+  --color-danger-button: #c43d4b;
+  --color-danger-border: #df8993;
+  --color-success-surface: #e7f6ef;
+  --color-success-border: #8dccb4;
+  --color-success-text: #126b4d;
+  --color-warning-surface: #fff8dc;
+  --color-warning-border: #dfc57a;
+  --color-warning-text: #765400;
+  --color-code-text: #344054;
+  --color-focus: #0969a5;
+}
+
 html,
 body {
-  background: #1e1e1e;
+  background: var(--color-app);
+  color: var(--color-text);
   overscroll-behavior: none;
 }
 
 .explorer-tree-item:focus {
-  outline: 1px solid #3794ff;
+  outline: 1px solid var(--color-focus);
   outline-offset: -1px;
-  background: #37373d;
+  background: var(--color-selected);
+}
+
+.sidebar-header-action:hover {
+  background: var(--color-panel-raised) !important;
+  color: var(--color-text) !important;
+}
+
+.sidebar-header-action:focus-visible {
+  outline: 1px solid var(--color-focus);
+  outline-offset: -1px;
+  background: var(--color-panel-raised) !important;
+  color: var(--color-text) !important;
 }

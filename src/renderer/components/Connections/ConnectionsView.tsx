@@ -205,7 +205,7 @@ export function ConnectionsView({ tab }: { tab: WorkspaceTab }) {
 
             {formMode === 'basic' ? <BasicForm form={form} groups={groups} update={update} onUri={handleUri} /> : <AdvancedForm form={form} update={update} />}
 
-            {message && <div style={{ marginTop: 14, border: `1px solid ${message.kind === 'error' ? '#7a3535' : message.kind === 'warning' ? '#71642c' : '#27543b'}`, background: message.kind === 'error' ? c.dangerSurface : message.kind === 'warning' ? '#343019' : '#193927', color: message.kind === 'error' ? c.danger : message.kind === 'warning' ? c.warning : '#b9e4c9', padding: 10, borderRadius: theme.radius, fontSize: 12 }}>{message.text}</div>}
+            {message && <div style={{ marginTop: 14, border: `1px solid ${message.kind === 'error' ? '#7a3535' : message.kind === 'warning' ? '#71642c' : 'var(--color-success-border)'}`, background: message.kind === 'error' ? c.dangerSurface : message.kind === 'warning' ? '#343019' : 'var(--color-success-surface)', color: message.kind === 'error' ? c.danger : message.kind === 'warning' ? c.warning : 'var(--color-success-text)', padding: 10, borderRadius: theme.radius, fontSize: 12 }}>{message.text}</div>}
             {result?.ok && <div style={{ color: c.textFaint, fontSize: 10, marginTop: 6 }}>Topology: {result.topology ?? 'unknown'} · Round trip: {result.roundTripMs ?? 0} ms</div>}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20, paddingTop: 16, borderTop: `1px solid ${c.border}` }}>

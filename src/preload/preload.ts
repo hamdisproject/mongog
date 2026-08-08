@@ -124,6 +124,10 @@ const api: MongoGDesktopApi = {
     save: (state) => invoke(IpcChannels.workspaceSave, { state }),
     load: () => invoke(IpcChannels.workspaceLoad),
   },
+  settings: {
+    save: (settings) => invoke(IpcChannels.settingsSave, { settings }),
+    load: () => invoke(IpcChannels.settingsLoad),
+  },
 };
 
 contextBridge.exposeInMainWorld('mongog', api);

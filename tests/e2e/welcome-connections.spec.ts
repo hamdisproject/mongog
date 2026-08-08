@@ -45,8 +45,34 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByTitle('New query tab')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open global search' })).toBeVisible();
   await expect(page.getByTitle('Open administration')).toHaveCount(0);
+  const sidebarHeaderActions = page.getByRole('navigation', { name: 'Connection explorer' })
+    .locator('.sidebar-header-action');
+  await expect(sidebarHeaderActions).toHaveCount(3);
+  await expect(page.getByRole('button', { name: 'Open Welcome' }))
+    .toHaveAttribute('title', 'Open Welcome — return to the start page');
+  await expect(page.getByRole('button', { name: 'New connection', exact: true }))
+    .toHaveAttribute('title', 'New Connection — create a connection profile');
+  await expect(page.getByRole('button', { name: 'New group' }))
+    .toHaveAttribute('title', 'New Group — organize connections in a group');
+  await expect.poll(() => sidebarHeaderActions.evaluateAll((elements) => elements.map((element) => {
+    const rect = element.getBoundingClientRect();
+    return [rect.width, rect.height];
+  }))).toEqual([[24, 24], [24, 24], [24, 24]]);
+  await expect(page.getByTitle(/MongoG version /)).toContainText(/^v\d+\.\d+\.\d+/);
+  await page.getByRole('button', { name: 'Open application settings' }).click();
+  await expect(page.locator('[title^="settings: Settings"]')).toBeVisible();
+  await expect(page.getByTestId('settings-view')).toBeVisible();
+  await page.getByRole('button', { name: 'Open application settings' }).click();
+  await expect(page.locator('[title^="settings: Settings"]')).toHaveCount(1);
+  await page.getByRole('radio', { name: 'Light theme' }).click();
+  await expect(page.getByRole('radio', { name: 'Light theme' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect.poll(() => page.getByTestId('settings-view').evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  )).toBe('rgb(247, 248, 250)');
+  await page.locator('[title^="welcome: Welcome"]').click();
 
-  await page.getByRole('button', { name: 'New Connection' }).click();
+  await page.getByRole('button', { name: 'New Connection', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'New connection' })).toBeVisible();
   await page.getByLabel('Connection name').fill('E2E Local');
   await page.getByLabel('Connection URI').fill(mongoUri);
@@ -59,7 +85,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   let explorer = page.getByRole('navigation', { name: 'Connection explorer' });
   await expect(explorer.getByRole('button', { name: 'Disconnect', exact: true })).toBeVisible();
   await expect(explorer.getByRole('button', { name: 'Connection settings for E2E Local' })).toBeVisible();
-  await page.getByTitle('New group').click();
+  await page.getByRole('button', { name: 'New group' }).click();
   await page.getByPlaceholder('Group name').fill('E2E Group');
   await page.getByPlaceholder('Group name').press('Enter');
   const groupNode = explorer.getByRole('treeitem', { name: 'Group E2E Group' });
@@ -89,6 +115,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   page = await launch();
   await expect(page.getByText('Welcome back')).toBeVisible();
   await expect(page.locator('[title^="welcome: Welcome"]')).toHaveCount(1);
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   explorer = page.getByRole('navigation', { name: 'Connection explorer' });
   await expect(explorer.getByRole('button', { name: 'Connect', exact: true })).toBeVisible();
   await expect(
@@ -197,10 +224,24 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   const quantityResizer = page.getByRole('separator', { name: 'Resize quantity column' });
   const resizeBox = await quantityResizer.boundingBox();
   if (!resizeBox) throw new Error('Quantity column resize handle is missing');
-  await page.mouse.move(resizeBox.x + resizeBox.width / 2, resizeBox.y + 4);
-  await page.mouse.down();
-  await page.mouse.move(resizeBox.x + 90, resizeBox.y + 4);
-  await page.mouse.up();
+  const resizeStart = { x: resizeBox.x + resizeBox.width / 2, y: resizeBox.y + 4 };
+  await quantityResizer.dispatchEvent('pointerdown', {
+    clientX: resizeStart.x,
+    clientY: resizeStart.y,
+    pointerId: 1,
+    pointerType: 'mouse',
+    isPrimary: true,
+    button: 0,
+    bubbles: true,
+  });
+  await page.evaluate(({ x, y }) => {
+    window.dispatchEvent(new PointerEvent('pointermove', {
+      clientX: x + 90, clientY: y, pointerId: 1, pointerType: 'mouse', isPrimary: true, bubbles: true,
+    }));
+    window.dispatchEvent(new PointerEvent('pointerup', {
+      clientX: x + 90, clientY: y, pointerId: 1, pointerType: 'mouse', isPrimary: true, bubbles: true,
+    }));
+  }, resizeStart);
   await expect.poll(() => quantityColumn.evaluate((element) => element.closest('th')!.getBoundingClientRect().width))
     .toBeGreaterThan(initialQuantityWidth + 50);
   await page.getByRole('button', { name: /^Criteria/ }).click();

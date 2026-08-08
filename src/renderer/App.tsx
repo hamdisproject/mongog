@@ -7,18 +7,22 @@ import { AdminView } from './components/Admin/AdminView.js';
 import { ChangeStreamView } from './components/Admin/ChangeStreamView.js';
 import { WelcomeView } from './components/Welcome/WelcomeView.js';
 import { ConnectionsView } from './components/Connections/ConnectionsView.js';
+import { SettingsView } from './components/Settings/SettingsView.js';
 import { CommandPalette } from './components/CommandPalette/CommandPalette.js';
 import type { WorkspaceTab } from '../shared/domain/index.js';
 import { useWorkspaceStore } from './stores/workspace.js';
 import { useConnectionStore } from './stores/connections.js';
 import { useSchemaCache } from './stores/schema-cache.js';
-import { theme } from './theme.js';
+import { getMonacoTheme, theme } from './theme.js';
+import { useSettingsStore } from './stores/settings.js';
+import { bootMonaco } from './monaco/setup.js';
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
 export default function App() {
   const { activeTabId, tabs, restore } = useWorkspaceStore();
   const { load } = useConnectionStore();
+  const loadSettings = useSettingsStore((state) => state.load);
   const engineSubRef = useRef<(() => void) | null>(null);
   const initializedRef = useRef(false);
 
@@ -39,6 +43,7 @@ export default function App() {
     if (initializedRef.current) return;
     initializedRef.current = true;
     void load();
+    void loadSettings();
     void window.mongog.workspace.load().then((saved) => {
       if (saved && saved.tabs.length > 0) {
         restore(saved);
@@ -91,6 +96,14 @@ export default function App() {
     });
   }, []);
 
+  useEffect(() => {
+    const applyEditorTheme = () => {
+      void bootMonaco().then((monaco) => monaco.editor.setTheme(getMonacoTheme()));
+    };
+    window.addEventListener('mongog-theme-change', applyEditorTheme);
+    return () => window.removeEventListener('mongog-theme-change', applyEditorTheme);
+  }, []);
+
   // Persist workspace state on tab changes.
   useEffect(() => {
     persist();
@@ -129,7 +142,7 @@ function renderTabContent(activeTabId: string | null, tabs: WorkspaceTab[]) {
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
   if (!activeTab) {
-    return <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
+    return <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-faint)' }}>
       Select or create a tab to begin
     </div>;
   }
@@ -151,8 +164,10 @@ function renderTabContent(activeTabId: string | null, tabs: WorkspaceTab[]) {
       return <ChangeStreamView tab={activeTab} />;
     case 'connection-settings':
       return <ConnectionsView tab={activeTab} />;
+    case 'settings':
+      return <SettingsView />;
     default:
-      return <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
+      return <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-faint)' }}>
         {activeTab.kind} tab
       </div>;
   }

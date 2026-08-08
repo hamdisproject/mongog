@@ -10,7 +10,7 @@ import {
   type CriteriaKind,
 } from '../../monaco/object-expression.js';
 import { bootMonaco } from '../../monaco/setup.js';
-import { theme } from '../../theme.js';
+import { getMonacoTheme, theme } from '../../theme.js';
 
 interface CollectionCriteriaEditorProps {
   tabId: string;
@@ -94,7 +94,7 @@ export function CollectionCriteriaEditor({
       });
       editor = monaco.editor.create(hostRef.current, {
         model,
-        theme: 'vs-dark',
+        theme: getMonacoTheme(),
         ariaLabel: `Collection ${kind}`,
         automaticLayout: true,
         minimap: { enabled: false },

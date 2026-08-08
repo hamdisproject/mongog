@@ -25,6 +25,7 @@ import type {
   GridFsDialogResult,
   ConnectionDraftRequest,
   SaveAndConnectResult,
+  ApplicationSettings,
 } from '../domain/index.js';
 
 export const IpcChannels = {
@@ -89,6 +90,8 @@ export const IpcChannels = {
   // ── Workspace persistence ──
   workspaceSave: 'mongog:workspace:save',
   workspaceLoad: 'mongog:workspace:load',
+  settingsSave: 'mongog:settings:save',
+  settingsLoad: 'mongog:settings:load',
 } as const;
 
 export const IpcEvents = {
@@ -224,7 +227,7 @@ export const workspaceSaveSchema = z.object({
   state: z.object({
     tabs: z.array(z.object({
       id: z.string(),
-      kind: z.enum(['welcome', 'query', 'collection', 'history', 'connection-settings', 'admin', 'change-stream']),
+      kind: z.enum(['welcome', 'query', 'collection', 'history', 'connection-settings', 'settings', 'admin', 'change-stream']),
       title: z.string(),
       connectionId: z.string().nullable(),
       database: z.string().optional(),
@@ -240,6 +243,41 @@ export const workspaceSaveSchema = z.object({
     activeTabId: z.string().nullable(),
   }),
 });
+
+export const applicationSettingsSchema = z.object({
+  schemaVersion: z.number().int().min(1),
+  theme: z.enum(['dark', 'light', 'system']),
+  editor: z.object({
+    fontSize: z.number().int().min(8).max(72),
+    tabSize: z.number().int().min(1).max(16),
+    wordWrap: z.boolean(),
+    minimap: z.boolean(),
+  }),
+  execution: z.object({
+    defaultTimeoutMS: z.number().int().min(0).max(600_000),
+    pageSize: z.number().int().min(1).max(500),
+    maxRetainedPages: z.number().int().min(1).max(1_000),
+    maxPreviewBytes: z.number().int().min(1),
+    cursorIdleTimeoutMS: z.number().int().min(1_000),
+    maxRuntimes: z.number().int().min(1).max(100),
+    confirmDestructive: z.boolean(),
+  }),
+  history: z.object({
+    retentionDays: z.number().int().min(1).max(36_500),
+    maxEntries: z.number().int().min(1),
+  }),
+  ejson: z.object({ defaultMode: z.enum(['relaxed', 'canonical']) }),
+  window: z.object({
+    bounds: z.object({
+      x: z.number(),
+      y: z.number(),
+      width: z.number().positive(),
+      height: z.number().positive(),
+    }).optional(),
+  }).optional(),
+}) satisfies z.ZodType<ApplicationSettings>;
+
+export const settingsSaveSchema = z.object({ settings: applicationSettingsSchema });
 
 // ── Phase 2: Query schemas ──
 
@@ -649,6 +687,10 @@ export interface MongoGDesktopApi {
   workspace: {
     save(state: { tabs: WorkspaceTab[]; activeTabId: string | null }): Promise<void>;
     load(): Promise<{ tabs: WorkspaceTab[]; activeTabId: string | null } | null>;
+  };
+  settings: {
+    save(settings: ApplicationSettings): Promise<void>;
+    load(): Promise<ApplicationSettings>;
   };
 }
 
