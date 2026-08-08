@@ -150,8 +150,12 @@ const s: Record<string, React.CSSProperties> = {
   rowNumber: { color: 'var(--color-text-faint)', fontSize: 10, width: 45 },
   empty: { flex: 1, padding: 28, color: 'var(--color-text-faint)', fontSize: 12, textAlign: 'center' },
   editorPanel: {
-    height: '38%', minHeight: 180, maxHeight: 440, display: 'flex', flexDirection: 'column',
+    minHeight: 120, display: 'flex', flexDirection: 'column',
     borderTop: '1px solid var(--color-border)', background: 'var(--color-app)', flexShrink: 0,
+  },
+  documentPanelResizer: {
+    height: 5, flexShrink: 0, cursor: 'row-resize', background: 'var(--color-panel-raised)',
+    borderTop: '1px solid var(--color-border)', borderBottom: '1px solid var(--color-border)',
   },
   editorHeader: {
     display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', background: 'var(--color-panel)',
@@ -280,6 +284,11 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const [columnFilterErrors, setColumnFilterErrors] = useState<Record<string, string>>({});
   const [columnFilterHelpOpen, setColumnFilterHelpOpen] = useState(false);
   const [columnFilterExamplesOpen, setColumnFilterExamplesOpen] = useState(false);
+  const [documentPanelHeight, setDocumentPanelHeight] = useState<number | null>(null);
+  const collectionContainerRef = useRef<HTMLDivElement>(null);
+  const documentsRegionRef = useRef<HTMLDivElement>(null);
+  const documentPanelRef = useRef<HTMLDivElement>(null);
+  const documentPanelResizeCleanup = useRef<(() => void) | null>(null);
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
   const suppressSortClick = useRef(false);
   const columns = useMemo(() => {
@@ -301,6 +310,65 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const sortIndicatorByColumn = useMemo(() => new Map(
     sortIndicators.map((indicator) => [indicator.column, indicator] as const),
   ), [sortIndicators]);
+
+  useEffect(() => () => {
+    documentPanelResizeCleanup.current?.();
+  }, []);
+
+  const maximumDocumentPanelHeight = () => {
+    const container = collectionContainerRef.current;
+    const region = documentsRegionRef.current;
+    const panel = documentPanelRef.current;
+    if (!container || !region || !panel) return null;
+    const containerHeight = container.getBoundingClientRect().height;
+    const regionHeight = region.getBoundingClientRect().height;
+    const panelHeight = panel.getBoundingClientRect().height;
+    if (containerHeight <= 0 || regionHeight <= 0 || panelHeight <= 0) return null;
+
+    let fixedHeight = 0;
+    for (const child of Array.from(container.children)) {
+      if (child === region || child === panel || (child as HTMLElement).dataset.testid === 'document-panel-resizer') {
+        continue;
+      }
+      const element = child as HTMLElement;
+      const position = window.getComputedStyle(element).position;
+      if (position === 'fixed' || position === 'absolute') continue;
+      fixedHeight += element.getBoundingClientRect().height;
+    }
+    const resizerHeight = container.querySelector<HTMLElement>('[data-testid="document-panel-resizer"]')
+      ?.getBoundingClientRect().height ?? 0;
+    return Math.max(120, Math.floor(containerHeight - fixedHeight - resizerHeight - 120));
+  };
+
+  useEffect(() => {
+    if (documentPanelHeight === null || typeof ResizeObserver === 'undefined') return undefined;
+    const region = documentsRegionRef.current;
+    const panel = documentPanelRef.current;
+    if (!region || !panel) return undefined;
+
+    const clampPanel = () => {
+      const maximum = maximumDocumentPanelHeight();
+      if (maximum !== null) setDocumentPanelHeight((current) => (
+        current === null || current <= maximum ? current : maximum
+      ));
+    };
+    const observer = new ResizeObserver(clampPanel);
+    observer.observe(region);
+    observer.observe(panel);
+    clampPanel();
+    return () => observer.disconnect();
+  }, [
+    documentPanelHeight,
+    selected,
+    editorMode,
+    criteriaOpen,
+    columnFilterHelpOpen,
+    columnFilterExamplesOpen,
+    error,
+    notice,
+    isConnected,
+    readOnly,
+  ]);
 
   useEffect(() => {
     setColumnOrder((current) => {
@@ -416,6 +484,45 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
       setDraftCriteria({ filter: compiled.expression });
       setCriteriaErrors((current) => ({ ...current, filter: null }));
     }
+  };
+
+  const beginDocumentPanelResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    const region = documentsRegionRef.current;
+    const panel = documentPanelRef.current;
+    if (!region || !panel) return;
+
+    const startY = event.clientY;
+    const startPanelHeight = panel.getBoundingClientRect().height;
+    const startRegionHeight = region.getBoundingClientRect().height;
+    if (startPanelHeight <= 0 || startRegionHeight <= 0) return;
+    const maximumPanelHeight = maximumDocumentPanelHeight() ?? Math.max(
+      120,
+      startPanelHeight + startRegionHeight - 120,
+    );
+
+    documentPanelResizeCleanup.current?.();
+    const onMove = (moveEvent: PointerEvent) => {
+      const next = startPanelHeight + startY - moveEvent.clientY;
+      setDocumentPanelHeight(Math.round(Math.max(120, Math.min(maximumPanelHeight, next))));
+    };
+    const cleanup = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', cleanup);
+      window.removeEventListener('pointercancel', cleanup);
+      window.removeEventListener('blur', cleanup);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      if (documentPanelResizeCleanup.current === cleanup) documentPanelResizeCleanup.current = null;
+    };
+    documentPanelResizeCleanup.current = cleanup;
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', cleanup, { once: true });
+    window.addEventListener('pointercancel', cleanup, { once: true });
+    window.addEventListener('blur', cleanup, { once: true });
   };
 
   const applyColumnSort = (column: string) => {
@@ -611,6 +718,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const projectionActive = criteria.projection.length > 0;
   const canEditSelection = !readOnly && !!selected && !projectionActive;
   const busy = loading || editorBusy;
+  const documentPanelOpen = !!selected || editorMode === 'new';
   const normalizedDraft = {
     filter: draftFilter.trim() || EMPTY_FILTER,
     sort: draftSort.trim(),
@@ -670,7 +778,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   }
 
   return (
-    <div style={s.container}>
+    <div ref={collectionContainerRef} style={s.container}>
       <div style={s.toolbar}>
         <SavedActions tab={tab} surface="documents" />
         <button
@@ -865,9 +973,9 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
       {readOnly && <div style={s.notice}>Read-only connection — document changes are disabled.</div>}
 
       {rows.length === 0 && !loading ? (
-        <div style={s.empty}>No documents found</div>
+        <div ref={documentsRegionRef} style={{ ...s.empty, minHeight: documentPanelOpen ? 120 : 0 }}>No documents found</div>
       ) : (
-        <div style={s.tableWrap}>
+        <div ref={documentsRegionRef} style={{ ...s.tableWrap, minHeight: documentPanelOpen ? 120 : 0 }}>
           <table
             data-testid="collection-documents-table"
             style={{
@@ -991,8 +1099,23 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
         </div>
       )}
 
-      {(selected || editorMode === 'new') && (
-        <div style={s.editorPanel}>
+      {documentPanelOpen && (
+        <>
+          <div
+            data-testid="document-panel-resizer"
+            role="separator"
+            aria-label="Resize document panel"
+            aria-orientation="horizontal"
+            title="Drag to resize document panel · double-click to reset"
+            style={s.documentPanelResizer}
+            onPointerDown={beginDocumentPanelResize}
+            onDoubleClick={() => setDocumentPanelHeight(null)}
+          />
+          <div
+            ref={documentPanelRef}
+            data-testid="document-panel"
+            style={{ ...s.editorPanel, height: documentPanelHeight ?? '38%' }}
+          >
           <div style={s.editorHeader}>
             <strong>{editorMode === 'new' ? 'New document' : editorMode === 'edit' ? 'Edit document' : 'Document'}</strong>
             <span style={{ flex: 1, color: 'var(--color-text-muted)' }}>
@@ -1037,7 +1160,8 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
             onSave={() => void saveDocument()}
             onValidationChange={setEditorValidationError}
           />
-        </div>
+          </div>
+        </>
       )}
 
       <div style={s.status}>

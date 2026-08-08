@@ -489,6 +489,45 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page.getByText('"beta"', { exact: true })).toBeVisible();
 
+  const alphaDocumentRow = documentsTable.locator('tbody tr').filter({ hasText: '"alpha"' }).first();
+  await alphaDocumentRow.click();
+  const documentPanel = page.getByTestId('document-panel');
+  const documentPanelResizer = page.getByRole('separator', { name: 'Resize document panel' });
+  await expect(documentPanel).toBeVisible();
+  await expect(documentPanelResizer).toHaveAttribute('aria-orientation', 'horizontal');
+  const initialDocumentPanelHeight = await documentPanel.evaluate((element) => element.getBoundingClientRect().height);
+  await dragVerticalSeparator(page, documentPanelResizer, -90);
+  await expect.poll(() => documentPanel.evaluate((element) => element.getBoundingClientRect().height))
+    .toBeGreaterThan(initialDocumentPanelHeight + 50);
+  const expandedDocumentPanelHeight = await documentPanel.evaluate((element) => element.getBoundingClientRect().height);
+
+  await documentPanel.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(documentPanel).toHaveCount(0);
+  await alphaDocumentRow.click();
+  await expect.poll(() => documentPanel.evaluate((element) => element.getBoundingClientRect().height))
+    .toBeGreaterThanOrEqual(expandedDocumentPanelHeight - 2);
+  await documentPanel.getByRole('button', { name: 'Edit', exact: true }).click();
+  await expect(documentPanel.getByText('Edit document', { exact: true })).toBeVisible();
+  await expect(documentPanelResizer).toBeVisible();
+  await documentPanel.getByRole('button', { name: 'Cancel', exact: true }).click();
+
+  await documentPanelResizer.dblclick();
+  await expect.poll(() => documentPanel.evaluate((element) => element.getBoundingClientRect().height))
+    .toBeLessThan(expandedDocumentPanelHeight - 40);
+  await documentPanel.getByRole('button', { name: 'Close', exact: true }).click();
+
+  await page.getByRole('button', { name: 'New', exact: true }).click();
+  await expect(documentPanel.getByText('New document', { exact: true })).toBeVisible();
+  const initialNewPanelHeight = await documentPanel.evaluate((element) => element.getBoundingClientRect().height);
+  await dragVerticalSeparator(page, documentPanelResizer, 80);
+  await expect.poll(() => documentPanel.evaluate((element) => element.getBoundingClientRect().height))
+    .toBeLessThan(initialNewPanelHeight - 40);
+  await expect.poll(() => documentsTable.evaluate((element) => element.parentElement!.getBoundingClientRect().height))
+    .toBeGreaterThanOrEqual(119);
+  await expect(documentPanel.locator('.monaco-editor')).toBeVisible();
+  await expectViewportLocked(page);
+  await documentPanel.getByRole('button', { name: 'Cancel', exact: true }).click();
+
   const initialFilterHeight = await page.getByTestId('criteria-editor-filter').evaluate(
     (element) => element.getBoundingClientRect().height,
   );
@@ -765,6 +804,17 @@ async function setMonacoValue(page: Page, label: string, value: string): Promise
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
   await page.keyboard.press('Backspace');
   await page.keyboard.insertText(value);
+}
+
+async function dragVerticalSeparator(page: Page, separator: ReturnType<Page['locator']>, deltaY: number): Promise<void> {
+  const box = await separator.boundingBox();
+  if (!box) throw new Error('Vertical resize handle is missing');
+  const x = box.x + Math.min(12, box.width / 2);
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + deltaY);
+  await page.mouse.up();
 }
 
 async function expectViewportLocked(page: Page): Promise<void> {
