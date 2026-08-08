@@ -139,6 +139,69 @@ describe('collection column filters', () => {
     expect(compiled.errors.products).toMatch(/OR requires a filter on both sides/i);
   });
 
+  it('uses $size for exact array length', () => {
+    expect(parse(buildColumnFilterExpression({ products: 'len = 3' }))).toEqual({
+      products: { $size: 3 },
+    });
+    expect(parse(buildColumnFilterExpression({ products: 'LEN = 0', active: 'true' }))).toEqual({
+      products: { $size: 0 },
+      active: true,
+    });
+  });
+
+  it('builds guarded $expr comparisons for array length', () => {
+    const greater = parse(buildColumnFilterExpression({ products: 'len > 3' }));
+    expect(greater).toEqual(lengthExpression('products', [['$gt', 3]]));
+
+    const notEqual = parse(buildColumnFilterExpression({ products: 'len <> 2' }));
+    expect(notEqual).toEqual(lengthExpression('products', [['$ne', 2]]));
+    expect(parse(buildColumnFilterExpression({ products: 'len != 2' }))).toEqual(notEqual);
+  });
+
+  it('supports inclusive, exclusive, mixed, and reversed-order len ranges', () => {
+    expect(parse(buildColumnFilterExpression({ products: 'len 2..5' }))).toEqual(
+      lengthExpression('products', [['$gte', 2], ['$lte', 5]]),
+    );
+    expect(parse(buildColumnFilterExpression({ products: 'len > 2 < 5' }))).toEqual(
+      lengthExpression('products', [['$gt', 2], ['$lt', 5]]),
+    );
+    expect(parse(buildColumnFilterExpression({ products: 'len <= 5 >= 2' }))).toEqual(
+      lengthExpression('products', [['$gte', 2], ['$lte', 5]]),
+    );
+  });
+
+  it('combines len with membership, logical operators, and other columns', () => {
+    const source = buildColumnFilterExpression({
+      products: 'len >= 2 AND has *Com*',
+      active: 'true',
+    });
+    expect(parse(source)).toEqual({
+      $and: [
+        {
+          $and: [
+            lengthExpression('products', [['$gte', 2]]),
+            { products: { $in: [{ $regularExpression: { pattern: '.*Com.*', options: 'i' } }] } },
+          ],
+        },
+        { active: true },
+      ],
+    });
+
+    expect(parse(buildColumnFilterExpression({ products: 'len = 0 OR has *Default*' }))).toEqual({
+      $or: [
+        { products: { $size: 0 } },
+        { products: { $in: [{ $regularExpression: { pattern: '.*Default.*', options: 'i' } }] } },
+      ],
+    });
+  });
+
+  it('rejects invalid len values and ranges by column', () => {
+    for (const input of ['len', 'len = -1', 'len = 1.5', 'len 5..2', 'len 2..', 'len > 2 > 5']) {
+      const compiled = compileColumnFilters({ products: input });
+      expect(compiled.errors.products, input).toBeTruthy();
+    }
+  });
+
   it('accepts safe scalar and Compass BSON literals', () => {
     const id = '507f1f77bcf86cd799439011';
     const source = buildColumnFilterExpression({
@@ -185,4 +248,20 @@ describe('collection column filters', () => {
 
 function parse(source: string): Record<string, unknown> {
   return JSON.parse(parseDocumentExpression(source, 'Filter').json) as Record<string, unknown>;
+}
+
+function lengthExpression(
+  field: string,
+  comparisons: Array<[operator: string, value: number]>,
+): Record<string, unknown> {
+  const isArray = { $isArray: `$${field}` };
+  const safeSize = { $size: { $cond: [isArray, `$${field}`, []] } };
+  return {
+    $expr: {
+      $and: [
+        isArray,
+        ...comparisons.map(([operator, value]) => ({ [operator]: [safeSize, value] })),
+      ],
+    },
+  };
 }

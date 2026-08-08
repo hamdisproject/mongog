@@ -20,7 +20,30 @@ const RANGE_PATTERN = new RegExp(String.raw`^(${NUMBER_SOURCE})\s*\.\.\s*(${NUMB
 const COMPOUND_COMPARISON_PATTERN = new RegExp(
   String.raw`^(>=|>|<=|<)\s*(${NUMBER_SOURCE})\s+(>=|>|<=|<)\s*(${NUMBER_SOURCE})$`,
 );
-const COLUMN_FILTER_HELP = 'Use exact text, *wildcard*, <> value, 100..200, has *text*, !has value, and combine terms with AND / OR.';
+const LENGTH_INTEGER_SOURCE = String.raw`(?:0|[1-9]\d*)`;
+const LENGTH_RANGE_PATTERN = new RegExp(
+  String.raw`^(${LENGTH_INTEGER_SOURCE})\s*\.\.\s*(${LENGTH_INTEGER_SOURCE})$`,
+);
+const LENGTH_COMPOUND_PATTERN = new RegExp(
+  String.raw`^(>=|>|<=|<)\s*(${LENGTH_INTEGER_SOURCE})\s+(>=|>|<=|<)\s*(${LENGTH_INTEGER_SOURCE})$`,
+);
+const LENGTH_COMPARISON_PATTERN = new RegExp(
+  String.raw`^(>=|<=|<>|!=|>|<|=)\s*(${LENGTH_INTEGER_SOURCE})$`,
+);
+const COLUMN_FILTER_HELP = 'Use exact text, *wildcard*, <> value, 100..200, has *text*, len = 3, len 2..5, and combine terms with AND / OR.';
+
+interface CompiledFieldFilter {
+  property: string;
+  clause: string;
+  /** True when this condition cannot be represented as a field property. */
+  logical: boolean;
+}
+
+interface CompiledLeafFilter {
+  property?: string;
+  clause: string;
+  topLevel: boolean;
+}
 
 export function reorderColumns(columns: string[], source: string, target: string): string[] {
   if (source === target) return columns;
@@ -39,7 +62,7 @@ export function reorderColumns(columns: string[], source: string, target: string
  * callers can retain the last valid criteria instead of sending partial input.
  */
 export function compileColumnFilters(filters: ColumnFilterMap): CompiledColumnFilters {
-  const compiledFields: Array<{ property: string; clause: string; logical: boolean }> = [];
+  const compiledFields: CompiledFieldFilter[] = [];
   const errors: Record<string, string> = {};
 
   for (const [field, rawSource] of Object.entries(filters)) {
@@ -147,12 +170,15 @@ function columnFilterValue(source: string): string {
 function compileFieldFilter(
   field: string,
   source: string,
-): { property: string; clause: string; logical: boolean } {
+): CompiledFieldFilter {
   const parsed = logicalOrClause(field, source);
   if (parsed.logical) return { property: '', clause: parsed.clause, logical: true };
-  const value = columnFilterValue(source);
-  const property = `${JSON.stringify(field)}: ${value}`;
-  return { property, clause: `{ ${property} }`, logical: false };
+  const leaf = compileLeafFilter(field, source);
+  return {
+    property: leaf.property ?? '',
+    clause: leaf.clause,
+    logical: leaf.topLevel,
+  };
 }
 
 function logicalOrClause(field: string, source: string): { clause: string; logical: boolean } {
@@ -174,7 +200,97 @@ function logicalAndClause(field: string, source: string): { clause: string; logi
 }
 
 function fieldClause(field: string, source: string): string {
-  return `{ ${JSON.stringify(field)}: ${columnFilterValue(source.trim())} }`;
+  return compileLeafFilter(field, source.trim()).clause;
+}
+
+function compileLeafFilter(field: string, source: string): CompiledLeafFilter {
+  const length = compileLengthFilter(field, source);
+  if (length) return length;
+  const property = `${JSON.stringify(field)}: ${columnFilterValue(source)}`;
+  return { property, clause: `{ ${property} }`, topLevel: false };
+}
+
+function compileLengthFilter(field: string, source: string): CompiledLeafFilter | null {
+  const match = /^len\b\s*(.*)$/i.exec(source);
+  if (!match) return null;
+  const condition = match[1]!.trim();
+  if (!condition) {
+    throw new ColumnFilterSyntaxError('len requires a non-negative integer condition, for example len = 3.');
+  }
+
+  const range = LENGTH_RANGE_PATTERN.exec(condition);
+  if (range) {
+    const lower = lengthInteger(range[1]!);
+    const upper = lengthInteger(range[2]!);
+    validateRange(lower, upper, false, false);
+    return lengthExpressionFilter(field, [
+      ['$gte', lower],
+      ['$lte', upper],
+    ]);
+  }
+
+  const compound = LENGTH_COMPOUND_PATTERN.exec(condition);
+  if (compound) {
+    const bounds = [
+      comparisonBound(compound[1]!, compound[2]!),
+      comparisonBound(compound[3]!, compound[4]!),
+    ];
+    const lower = bounds.find((bound) => bound.side === 'lower');
+    const upper = bounds.find((bound) => bound.side === 'upper');
+    if (!lower || !upper) {
+      throw new ColumnFilterSyntaxError('A len range needs one lower bound and one upper bound.');
+    }
+    validateRange(lower.value, upper.value, lower.exclusive, upper.exclusive);
+    return lengthExpressionFilter(field, [
+      [lower.mongoOperator, lower.value],
+      [upper.mongoOperator, upper.value],
+    ]);
+  }
+
+  const comparison = LENGTH_COMPARISON_PATTERN.exec(condition);
+  if (comparison) {
+    const operator = comparison[1]!;
+    const value = lengthInteger(comparison[2]!);
+    if (operator === '=') {
+      const property = `${JSON.stringify(field)}: { "$size": ${value} }`;
+      return { property, clause: `{ ${property} }`, topLevel: false };
+    }
+    return lengthExpressionFilter(field, [[lengthMongoOperator(operator), value]]);
+  }
+
+  throw new ColumnFilterSyntaxError(
+    'len supports non-negative integers with =, !=, <>, >, >=, <, <=, or a range such as len 2..5.',
+  );
+}
+
+function lengthExpressionFilter(
+  field: string,
+  comparisons: Array<[operator: '$gt' | '$gte' | '$lt' | '$lte' | '$ne', value: number]>,
+): CompiledLeafFilter {
+  const fieldReference = JSON.stringify(`$${field}`);
+  const isArray = `{ "$isArray": ${fieldReference} }`;
+  const safeSize = `{ "$size": { "$cond": [${isArray}, ${fieldReference}, []] } }`;
+  const predicates = comparisons.map(([operator, value]) => (
+    `{ ${JSON.stringify(operator)}: [${safeSize}, ${value}] }`
+  ));
+  const clause = `{ "$expr": { "$and": [${isArray}, ${predicates.join(', ')}] } }`;
+  return { clause, topLevel: true };
+}
+
+function lengthMongoOperator(operator: string): '$gt' | '$gte' | '$lt' | '$lte' | '$ne' {
+  if (operator === '>') return '$gt';
+  if (operator === '>=') return '$gte';
+  if (operator === '<') return '$lt';
+  if (operator === '<=') return '$lte';
+  return '$ne';
+}
+
+function lengthInteger(source: string): number {
+  const value = Number(source);
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new ColumnFilterSyntaxError('Array length must be a non-negative safe integer.');
+  }
+  return value;
 }
 
 function logicalClause(operator: '$and' | '$or', clauses: string[]): string {

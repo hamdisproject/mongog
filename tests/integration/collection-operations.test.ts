@@ -13,6 +13,7 @@ import {
 } from '../../src/query-runtime/collection/operations.js';
 import { CursorRegistry } from '../../src/query-runtime/registry/cursors.js';
 import { buildColumnFilterExpression } from '../../src/renderer/collection-column-filter.js';
+import { cycleColumnSort } from '../../src/renderer/collection-column-sort.js';
 import { parseEjson, serializeToEjson } from '../../src/shared/ejson/index.js';
 import { getStandaloneUri, newClient, stopAll } from './helpers/mongo.js';
 
@@ -178,6 +179,116 @@ describe('collection browser operations', () => {
     expect(productAnd.documents.map((item) => (
       parseEjson<{ name: string }>(item).name
     ))).toEqual(['lower']);
+  });
+
+  it('applies guarded array-length column filters without failing on non-arrays', async () => {
+    const collection = client!.db(DATABASE).collection('column_array_lengths');
+    await collection.insertMany([
+      { name: 'empty', products: [] },
+      { name: 'one', products: ['Computer'] },
+      { name: 'three', products: ['Computer', 'Phone', 'Used'] },
+      { name: 'missing' },
+      { name: 'null', products: null },
+      { name: 'string', products: 'Computer' },
+      { name: 'object', products: { name: 'Computer' } },
+    ]);
+
+    const exactEmpty = await findCollectionDocuments(client!, registry!, {
+      database: DATABASE,
+      collection: 'column_array_lengths',
+      owner: { connectionId: 'phase3', tabId: 'column-length-exact-tab' },
+      filterEjson: buildColumnFilterExpression({ products: 'len = 0' }),
+      pageSize: 20,
+    });
+    expect(exactEmpty.documents.map((item) => parseEjson<{ name: string }>(item).name))
+      .toEqual(['empty']);
+
+    const inclusiveRange = await findCollectionDocuments(client!, registry!, {
+      database: DATABASE,
+      collection: 'column_array_lengths',
+      owner: { connectionId: 'phase3', tabId: 'column-length-range-tab' },
+      filterEjson: buildColumnFilterExpression({ products: 'len 1..3' }),
+      sortEjson: '{ name: 1 }',
+      pageSize: 20,
+    });
+    expect(inclusiveRange.documents.map((item) => parseEjson<{ name: string }>(item).name))
+      .toEqual(['one', 'three']);
+
+    const notOne = await findCollectionDocuments(client!, registry!, {
+      database: DATABASE,
+      collection: 'column_array_lengths',
+      owner: { connectionId: 'phase3', tabId: 'column-length-not-equal-tab' },
+      filterEjson: buildColumnFilterExpression({ products: 'len <> 1' }),
+      sortEjson: '{ name: 1 }',
+      pageSize: 20,
+    });
+    expect(notOne.documents.map((item) => parseEjson<{ name: string }>(item).name))
+      .toEqual(['empty', 'three']);
+
+    const combined = await findCollectionDocuments(client!, registry!, {
+      database: DATABASE,
+      collection: 'column_array_lengths',
+      owner: { connectionId: 'phase3', tabId: 'column-length-combined-tab' },
+      filterEjson: buildColumnFilterExpression({ products: 'len >= 2 AND has *Com*' }),
+      pageSize: 20,
+    });
+    expect(combined.documents.map((item) => parseEjson<{ name: string }>(item).name))
+      .toEqual(['three']);
+
+    const either = await findCollectionDocuments(client!, registry!, {
+      database: DATABASE,
+      collection: 'column_array_lengths',
+      owner: { connectionId: 'phase3', tabId: 'column-length-or-tab' },
+      filterEjson: buildColumnFilterExpression({ products: 'len = 0 OR has *Phone*' }),
+      sortEjson: '{ name: 1 }',
+      pageSize: 20,
+    });
+    expect(either.documents.map((item) => parseEjson<{ name: string }>(item).name))
+      .toEqual(['empty', 'three']);
+  });
+
+  it('applies header-managed multi-column sort with a fresh first-page cursor', async () => {
+    const collection = client!.db(DATABASE).collection('column_header_sort');
+    await collection.insertMany([
+      { label: 'b2', group: 'b', score: 2, hidden: true },
+      { label: 'a2', group: 'a', score: 2, hidden: true },
+      { label: 'b1', group: 'b', score: 1, hidden: true },
+      { label: 'a1', group: 'a', score: 1, hidden: true },
+    ]);
+
+    const groupAscending = cycleColumnSort('', 'group');
+    const scoreAscending = cycleColumnSort(groupAscending.source, 'score');
+    const first = await findCollectionDocuments(client!, registry!, {
+      database: DATABASE,
+      collection: 'column_header_sort',
+      owner: { connectionId: 'phase3', tabId: 'column-header-sort-tab' },
+      filterEjson: '{ score: { $gte: 1 } }',
+      sortEjson: scoreAscending.source,
+      projectionEjson: '{ label: 1, group: 1, score: 1 }',
+      pageSize: 10,
+    });
+    expect(first.pageIndex).toBe(0);
+    expect(first.documents.map((item) => parseEjson<{ label: string }>(item).label))
+      .toEqual(['a1', 'a2', 'b1', 'b2']);
+    expect(first.documents.every((item) => !Object.hasOwn(
+      parseEjson<Record<string, unknown>>(item),
+      'hidden',
+    ))).toBe(true);
+
+    const groupDescending = cycleColumnSort(scoreAscending.source, 'group');
+    const second = await findCollectionDocuments(client!, registry!, {
+      database: DATABASE,
+      collection: 'column_header_sort',
+      owner: { connectionId: 'phase3', tabId: 'column-header-sort-tab' },
+      filterEjson: '{ score: { $gte: 1 } }',
+      sortEjson: groupDescending.source,
+      projectionEjson: '{ label: 1, group: 1, score: 1 }',
+      pageSize: 10,
+    });
+    expect(second.cursorId).not.toBe(first.cursorId);
+    expect(second.pageIndex).toBe(0);
+    expect(second.documents.map((item) => parseEjson<{ label: string }>(item).label))
+      .toEqual(['b1', 'b2', 'a1', 'a2']);
   });
 
   it('applies Compass-style BSON filters and document mutations with type preservation', async () => {

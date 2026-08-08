@@ -23,6 +23,11 @@ import {
   compileColumnFilters,
   reorderColumns,
 } from '../../collection-column-filter.js';
+import {
+  cycleColumnSort,
+  readColumnSortIndicators,
+  type ColumnSortDirection,
+} from '../../collection-column-sort.js';
 import { theme } from '../../theme.js';
 import { QueryWorkspace } from '../Editor/QueryWorkspace.js';
 import { CollectionCriteriaEditor } from './CollectionCriteriaEditor.js';
@@ -94,6 +99,15 @@ const s: Record<string, React.CSSProperties> = {
     fontWeight: 500, fontSize: 11, zIndex: 1, overflow: 'visible',
   },
   columnTitle: { display: 'flex', alignItems: 'center', position: 'relative', gap: 5, padding: '4px 7px 2px' },
+  columnSortControl: {
+    minWidth: 0, flex: 1, display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer',
+    color: 'var(--color-text-muted)', outline: 0,
+  },
+  sortBadge: {
+    flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 1,
+    color: 'var(--color-accent-hover)', fontWeight: 700,
+  },
+  sortPriority: { fontSize: 9, lineHeight: 1, fontVariantNumeric: 'tabular-nums' },
   columnFilter: {
     boxSizing: 'border-box', display: 'block', width: 'calc(100% - 10px)', margin: '1px 5px 5px',
     border: '1px solid var(--color-border)', borderRadius: 2, background: 'var(--color-input)', color: 'var(--color-text)',
@@ -242,6 +256,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const [columnFilterErrors, setColumnFilterErrors] = useState<Record<string, string>>({});
   const [columnFilterHelpOpen, setColumnFilterHelpOpen] = useState(false);
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
+  const suppressSortClick = useRef(false);
   const columns = useMemo(() => {
     const retained = columnOrder.filter((column) => discoveredColumns.includes(column));
     const added = discoveredColumns.filter((column) => !retained.includes(column));
@@ -251,6 +266,16 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const [countLoading, setCountLoading] = useState(false);
   const [countError, setCountError] = useState<string | null>(null);
   const countRequestGeneration = useRef(0);
+  const sortIndicators = useMemo(() => {
+    try {
+      return readColumnSortIndicators(criteria.sort);
+    } catch {
+      return [];
+    }
+  }, [criteria.sort]);
+  const sortIndicatorByColumn = useMemo(() => new Map(
+    sortIndicators.map((indicator) => [indicator.column, indicator] as const),
+  ), [sortIndicators]);
 
   useEffect(() => {
     setColumnOrder((current) => {
@@ -363,6 +388,25 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     if (Object.keys(compiled.errors).length === 0) {
       setDraftCriteria({ filter: compiled.expression });
       setCriteriaErrors((current) => ({ ...current, filter: null }));
+    }
+  };
+
+  const applyColumnSort = (column: string) => {
+    if (suppressSortClick.current) return;
+    try {
+      const next = cycleColumnSort(draftSort, column);
+      setCriteriaErrors((current) => ({ ...current, sort: null }));
+      updateTab(tab.id, {
+        documentsState: {
+          draft: { ...documentsState.draft, sort: next.source },
+          // Header sorting is immediate, but must not apply pending Filter or Projection drafts.
+          applied: { ...documentsState.applied, sort: next.source },
+        },
+        ...(tab.savedItemId ? { dirty: true } : {}),
+      });
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : String(caught);
+      setCriteriaErrors((current) => ({ ...current, sort: message }));
     }
   };
 
@@ -644,7 +688,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
           <strong>Column filters:</strong>{' '}
           exact text · <code>*text*</code> · <code>&lt;&gt; 10</code> · <code>100..200</code> ·{' '}
           <code>has *Com*</code> · <code>!has *Com*</code> · <code>has *Com* OR has *Phone*</code> ·{' '}
-          <code>has *Com* AND !has *Used*</code>
+          <code>len = 3</code> · <code>len 2..5</code> · <code>len &gt;= 2 AND has *Com*</code>
         </div>
       )}
 
@@ -740,13 +784,22 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
                   <th
                     key={column}
                     style={s.th}
+                    aria-sort={sortIndicatorByColumn.get(column)?.direction === 1
+                      ? 'ascending'
+                      : sortIndicatorByColumn.get(column)?.direction === -1
+                        ? 'descending'
+                        : undefined}
                     draggable
                     onDragStart={(event) => {
+                      suppressSortClick.current = true;
                       setDraggedColumn(column);
                       event.dataTransfer.effectAllowed = 'move';
                       event.dataTransfer.setData('text/plain', column);
                     }}
-                    onDragEnd={() => setDraggedColumn(null)}
+                    onDragEnd={() => {
+                      setDraggedColumn(null);
+                      window.setTimeout(() => { suppressSortClick.current = false; }, 0);
+                    }}
                     onDragOver={(event) => {
                       if (draggedColumn && draggedColumn !== column) event.preventDefault();
                     }}
@@ -758,7 +811,29 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
                     }}
                   >
                     <div style={{ ...s.columnTitle, opacity: draggedColumn === column ? 0.55 : 1 }}>
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={`${column} — drag to reorder`}>{column}</span>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        data-sort-column={column}
+                        style={s.columnSortControl}
+                        aria-label={columnSortLabel(column, sortIndicatorByColumn.get(column))}
+                        title={`${column} — click to sort; drag to reorder`}
+                        onClick={() => applyColumnSort(column)}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter' && event.key !== ' ') return;
+                          event.preventDefault();
+                          event.stopPropagation();
+                          applyColumnSort(column);
+                        }}
+                      >
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{column}</span>
+                        {sortIndicatorByColumn.get(column) && (
+                          <span style={s.sortBadge} aria-hidden="true">
+                            <ColumnSortIcon direction={sortIndicatorByColumn.get(column)!.direction} />
+                            <span style={s.sortPriority}>{sortIndicatorByColumn.get(column)!.priority}</span>
+                          </span>
+                        )}
+                      </span>
                       <span
                         aria-label={`Resize ${column} column`}
                         role="separator"
@@ -774,7 +849,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
                         ...(columnFilterErrors[column] ? { borderColor: theme.colors.danger } : {}),
                       }}
                       value={columnFilters[column] ?? ''}
-                      placeholder="exact, <> 10, 100..200, has"
+                      placeholder="exact, 100..200, has, len = 3"
                       aria-invalid={columnFilterErrors[column] ? 'true' : undefined}
                       title={columnFilterErrors[column] ?? columnFilterHelpText()}
                       onDragStart={(event) => event.stopPropagation()}
@@ -925,6 +1000,38 @@ function ToolbarButton({
       {children}
     </button>
   );
+}
+
+function ColumnSortIcon({ direction }: { direction: ColumnSortDirection }) {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {direction === 1 ? (
+        <path d="M8 13V3m0 0L4.5 6.5M8 3l3.5 3.5" />
+      ) : (
+        <path d="M8 3v10m0 0l-3.5-3.5M8 13l3.5-3.5" />
+      )}
+    </svg>
+  );
+}
+
+function columnSortLabel(
+  column: string,
+  indicator?: { direction: ColumnSortDirection; priority: number },
+): string {
+  if (!indicator) return `Sort ${column} ascending`;
+  const direction = indicator.direction === 1 ? 'ascending' : 'descending';
+  const next = indicator.direction === 1 ? 'descending' : 'remove sort';
+  return `${column}, sorted ${direction}, priority ${indicator.priority}; activate to ${next}`;
 }
 
 function createDocumentRow(envelope: EjsonEnvelope, absoluteIndex: number): DocumentRow {

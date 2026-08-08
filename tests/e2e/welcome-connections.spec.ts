@@ -20,7 +20,7 @@ test.beforeAll(async () => {
   await client.connect();
   try {
     await client.db('mongog_e2e').collection('inventory').insertMany([
-      { sku: 'alpha', quantity: 3, amenities: ['wifi'] },
+      { sku: 'alpha', quantity: 3, amenities: ['wifi', 'balcony'] },
       { sku: 'beta', quantity: 7, amenities: ['pool'] },
     ]);
   } finally {
@@ -128,6 +128,11 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   const queryTabId = await queryTab.getAttribute('data-tab-id');
   let collectionTabId = await collectionTab.getAttribute('data-tab-id');
   if (!queryTabId || !collectionTabId) throw new Error('Expected query and collection tab ids');
+
+  const preRestartQuantitySort = page.locator('[data-sort-column="quantity"]');
+  await expect(preRestartQuantitySort).toBeVisible();
+  await preRestartQuantitySort.click();
+  await expect(preRestartQuantitySort).toHaveAttribute('aria-label', /sorted ascending, priority 1/);
 
   await collectionTab.dragTo(queryTab, { targetPosition: { x: 2, y: 12 } });
   await expect.poll(async () => {
@@ -247,6 +252,8 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByRole('option', { name: /inventory/ })).toBeVisible({ timeout: 15_000 });
   await page.getByRole('option', { name: /inventory/ }).click();
   await expect(page.getByRole('button', { name: 'Documents', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('[data-sort-column="quantity"]'))
+    .toHaveAttribute('aria-label', /sorted ascending, priority 1/);
 
   const profileTreeItem = explorer.getByRole('treeitem', { name: 'Connection E2E Renamed' });
   await profileTreeItem.focus();
@@ -348,12 +355,54 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByLabel('Collection sort')).toBeVisible();
   await expect(page.getByLabel('Collection projection')).toBeVisible();
   await expectViewportLocked(page);
+  const documentsTable = page.getByTestId('collection-documents-table');
+  const firstDocumentRow = documentsTable.locator('tbody tr').first();
+  const headerQuantitySort = page.locator('[data-sort-column="quantity"]');
+  const headerSkuSort = page.locator('[data-sort-column="sku"]');
+  await expect(headerQuantitySort).toHaveAttribute('aria-label', /sorted ascending, priority 1/);
+  await headerSkuSort.click();
+  await expect(headerSkuSort).toHaveAttribute('aria-label', /sorted ascending, priority 2/);
+  await headerQuantitySort.click();
+  await expect(headerQuantitySort).toHaveAttribute('aria-label', /sorted descending, priority 1/);
+  await expect(firstDocumentRow).toContainText('"beta"');
+  await headerQuantitySort.click();
+  await expect(headerQuantitySort).toHaveAttribute('aria-label', 'Sort quantity ascending');
+  await expect(headerSkuSort).toHaveAttribute('aria-label', /sorted ascending, priority 1/);
+  await expect(firstDocumentRow).toContainText('"alpha"');
+  await headerSkuSort.click();
+  await expect(headerSkuSort).toHaveAttribute('aria-label', /sorted descending, priority 1/);
+  await expect(firstDocumentRow).toContainText('"beta"');
+  await headerSkuSort.click();
+  await expect(headerSkuSort).toHaveAttribute('aria-label', 'Sort sku ascending');
+  await expect(firstDocumentRow).toContainText('"alpha"');
+
+  const skuHeader = headerSkuSort.locator('xpath=ancestor::th');
+  const quantityHeader = headerQuantitySort.locator('xpath=ancestor::th');
+  await skuHeader.dragTo(quantityHeader);
+  await expect(headerSkuSort).toHaveAttribute('aria-label', 'Sort sku ascending');
+  await expect(headerQuantitySort).toHaveAttribute('aria-label', 'Sort quantity ascending');
+
   await page.getByRole('button', { name: 'Show column filter syntax' }).click();
   await expect(page.getByRole('note')).toContainText('100..200');
+  await expect(page.getByRole('note')).toContainText('len = 3');
   await page.getByRole('button', { name: 'Show column filter syntax' }).click();
 
   const quickQuantityFilter = page.getByLabel('Filter quantity column');
   const amenitiesFilter = page.getByLabel('Filter amenities column');
+  await amenitiesFilter.fill('len = 2');
+  await amenitiesFilter.press('Enter');
+  await expect(page.getByText('"alpha"', { exact: true })).toBeVisible();
+  await expect(page.getByText('"beta"', { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId('criteria-editor-filter')).toContainText('$size');
+  await amenitiesFilter.fill('len = 1 OR has "*if*"');
+  await amenitiesFilter.press('Enter');
+  await expect(page.getByText('"alpha"', { exact: true })).toBeVisible();
+  await expect(page.getByText('"beta"', { exact: true })).toBeVisible();
+  await amenitiesFilter.fill('len 3..1');
+  await expect(amenitiesFilter).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.getByRole('button', { name: 'Apply', exact: true })).toBeDisabled();
+  await amenitiesFilter.fill('');
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
   await quickQuantityFilter.fill('3..7');
   await quickQuantityFilter.press('Enter');
   await expect(page.getByText('"alpha"', { exact: true })).toBeVisible();
