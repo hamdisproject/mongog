@@ -26,6 +26,14 @@ import type {
   ConnectionDraftRequest,
   SaveAndConnectResult,
   ApplicationSettings,
+  SavedFolder,
+  SavedItem,
+  SavedLibrarySnapshot,
+  CreateSavedFolderInput,
+  UpdateSavedFolderInput,
+  CreateSavedItemInput,
+  UpdateSavedItemInput,
+  DeleteSavedFolderResult,
 } from '../domain/index.js';
 
 export const IpcChannels = {
@@ -92,6 +100,14 @@ export const IpcChannels = {
   workspaceLoad: 'mongog:workspace:load',
   settingsSave: 'mongog:settings:save',
   settingsLoad: 'mongog:settings:load',
+  // ── Hierarchical saved library ──
+  savedList: 'mongog:saved:list',
+  savedCreateFolder: 'mongog:saved:folder:create',
+  savedUpdateFolder: 'mongog:saved:folder:update',
+  savedDeleteFolder: 'mongog:saved:folder:delete',
+  savedCreateItem: 'mongog:saved:item:create',
+  savedUpdateItem: 'mongog:saved:item:update',
+  savedDeleteItem: 'mongog:saved:item:delete',
 } as const;
 
 export const IpcEvents = {
@@ -235,9 +251,16 @@ export const workspaceSaveSchema = z.object({
       collectionViewMode: z.enum(['documents', 'query']).optional(),
       editorContent: z.string().optional(),
       mode: z.enum(['query', 'trusted']).optional(),
+      savedItemId: z.string().min(1).optional(),
+      documentsState: z.object({
+        draft: z.object({ filter: z.string(), sort: z.string(), projection: z.string() }),
+        applied: z.object({ filter: z.string(), sort: z.string(), projection: z.string() }),
+      }).optional(),
       profileId: z.string().optional(),
       connectionMode: z.enum(['list', 'create', 'edit']).optional(),
       adminSection: z.enum(['indexes', 'explain', 'search', 'changes', 'gridfs']).optional(),
+      pinned: z.boolean().optional(),
+      customTitle: z.boolean().optional(),
       dirty: z.boolean().optional(),
     })),
     activeTabId: z.string().nullable(),
@@ -278,6 +301,83 @@ export const applicationSettingsSchema = z.object({
 }) satisfies z.ZodType<ApplicationSettings>;
 
 export const settingsSaveSchema = z.object({ settings: applicationSettingsSchema });
+
+// ── Hierarchical saved library ──
+
+const savedNameSchema = z.string().trim().min(1).max(120);
+const savedNullableIdSchema = z.string().min(1).nullable();
+const savedCriteriaTextSchema = z.object({
+  filter: z.string().min(1).max(2 * 1024 * 1024),
+  sort: z.string().max(2 * 1024 * 1024),
+  projection: z.string().max(2 * 1024 * 1024),
+});
+const savedDocumentsStateSchema = z.object({
+  draft: savedCriteriaTextSchema,
+  applied: savedCriteriaTextSchema,
+});
+const savedQueryPayloadSchema = z.object({
+  type: z.literal('query'),
+  source: z.string().max(2 * 1024 * 1024),
+  language: z.enum(['javascript', 'typescript']),
+  mode: z.enum(['query', 'trusted']),
+});
+const savedDocumentsPayloadSchema = z.object({
+  type: z.literal('documents'),
+  criteria: savedCriteriaTextSchema,
+});
+const savedTabPayloadSchema = z.object({
+  type: z.literal('tab'),
+  template: z.object({
+    kind: z.enum(['query', 'collection']),
+    title: z.string().max(120),
+    pinned: z.boolean(),
+    customTitle: z.boolean(),
+    collectionViewMode: z.enum(['documents', 'query']).optional(),
+    editorContent: z.string().max(2 * 1024 * 1024).optional(),
+    mode: z.enum(['query', 'trusted']).optional(),
+    documentsState: savedDocumentsStateSchema.optional(),
+  }),
+});
+export const savedItemPayloadSchema = z.discriminatedUnion('type', [
+  savedQueryPayloadSchema,
+  savedDocumentsPayloadSchema,
+  savedTabPayloadSchema,
+]);
+
+export const savedCreateFolderSchema = z.object({
+  name: savedNameSchema,
+  connectionId: savedNullableIdSchema,
+  parentId: savedNullableIdSchema,
+}) satisfies z.ZodType<CreateSavedFolderInput>;
+
+export const savedUpdateFolderSchema = savedCreateFolderSchema.extend({
+  id: z.string().min(1),
+}) satisfies z.ZodType<UpdateSavedFolderInput>;
+
+export const savedDeleteFolderSchema = z.object({ id: z.string().min(1) });
+
+const savedItemBaseSchema = {
+  name: savedNameSchema,
+  folderId: savedNullableIdSchema,
+  connectionId: savedNullableIdSchema,
+  database: z.string().max(255).nullable(),
+  collection: z.string().max(255).nullable(),
+  tags: z.array(z.string().trim().min(1).max(64)).max(50),
+};
+
+export const savedCreateItemSchema = z.discriminatedUnion('type', [
+  z.object({ ...savedItemBaseSchema, type: z.literal('query'), payload: savedQueryPayloadSchema }),
+  z.object({ ...savedItemBaseSchema, type: z.literal('documents'), payload: savedDocumentsPayloadSchema }),
+  z.object({ ...savedItemBaseSchema, type: z.literal('tab'), payload: savedTabPayloadSchema }),
+]) satisfies z.ZodType<CreateSavedItemInput>;
+
+export const savedUpdateItemSchema = z.discriminatedUnion('type', [
+  z.object({ id: z.string().min(1), ...savedItemBaseSchema, type: z.literal('query'), payload: savedQueryPayloadSchema }),
+  z.object({ id: z.string().min(1), ...savedItemBaseSchema, type: z.literal('documents'), payload: savedDocumentsPayloadSchema }),
+  z.object({ id: z.string().min(1), ...savedItemBaseSchema, type: z.literal('tab'), payload: savedTabPayloadSchema }),
+]) satisfies z.ZodType<UpdateSavedItemInput>;
+
+export const savedDeleteItemSchema = z.object({ id: z.string().min(1) });
 
 // ── Phase 2: Query schemas ──
 
@@ -691,6 +791,15 @@ export interface MongoGDesktopApi {
   settings: {
     save(settings: ApplicationSettings): Promise<void>;
     load(): Promise<ApplicationSettings>;
+  };
+  saved: {
+    list(): Promise<SavedLibrarySnapshot>;
+    createFolder(input: CreateSavedFolderInput): Promise<SavedFolder>;
+    updateFolder(input: UpdateSavedFolderInput): Promise<SavedFolder>;
+    deleteFolder(id: string): Promise<DeleteSavedFolderResult>;
+    createItem(input: CreateSavedItemInput): Promise<SavedItem>;
+    updateItem(input: UpdateSavedItemInput): Promise<SavedItem>;
+    deleteItem(id: string): Promise<void>;
   };
 }
 

@@ -51,6 +51,12 @@ import {
   connGridFsDeleteSchema,
   workspaceSaveSchema,
   settingsSaveSchema,
+  savedCreateFolderSchema,
+  savedUpdateFolderSchema,
+  savedDeleteFolderSchema,
+  savedCreateItemSchema,
+  savedUpdateItemSchema,
+  savedDeleteItemSchema,
   type ExecuteResponse,
   type PingRuntimeResponse,
   type SystemInfoResponse,
@@ -68,9 +74,14 @@ import type {
   GridFsUploadResult,
   IndexDescription,
   SaveAndConnectResult,
+  SavedFolder,
+  SavedItem,
+  SavedLibrarySnapshot,
+  DeleteSavedFolderResult,
 } from '../../shared/domain/index.js';
 import type { EjsonEnvelope } from '../../shared/ejson/index.js';
 import { appError } from '../../shared/errors/index.js';
+import { containsKnownSecretMaterial } from '../../shared/redaction/index.js';
 import { RuntimeSupervisor } from '../runtime/supervisor.js';
 import { RuntimeClient } from '../runtime/runtime-client.js';
 import { resolveRuntimeEntry } from '../runtime/paths.js';
@@ -333,7 +344,14 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
     requireWritableConnection(payload.connectionId);
     const client = supervisor.get(payload.connectionId);
     if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
-    return client.request<{ oldName: string; newName: string }>('collection-rename', payload);
+    const renamed = await client.request<{ oldName: string; newName: string }>('collection-rename', payload);
+    ctx.getDb().saved.renameCollectionContext(
+      payload.connectionId,
+      payload.database,
+      payload.collection,
+      payload.newName,
+    );
+    return renamed;
   }, validateSender);
 
   registerChannel(IpcChannels.connCollectionDrop, connCollectionDropSchema, async (payload) => {
@@ -505,4 +523,64 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
   registerChannel(IpcChannels.settingsLoad, emptySchema, async () => (
     ctx.getDb().settings.get() ?? structuredClone(DEFAULT_SETTINGS)
   ), validateSender);
+
+  // ── Hierarchical saved library ──
+  registerChannel(IpcChannels.savedList, emptySchema, async (): Promise<SavedLibrarySnapshot> => (
+    ctx.getDb().saved.list()
+  ), validateSender);
+
+  registerChannel(IpcChannels.savedCreateFolder, savedCreateFolderSchema, async (payload): Promise<SavedFolder> => (
+    ctx.getDb().saved.createFolder(payload)
+  ), validateSender);
+
+  registerChannel(IpcChannels.savedUpdateFolder, savedUpdateFolderSchema, async (payload): Promise<SavedFolder> => (
+    ctx.getDb().saved.updateFolder(payload)
+  ), validateSender);
+
+  registerChannel(
+    IpcChannels.savedDeleteFolder,
+    savedDeleteFolderSchema,
+    async ({ id }): Promise<DeleteSavedFolderResult> => ctx.getDb().saved.deleteFolder(id),
+    validateSender,
+  );
+
+  registerChannel(IpcChannels.savedCreateItem, savedCreateItemSchema, async (payload): Promise<SavedItem> => {
+    await validateSavedPayload(payload.payload);
+    return ctx.getDb().saved.createItem(payload);
+  }, validateSender);
+
+  registerChannel(IpcChannels.savedUpdateItem, savedUpdateItemSchema, async (payload): Promise<SavedItem> => {
+    await validateSavedPayload(payload.payload);
+    return ctx.getDb().saved.updateItem(payload);
+  }, validateSender);
+
+  registerChannel(IpcChannels.savedDeleteItem, savedDeleteItemSchema, async ({ id }) => {
+    ctx.getDb().saved.deleteItem(id);
+  }, validateSender);
+}
+
+async function validateSavedPayload(payload: SavedItem['payload']): Promise<void> {
+  if (containsKnownSecretMaterial(payload)) {
+    throw appError('Validation', 'Saved content contains credential material. Remove credentials before saving.');
+  }
+  if (payload.type === 'documents') {
+    await validateSavedCriteria(payload.criteria);
+  } else if (payload.type === 'tab' && payload.template.documentsState) {
+    await validateSavedCriteria(payload.template.documentsState.applied);
+  }
+}
+
+async function validateSavedCriteria(
+  criteria: { filter: string; sort: string; projection: string },
+): Promise<void> {
+  try {
+    // Keep the TypeScript AST implementation out of the Electron startup
+    // chunk. It is only needed when a Documents payload is persisted.
+    const { parseDocumentExpression } = await import('../../features/script-analysis/index.js');
+    parseDocumentExpression(criteria.filter, 'Filter');
+    if (criteria.sort.trim()) parseDocumentExpression(criteria.sort, 'Sort');
+    if (criteria.projection.trim()) parseDocumentExpression(criteria.projection, 'Projection');
+  } catch {
+    throw appError('Validation', 'Saved document criteria must contain valid data-only object expressions.');
+  }
 }

@@ -5,6 +5,7 @@ import { useWorkspaceStore } from '../../stores/workspace.js';
 import { useConnectionStore } from '../../stores/connections.js';
 import { useEditorContext } from '../../stores/editor-context.js';
 import { getMonacoTheme } from '../../theme.js';
+import { SavedActions } from '../Saved/SavedActions.js';
 
 const s: Record<string, React.CSSProperties> = {
   container: {
@@ -53,7 +54,7 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
     failExecution,
     clearResults,
   } = useWorkspaceStore();
-  const { connected, databases, profiles, loadDatabases } = useConnectionStore();
+  const { connected, databases, profiles, loadDatabases, connect } = useConnectionStore();
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
   const selectedConnId = activeTab?.connectionId ?? null;
@@ -65,6 +66,7 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
   const isBusy = execution?.status === 'starting' ||
     execution?.status === 'running' ||
     execution?.status === 'cancelling';
+  const selectedIsConnected = !!(selectedConnId && connected[selectedConnId]);
 
   useEffect(() => {
     useEditorContext.getState().setContext(selectedConnId, selectedDb);
@@ -72,7 +74,7 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
   }, [selectedConnId, selectedDb, loadDatabases]);
 
   const handleRun = useCallback(async () => {
-    if (!activeTab || !querySurfaceActive || !selectedConnId) return;
+    if (!activeTab || !querySurfaceActive || !selectedConnId || !selectedIsConnected) return;
     const editor = editorRef.current;
     const model = editor?.getModel();
     if (!editor || !model) return;
@@ -119,7 +121,7 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
         readOnly: profile?.readOnly ?? false,
       });
       setExecutionId(tabId, runId, response.executionId);
-      if (activeTab.title === 'Untitled') {
+      if (!activeTab.customTitle && activeTab.title === 'Untitled') {
         updateTab(tabId, { title: `${database} query` });
       }
     } catch (err) {
@@ -129,6 +131,7 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
     activeTab,
     querySurfaceActive,
     selectedConnId,
+    selectedIsConnected,
     profiles,
     prepareExecution,
     setExecutionId,
@@ -237,13 +240,18 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
     updateTab(activeTab.id, {
       connectionId: connectionId || null,
       database: profile?.defaultDatabase ?? 'admin',
+      ...(activeTab.savedItemId ? { dirty: true } : {}),
     });
     if (connectionId) void loadDatabases(connectionId);
   };
 
-  const connectedProfiles = Object.keys(connected)
-    .map((id) => profiles.find((profile) => profile.id === id))
-    .filter((profile): profile is NonNullable<typeof profile> => profile !== undefined);
+  const selectedQueryText = () => {
+    const editor = editorRef.current;
+    const selection = editor?.getSelection();
+    const model = editor?.getModel();
+    if (!selection || selection.isEmpty() || !model) return null;
+    return model.getValueInRange(selection);
+  };
 
   return (
     <div data-testid="query-editor" style={s.container}>
@@ -257,8 +265,10 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
           title={contextLocked ? 'Connection is locked to this collection' : undefined}
         >
           <option value="">-- connection --</option>
-          {connectedProfiles.map((profile) => (
-            <option key={profile.id} value={profile.id}>{profile.name}</option>
+          {profiles.map((profile) => (
+            <option key={profile.id} value={profile.id}>
+              {profile.name}{connected[profile.id] ? '' : ' (offline)'}
+            </option>
           ))}
         </select>
 
@@ -268,12 +278,18 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
             style={s.select}
             value={activeTab?.database ?? 'admin'}
             onChange={(event) => {
-              if (!contextLocked) updateTab(activeTab!.id, { database: event.target.value });
+              if (!contextLocked) updateTab(activeTab!.id, {
+                database: event.target.value,
+                ...(activeTab?.savedItemId ? { dirty: true } : {}),
+              });
             }}
             disabled={contextLocked || isBusy}
             title={contextLocked ? 'Database is locked to this collection' : undefined}
           >
             <option value="admin">admin</option>
+            {activeTab?.database && activeTab.database !== 'admin' && !(databases[selectedConnId] ?? []).some((database) => database.name === activeTab.database) && (
+              <option value={activeTab.database}>{activeTab.database}</option>
+            )}
             {(databases[selectedConnId] ?? [])
               .filter((database) => database.name !== 'admin')
               .map((database) => (
@@ -295,7 +311,7 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
                 'Trusted mode is equivalent to running trusted local code; it is not a security sandbox. Continue?',
               )
             ) return;
-            updateTab(activeTab.id, { mode });
+            updateTab(activeTab.id, { mode, ...(activeTab.savedItemId ? { dirty: true } : {}) });
           }}
           disabled={isBusy}
         >
@@ -303,10 +319,22 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
           <option value="trusted">Trusted mode</option>
         </select>
 
+        {activeTab && <SavedActions tab={activeTab} surface="query" getSelection={selectedQueryText} />}
+
+        {selectedConnId && !selectedIsConnected && (
+          <button
+            style={s.btn}
+            onClick={() => void connect(selectedConnId)}
+            disabled={isBusy}
+          >
+            Connect
+          </button>
+        )}
+
         <button
-          style={{ ...s.btn, ...((!selectedConnId || isBusy) ? s.btnDisabled : {}) }}
+          style={{ ...s.btn, ...((!selectedIsConnected || isBusy) ? s.btnDisabled : {}) }}
           onClick={() => void handleRun()}
-          disabled={!selectedConnId || isBusy}
+          disabled={!selectedIsConnected || isBusy}
           title="Runs the current selection, or the full editor when there is no selection"
         >
           Run (⌘⏎)

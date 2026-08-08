@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { EngineEvent } from '../../src/shared/domain/index.js';
-import { useWorkspaceStore } from '../../src/renderer/stores/workspace.js';
+import {
+  bulkClosableTabIds,
+  useWorkspaceStore,
+} from '../../src/renderer/stores/workspace.js';
 
 const range = { startLine: 1, startCol: 1, endLine: 1, endCol: 10 };
 
@@ -169,6 +172,89 @@ describe('workspace execution store', () => {
     expect(useWorkspaceStore.getState().activeTabId).toBe(first);
   });
 
+  it('moves pinned tabs into a stable leading group and unpins at the normal-group boundary', () => {
+    const first = useWorkspaceStore.getState().openQuery({ title: 'first' });
+    const second = useWorkspaceStore.getState().openQuery({ title: 'second' });
+    const third = useWorkspaceStore.getState().openQuery({ title: 'third' });
+    const fourth = useWorkspaceStore.getState().openQuery({ title: 'fourth' });
+
+    useWorkspaceStore.getState().setTabPinned(second, true);
+    useWorkspaceStore.getState().setTabPinned(fourth, true);
+    expect(useWorkspaceStore.getState().tabs.map((tab) => tab.id)).toEqual([second, fourth, first, third]);
+
+    useWorkspaceStore.getState().setTabPinned(second, false);
+    expect(useWorkspaceStore.getState().tabs.map((tab) => tab.id)).toEqual([fourth, second, first, third]);
+  });
+
+  it('reorders tabs only inside their own pinned or normal partition', () => {
+    const first = useWorkspaceStore.getState().openQuery({ title: 'first' });
+    const second = useWorkspaceStore.getState().openQuery({ title: 'second' });
+    const third = useWorkspaceStore.getState().openQuery({ title: 'third' });
+    const fourth = useWorkspaceStore.getState().openQuery({ title: 'fourth' });
+    useWorkspaceStore.getState().setTabPinned(first, true);
+    useWorkspaceStore.getState().setTabPinned(second, true);
+
+    expect(useWorkspaceStore.getState().reorderTab(second, first, 'before')).toBe(true);
+    expect(useWorkspaceStore.getState().reorderTab(fourth, third, 'before')).toBe(true);
+    expect(useWorkspaceStore.getState().tabs.map((tab) => tab.id)).toEqual([second, first, fourth, third]);
+
+    expect(useWorkspaceStore.getState().reorderTab(third, first, 'before')).toBe(false);
+    expect(useWorkspaceStore.getState().tabs.map((tab) => tab.id)).toEqual([second, first, fourth, third]);
+  });
+
+  it('renames work tabs but preserves special and contextual titles', () => {
+    const collection = useWorkspaceStore.getState().openCollection({
+      connectionId: 'conn-1', database: 'db', collection: 'items',
+    });
+    const settings = useWorkspaceStore.getState().openSettings();
+
+    expect(useWorkspaceStore.getState().renameTab(collection, '  My inventory  ')).toBe(true);
+    expect(useWorkspaceStore.getState().renameTab(settings, 'Preferences')).toBe(false);
+    useWorkspaceStore.getState().renameCollectionContext('conn-1', 'db', 'items', 'products');
+
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === collection)).toMatchObject({
+      title: 'My inventory',
+      collection: 'products',
+      customTitle: true,
+    });
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === settings)?.title).toBe('Settings');
+  });
+
+  it('excludes pinned tabs from every bulk-close selection', () => {
+    const tabs = [
+      { id: 'pinned', kind: 'settings', title: 'Settings', connectionId: null, pinned: true },
+      { id: 'left', kind: 'query', title: 'Left', connectionId: null },
+      { id: 'current', kind: 'query', title: 'Current', connectionId: null },
+      { id: 'right', kind: 'query', title: 'Right', connectionId: null },
+    ] satisfies import('../../src/shared/domain/index.js').WorkspaceTab[];
+
+    expect(bulkClosableTabIds(tabs, 'current', 'left')).toEqual(['left']);
+    expect(bulkClosableTabIds(tabs, 'current', 'right')).toEqual(['right']);
+    expect(bulkClosableTabIds(tabs, 'current', 'others')).toEqual(['left', 'right']);
+    expect(bulkClosableTabIds(tabs, 'current', 'all')).toEqual(['left', 'current', 'right']);
+  });
+
+  it('normalizes legacy pin fields and restores pinned tabs first without changing relative order', () => {
+    useWorkspaceStore.getState().restore({
+      tabs: [
+        { id: 'normal-a', kind: 'query', title: 'A', connectionId: null },
+        { id: 'pinned-a', kind: 'query', title: 'P1', connectionId: null, pinned: true },
+        { id: 'normal-b', kind: 'query', title: 'B', connectionId: null },
+        { id: 'pinned-b', kind: 'settings', title: 'Settings', connectionId: null, pinned: true },
+      ],
+      activeTabId: 'normal-b',
+    });
+
+    expect(useWorkspaceStore.getState().tabs.map((tab) => tab.id)).toEqual([
+      'pinned-a', 'pinned-b', 'normal-a', 'normal-b',
+    ]);
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === 'normal-a')).toMatchObject({
+      pinned: false,
+      customTitle: false,
+    });
+    expect(useWorkspaceStore.getState().activeTabId).toBe('normal-b');
+  });
+
   it('opens contextual tools once per namespace while new queries remain independent', () => {
     const firstQuery = useWorkspaceStore.getState().openQuery({ connectionId: 'conn-1', database: 'db' });
     const secondQuery = useWorkspaceStore.getState().openQuery({ connectionId: 'conn-1', database: 'db' });
@@ -269,5 +355,66 @@ describe('workspace execution store', () => {
       collectionViewMode: 'query',
       editorContent: '// retained\ndb.collection("items").countDocuments({});',
     });
+  });
+
+  it('opens each saved item type once and restores reusable tab state', () => {
+    const query = {
+      id: 'saved-query', name: 'Daily query', type: 'query' as const, folderId: null,
+      connectionId: 'conn-1', database: 'analytics', collection: null, tags: [],
+      payload: { type: 'query' as const, source: 'db.events.find({ active: true })', language: 'typescript' as const, mode: 'query' as const },
+      createdAt: 1, updatedAt: 1,
+    };
+    const queryTab = useWorkspaceStore.getState().openSavedItem(query);
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === queryTab)).toMatchObject({
+      kind: 'query', title: 'Daily query', savedItemId: 'saved-query', connectionId: 'conn-1',
+      database: 'analytics', editorContent: 'db.events.find({ active: true })', dirty: false,
+    });
+    expect(useWorkspaceStore.getState().openSavedItem(query)).toBe(queryTab);
+
+    const documentsTab = useWorkspaceStore.getState().openSavedItem({
+      id: 'saved-documents', name: 'Active inventory', type: 'documents', folderId: null,
+      connectionId: 'conn-1', database: 'shop', collection: 'inventory', tags: [],
+      payload: { type: 'documents', criteria: { filter: '{ active: true }', sort: '{ createdAt: -1 }', projection: '{ name: 1 }' } },
+      createdAt: 1, updatedAt: 1,
+    });
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === documentsTab)).toMatchObject({
+      kind: 'collection', savedItemId: 'saved-documents', collectionViewMode: 'documents',
+      documentsState: {
+        draft: { filter: '{ active: true }', sort: '{ createdAt: -1 }', projection: '{ name: 1 }' },
+        applied: { filter: '{ active: true }', sort: '{ createdAt: -1 }', projection: '{ name: 1 }' },
+      },
+    });
+
+    const templateTab = useWorkspaceStore.getState().openSavedItem({
+      id: 'saved-tab', name: 'Pinned template', type: 'tab', folderId: null,
+      connectionId: null, database: 'shop', collection: 'inventory', tags: [],
+      payload: {
+        type: 'tab',
+        template: {
+          kind: 'collection', title: 'Inventory workspace', pinned: true, customTitle: true,
+          collectionViewMode: 'query', editorContent: 'db.inventory.find({})', mode: 'query',
+        },
+      },
+      createdAt: 1, updatedAt: 1,
+    });
+    expect(useWorkspaceStore.getState().tabs[0]?.id).toBe(templateTab);
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === templateTab)).toMatchObject({
+      savedItemId: 'saved-tab', pinned: true, dirty: false, connectionId: null,
+      title: 'Inventory workspace', collectionViewMode: 'query',
+    });
+  });
+
+  it('detaches deleted saved items without closing their tabs', () => {
+    const tabId = useWorkspaceStore.getState().openSavedItem({
+      id: 'saved-query', name: 'Kept content', type: 'query', folderId: null,
+      connectionId: null, database: null, collection: null, tags: [],
+      payload: { type: 'query', source: 'db.test.find({})', language: 'typescript', mode: 'query' },
+      createdAt: 1, updatedAt: 1,
+    });
+    useWorkspaceStore.getState().detachSavedItems(['saved-query']);
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === tabId)).toMatchObject({
+      editorContent: 'db.test.find({})', dirty: true,
+    });
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === tabId)?.savedItemId).toBeUndefined();
   });
 });

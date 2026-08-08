@@ -1,3 +1,5 @@
+import type { DocumentCriteriaState } from './saved.js';
+
 /** Workspace/tab domain model (plan §2/§F). */
 
 export type WorkspaceTabKind =
@@ -24,11 +26,19 @@ export interface WorkspaceTab {
   /** query tabs */
   editorContent?: string;
   mode?: 'query' | 'trusted';
+  /** Locally saved source; deleted saved items detach without closing the tab. */
+  savedItemId?: string;
+  /** Collection Documents draft/applied criteria, persisted without result data. */
+  documentsState?: DocumentCriteriaState;
   /** connection-settings tabs */
   profileId?: string;
   connectionMode?: 'list' | 'create' | 'edit';
   /** Phase 5 administration workspace. */
   adminSection?: AdminSection;
+  /** Pinned tabs stay in the leading tab group and survive bulk-close commands. */
+  pinned?: boolean;
+  /** Prevents contextual/automatic title updates from replacing a user-supplied name. */
+  customTitle?: boolean;
   dirty?: boolean;
 }
 
@@ -108,16 +118,3 @@ export const DEFAULT_SETTINGS: ApplicationSettings = {
   history: { retentionDays: 90, maxEntries: 10_000 },
   ejson: { defaultMode: 'relaxed' },
 };
-
-export interface SavedScript {
-  id: string;
-  name: string;
-  folder: string | null;
-  tags: string[];
-  connectionId: string | null;
-  database: string | null;
-  content: string;
-  language: 'javascript' | 'typescript';
-  createdAt: number;
-  updatedAt: number;
-}

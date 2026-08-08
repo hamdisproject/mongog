@@ -15,6 +15,7 @@ import { useConnectionStore } from './stores/connections.js';
 import { useSchemaCache } from './stores/schema-cache.js';
 import { getMonacoTheme, theme } from './theme.js';
 import { useSettingsStore } from './stores/settings.js';
+import { useSavedLibraryStore } from './stores/saved.js';
 import { bootMonaco } from './monaco/setup.js';
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -25,14 +26,25 @@ export default function App() {
   const loadSettings = useSettingsStore((state) => state.load);
   const engineSubRef = useRef<(() => void) | null>(null);
   const initializedRef = useRef(false);
+  const workspaceReadyRef = useRef(false);
+  const workspaceMetadataRef = useRef('');
 
   // Save workspace state (debounced).
-  const persist = useCallback(() => {
+  const persist = useCallback((delayMs = 500) => {
     if (saveTimer) clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
+    saveTimer = null;
+    const save = () => {
       const { tabs: t, activeTabId: a } = useWorkspaceStore.getState();
       void window.mongog.workspace.save({ tabs: t, activeTabId: a });
-    }, 500);
+    };
+    if (delayMs === 0) {
+      save();
+      return;
+    }
+    saveTimer = setTimeout(() => {
+      saveTimer = null;
+      save();
+    }, delayMs);
   }, []);
 
   // Load workspace state on startup.
@@ -49,7 +61,12 @@ export default function App() {
         restore(saved);
       }
     }).catch(() => undefined).finally(() => {
+      void useSavedLibraryStore.getState().load();
       useWorkspaceStore.getState().openWelcome();
+      const current = useWorkspaceStore.getState();
+      workspaceMetadataRef.current = workspaceMetadataFingerprint(current.tabs, current.activeTabId);
+      workspaceReadyRef.current = true;
+      persist(0);
     });
   }, []);
 
@@ -106,7 +123,11 @@ export default function App() {
 
   // Persist workspace state on tab changes.
   useEffect(() => {
-    persist();
+    if (!workspaceReadyRef.current) return;
+    const metadata = workspaceMetadataFingerprint(tabs, activeTabId);
+    const metadataChanged = metadata !== workspaceMetadataRef.current;
+    workspaceMetadataRef.current = metadata;
+    persist(metadataChanged ? 0 : 500);
   }, [tabs, activeTabId]);
 
   // Save on window close.
@@ -136,6 +157,18 @@ export default function App() {
       </div>
     </div>
   );
+}
+
+function workspaceMetadataFingerprint(tabs: WorkspaceTab[], activeTabId: string | null): string {
+  return JSON.stringify({
+    activeTabId,
+    tabs: tabs.map(({
+      editorContent: _editorContent,
+      documentsState: _documentsState,
+      dirty: _dirty,
+      ...metadata
+    }) => metadata),
+  });
 }
 
 function renderTabContent(activeTabId: string | null, tabs: WorkspaceTab[]) {

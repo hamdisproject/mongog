@@ -1,8 +1,14 @@
-import { useState } from 'react';
-import { useWorkspaceStore } from '../../stores/workspace.js';
+import { Fragment, useEffect, useRef, useState } from 'react';
+import {
+  bulkClosableTabIds,
+  isTabRenameable,
+  useWorkspaceStore,
+} from '../../stores/workspace.js';
 import type { WorkspaceTab } from '../../../shared/domain/index.js';
 import { ContextMenu, type ContextMenuItem } from '../Common/ContextMenu.js';
 import { useCommandPaletteStore } from '../../stores/command-palette.js';
+
+const TAB_DRAG_MIME = 'application/x-mongog-workspace-tab';
 
 const s: Record<string, React.CSSProperties> = {
   bar: {
@@ -10,7 +16,7 @@ const s: Record<string, React.CSSProperties> = {
     minHeight: 32, overflowX: 'auto', overflowY: 'hidden', flexShrink: 0,
   },
   tab: {
-    display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px',
+    position: 'relative', display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px',
     fontSize: 12, cursor: 'pointer', borderRight: '1px solid var(--color-border)',
     whiteSpace: 'nowrap', color: 'var(--color-text-muted)', minWidth: 0, flexShrink: 0,
   },
@@ -25,6 +31,23 @@ const s: Record<string, React.CSSProperties> = {
     display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
     border: 0, borderRight: '1px solid var(--color-border)', background: 'var(--color-panel)',
   },
+  pinnedDivider: {
+    width: 1, alignSelf: 'stretch', flexShrink: 0, margin: '4px 3px',
+    background: 'var(--color-border-strong)',
+  },
+  dropBefore: {
+    position: 'absolute', left: -1, top: 3, bottom: 3, width: 2,
+    borderRadius: 2, background: 'var(--color-focus)', zIndex: 4,
+  },
+  dropAfter: {
+    position: 'absolute', right: -1, top: 3, bottom: 3, width: 2,
+    borderRadius: 2, background: 'var(--color-focus)', zIndex: 4,
+  },
+  renameInput: {
+    width: 130, minWidth: 72, border: '1px solid var(--color-focus)', borderRadius: 2,
+    outline: 0, background: 'var(--color-input)', color: 'var(--color-text)',
+    padding: '2px 5px', font: 'inherit', lineHeight: '16px',
+  },
 };
 
 const kindIcon: Record<string, string> = {
@@ -38,31 +61,93 @@ const kindIcon: Record<string, string> = {
   'change-stream': '⇄',
 };
 
+interface DropTarget {
+  tabId: string;
+  position: 'before' | 'after';
+}
+
 export function TabBar() {
-  const { tabs, activeTabId, closeTabs, openQuery } = useWorkspaceStore();
+  const {
+    tabs,
+    activeTabId,
+    closeTabs,
+    openQuery,
+    reorderTab,
+    setTabPinned,
+    renameTab,
+  } = useWorkspaceStore();
   const openGlobalSearch = useCommandPaletteStore((state) => state.open);
   const [menu, setMenu] = useState<{ tabId: string; x: number; y: number } | null>(null);
+  const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
+  const [renamingTabId, setRenamingTabId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState('');
+  const pinnedCount = tabs.filter((tab) => tab.pinned).length;
 
-  const handleNewTab = () => {
-    openQuery();
+  const startRename = (tab: WorkspaceTab) => {
+    if (!isTabRenameable(tab)) return;
+    setRenamingTabId(tab.id);
+    setRenameDraft(tab.title);
+  };
+
+  const commitRename = () => {
+    if (renamingTabId) renameTab(renamingTabId, renameDraft);
+    setRenamingTabId(null);
+    setRenameDraft('');
+  };
+
+  const cancelRename = () => {
+    setRenamingTabId(null);
+    setRenameDraft('');
   };
 
   const menuItems = (tabId: string): ContextMenuItem[] => {
-    const index = tabs.findIndex((tab) => tab.id === tabId);
-    const left = tabs.slice(0, index).map((tab) => tab.id);
-    const right = tabs.slice(index + 1).map((tab) => tab.id);
+    const tab = tabs.find((candidate) => candidate.id === tabId);
+    if (!tab) return [];
+    const left = bulkClosableTabIds(tabs, tabId, 'left');
+    const right = bulkClosableTabIds(tabs, tabId, 'right');
+    const others = bulkClosableTabIds(tabs, tabId, 'others');
+    const allUnpinned = bulkClosableTabIds(tabs, tabId, 'all');
     return [
-      { label: 'Close', onSelect: () => closeTabs([tabId]) },
-      { label: 'Close Others', disabled: tabs.length <= 1, onSelect: () => closeTabs(tabs.filter((tab) => tab.id !== tabId).map((tab) => tab.id)) },
+      ...(isTabRenameable(tab) ? [{
+        label: 'Rename Tab…',
+        onSelect: () => startRename(tab),
+      } satisfies ContextMenuItem] : []),
+      {
+        label: tab.pinned ? 'Unpin Tab' : 'Pin Tab',
+        onSelect: () => setTabPinned(tab.id, !tab.pinned),
+      },
+      { label: 'Close', separatorBefore: true, onSelect: () => closeTabs([tabId]) },
+      { label: 'Close Others', disabled: others.length === 0, onSelect: () => closeTabs(others) },
       { label: 'Close Tabs to the Left', disabled: left.length === 0, onSelect: () => closeTabs(left) },
       { label: 'Close Tabs to the Right', disabled: right.length === 0, onSelect: () => closeTabs(right) },
-      { label: 'Close All Tabs', danger: true, separatorBefore: true, onSelect: () => closeTabs(tabs.map((tab) => tab.id)) },
+      { label: 'Close All Tabs', danger: true, separatorBefore: true, disabled: allUnpinned.length === 0, onSelect: () => closeTabs(allUnpinned) },
     ];
   };
 
+  const handleDragOver = (event: React.DragEvent, target: WorkspaceTab) => {
+    const source = tabs.find((tab) => tab.id === draggingTabId);
+    if (!source || source.id === target.id || !!source.pinned !== !!target.pinned) {
+      setDropTarget(null);
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    const rect = event.currentTarget.getBoundingClientRect();
+    setDropTarget({
+      tabId: target.id,
+      position: event.clientX < rect.left + rect.width / 2 ? 'before' : 'after',
+    });
+  };
+
+  const finishDrag = () => {
+    setDraggingTabId(null);
+    setDropTarget(null);
+  };
+
   return (
-    <div style={s.bar}>
-      <button type="button" onClick={handleNewTab} style={s.newBtn} title="New query tab">
+    <div style={s.bar} data-testid="workspace-tab-bar">
+      <button type="button" onClick={() => openQuery()} style={s.newBtn} title="New query tab">
         <span style={{ color: 'var(--color-success)', fontSize: 15 }}>+</span> Query
       </button>
       <button
@@ -76,16 +161,51 @@ export function TabBar() {
         Search
         <span style={{ color: 'var(--color-text-faint)', fontSize: 9, marginLeft: 2 }}>⌘/Ctrl K</span>
       </button>
-      {tabs.map((tab) => (
-        <Tab
-          key={tab.id}
-          tab={tab}
-          active={tab.id === activeTabId}
-          onContextMenu={(event) => {
-            event.preventDefault();
-            setMenu({ tabId: tab.id, x: event.clientX, y: event.clientY });
-          }}
-        />
+      {tabs.map((tab, index) => (
+        <Fragment key={tab.id}>
+          {pinnedCount > 0 && pinnedCount < tabs.length && index === pinnedCount && (
+            <div style={s.pinnedDivider} data-testid="pinned-tab-divider" aria-hidden="true" />
+          )}
+          <Tab
+            tab={tab}
+            active={tab.id === activeTabId}
+            dragging={tab.id === draggingTabId}
+            dropPosition={dropTarget?.tabId === tab.id ? dropTarget.position : null}
+            renaming={renamingTabId === tab.id}
+            renameDraft={renameDraft}
+            onRenameDraft={setRenameDraft}
+            onStartRename={() => startRename(tab)}
+            onCommitRename={commitRename}
+            onCancelRename={cancelRename}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              setMenu({ tabId: tab.id, x: event.clientX, y: event.clientY });
+            }}
+            onDragStart={(event) => {
+              event.dataTransfer.effectAllowed = 'move';
+              event.dataTransfer.setData(TAB_DRAG_MIME, tab.id);
+              event.dataTransfer.setData('text/plain', tab.title);
+              setDraggingTabId(tab.id);
+              setDropTarget(null);
+            }}
+            onDragOver={(event) => handleDragOver(event, tab)}
+            onDrop={(event) => {
+              event.preventDefault();
+              const sourceId = event.dataTransfer.getData(TAB_DRAG_MIME) || draggingTabId;
+              const source = tabs.find((candidate) => candidate.id === sourceId);
+              if (source && source.id !== tab.id && !!source.pinned === !!tab.pinned) {
+                const rect = event.currentTarget.getBoundingClientRect();
+                reorderTab(
+                  source.id,
+                  tab.id,
+                  event.clientX < rect.left + rect.width / 2 ? 'before' : 'after',
+                );
+              }
+              finishDrag();
+            }}
+            onDragEnd={finishDrag}
+          />
+        </Fragment>
       ))}
       {menu && (
         <ContextMenu
@@ -102,28 +222,135 @@ export function TabBar() {
 interface TabProps {
   tab: WorkspaceTab;
   active: boolean;
+  dragging: boolean;
+  dropPosition: 'before' | 'after' | null;
+  renaming: boolean;
+  renameDraft: string;
+  onRenameDraft: (value: string) => void;
+  onStartRename: () => void;
+  onCommitRename: () => void;
+  onCancelRename: () => void;
   onContextMenu: (event: React.MouseEvent) => void;
+  onDragStart: (event: React.DragEvent) => void;
+  onDragOver: (event: React.DragEvent) => void;
+  onDrop: (event: React.DragEvent) => void;
+  onDragEnd: () => void;
 }
 
-function Tab({ tab, active, onContextMenu }: TabProps) {
+function Tab({
+  tab,
+  active,
+  dragging,
+  dropPosition,
+  renaming,
+  renameDraft,
+  onRenameDraft,
+  onStartRename,
+  onCommitRename,
+  onCancelRename,
+  onContextMenu,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+}: TabProps) {
   const { setActiveTab, closeTab } = useWorkspaceStore();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const cancelledRef = useRef(false);
+
+  useEffect(() => {
+    if (!renaming) return;
+    cancelledRef.current = false;
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, [renaming]);
 
   return (
     <div
-      style={{ ...s.tab, ...(active ? s.tabActive : {}) }}
-      onClick={() => setActiveTab(tab.id)}
+      data-tab-id={tab.id}
+      data-tab-kind={tab.kind}
+      data-tab-pinned={tab.pinned ? 'true' : 'false'}
+      draggable={!renaming}
+      style={{ ...s.tab, ...(active ? s.tabActive : {}), ...(dragging ? { opacity: 0.45 } : {}) }}
+      onClick={() => { if (!renaming) setActiveTab(tab.id); }}
+      onDoubleClick={(event) => {
+        if (!isTabRenameable(tab)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        onStartRename();
+      }}
       onContextMenu={onContextMenu}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
       title={`${tab.kind}: ${tab.title}${tab.dirty ? ' (modified)' : ''}`}
     >
+      {dropPosition === 'before' && <span style={s.dropBefore} data-testid="tab-drop-before" />}
+      {dropPosition === 'after' && <span style={s.dropAfter} data-testid="tab-drop-after" />}
       <span style={{ fontSize: 10, opacity: 0.6 }}>{kindIcon[tab.kind] ?? '?'}</span>
-      <span style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {tab.title}
-      </span>
+      {tab.pinned && <PinIcon />}
+      {renaming ? (
+        <input
+          ref={inputRef}
+          aria-label="Tab name"
+          maxLength={120}
+          value={renameDraft}
+          style={s.renameInput}
+          onChange={(event) => onRenameDraft(event.target.value)}
+          onClick={(event) => event.stopPropagation()}
+          onDoubleClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              onCommitRename();
+            } else if (event.key === 'Escape') {
+              event.preventDefault();
+              cancelledRef.current = true;
+              onCancelRename();
+            }
+          }}
+          onBlur={() => {
+            if (!cancelledRef.current) onCommitRename();
+          }}
+        />
+      ) : (
+        <span style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {tab.title}
+        </span>
+      )}
       {tab.dirty && <div style={s.dirtyDot} title="Modified" />}
       <span
         style={s.closeBtn}
-        onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
+        title={`Close ${tab.title}`}
+        onClick={(event) => { event.stopPropagation(); closeTab(tab.id); }}
       >&#x2715;</span>
     </div>
+  );
+}
+
+function PinIcon() {
+  return (
+    <svg
+      aria-label="Pinned tab"
+      role="img"
+      data-testid="tab-pin-icon"
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{
+        flexShrink: 0,
+      }}
+    >
+      <title>Pinned tab</title>
+      <path d="M5 2.5h6" />
+      <path d="M6 2.5v3L4.5 8.75v1h7v-1L10 5.5v-3" />
+      <path d="M8 9.75v3.75" />
+    </svg>
   );
 }

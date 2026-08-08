@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   assertUriHasNoCredentials,
+  containsKnownSecretMaterial,
   redactForLog,
   redactUri,
   uriContainsCredentials,
@@ -53,5 +54,11 @@ describe('redaction', () => {
     expect(JSON.stringify(out)).not.toContain('hunter');
     expect(JSON.stringify(out)).not.toContain('u:p@');
     expect((out.nested as Record<string, unknown>).password).toBe('<redacted>');
+  });
+
+  it('detects persistable credentials without rejecting ordinary document fields', () => {
+    expect(containsKnownSecretMaterial({ source: 'const uri = "mongodb://user:pass@host/db"' })).toBe(true);
+    expect(containsKnownSecretMaterial({ source: 'const token = "secret-value"' })).toBe(true);
+    expect(containsKnownSecretMaterial({ filter: '{ token: "hashed-value" }' })).toBe(false);
   });
 });

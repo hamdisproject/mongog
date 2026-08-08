@@ -29,7 +29,6 @@ export type {
   QueryHistoryEntry,
   HistoryQuery,
   ApplicationSettings,
-  SavedScript,
 } from './workspace.js';
 
 export type {
@@ -43,6 +42,27 @@ export type {
   GridFsUploadResult,
   GridFsDialogResult,
 } from './admin.js';
+
+export type {
+  DocumentCriteriaText,
+  DocumentCriteriaState,
+  SavedQueryPayload,
+  SavedDocumentsPayload,
+  SavedTabTemplate,
+  SavedTabPayload,
+  SavedItemPayload,
+  SavedItemType,
+  SavedFolder,
+  SavedItem,
+  SavedLibrarySnapshot,
+  CreateSavedFolderInput,
+  UpdateSavedFolderInput,
+  CreateSavedItemInput,
+  UpdateSavedItemInput,
+  DeleteSavedFolderResult,
+} from './saved.js';
+
+export { MAX_SAVED_FOLDER_DEPTH } from './saved.js';
 
 export { DEFAULT_WORKSPACE, DEFAULT_SETTINGS } from './workspace.js';
 

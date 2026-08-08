@@ -100,7 +100,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.getByRole('menuitem', { name: 'Rename Group…' }).click();
   const renameGroupDialog = page.getByRole('dialog', { name: 'Rename group' });
   await renameGroupDialog.getByRole('textbox').fill('E2E Renamed Group');
-  await renameGroupDialog.getByRole('button', { name: 'Rename', exact: true }).click();
+  await renameGroupDialog.getByRole('textbox').press('Enter');
   await expect(explorer.getByRole('treeitem', { name: 'Group E2E Renamed Group' })).toBeVisible();
 
   await page.locator('[title^="welcome: Welcome"]').click();
@@ -110,12 +110,99 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expectWorkspaceSurfaceFullWidth(page, 'query-editor');
   await expectQueryEditorFullHeight(page);
 
+  await page.getByRole('button', { name: 'Open global search' }).click();
+  const preRestartSearch = page.getByLabel('Search databases and collections');
+  await preRestartSearch.fill('inventory');
+  await expect(page.getByRole('option', { name: /inventory/ })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('option', { name: /inventory/ }).click();
+  const queryTab = page.locator('[data-tab-kind="query"]').first();
+  const collectionTab = page.locator('[data-tab-kind="collection"]').first();
+  const queryTabId = await queryTab.getAttribute('data-tab-id');
+  let collectionTabId = await collectionTab.getAttribute('data-tab-id');
+  if (!queryTabId || !collectionTabId) throw new Error('Expected query and collection tab ids');
+
+  await collectionTab.dragTo(queryTab, { targetPosition: { x: 2, y: 12 } });
+  await expect.poll(async () => {
+    const ids = await page.locator('[data-tab-id]').evaluateAll((elements) => (
+      elements.map((element) => element.getAttribute('data-tab-id'))
+    ));
+    return ids.indexOf(collectionTabId) < ids.indexOf(queryTabId);
+  }).toBe(true);
+
+  await collectionTab.dblclick();
+  await page.getByLabel('Tab name').fill('Inventory work');
+  await page.getByLabel('Tab name').press('Enter');
+  await expect(collectionTab).toHaveAttribute('title', /^collection: Inventory work/);
+
+  await queryTab.click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Rename Tab…' }).click();
+  await page.getByLabel('Tab name').fill('Pinned query');
+  await page.getByLabel('Tab name').press('Enter');
+  await expect(queryTab).toHaveAttribute('title', /^query: Pinned query/);
+
+  await page.locator('[data-tab-kind="settings"]').click({ button: 'right' });
+  await expect(page.getByRole('menuitem', { name: 'Rename Tab…' })).toHaveCount(0);
+  await expect(page.getByRole('menuitem', { name: 'Pin Tab' })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  await queryTab.click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Pin Tab' }).click();
+  await expect(queryTab).toHaveAttribute('data-tab-pinned', 'true');
+  const pinIcon = queryTab.getByRole('img', { name: 'Pinned tab', exact: true });
+  await expect(pinIcon).toBeVisible();
+  await expect(pinIcon).toHaveAttribute('data-testid', 'tab-pin-icon');
+  await expect(pinIcon).not.toContainText('📍');
+  await expect(page.getByTestId('pinned-tab-divider')).toBeVisible();
+  await expect(page.locator('[data-tab-id]').first()).toHaveAttribute('data-tab-id', queryTabId);
+
+  await queryTab.click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Unpin Tab' }).click();
+  await expect(queryTab).toHaveAttribute('data-tab-pinned', 'false');
+  await expect(queryTab.getByTestId('tab-pin-icon')).toHaveCount(0);
+  await queryTab.click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Pin Tab' }).click();
+  await expect(queryTab.getByRole('img', { name: 'Pinned tab', exact: true })).toBeVisible();
+  await queryTab.click();
+  await expectWorkspaceSurfaceFullWidth(page, 'query-editor');
+
+  await page.getByTestId('save-query').click();
+  let saveDialog = page.getByRole('dialog', { name: 'Save item' });
+  await saveDialog.getByLabel('Saved item name').fill('E2E Saved Query');
+  for (const folderName of ['Level 1', 'Level 2', 'Level 3']) {
+    await saveDialog.getByRole('button', { name: '+ Folder' }).click();
+    await saveDialog.getByLabel('New saved folder name').fill(folderName);
+    await saveDialog.getByRole('button', { name: 'Create', exact: true }).click();
+  }
+  await saveDialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('Saved · E2E Saved Query')).toBeVisible();
+
+  await page.getByRole('button', { name: 'More save options' }).click();
+  await page.getByRole('menuitem', { name: 'Save Tab…' }).click();
+  saveDialog = page.getByRole('dialog', { name: 'Save item' });
+  await saveDialog.getByLabel('Saved item name').fill('E2E Saved Tab');
+  await saveDialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('Saved · E2E Saved Tab')).toBeVisible();
+
+  const profileBeforeRestart = explorer.getByRole('treeitem', { name: 'Connection E2E Local' });
+  await profileBeforeRestart.focus();
+  await page.keyboard.press('ArrowRight');
+  const savedRootBeforeRestart = explorer.getByRole('treeitem', { name: 'Saved for E2E Local' });
+  await expect(savedRootBeforeRestart).toBeVisible();
+  await expect(savedRootBeforeRestart).toHaveAttribute('aria-expanded', 'true');
+  await expect(explorer.getByRole('treeitem', { name: 'Saved folder Level 1' })).toBeVisible();
+  await expect(explorer.locator('[data-saved-item-type="query"]')).toHaveCount(1);
+  await expect(explorer.locator('[data-saved-item-type="tab"]')).toHaveCount(1);
+
   await application!.close();
   application = null;
   page = await launch();
   await expect(page.getByText('Welcome back')).toBeVisible();
   await expect(page.locator('[title^="welcome: Welcome"]')).toHaveCount(1);
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(page.locator('[data-tab-id]').first()).toHaveAttribute('data-tab-id', queryTabId);
+  await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toHaveAttribute('data-tab-pinned', 'true');
+  await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toHaveAttribute('title', /^query: Pinned query/);
+  await expect(page.locator(`[data-tab-id="${collectionTabId}"]`)).toHaveAttribute('title', /^collection: Inventory work/);
   explorer = page.getByRole('navigation', { name: 'Connection explorer' });
   await expect(explorer.getByRole('button', { name: 'Connect', exact: true })).toBeVisible();
   await expect(
@@ -123,7 +210,14 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
       .getByRole('treeitem', { name: 'Connection E2E Local' }),
   ).toBeVisible();
 
-  await page.getByRole('button', { name: 'Open Connections' }).click();
+  await page.getByRole('button', { name: 'Open global search' }).click();
+  const savedQuickOpen = page.getByLabel('Search databases and collections');
+  await savedQuickOpen.fill('E2E Saved Query');
+  await page.getByRole('option', { name: /E2E Saved Query/ }).click();
+  await expect(page.getByTestId('query-editor').getByRole('button', { name: 'Connect', exact: true })).toBeVisible();
+  await expect(page.getByText('Saved · E2E Saved Query')).toBeVisible();
+
+  await explorer.getByRole('button', { name: 'Connection settings for E2E Local' }).click();
   await page.getByRole('complementary').getByText('E2E Local', { exact: true }).click();
   await page.getByLabel('Connection name').fill('E2E Renamed');
   await page.getByRole('button', { name: 'Test, Save & Connect' }).click();
@@ -199,6 +293,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.keyboard.press('Control+Space');
   await expect(page.locator('.suggest-widget.visible')).toContainText('sku', { timeout: 15_000 });
   await page.keyboard.press('Escape');
+  // Monaco auto-closes the leading brace, matching normal user typing.
   await setMonacoValue(page, 'Collection filter', "{\n  sku: 'alpha',\n");
   await expect.poll(() => page.getByTestId('criteria-editor-filter').evaluate(
     (element) => element.getBoundingClientRect().height,
@@ -250,6 +345,47 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page.getByText('beta', { exact: true })).toBeVisible();
 
+  await page.getByTestId('save-documents').click();
+  saveDialog = page.getByRole('dialog', { name: 'Save item' });
+  await saveDialog.getByLabel('Saved item name').fill('High quantity inventory');
+  await saveDialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('Saved · High quantity inventory')).toBeVisible();
+  await setMonacoValue(page, 'Collection sort', '{ quantity: -1 }');
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+s' : 'Control+s');
+  await expect(page.getByText('Saved · High quantity inventory')).toBeVisible();
+
+  const savedRoot = explorer.getByRole('treeitem', { name: 'Saved for E2E Renamed' });
+  await expect(savedRoot).toHaveAttribute('aria-expanded', 'true');
+  const savedDocumentNode = explorer.getByRole('treeitem', { name: 'Saved Document View High quantity inventory' });
+  await expect(savedDocumentNode).toBeVisible();
+  await savedDocumentNode.click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Edit Details…' }).click();
+  const editSavedDialog = page.getByRole('dialog', { name: 'Edit Saved Item' });
+  await editSavedDialog.getByLabel('Saved item name').fill('High quantity inventory v2');
+  await editSavedDialog.getByRole('button', { name: 'Save Changes' }).click();
+  const renamedSavedDocument = explorer.getByRole('treeitem', { name: 'Saved Document View High quantity inventory v2' });
+  await expect(renamedSavedDocument).toBeVisible();
+
+  await page.getByTitle('Close High quantity inventory v2').click();
+  await renamedSavedDocument.click();
+  const reopenedCollectionTab = page.locator(
+    '[data-tab-kind="collection"][title^="collection: High quantity inventory v2"]',
+  );
+  collectionTabId = await reopenedCollectionTab.getAttribute('data-tab-id');
+  if (!collectionTabId) throw new Error('Expected reopened collection tab id');
+  await expect(page.getByText('beta', { exact: true })).toBeVisible();
+  await expect(page.getByText('alpha', { exact: true })).toHaveCount(0);
+
+  await expect(explorer.locator('[data-saved-item-type="documents"] svg')).toBeVisible();
+  await expect(explorer.locator('[data-saved-item-type="tab"] svg')).toBeVisible();
+  const levelOneFolder = explorer.getByRole('treeitem', { name: 'Saved folder Level 1' });
+  await levelOneFolder.click();
+  const levelTwoFolder = explorer.getByRole('treeitem', { name: 'Saved folder Level 2' });
+  await levelTwoFolder.click();
+  await explorer.getByRole('treeitem', { name: 'Saved folder Level 3' }).click();
+  await expect(explorer.locator('[data-saved-item-type="query"] svg')).toBeVisible();
+
   await page.getByRole('button', { name: 'Query', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Query', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByTestId('query-results-region')).toHaveCount(0);
@@ -282,22 +418,51 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByRole('button', { name: /^Criteria · 3/ })).toBeVisible();
   await expect(page.getByText('beta', { exact: true })).toBeVisible();
 
-  await page.locator('[title^="collection: mongog_e2e.inventory"]').click({ button: 'right' });
+  const finalCollectionTab = page.locator(`[data-tab-id="${collectionTabId}"]`);
+  await finalCollectionTab.click({ button: 'right' });
   await expect(page.getByRole('menuitem', { name: 'Close Tabs to the Left' })).toBeVisible();
   await page.keyboard.press('Escape');
 
-  await page.locator('[title^="connection-settings: Connections"]').click();
+  await finalCollectionTab.click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Close All Tabs' }).click();
+  await expect(page.locator('[data-tab-id]')).toHaveCount(1);
+  await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toBeVisible();
+
+  await explorer.getByRole('button', { name: 'Connection settings for E2E Renamed' }).click();
+  await expect(page.locator('[title^="connection-settings: Connections"]')).toBeVisible();
 
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'Delete' }).click();
   await expect(page.getByText('No matching connections.')).toBeVisible();
+  const unassignedSaved = explorer.getByRole('treeitem', { name: 'Unassigned Saved for Unassigned' });
+  await expect(unassignedSaved).toBeVisible();
+  await unassignedSaved.click();
+  const unassignedLevelOne = explorer.getByRole('treeitem', { name: 'Saved folder Level 1' });
+  await unassignedLevelOne.click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Delete…' }).click();
+  const deleteSavedFolderDialog = page.getByRole('dialog', { name: 'Delete saved folder' });
+  await expect(deleteSavedFolderDialog).toContainText('3 folder(s) and 1 saved item(s)');
+  await deleteSavedFolderDialog.getByRole('textbox').fill('Level 1');
+  await deleteSavedFolderDialog.getByRole('textbox').press('Enter');
+  await expect(unassignedLevelOne).toHaveCount(0);
+
+  const unassignedTabItem = explorer.getByRole('treeitem', { name: 'Saved Tab Template E2E Saved Tab' });
+  await unassignedTabItem.click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Delete…' }).click();
+  const deleteSavedItemDialog = page.getByRole('dialog', { name: 'Delete saved item' });
+  await deleteSavedItemDialog.getByRole('textbox').fill('E2E Saved Tab');
+  await deleteSavedItemDialog.getByRole('textbox').press('Enter');
+  await expect(unassignedTabItem).toHaveCount(0);
+  await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toBeVisible();
   const renamedGroupNode = explorer.getByRole('treeitem', { name: 'Group E2E Renamed Group' });
   await renamedGroupNode.click({ button: 'right' });
   await page.getByRole('menuitem', { name: 'Delete Group…' }).click();
   const deleteGroupDialog = page.getByRole('dialog', { name: 'Delete group' });
   await deleteGroupDialog.getByRole('textbox').fill('E2E Renamed Group');
-  await deleteGroupDialog.getByRole('button', { name: 'Delete group', exact: true }).click();
+  await deleteGroupDialog.getByRole('textbox').press('Enter');
   await expect(renamedGroupNode).toHaveCount(0);
+  await page.getByTitle('Close Pinned query').click();
+  await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toHaveCount(0);
 });
 
 async function setMonacoValue(page: Page, label: string, value: string): Promise<void> {

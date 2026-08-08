@@ -4,10 +4,13 @@ import { useConnectionStore } from '../../stores/connections.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
 import { useCommandPaletteStore } from '../../stores/command-palette.js';
 import { theme } from '../../theme.js';
+import { useSavedLibraryStore } from '../../stores/saved.js';
+import { savedFolderPath } from '../../saved-item-utils.js';
+import { SavedItemIcon } from '../Sidebar/SavedTree.js';
 
 interface PaletteItem {
   id: string;
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   detail: string;
   keywords: string;
@@ -21,6 +24,9 @@ export function CommandPalette() {
   const { isOpen, close, toggle } = useCommandPaletteStore();
   const { profiles, connected, databases, collections, loadDatabases, loadCollections } = useConnectionStore();
   const { openQuery, openCollection, openAdmin, openConnections, openWelcome } = useWorkspaceStore();
+  const savedItems = useSavedLibraryStore((state) => state.items);
+  const savedFolders = useSavedLibraryStore((state) => state.folders);
+  const openSavedItem = useSavedLibraryStore((state) => state.openItem);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -123,8 +129,22 @@ export function CommandPalette() {
         }
       }
     }
+    for (const item of savedItems) {
+      const profile = item.connectionId
+        ? profiles.find((candidate) => candidate.id === item.connectionId)
+        : undefined;
+      const typeLabel = item.type === 'documents' ? 'Document View' : item.type === 'tab' ? 'Tab Template' : 'Query';
+      result.push({
+        id: `saved:${item.id}`,
+        icon: <SavedItemIcon type={item.type} />,
+        label: item.name,
+        detail: `${profile?.name ?? 'Unassigned'} · ${savedFolderPath(item.folderId, savedFolders)} · ${typeLabel}`,
+        keywords: `${profile?.name ?? 'unassigned'} ${savedFolderPath(item.folderId, savedFolders)} ${item.database ?? ''} ${item.collection ?? ''} ${item.tags.join(' ')} saved ${typeLabel}`,
+        action: closeAfter(() => { openSavedItem(item.id); }),
+      });
+    }
     return result;
-  }, [profiles, connected, databases, collections, openQuery, openCollection, openAdmin, openConnections, openWelcome, close]);
+  }, [profiles, connected, databases, collections, savedItems, savedFolders, openQuery, openCollection, openAdmin, openConnections, openWelcome, openSavedItem, close]);
 
   const visibleItems = useMemo(() => {
     const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
@@ -166,7 +186,7 @@ export function CommandPalette() {
           ref={inputRef}
           aria-label="Search databases and collections"
           value={query}
-          placeholder="Search connections, databases, collections, or commands…"
+          placeholder="Search commands, connections, namespaces, or saved items…"
           onChange={(event) => { setQuery(event.target.value); setSelectedIndex(0); }}
           onKeyDown={(event) => {
             if (event.key === 'ArrowDown') {

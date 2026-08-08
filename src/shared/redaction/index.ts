@@ -53,6 +53,24 @@ export function uriContainsCredentials(uri: string): boolean {
   }
 }
 
+/**
+ * Detect material that must never be written to local persistence. This is
+ * deliberately narrower than log redaction so ordinary document fields such
+ * as `{ token: "hashed-value" }` remain valid query data.
+ */
+export function containsKnownSecretMaterial(value: unknown): boolean {
+  if (typeof value === 'string') {
+    const uris = value.match(/mongodb(?:\+srv)?:\/\/[^\s"'`]+/gi) ?? [];
+    if (uris.some(uriContainsCredentials)) return true;
+    return /\b(password|passwd|pwd|secret|token|aws_session_token)\s*=\s*(?!<redacted>)[^\s,;]+/i.test(value);
+  }
+  if (Array.isArray(value)) return value.some(containsKnownSecretMaterial);
+  if (value && typeof value === 'object') {
+    return Object.values(value as Record<string, unknown>).some(containsKnownSecretMaterial);
+  }
+  return false;
+}
+
 /** Generic deep redactor for log payloads. */
 export function redactForLog(value: unknown): unknown {
   if (typeof value === 'string') return redactSecretPatterns(redactUri(value));

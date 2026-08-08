@@ -5,6 +5,8 @@ import { collectionQueryTemplate } from '../../collection-workspace.js';
 import type { ConnectionGroup } from '../../../shared/domain/connections.js';
 import { ActionDialog } from '../Common/ActionDialog.js';
 import { ContextMenu, type ContextMenuItem } from '../Common/ContextMenu.js';
+import { useSavedLibraryStore } from '../../stores/saved.js';
+import { SavedTree } from './SavedTree.js';
 
 const s: Record<string, React.CSSProperties> = {
   sidebar: {
@@ -83,6 +85,8 @@ function ExplorerTree() {
     createGroup, moveProfileToGroup,
   } = useConnectionStore();
   const { openWelcome, openConnections, openSettings } = useWorkspaceStore();
+  const savedFolders = useSavedLibraryStore((state) => state.folders);
+  const savedItems = useSavedLibraryStore((state) => state.items);
 
   const [showNewGroup, setShowNewGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
@@ -104,6 +108,13 @@ function ExplorerTree() {
   const matchesProfile = (profileId: string, profileName: string) => {
     if (!normalizedSearch) return true;
     if (profileName.toLocaleLowerCase().includes(normalizedSearch)) return true;
+    if (savedFolders.some((folder) => (
+      folder.connectionId === profileId && folder.name.toLocaleLowerCase().includes(normalizedSearch)
+    ))) return true;
+    if (savedItems.some((item) => (
+      item.connectionId === profileId && [item.name, item.database ?? '', item.collection ?? '', ...item.tags]
+        .join(' ').toLocaleLowerCase().includes(normalizedSearch)
+    ))) return true;
     return (databases[profileId] ?? []).some((database) => {
       if (database.name.toLocaleLowerCase().includes(normalizedSearch)) return true;
       return (collections[`${profileId}:${database.name}`] ?? [])
@@ -366,6 +377,23 @@ function ExplorerTree() {
             onDragEnd={() => { setDraggingProfileId(null); setDragOverGroupId(null); }}
           />
         ))}
+        {(
+          savedFolders.some((folder) => folder.connectionId === null) ||
+          savedItems.some((item) => item.connectionId === null)
+        ) && (
+          !normalizedSearch ||
+          savedFolders.some((folder) => folder.connectionId === null && folder.name.toLocaleLowerCase().includes(normalizedSearch)) ||
+          savedItems.some((item) => item.connectionId === null && [item.name, item.database ?? '', item.collection ?? '', ...item.tags]
+            .join(' ').toLocaleLowerCase().includes(normalizedSearch))
+        ) && (
+          <SavedTree
+            connectionId={null}
+            connectionLabel="Unassigned"
+            level={1}
+            search={normalizedSearch}
+            rootLabel="Unassigned Saved"
+          />
+        )}
         {draggingProfileId && (
           <div
             role="treeitem"
@@ -654,7 +682,7 @@ function ProfileNode({
         role="treeitem"
         aria-label={`Connection ${profile.name}`}
         aria-level={parentKey ? 2 : 1}
-        aria-expanded={isConnected ? profileExpanded : undefined}
+        aria-expanded={profileExpanded}
         tabIndex={0}
         draggable
         data-tree-node-key={profileKey}
@@ -666,7 +694,7 @@ function ProfileNode({
           key: profileKey,
           parentKey,
           expanded: profileExpanded,
-          expandable: isConnected,
+          expandable: true,
           onExpand: () => { if (!profileExpanded) onToggle(); },
           onCollapse: () => { if (profileExpanded && !search) onToggle(); },
           onActivate: onSelect,
@@ -682,10 +710,10 @@ function ProfileNode({
       >
         <span
           style={{ fontSize: 10, width: 14, textAlign: 'center' }}
-          title={isConnected ? (isExpanded ? 'Collapse databases' : 'Expand databases') : undefined}
+          title={profileExpanded ? 'Collapse connection contents' : 'Expand connection contents'}
           onClick={(e) => { e.stopPropagation(); onToggle(); }}
         >
-          {isConnected ? (profileExpanded ? '▼' : '▶') : ''}
+          {profileExpanded ? '▼' : '▶'}
         </span>
         <div style={{ ...s.dot, ...(isConnected ? s.dotConnected : s.dotDisconnected), ...(profile.color ? { background: profile.color } : {}) }} />
         <span style={s.name}>{profile.name}</span>
@@ -712,9 +740,16 @@ function ProfileNode({
         </button>
       </div>
 
-      {profileExpanded && isConnected && (
+      {profileExpanded && (
         <div style={s.dbChildren} role="group">
-          {visibleDatabases.map((db) => {
+          <SavedTree
+            connectionId={profile.id}
+            connectionLabel={profile.name}
+            parentTreeKey={profileKey}
+            level={parentKey ? 3 : 2}
+            search={search}
+          />
+          {isConnected && visibleDatabases.map((db) => {
             const dbKey = `${profile.id}:${db.name}`;
             const dbExpanded = search ? true : expandedDatabaseIds.has(dbKey);
             const dbCols = collections[dbKey] ?? [];

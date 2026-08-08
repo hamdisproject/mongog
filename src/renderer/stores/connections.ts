@@ -9,6 +9,7 @@ import type {
 import type { ConnectionState as RuntimeConnectionState } from '../../shared/domain/index.js';
 import { useSchemaCache } from './schema-cache.js';
 import { useWorkspaceStore } from './workspace.js';
+import { useSavedLibraryStore } from './saved.js';
 
 interface ConnectedInfo {
   pid?: number;
@@ -214,6 +215,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
     useSchemaCache.getState().invalidate(connId, dbName, oldName);
     useSchemaCache.getState().invalidate(connId, dbName, newName);
     useWorkspaceStore.getState().renameCollectionContext(connId, dbName, oldName, newName);
+    await useSavedLibraryStore.getState().load();
   },
 
   dropCollection: async (connId, dbName, collection) => {
@@ -321,6 +323,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
       selectedProfileId: get().selectedProfileId === id ? null : get().selectedProfileId,
       errors,
     });
+    await useSavedLibraryStore.getState().load();
   },
 
   testDraft: (input) => window.mongog.connections.testDraft(input),

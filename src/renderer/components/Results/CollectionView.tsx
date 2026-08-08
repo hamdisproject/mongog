@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { parseDocumentExpression } from '../../../features/script-analysis/index.js';
-import type { DocumentsPage, WorkspaceTab } from '../../../shared/domain/index.js';
+import type { DocumentCriteriaText, DocumentsPage, WorkspaceTab } from '../../../shared/domain/index.js';
 import type { EjsonEnvelope } from '../../../shared/ejson/index.js';
 import { useConnectionStore } from '../../stores/connections.js';
 import { useSchemaCache } from '../../stores/schema-cache.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
-import { collectionDocumentsOwnerId } from '../../collection-workspace.js';
+import { collectionDocumentsOwnerId, emptyDocumentCriteriaState } from '../../collection-workspace.js';
 import { buildColumnFilterExpression, reorderColumns } from '../../collection-column-filter.js';
 import { theme } from '../../theme.js';
 import { QueryWorkspace } from '../Editor/QueryWorkspace.js';
 import { CollectionCriteriaEditor } from './CollectionCriteriaEditor.js';
 import type { CriteriaKind } from '../../monaco/object-expression.js';
+import { SavedActions } from '../Saved/SavedActions.js';
 
 const s: Record<string, React.CSSProperties> = {
   workspace: { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' },
@@ -113,12 +114,6 @@ const s: Record<string, React.CSSProperties> = {
 
 const EMPTY_FILTER = '{}';
 
-interface BrowserCriteria {
-  filter: string;
-  sort: string;
-  projection: string;
-}
-
 interface DocumentRow {
   key: string;
   absoluteIndex: number;
@@ -166,20 +161,30 @@ export function CollectionView() {
 
 function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const profiles = useConnectionStore((state) => state.profiles);
+  const connected = useConnectionStore((state) => state.connected);
+  const connect = useConnectionStore((state) => state.connect);
+  const updateTab = useWorkspaceStore((state) => state.updateTab);
   const connectionId = tab.connectionId ?? '';
   const database = tab.database ?? 'admin';
   const collection = tab.collection ?? '';
   const documentsOwnerId = collectionDocumentsOwnerId(tab.id);
   const readOnly = profiles.find((profile) => profile.id === connectionId)?.readOnly ?? true;
+  const isConnected = !!connected[connectionId];
+  const documentsState = tab.documentsState ?? emptyDocumentCriteriaState();
+  const draftFilter = documentsState.draft.filter;
+  const draftSort = documentsState.draft.sort;
+  const draftProjection = documentsState.draft.projection;
+  const criteria = documentsState.applied;
 
-  const [draftFilter, setDraftFilter] = useState(EMPTY_FILTER);
-  const [draftSort, setDraftSort] = useState('');
-  const [draftProjection, setDraftProjection] = useState('');
-  const [criteria, setCriteria] = useState<BrowserCriteria>({
-    filter: EMPTY_FILTER,
-    sort: '',
-    projection: '',
-  });
+  const setDraftCriteria = (partial: Partial<DocumentCriteriaText>) => {
+    updateTab(tab.id, {
+      documentsState: {
+        ...documentsState,
+        draft: { ...documentsState.draft, ...partial },
+      },
+      ...(tab.savedItemId ? { dirty: true } : {}),
+    });
+  };
   const [criteriaOpen, setCriteriaOpen] = useState(true);
   const [criteriaErrors, setCriteriaErrors] = useState<Record<CriteriaKind, string | null>>({
     filter: null,
@@ -247,7 +252,11 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   }, [pageSize]);
 
   const loadInitial = useCallback(async () => {
-    if (!connectionId || !collection) return;
+    if (!connectionId || !collection || !isConnected) {
+      setRows([]);
+      setCursorId(null);
+      return;
+    }
     setLoading(true);
     setError(null);
     setNotice(null);
@@ -271,7 +280,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     } finally {
       setLoading(false);
     }
-  }, [connectionId, database, collection, documentsOwnerId, criteria, pageSize, applyPage]);
+  }, [connectionId, database, collection, documentsOwnerId, criteria, pageSize, applyPage, isConnected]);
 
   useEffect(() => {
     void loadInitial();
@@ -289,26 +298,27 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     const errors = validateCriteria(next);
     setCriteriaErrors(errors);
     if (Object.values(errors).some(Boolean)) return;
-    if (sameCriteria(criteria, next)) void loadInitial();
-    else setCriteria(next);
+    updateTab(tab.id, {
+      documentsState: { draft: { ...next }, applied: { ...next } },
+      ...(tab.savedItemId ? { dirty: true } : {}),
+    });
   };
 
   const clearCriteria = () => {
-    setDraftFilter(EMPTY_FILTER);
-    setDraftSort('');
-    setDraftProjection('');
     setColumnFilters({});
     setCriteriaErrors({ filter: null, sort: null, projection: null });
     const cleared = { filter: EMPTY_FILTER, sort: '', projection: '' };
-    if (sameCriteria(criteria, cleared)) void loadInitial();
-    else setCriteria(cleared);
+    updateTab(tab.id, {
+      documentsState: { draft: { ...cleared }, applied: { ...cleared } },
+      ...(tab.savedItemId ? { dirty: true } : {}),
+    });
   };
 
   const updateColumnFilter = (column: string, value: string) => {
     const next = { ...columnFilters, [column]: value };
     if (!value) delete next[column];
     setColumnFilters(next);
-    setDraftFilter(buildColumnFilterExpression(next));
+    setDraftCriteria({ filter: buildColumnFilterExpression(next) });
     setCriteriaErrors((current) => ({ ...current, filter: null }));
   };
 
@@ -500,13 +510,14 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
       : { ...current, [kind]: message });
   };
 
-  if (!connectionId || !collection) {
-    return <div style={s.empty}>No collection selected</div>;
+  if (!collection) {
+    return <div style={s.empty}>This saved view has no collection. Edit its saved details to assign a namespace.</div>;
   }
 
   return (
     <div style={s.container}>
       <div style={s.toolbar}>
+        <SavedActions tab={tab} surface="documents" />
         <button
           style={{ ...s.secondaryButton, ...(criteriaOpen ? { borderColor: theme.colors.accentHover } : {}) }}
           aria-expanded={criteriaOpen}
@@ -516,6 +527,9 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
           {criteriaSummary}
         </button>
         <ToolbarButton secondary onClick={() => void loadInitial()} disabled={busy}>Refresh</ToolbarButton>
+        {!isConnected && connectionId && (
+          <ToolbarButton onClick={() => void connect(connectionId)} disabled={busy}>Connect</ToolbarButton>
+        )}
         <ToolbarButton onClick={openNewDocument} disabled={readOnly || busy}>New</ToolbarButton>
       </div>
 
@@ -537,7 +551,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
             database={database}
             collection={collection}
             placeholder="{ bikeid: 17827 }"
-            onChange={setDraftFilter}
+            onChange={(value) => setDraftCriteria({ filter: value })}
             onApply={applyCriteria}
             onValidationChange={handleCriteriaValidation}
           />
@@ -551,7 +565,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
               database={database}
               collection={collection}
               placeholder="{ createdAt: -1 }"
-              onChange={setDraftSort}
+              onChange={(value) => setDraftCriteria({ sort: value })}
               onApply={applyCriteria}
               onValidationChange={handleCriteriaValidation}
             />
@@ -564,7 +578,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
               database={database}
               collection={collection}
               placeholder="{ name: 1, status: 1 }"
-              onChange={setDraftProjection}
+              onChange={(value) => setDraftCriteria({ projection: value })}
               onApply={applyCriteria}
               onValidationChange={handleCriteriaValidation}
             />
@@ -579,6 +593,12 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
         </div>
       )}
       {notice && <div style={s.notice}>{notice}</div>}
+      {!connectionId && (
+        <div style={s.notice}>Assign a connection from this saved item’s details before loading documents.</div>
+      )}
+      {connectionId && !isConnected && (
+        <div style={s.notice}>Connection is offline. Connect to run this saved document view.</div>
+      )}
       {readOnly && <div style={s.notice}>Read-only connection — document changes are disabled.</div>}
 
       {rows.length === 0 && !loading ? (
@@ -829,13 +849,13 @@ function isDocumentValue(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function sameCriteria(left: BrowserCriteria, right: BrowserCriteria): boolean {
+function sameCriteria(left: DocumentCriteriaText, right: DocumentCriteriaText): boolean {
   return left.filter === right.filter &&
     left.sort === right.sort &&
     left.projection === right.projection;
 }
 
-function validateCriteria(criteria: BrowserCriteria): Record<CriteriaKind, string | null> {
+function validateCriteria(criteria: DocumentCriteriaText): Record<CriteriaKind, string | null> {
   const errors: Record<CriteriaKind, string | null> = {
     filter: null,
     sort: null,

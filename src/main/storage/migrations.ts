@@ -1,4 +1,5 @@
 import type BetterSqlite3 from 'better-sqlite3';
+import { randomUUID } from 'node:crypto';
 
 interface Migration {
   version: number;
@@ -85,6 +86,110 @@ const migrations: Migration[] = [
 
         CREATE INDEX IF NOT EXISTS idx_scripts_folder ON saved_scripts(folder);
       `);
+    },
+  },
+  {
+    version: 2,
+    description: 'Hierarchical saved folders and typed saved items',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS saved_folders (
+          id              TEXT PRIMARY KEY NOT NULL,
+          name            TEXT NOT NULL,
+          connection_id   TEXT REFERENCES connection_profiles(id) ON DELETE SET NULL,
+          parent_id       TEXT REFERENCES saved_folders(id) ON DELETE CASCADE,
+          created_at      INTEGER NOT NULL,
+          updated_at      INTEGER NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_saved_folders_connection
+          ON saved_folders(connection_id, parent_id);
+
+        CREATE TABLE IF NOT EXISTS saved_items (
+          id              TEXT PRIMARY KEY NOT NULL,
+          name            TEXT NOT NULL,
+          item_type       TEXT NOT NULL CHECK(item_type IN ('query','documents','tab')),
+          folder_id       TEXT REFERENCES saved_folders(id) ON DELETE CASCADE,
+          connection_id   TEXT REFERENCES connection_profiles(id) ON DELETE SET NULL,
+          database_name   TEXT,
+          collection_name TEXT,
+          tags_json       TEXT NOT NULL DEFAULT '[]',
+          payload_json    TEXT NOT NULL,
+          created_at      INTEGER NOT NULL,
+          updated_at      INTEGER NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_saved_items_connection
+          ON saved_items(connection_id, folder_id);
+        CREATE INDEX IF NOT EXISTS idx_saved_items_type ON saved_items(item_type);
+      `);
+
+      const legacyExists = db.prepare(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'saved_scripts'",
+      ).get();
+      if (!legacyExists) return;
+
+      const legacyRows = db.prepare('SELECT * FROM saved_scripts ORDER BY created_at ASC').all() as Array<{
+        id: string;
+        name: string;
+        folder: string | null;
+        tags_json: string;
+        connection_id: string | null;
+        database_name: string | null;
+        content: string;
+        language: 'javascript' | 'typescript';
+        created_at: number;
+        updated_at: number;
+      }>;
+      const folders = new Map<string, string>();
+      const insertFolder = db.prepare(`
+        INSERT INTO saved_folders
+          (id, name, connection_id, parent_id, created_at, updated_at)
+        VALUES (?, ?, ?, NULL, ?, ?)
+      `);
+      const insertItem = db.prepare(`
+        INSERT INTO saved_items
+          (id, name, item_type, folder_id, connection_id, database_name, collection_name,
+           tags_json, payload_json, created_at, updated_at)
+        VALUES (?, ?, 'query', ?, ?, ?, NULL, ?, ?, ?, ?)
+      `);
+
+      for (const row of legacyRows) {
+        let folderId: string | null = null;
+        if (row.folder) {
+          const folderKey = `${row.connection_id ?? '<unassigned>'}\u0000${row.folder}`;
+          folderId = folders.get(folderKey) ?? null;
+          if (!folderId) {
+            folderId = randomUUID();
+            folders.set(folderKey, folderId);
+            insertFolder.run(
+              folderId,
+              row.folder,
+              row.connection_id,
+              row.created_at,
+              row.updated_at,
+            );
+          }
+        }
+        insertItem.run(
+          row.id,
+          row.name,
+          folderId,
+          row.connection_id,
+          row.database_name,
+          row.tags_json,
+          JSON.stringify({
+            type: 'query',
+            source: row.content,
+            language: row.language,
+            mode: 'query',
+          }),
+          row.created_at,
+          row.updated_at,
+        );
+      }
+
+      db.exec('DROP TABLE saved_scripts');
     },
   },
 ];

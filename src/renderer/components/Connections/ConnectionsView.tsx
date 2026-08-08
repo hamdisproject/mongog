@@ -123,7 +123,7 @@ export function ConnectionsView({ tab }: { tab: WorkspaceTab }) {
   const remove = async () => {
     if (!selected) return;
     const confirmed = window.confirm(
-      `Delete "${selected.name}"?\n\nThis removes its encrypted credentials and query history. Saved scripts are kept but detached from the connection.`,
+      `Delete "${selected.name}"?\n\nThis removes its encrypted credentials and query history. Saved folders and items are kept under Unassigned Saved.`,
     );
     if (!confirmed) return;
     setBusy('delete'); setMessage(null);

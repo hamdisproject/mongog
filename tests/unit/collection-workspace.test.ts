@@ -32,6 +32,13 @@ describe('collection workspace helpers', () => {
           collection: 'items',
           collectionViewMode: 'query',
           editorContent: 'db.collection("items").find({});',
+          savedItemId: 'saved-view-1',
+          documentsState: {
+            draft: { filter: '{ sku: "alpha" }', sort: '{ createdAt: -1 }', projection: '' },
+            applied: { filter: '{ sku: "alpha" }', sort: '{ createdAt: -1 }', projection: '' },
+          },
+          pinned: true,
+          customTitle: true,
         }],
         activeTabId: 'tab-1',
       },

@@ -128,6 +128,15 @@ const api: MongoGDesktopApi = {
     save: (settings) => invoke(IpcChannels.settingsSave, { settings }),
     load: () => invoke(IpcChannels.settingsLoad),
   },
+  saved: {
+    list: () => invoke(IpcChannels.savedList),
+    createFolder: (input) => invoke(IpcChannels.savedCreateFolder, input),
+    updateFolder: (input) => invoke(IpcChannels.savedUpdateFolder, input),
+    deleteFolder: (id) => invoke(IpcChannels.savedDeleteFolder, { id }),
+    createItem: (input) => invoke(IpcChannels.savedCreateItem, input),
+    updateItem: (input) => invoke(IpcChannels.savedUpdateItem, input),
+    deleteItem: (id) => invoke(IpcChannels.savedDeleteItem, { id }),
+  },
 };
 
 contextBridge.exposeInMainWorld('mongog', api);

@@ -4,6 +4,7 @@ import type {
   DocumentsPage,
   EngineEvent,
   QueryResult,
+  SavedItem,
   StatementInfo,
   WorkspaceTab,
 } from '../../shared/domain/index.js';
@@ -11,6 +12,7 @@ import type { AppError, SourceRange } from '../../shared/errors/index.js';
 import {
   collectionDocumentsOwnerId,
   collectionQueryTemplate,
+  emptyDocumentCriteriaState,
   type CollectionViewMode,
 } from '../collection-workspace.js';
 
@@ -69,7 +71,8 @@ interface WorkspaceState {
 
   createTab: (kind: WorkspaceTab['kind'], connectionId?: string | null) => string;
   openQuery: (options?: { connectionId?: string | null; database?: string; title?: string; editorContent?: string }) => string;
-  openCollection: (options: { connectionId: string; database: string; collection: string }) => string;
+  openCollection: (options: { connectionId: string | null; database: string; collection: string }) => string;
+  openSavedItem: (item: SavedItem) => string;
   openAdmin: (options: { connectionId: string; database: string; collection?: string; section: NonNullable<WorkspaceTab['adminSection']> }) => string;
   openChangeStream: (options: { connectionId: string; database: string; collection?: string }) => string;
   openWelcome: () => string;
@@ -77,10 +80,14 @@ interface WorkspaceState {
   openSettings: () => string;
   setCollectionView: (tabId: string, view: CollectionViewMode) => void;
   detachConnection: (connectionId: string) => void;
+  detachSavedItems: (savedItemIds: string[]) => void;
   renameCollectionContext: (connectionId: string, database: string, oldName: string, newName: string) => void;
   closeNamespaceTabs: (connectionId: string, database: string, collection?: string) => void;
   closeTab: (id: string) => void;
   closeTabs: (ids: string[]) => void;
+  reorderTab: (tabId: string, targetTabId: string, position: 'before' | 'after') => boolean;
+  setTabPinned: (tabId: string, pinned: boolean) => void;
+  renameTab: (tabId: string, title: string) => boolean;
   setActiveTab: (id: string) => void;
   updateTab: (id: string, partial: Partial<WorkspaceTab>) => void;
   prepareExecution: (tabId: string, connectionId: string, runId: string) => void;
@@ -102,6 +109,37 @@ interface WorkspaceState {
 }
 
 let tabCounter = 0;
+
+const RENAMEABLE_TAB_KINDS = new Set<WorkspaceTab['kind']>([
+  'query',
+  'collection',
+  'history',
+  'admin',
+  'change-stream',
+]);
+
+export function isTabRenameable(tab: WorkspaceTab): boolean {
+  return RENAMEABLE_TAB_KINDS.has(tab.kind);
+}
+
+export type BulkCloseScope = 'others' | 'left' | 'right' | 'all';
+
+export function bulkClosableTabIds(
+  tabs: WorkspaceTab[],
+  referenceTabId: string,
+  scope: BulkCloseScope,
+): string[] {
+  const referenceIndex = tabs.findIndex((tab) => tab.id === referenceTabId);
+  if (scope === 'all') return tabs.filter((tab) => !tab.pinned).map((tab) => tab.id);
+  if (referenceIndex < 0) return [];
+  if (scope === 'others') {
+    return tabs.filter((tab) => tab.id !== referenceTabId && !tab.pinned).map((tab) => tab.id);
+  }
+  const candidates = scope === 'left'
+    ? tabs.slice(0, referenceIndex)
+    : tabs.slice(referenceIndex + 1);
+  return candidates.filter((tab) => !tab.pinned).map((tab) => tab.id);
+}
 
 function emptyExecution(): TabExecutionState {
   return {
@@ -161,8 +199,13 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
                 ? 'Settings'
               : kind,
       connectionId,
+      pinned: false,
+      customTitle: false,
       dirty: false,
-      ...(kind === 'collection' ? { collectionViewMode: 'documents' as const } : {}),
+      ...(kind === 'collection' ? {
+        collectionViewMode: 'documents' as const,
+        documentsState: emptyDocumentCriteriaState(),
+      } : {}),
     };
     set((state) => ({
       tabs: [...state.tabs, tab],
@@ -199,7 +242,70 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
       database: options.database,
       collection: options.collection,
       collectionViewMode: 'documents',
+      documentsState: emptyDocumentCriteriaState(),
     });
+    return id;
+  },
+
+  openSavedItem: (item) => {
+    const existing = get().tabs.find((tab) => tab.savedItemId === item.id);
+    if (existing) {
+      set({ activeTabId: existing.id });
+      return existing.id;
+    }
+
+    if (item.payload.type === 'query') {
+      const id = get().createTab('query', item.connectionId);
+      get().updateTab(id, {
+        title: item.name,
+        customTitle: true,
+        savedItemId: item.id,
+        database: item.database ?? undefined,
+        editorContent: item.payload.source,
+        mode: item.payload.mode,
+        dirty: false,
+      });
+      return id;
+    }
+
+    if (item.payload.type === 'documents') {
+      const id = get().createTab('collection', item.connectionId);
+      get().updateTab(id, {
+        title: item.name,
+        customTitle: true,
+        savedItemId: item.id,
+        database: item.database ?? undefined,
+        collection: item.collection ?? undefined,
+        collectionViewMode: 'documents',
+        documentsState: {
+          draft: { ...item.payload.criteria },
+          applied: { ...item.payload.criteria },
+        },
+        dirty: false,
+      });
+      return id;
+    }
+
+    const template = item.payload.template;
+    const id = get().createTab(template.kind, item.connectionId);
+    get().updateTab(id, {
+      title: template.title || item.name,
+      customTitle: template.customTitle,
+      savedItemId: item.id,
+      database: item.database ?? undefined,
+      collection: item.collection ?? undefined,
+      collectionViewMode: template.collectionViewMode,
+      editorContent: template.editorContent,
+      mode: template.mode,
+      documentsState: template.documentsState
+        ? structuredClone(template.documentsState)
+        : template.kind === 'collection'
+          ? emptyDocumentCriteriaState()
+          : undefined,
+      dirty: false,
+    });
+    if (template.pinned) get().setTabPinned(id, true);
+    get().updateTab(id, { dirty: false });
     return id;
   },
 
@@ -308,6 +414,7 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
         return {
           ...tab,
           collectionViewMode: view,
+          ...(tab.savedItemId && tab.collectionViewMode !== view ? { dirty: true } : {}),
           ...(view === 'query' && tab.editorContent === undefined && tab.collection
             ? { editorContent: collectionQueryTemplate(tab.collection) }
             : {}),
@@ -332,6 +439,18 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
     });
   },
 
+  detachSavedItems: (savedItemIds) => {
+    const ids = new Set(savedItemIds);
+    if (ids.size === 0) return;
+    set((state) => ({
+      tabs: state.tabs.map((tab) => (
+        tab.savedItemId && ids.has(tab.savedItemId)
+          ? { ...tab, savedItemId: undefined, dirty: true }
+          : tab
+      )),
+    }));
+  },
+
   renameCollectionContext: (connectionId, database, oldName, newName) => {
     set((state) => ({
       tabs: state.tabs.map((tab) => {
@@ -347,9 +466,11 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
           ...tab,
           collection: newName,
           ...(editorContent !== undefined ? { editorContent } : {}),
-          title: tab.kind === 'collection'
-            ? `${database}.${newName}`
-            : tab.title.replace(`${database}.${oldName}`, `${database}.${newName}`),
+          title: tab.customTitle
+            ? tab.title
+            : tab.kind === 'collection'
+              ? `${database}.${newName}`
+              : tab.title.replace(`${database}.${oldName}`, `${database}.${newName}`),
         };
       }),
     }));
@@ -386,6 +507,46 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
       for (const id of closingIds) delete results[id];
       return { tabs, activeTabId, results };
     });
+  },
+
+  reorderTab: (tabId, targetTabId, position) => {
+    if (tabId === targetTabId) return false;
+    const current = get().tabs;
+    const source = current.find((tab) => tab.id === tabId);
+    const target = current.find((tab) => tab.id === targetTabId);
+    if (!source || !target || !!source.pinned !== !!target.pinned) return false;
+
+    const tabs = current.filter((tab) => tab.id !== tabId);
+    const targetIndex = tabs.findIndex((tab) => tab.id === targetTabId);
+    if (targetIndex < 0) return false;
+    tabs.splice(targetIndex + (position === 'after' ? 1 : 0), 0, source);
+    if (tabs.every((tab, index) => tab.id === current[index]?.id)) return false;
+    set({ tabs });
+    return true;
+  },
+
+  setTabPinned: (tabId, pinned) => {
+    set((state) => {
+      const current = state.tabs.find((tab) => tab.id === tabId);
+      if (!current || !!current.pinned === pinned) return state;
+      const updated = { ...current, pinned, ...(current.savedItemId ? { dirty: true } : {}) };
+      const tabs = state.tabs.filter((tab) => tab.id !== tabId);
+      const firstUnpinnedIndex = tabs.findIndex((tab) => !tab.pinned);
+      const insertIndex = pinned
+        ? (firstUnpinnedIndex < 0 ? tabs.length : firstUnpinnedIndex)
+        : (firstUnpinnedIndex < 0 ? tabs.length : firstUnpinnedIndex);
+      tabs.splice(insertIndex, 0, updated);
+      return { tabs };
+    });
+  },
+
+  renameTab: (tabId, title) => {
+    const trimmed = title.trim().slice(0, 120);
+    const tab = get().tabs.find((candidate) => candidate.id === tabId);
+    if (!tab || !isTabRenameable(tab) || !trimmed) return false;
+    if (tab.title === trimmed && tab.customTitle) return false;
+    get().updateTab(tabId, { title: trimmed, customTitle: true, ...(tab.savedItemId ? { dirty: true } : {}) });
+    return true;
   },
 
   setActiveTab: (id) => set({ activeTabId: id }),
@@ -618,11 +779,21 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
   },
 
   restore: (state) => {
-    const tabs = state.tabs.map((tab) => (
-      tab.kind === 'collection' && tab.collectionViewMode === undefined
-        ? { ...tab, collectionViewMode: 'documents' as const }
-        : tab
-    ));
+    const normalizedTabs = state.tabs.map((tab) => ({
+      ...tab,
+      pinned: tab.pinned ?? false,
+      customTitle: tab.customTitle ?? false,
+      ...(tab.kind === 'collection' && tab.collectionViewMode === undefined
+        ? { collectionViewMode: 'documents' as const }
+        : {}),
+      ...(tab.kind === 'collection' && tab.documentsState === undefined
+        ? { documentsState: emptyDocumentCriteriaState() }
+        : {}),
+    }));
+    const tabs = [
+      ...normalizedTabs.filter((tab) => tab.pinned),
+      ...normalizedTabs.filter((tab) => !tab.pinned),
+    ];
     tabCounter = tabs.length;
     const results: Record<string, TabExecutionState> = {};
     for (const tab of tabs) {

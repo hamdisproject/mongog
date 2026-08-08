@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import BetterSqlite3 from 'better-sqlite3';
 import { describe, expect, it, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Database } from '../../src/main/storage/database.js';
 
@@ -36,11 +37,13 @@ describe('Database', () => {
       expect(names).toContain('query_history');
       expect(names).toContain('workspace_state');
       expect(names).toContain('settings');
-      expect(names).toContain('saved_scripts');
+      expect(names).toContain('saved_folders');
+      expect(names).toContain('saved_items');
+      expect(names).not.toContain('saved_scripts');
       expect(names).toContain('_migrations');
 
       const userVersion = db.prepare('PRAGMA user_version').get() as { user_version: number };
-      expect(userVersion.user_version).toBe(1);
+      expect(userVersion.user_version).toBe(2);
 
       db.close();
     });
@@ -240,36 +243,100 @@ describe('Database', () => {
     });
   });
 
-  describe('saved scripts', () => {
-    it('inserts, lists by folder, and removes scripts', () => {
+  describe('saved library', () => {
+    it('creates nested folders, moves a tree across connections, and removes it recursively', () => {
       const db = Database.openOrCreate(dbPath);
       db.profiles.insert({
         id: 'c1', groupId: null, name: 'ScriptConn', color: null,
         uriRedacted: 'mongodb://h', defaultDatabase: null,
         readOnly: false, options: {}, hasSecret: false, createdAt: 1, updatedAt: 1,
       });
-
-      db.scripts.insert({
-        id: 's1', name: 'find.js', folder: 'queries', tags: ['read'], connectionId: null,
-        database: null, content: 'db.find()', language: 'javascript', createdAt: 100, updatedAt: 100,
-      });
-      db.scripts.insert({
-        id: 's2', name: 'agg.js', folder: null, tags: ['agg'], connectionId: 'c1',
-        database: 'test', content: 'db.aggregate()', language: 'javascript', createdAt: 200, updatedAt: 200,
+      db.profiles.insert({
+        id: 'c2', groupId: null, name: 'OtherConn', color: null,
+        uriRedacted: 'mongodb://other', defaultDatabase: null,
+        readOnly: false, options: {}, hasSecret: false, createdAt: 1, updatedAt: 1,
       });
 
-      expect(db.scripts.count()).toBe(2);
+      const root = db.saved.createFolder({ name: 'Queries', connectionId: 'c1', parentId: null });
+      const child = db.saved.createFolder({ name: 'Reports', connectionId: 'c1', parentId: root.id });
+      const grandchild = db.saved.createFolder({ name: 'Daily', connectionId: 'c1', parentId: child.id });
+      const item = db.saved.createItem({
+        name: 'Active users', type: 'query', folderId: grandchild.id, connectionId: 'c1',
+        database: 'test', collection: null, tags: ['read'],
+        payload: { type: 'query', source: 'db.users.find({ active: true })', language: 'typescript', mode: 'query' },
+      });
 
-      const folderScripts = db.scripts.listByFolder('queries');
-      expect(folderScripts).toHaveLength(1);
+      expect(db.saved.list().folders).toHaveLength(3);
+      expect(db.saved.itemById(item.id)?.payload).toMatchObject({ type: 'query' });
+      expect(() => db.saved.updateFolder({
+        id: root.id, name: root.name, connectionId: 'c1', parentId: grandchild.id,
+      })).toThrow(/descendant/i);
 
-      const rootScripts = db.scripts.listByFolder(null);
-      expect(rootScripts).toHaveLength(1);
-      expect(rootScripts[0]!.id).toBe('s2');
+      db.saved.updateFolder({ id: root.id, name: 'Moved', connectionId: 'c2', parentId: null });
+      expect(db.saved.folderById(grandchild.id)?.connectionId).toBe('c2');
+      expect(db.saved.itemById(item.id)?.connectionId).toBe('c2');
 
-      db.scripts.remove('s1');
-      expect(db.scripts.count()).toBe(1);
+      const removed = db.saved.deleteFolder(root.id);
+      expect(removed.deletedFolderIds).toEqual(expect.arrayContaining([root.id, child.id, grandchild.id]));
+      expect(removed.deletedItemIds).toEqual([item.id]);
+      expect(db.saved.list()).toEqual({ folders: [], items: [] });
 
+      db.close();
+    });
+
+    it('detaches saved content when its connection is deleted', () => {
+      const db = Database.openOrCreate(dbPath);
+      db.profiles.insert({
+        id: 'c1', groupId: null, name: 'ScriptConn', color: null,
+        uriRedacted: 'mongodb://h', defaultDatabase: null,
+        readOnly: false, options: {}, hasSecret: false, createdAt: 1, updatedAt: 1,
+      });
+      const folder = db.saved.createFolder({ name: 'Queries', connectionId: 'c1', parentId: null });
+      const item = db.saved.createItem({
+        name: 'Ping', type: 'query', folderId: folder.id, connectionId: 'c1', database: 'admin',
+        collection: null, tags: [],
+        payload: { type: 'query', source: 'await db.command({ ping: 1 })', language: 'typescript', mode: 'query' },
+      });
+
+      db.profiles.remove('c1');
+      expect(db.saved.folderById(folder.id)?.connectionId).toBeNull();
+      expect(db.saved.itemById(item.id)?.connectionId).toBeNull();
+      db.close();
+    });
+
+    it('migrates legacy flat saved scripts without losing content', () => {
+      const legacy = new BetterSqlite3(dbPath);
+      legacy.exec(`
+        CREATE TABLE connection_profiles (id TEXT PRIMARY KEY);
+        CREATE TABLE saved_scripts (
+          id TEXT PRIMARY KEY NOT NULL,
+          name TEXT NOT NULL,
+          folder TEXT,
+          tags_json TEXT NOT NULL DEFAULT '[]',
+          connection_id TEXT,
+          database_name TEXT,
+          content TEXT NOT NULL,
+          language TEXT NOT NULL DEFAULT 'javascript',
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+        CREATE TABLE _migrations (version INTEGER PRIMARY KEY NOT NULL, applied_at INTEGER NOT NULL);
+        INSERT INTO _migrations VALUES (1, 1);
+        INSERT INTO saved_scripts VALUES
+          ('legacy-1', 'Legacy find', 'Reports', '["legacy"]', NULL, 'test', 'db.users.find({})', 'javascript', 10, 20);
+        PRAGMA user_version = 1;
+      `);
+      legacy.close();
+
+      const db = Database.openOrCreate(dbPath);
+      const snapshot = db.saved.list();
+      expect(snapshot.folders).toHaveLength(1);
+      expect(snapshot.folders[0]?.name).toBe('Reports');
+      expect(snapshot.items).toHaveLength(1);
+      expect(snapshot.items[0]).toMatchObject({
+        id: 'legacy-1', name: 'Legacy find', type: 'query', database: 'test', tags: ['legacy'],
+        payload: { type: 'query', source: 'db.users.find({})', language: 'javascript', mode: 'query' },
+      });
       db.close();
     });
   });

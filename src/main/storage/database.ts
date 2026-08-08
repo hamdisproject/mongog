@@ -8,7 +8,7 @@ import { QueryHistoryRepo } from './repositories/query-history.js';
 import { WorkspaceRepo } from './repositories/workspace.js';
 import { SettingsRepo } from './repositories/settings.js';
 import { SecretsRepo } from './repositories/secrets.js';
-import { SavedScriptsRepo } from './repositories/saved-scripts.js';
+import { SavedLibraryRepo } from './repositories/saved-library.js';
 
 export interface DbConfig {
   path: string;
@@ -29,7 +29,7 @@ export class Database {
   readonly history: QueryHistoryRepo;
   readonly workspace: WorkspaceRepo;
   readonly settings: SettingsRepo;
-  readonly scripts: SavedScriptsRepo;
+  readonly saved: SavedLibraryRepo;
 
   private constructor(db: BetterSqlite3.Database) {
     this.db = db;
@@ -39,7 +39,7 @@ export class Database {
     this.history = new QueryHistoryRepo(db);
     this.workspace = new WorkspaceRepo(db);
     this.settings = new SettingsRepo(db);
-    this.scripts = new SavedScriptsRepo(db);
+    this.saved = new SavedLibraryRepo(db);
   }
 
   static open(config: DbConfig): Database {

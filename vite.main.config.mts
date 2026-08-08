@@ -19,6 +19,13 @@ const optionalDriverDeps = [
 // Main process bundle. package.json is "type": "module", so the output MUST
 // be ESM — plugin-vite otherwise defaults the main lib build to CJS.
 export default defineConfig({
+  // TypeScript is loaded lazily by the data-only Documents criteria parser.
+  // Its CommonJS compatibility path references these Node globals; provide
+  // ESM-safe equivalents for the generated lazy chunk.
+  define: {
+    __filename: 'import.meta.filename',
+    __dirname: 'import.meta.dirname',
+  },
   build: {
     sourcemap: true,
     lib: {
