@@ -146,7 +146,7 @@ export function TabBar() {
   };
 
   return (
-    <div style={s.bar} data-testid="workspace-tab-bar">
+    <div className="workspace-tab-bar" style={s.bar} data-testid="workspace-tab-bar">
       <button type="button" onClick={() => openQuery()} style={s.newBtn} title="New query tab">
         <span style={{ color: 'var(--color-success)', fontSize: 15 }}>+</span> Query
       </button>

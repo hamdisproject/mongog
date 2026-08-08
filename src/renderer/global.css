@@ -111,6 +111,19 @@ body {
   color: var(--color-text) !important;
 }
 
+/* Tabs remain horizontally scrollable with mouse/trackpad, but the native
+   overlay scrollbar must not cover the tab labels or change the bar height. */
+.workspace-tab-bar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.workspace-tab-bar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
 .change-stream-live-dot {
   width: 8px;
   height: 8px;
