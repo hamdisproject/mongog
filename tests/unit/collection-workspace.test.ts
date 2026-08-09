@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   collectionDocumentsOwnerId,
+  collectionPageSizeOptions,
   collectionQueryTemplate,
+  extractCollectionColumns,
+  reconcileCollectionColumns,
   renameCollectionQueryTemplate,
 } from '../../src/renderer/collection-workspace.js';
 import { parseScript } from '../../src/features/script-analysis/parse.js';
@@ -30,6 +33,36 @@ describe('collection workspace helpers', () => {
     expect(collectionDocumentsOwnerId('tab-42')).not.toBe('tab-42');
   });
 
+  it('builds ordered page-size choices without duplicating the global default', () => {
+    expect(collectionPageSizeOptions(50)).toEqual([
+      { value: 'default', pageSize: 50, label: 'Default · 50' },
+      { value: '10', pageSize: 10, label: '10' },
+      { value: '25', pageSize: 25, label: '25' },
+      { value: '100', pageSize: 100, label: '100' },
+      { value: '250', pageSize: 250, label: '250' },
+      { value: '500', pageSize: 500, label: '500' },
+    ]);
+    expect(collectionPageSizeOptions(125).map((option) => option.pageSize))
+      .toEqual([125, 10, 25, 50, 100, 250, 500]);
+  });
+
+  it('keeps the last non-empty Documents columns when a filter returns no rows', () => {
+    const previous = ['_id', 'sku', 'quantity'];
+    expect(extractCollectionColumns([])).toEqual([]);
+    expect(reconcileCollectionColumns(previous, [])).toBe(previous);
+    expect(reconcileCollectionColumns([], [])).toEqual([]);
+  });
+
+  it('discovers a stable top-level schema from a non-empty Documents page', () => {
+    expect(extractCollectionColumns([{ sku: 'a', quantity: 1 }, { sku: 'b', note: 'new' }]))
+      .toEqual(['_id', 'note', 'quantity', 'sku']);
+  });
+
+  it('reconciles a new non-empty schema while retaining the existing column order', () => {
+    expect(reconcileCollectionColumns(['quantity', '_id', 'legacy'], ['_id', 'sku', 'quantity']))
+      .toEqual(['quantity', '_id', 'sku']);
+  });
+
   it('accepts the persisted collection view mode', () => {
     expect(workspaceSaveSchema.safeParse({
       state: {
@@ -42,6 +75,7 @@ describe('collection workspace helpers', () => {
           collection: 'items',
           collectionViewMode: 'query',
           autoExecuteOnOpen: true,
+          documentsPageSizeOverride: 100,
           editorContent: 'db.collection("items").find({});',
           savedItemId: 'saved-view-1',
           documentsState: {
@@ -58,12 +92,13 @@ describe('collection workspace helpers', () => {
       state: {
         tabs: [{
           id: 'runtime-only', kind: 'collection', title: 'db.items', connectionId: 'conn-1',
-          collectionViewMode: 'query', autoExecuteOnOpen: true,
+          collectionViewMode: 'query', autoExecuteOnOpen: true, documentsPageSizeOverride: 100,
         }],
         activeTabId: 'runtime-only',
       },
     });
     expect('autoExecuteOnOpen' in parsed.state.tabs[0]!).toBe(false);
+    expect('documentsPageSizeOverride' in parsed.state.tabs[0]!).toBe(false);
   });
 
   it('accepts a persisted namespace-locked change stream tab', () => {

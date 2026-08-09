@@ -17,7 +17,13 @@ import { useConnectionStore } from '../../stores/connections.js';
 import { useSchemaCache } from '../../stores/schema-cache.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
 import { useSettingsStore } from '../../stores/settings.js';
-import { collectionDocumentsOwnerId, emptyDocumentCriteriaState } from '../../collection-workspace.js';
+import {
+  collectionDocumentsOwnerId,
+  collectionPageSizeOptions,
+  emptyDocumentCriteriaState,
+  extractCollectionColumns,
+  reconcileCollectionColumns,
+} from '../../collection-workspace.js';
 import {
   columnFilterHelpText,
   compileColumnFilters,
@@ -150,6 +156,10 @@ const s: Record<string, React.CSSProperties> = {
   selectedRow: { background: 'var(--color-selected)' },
   rowNumber: { color: 'var(--color-text-faint)', fontSize: 10, width: 45 },
   empty: { flex: 1, padding: 28, color: 'var(--color-text-faint)', fontSize: 12, textAlign: 'center' },
+  emptyTableCell: {
+    height: 86, padding: 20, color: 'var(--color-text-faint)', fontSize: 12,
+    textAlign: 'center', borderBottom: '1px solid var(--color-border)',
+  },
   editorPanel: {
     minHeight: 120, display: 'flex', flexDirection: 'column',
     borderTop: '1px solid var(--color-border)', background: 'var(--color-app)', flexShrink: 0,
@@ -170,6 +180,14 @@ const s: Record<string, React.CSSProperties> = {
   status: {
     display: 'flex', justifyContent: 'space-between', gap: 10, padding: '3px 8px', fontSize: 11,
     color: 'var(--color-text-muted)', background: 'var(--color-panel)', borderTop: '1px solid var(--color-border)', flexShrink: 0,
+  },
+  pageSizeLabel: {
+    display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
+  },
+  pageSizeSelect: {
+    height: 23, minWidth: 82, padding: '1px 22px 1px 7px', borderRadius: 3,
+    border: '1px solid var(--color-border-strong)', background: 'var(--color-input-soft)',
+    color: 'var(--color-text)', fontSize: 11, outline: 'none', cursor: 'pointer',
   },
 };
 
@@ -238,6 +256,12 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const draftSort = documentsState.draft.sort;
   const draftProjection = documentsState.draft.projection;
   const criteria = documentsState.applied;
+  const pageSizeOverride = tab.documentsPageSizeOverride;
+  const effectivePageSize = pageSizeOverride ?? configuredPageSize;
+  const pageSizeOptions = useMemo(
+    () => collectionPageSizeOptions(configuredPageSize),
+    [configuredPageSize],
+  );
 
   const setDraftCriteria = (partial: Partial<DocumentCriteriaText>) => {
     updateTab(tab.id, {
@@ -254,8 +278,8 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     sort: null,
     projection: null,
   });
-  const latestPageSize = useRef(configuredPageSize);
-  const [cursorPageSize, setCursorPageSize] = useState(configuredPageSize);
+  const latestPageSize = useRef(effectivePageSize);
+  const [cursorPageSize, setCursorPageSize] = useState(effectivePageSize);
   const [cursorId, setCursorId] = useState<string | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
   const [hasMore, setHasMore] = useState(false);
@@ -272,11 +296,11 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const [exportBusy, setExportBusy] = useState(false);
 
   useEffect(() => {
-    latestPageSize.current = configuredPageSize;
-  }, [configuredPageSize]);
+    latestPageSize.current = effectivePageSize;
+  }, [effectivePageSize]);
 
   const discoveredColumns = useMemo(
-    () => extractColumns(rows.map((row) => row.value).filter(isDocumentValue)),
+    () => extractCollectionColumns(rows.map((row) => row.value).filter(isDocumentValue)),
     [rows],
   );
   const [columnOrder, setColumnOrder] = useState<string[]>([]);
@@ -292,11 +316,10 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const documentPanelResizeCleanup = useRef<(() => void) | null>(null);
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
   const suppressSortClick = useRef(false);
-  const columns = useMemo(() => {
-    const retained = columnOrder.filter((column) => discoveredColumns.includes(column));
-    const added = discoveredColumns.filter((column) => !retained.includes(column));
-    return [...retained, ...added];
-  }, [columnOrder, discoveredColumns]);
+  const columns = useMemo(
+    () => reconcileCollectionColumns(columnOrder, discoveredColumns),
+    [columnOrder, discoveredColumns],
+  );
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [countLoading, setCountLoading] = useState(false);
   const [countError, setCountError] = useState<string | null>(null);
@@ -372,13 +395,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   ]);
 
   useEffect(() => {
-    setColumnOrder((current) => {
-      const retained = current.filter((column) => discoveredColumns.includes(column));
-      const next = [...retained, ...discoveredColumns.filter((column) => !retained.includes(column))];
-      return next.length === current.length && next.every((column, index) => column === current[index])
-        ? current
-        : next;
-    });
+    setColumnOrder((current) => reconcileCollectionColumns(current, discoveredColumns));
   }, [discoveredColumns]);
 
   useEffect(() => {
@@ -406,7 +423,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     setEditorMode('view');
   }, []);
 
-  const loadInitial = useCallback(async () => {
+  const loadInitial = useCallback(async (requestedPageSize?: number) => {
     if (!connectionId || !collection || !isConnected) {
       setRows([]);
       setCursorId(null);
@@ -416,7 +433,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     setError(null);
     setNotice(null);
     try {
-      const pageSize = latestPageSize.current;
+      const pageSize = requestedPageSize ?? latestPageSize.current;
       const page = await window.mongog.query.collectionFind({
         connectionId,
         database,
@@ -438,6 +455,19 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
       setLoading(false);
     }
   }, [connectionId, database, collection, documentsOwnerId, criteria, applyPage, isConnected]);
+
+  const changePageSize = async (value: string) => {
+    const nextOverride = value === 'default' ? undefined : Number(value);
+    const nextPageSize = nextOverride ?? configuredPageSize;
+    latestPageSize.current = nextPageSize;
+    updateTab(tab.id, { documentsPageSizeOverride: nextOverride });
+    setPageIndex(0);
+    setHasMore(false);
+    setSelected(null);
+    setEditorText('');
+    setEditorMode('view');
+    await loadInitial(nextPageSize);
+  };
 
   useEffect(() => {
     void loadInitial();
@@ -986,7 +1016,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
       )}
       {readOnly && <div style={s.notice}>Read-only connection — document changes are disabled.</div>}
 
-      {rows.length === 0 && !loading ? (
+      {rows.length === 0 && !loading && columns.length === 0 ? (
         <div ref={documentsRegionRef} style={{ ...s.empty, minHeight: documentPanelOpen ? 120 : 0 }}>No documents found</div>
       ) : (
         <div ref={documentsRegionRef} style={{ ...s.tableWrap, minHeight: documentPanelOpen ? 120 : 0 }}>
@@ -1091,7 +1121,11 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {rows.length === 0 && !loading ? (
+                <tr>
+                  <td colSpan={columns.length + 1} style={s.emptyTableCell}>No documents found</td>
+                </tr>
+              ) : rows.map((row) => (
                 <tr
                   key={row.key}
                   style={{ ...s.row, ...(selected?.key === row.key ? s.selectedRow : {}) }}
@@ -1205,9 +1239,23 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
               Count failed: {countError}
             </span>
           )}
-          <span title="Change the global page size in Settings">
-            Page size {cursorId ? cursorPageSize : configuredPageSize}
-          </span>
+          <label style={s.pageSizeLabel} title="Applies only to this collection tab">
+            <span>Page size</span>
+            <select
+              aria-label="Documents page size"
+              value={pageSizeOverride === undefined ? 'default' : String(pageSizeOverride)}
+              disabled={busy || editorMode !== 'view'}
+              onChange={(event) => void changePageSize(event.target.value)}
+              style={{
+                ...s.pageSizeSelect,
+                ...(busy || editorMode !== 'view' ? s.disabled : {}),
+              }}
+            >
+              {pageSizeOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
           <ToolbarButton secondary onClick={() => void fetchPage('previous')} disabled={busy || pageIndex === 0}>Previous</ToolbarButton>
           <ToolbarButton secondary onClick={() => void fetchPage('next')} disabled={busy || !hasMore}>Next</ToolbarButton>
         </span>
@@ -1318,14 +1366,6 @@ function renderDocumentEnvelope(
   } catch {
     return envelope.ejson;
   }
-}
-
-function extractColumns(documents: Array<Record<string, unknown>>): string[] {
-  const keys = new Set<string>();
-  for (const document of documents) {
-    for (const key of Object.keys(document)) keys.add(key);
-  }
-  return ['_id', ...Array.from(keys).filter((key) => key !== '_id').sort()];
 }
 
 function CollectionBsonCell({ value, mode }: { value: unknown; mode: BsonDisplayMode }) {

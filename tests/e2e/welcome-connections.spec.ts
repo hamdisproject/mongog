@@ -455,6 +455,22 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   const quickQuantityFilter = page.getByLabel('Filter quantity column');
   const amenitiesFilter = page.getByLabel('Filter amenities column');
   const catalogFilter = page.getByLabel('Filter catalog column');
+  const quantityWidthBeforeEmptyFilter = await quantityHeader.evaluate(
+    (element) => Math.round(element.getBoundingClientRect().width),
+  );
+  await quickQuantityFilter.fill('> 999');
+  await quickQuantityFilter.press('Enter');
+  await expect(documentsTable).toBeVisible();
+  await expect(documentsTable.getByText('No documents found', { exact: true })).toBeVisible();
+  await expect(quickQuantityFilter).toHaveValue('> 999');
+  await expect(page.getByLabel('Filter sku column')).toBeVisible();
+  await expect.poll(() => quantityHeader.evaluate(
+    (element) => Math.round(element.getBoundingClientRect().width),
+  )).toBe(quantityWidthBeforeEmptyFilter);
+  await quickQuantityFilter.fill('');
+  await quickQuantityFilter.press('Enter');
+  await expect(page.getByText('"alpha"', { exact: true })).toBeVisible();
+
   await catalogFilter.fill('{city}: ""');
   await catalogFilter.press('Enter');
   await expect(page.getByText('"beta"', { exact: true })).toBeVisible();
@@ -823,7 +839,23 @@ test('global collection defaults persist and auto-run a new Query collection onc
   await expect(page.getByText('Statement 1', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Documents', exact: true }).click();
-  await expect(page.getByText('Page size 100', { exact: true })).toBeVisible();
+  const documentsPageSize = page.getByLabel('Documents page size');
+  await expect(documentsPageSize).toHaveValue('default');
+  await expect(documentsPageSize.locator('option:checked')).toHaveText('Default · 100');
+  await documentsPageSize.selectOption('25');
+  await expect(documentsPageSize).toHaveValue('25');
+  await expect(page.getByText('Page 1', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Query', exact: true }).click();
+  await page.getByRole('button', { name: 'Documents', exact: true }).click();
+  await expect(documentsPageSize).toHaveValue('25');
+
+  await page.getByRole('button', { name: 'New', exact: true }).click();
+  await expect(documentsPageSize).toBeDisabled();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(documentsPageSize).toBeEnabled();
+  await documentsPageSize.selectOption('default');
+  await expect(documentsPageSize).toHaveValue('default');
 });
 
 async function setMonacoValue(page: Page, label: string, value: string): Promise<void> {

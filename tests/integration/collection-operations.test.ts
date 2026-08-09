@@ -585,13 +585,16 @@ describe('collection browser operations', () => {
       filterEjson: '{}',
       pageSize: 2,
     });
-    await findCollectionDocuments(client!, registry!, {
+    const refreshed = await findCollectionDocuments(client!, registry!, {
       database: DATABASE,
       collection: 'owner_cleanup',
       owner,
       filterEjson: '{}',
-      pageSize: 2,
+      pageSize: 3,
     });
+    expect(refreshed.documents).toHaveLength(3);
+    expect(refreshed.pageSize).toBe(3);
+    expect(refreshed.pageIndex).toBe(0);
     await expect(registry!.fetchNext(first.cursorId, 2)).rejects.toMatchObject({
       category: 'CursorNotFound',
     });

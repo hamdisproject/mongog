@@ -27,6 +27,8 @@ export interface WorkspaceTab {
   collectionViewMode?: 'documents' | 'query';
   /** Renderer-only one-shot request; deliberately omitted from workspace persistence. */
   autoExecuteOnOpen?: boolean;
+  /** Renderer-only Documents page size; deliberately omitted from workspace persistence and saved templates. */
+  documentsPageSizeOverride?: number;
   /** query tabs */
   editorContent?: string;
   mode?: 'query' | 'trusted';

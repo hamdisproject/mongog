@@ -219,6 +219,7 @@ function workspaceMetadataFingerprint(tabs: WorkspaceTab[], activeTabId: string 
     tabs: tabs.map(({
       editorContent: _editorContent,
       documentsState: _documentsState,
+      documentsPageSizeOverride: _documentsPageSizeOverride,
       dirty: _dirty,
       ...metadata
     }) => metadata),

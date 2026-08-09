@@ -347,6 +347,32 @@ describe('workspace execution store', () => {
     expect(useWorkspaceStore.getState().tabs[0]?.editorContent).toBe('');
   });
 
+  it('keeps a Documents page-size override only for the lifetime of its collection tab', () => {
+    const tabId = useWorkspaceStore.getState().openCollection({
+      connectionId: 'conn-1', database: 'db', collection: 'items',
+    });
+    useWorkspaceStore.getState().updateTab(tabId, { documentsPageSizeOverride: 100 });
+
+    const queryId = useWorkspaceStore.getState().openQuery({ connectionId: 'conn-1', database: 'db' });
+    expect(useWorkspaceStore.getState().activeTabId).toBe(queryId);
+    useWorkspaceStore.getState().setActiveTab(tabId);
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === tabId)?.documentsPageSizeOverride)
+      .toBe(100);
+
+    useWorkspaceStore.getState().updateTab(tabId, { documentsPageSizeOverride: undefined });
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === tabId)?.documentsPageSizeOverride)
+      .toBeUndefined();
+    useWorkspaceStore.getState().updateTab(tabId, { documentsPageSizeOverride: 100 });
+
+    useWorkspaceStore.getState().closeTab(tabId);
+    const reopenedId = useWorkspaceStore.getState().openCollection({
+      connectionId: 'conn-1', database: 'db', collection: 'items',
+    });
+    expect(reopenedId).not.toBe(tabId);
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === reopenedId)?.documentsPageSizeOverride)
+      .toBeUndefined();
+  });
+
   it('opens a new collection with the global Query, auto-run and page-size defaults', () => {
     useSettingsStore.setState((state) => ({
       settings: {
