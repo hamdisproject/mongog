@@ -126,9 +126,12 @@ export function createMainWindow(options?: CreateWindowOptions): BrowserWindow {
 }
 
 export function applicationIconPath(): string {
+  const iconFilename = process.platform === 'darwin'
+    ? 'mongog-icon-macos.png'
+    : 'mongog-icon.png';
   return app.isPackaged
-    ? path.join(process.resourcesPath, 'mongog-icon.png')
-    : path.join(app.getAppPath(), 'assets', 'mongog-icon.png');
+    ? path.join(process.resourcesPath, iconFilename)
+    : path.join(app.getAppPath(), 'assets', iconFilename);
 }
 
 function contentType(filePath: string): string {

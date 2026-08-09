@@ -7,7 +7,7 @@ const config: ForgeConfig = {
     executableName: 'MongoG',
     appBundleId: 'com.mongog.desktop',
     icon: 'assets/mongog-icon',
-    extraResource: ['assets/mongog-icon.png'],
+    extraResource: ['assets/mongog-icon.png', 'assets/mongog-icon-macos.png'],
     asar: {
       // utilityProcess.fork() must load a real file path: keep the query
       // runtime outside the asar archive (see src/main/runtime/paths.ts).
