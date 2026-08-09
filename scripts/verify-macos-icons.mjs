@@ -16,6 +16,7 @@ const iconset = path.join(root, 'assets', 'mongog-icon.iconset');
 const fallbackIcns = path.join(root, 'assets', 'mongog-icon.icns');
 const legacyIcns = path.join(root, 'assets', 'legacy', 'mongog-icon.icns');
 const fallbackMaster = path.join(root, 'assets', 'mongog-icon-macos.png');
+const rendererBrand = path.join(root, 'src', 'renderer', 'assets', 'mongog-icon.png');
 
 const representations = new Map([
   ['icon_16x16.png', 16],
@@ -89,6 +90,11 @@ function verifyMasterAndIconset() {
   invariant(
     bounds?.left === 100 && bounds.top === 100 && bounds.right === 924 && bounds.bottom === 924,
     `${fallbackMaster} must use the exact (100, 100)-(924, 924) optical bounds`,
+  );
+  verifyPng(rendererBrand, 1024);
+  invariant(
+    readFileSync(rendererBrand).equals(readFileSync(fallbackMaster)),
+    'Renderer brand icon must stay in sync with the compact macOS master',
   );
 }
 

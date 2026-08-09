@@ -1,7 +1,12 @@
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
-const packagerIcon = 'assets/mongog-icon';
+// Electron Packager probes sibling .icon and .icns files for the same basename.
+// Use the isolated ICNS copy on macOS so the archived Icon Composer source is
+// never compiled into Assets.car for the compact default package.
+const packagerIcon = process.platform === 'darwin'
+  ? 'assets/legacy/mongog-icon'
+  : 'assets/mongog-icon';
 
 const config: ForgeConfig = {
   packagerConfig: {
