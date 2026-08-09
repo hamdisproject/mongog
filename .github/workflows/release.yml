@@ -78,7 +78,7 @@ jobs:
 
   windows:
     name: Windows x64
-    runs-on: windows-latest
+    runs-on: windows-2022
     timeout-minutes: 90
     environment: release
     permissions:
@@ -91,6 +91,16 @@ jobs:
         with:
           node-version: 22.12.0
           cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Configure Windows native build toolchain
+        shell: pwsh
+        run: |
+          $python = (Get-Command python).Source
+          "PYTHON=$python" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "npm_config_python=$python" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "npm_config_msvs_version=2022" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - run: npm ci
       - name: Validate unsigned release tag
         env:
@@ -158,6 +168,11 @@ jobs:
         env:
           MONGOG_RELEASE: '1'
         run: npm run verify:package -- --platform linux --arch x64 --release
+      - name: Configure packaged Electron SUID sandbox
+        run: |
+          sudo chown root:root out/MongoG-linux-x64/chrome-sandbox
+          sudo chmod 4755 out/MongoG-linux-x64/chrome-sandbox
+          stat -c '%U:%G %a %n' out/MongoG-linux-x64/chrome-sandbox
       - name: Run production packaged smoke
         run: xvfb-run -a npm run smoke:packaged -- --platform linux --arch x64
       - name: Normalize and inspect Linux artifacts

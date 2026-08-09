@@ -24,6 +24,22 @@ afterEach(() => {
 });
 
 describe('release tooling', () => {
+  it('pins a supported Windows native toolchain and keeps the Linux sandbox enabled', () => {
+    const ciWorkflow = readFileSync(path.resolve(process.cwd(), '.github', 'workflows', 'ci.yml'), 'utf8');
+    const releaseWorkflow = readFileSync(path.resolve(process.cwd(), '.github', 'workflows', 'release.yml'), 'utf8');
+
+    expect(ciWorkflow).toContain('os: windows-2022');
+    expect(releaseWorkflow).toContain('runs-on: windows-2022');
+    expect(ciWorkflow).not.toContain('windows-latest');
+    expect(releaseWorkflow).not.toContain('windows-latest');
+    for (const workflow of [ciWorkflow, releaseWorkflow]) {
+      expect(workflow).toContain("python-version: '3.12'");
+      expect(workflow).toContain('npm_config_msvs_version=2022');
+      expect(workflow).toContain('sudo chmod 4755 out/MongoG-linux-x64/chrome-sandbox');
+      expect(workflow).not.toContain('--no-sandbox');
+    }
+  });
+
   it('requires the release tag to match package.json', () => {
     execFileSync(process.execPath, [script('validate-release-environment.mjs'), '--platform', 'linux', '--tag', `v${packageMetadata.version}`], {
       env: { ...process.env, MONGOG_RELEASE: '1' },
