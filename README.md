@@ -61,15 +61,16 @@ npm run typecheck
 ```bash
 npm run package     # → out/MongoG-<platform>-<arch>/ (asar + fuses + unpacked runtime)
 npm run make        # installers (zip/dmg on macOS)
-npm run verify:icons       # validates .icon renditions and legacy .icns sizes
-npm run package:mac:legacy # macOS 12–25 build path; skips Icon Composer/actool
+npm run build:icons        # builds compact ICNS from the standard ten-image iconset
+npm run verify:icons       # validates optical bounds, iconset sizes, and ICNS contents
+npm run package:mac:legacy # compatibility alias for the default compact macOS package
 ```
 
-The default macOS package uses `assets/mongog-icon.icon` for adaptive Default,
-Dark, Clear, and Tinted Liquid Glass appearances and keeps
-`assets/mongog-icon.icns` as its macOS 12–25 fallback. Building the adaptive
-asset catalog requires macOS 26 and Xcode/actool 26; the explicit legacy command
-uses only the ICNS copy under `assets/legacy/`.
+The default macOS package uses `assets/mongog-icon.icns` on macOS 12 and later.
+Its 1024 px master keeps the visible icon inside a centered 824 px optical
+envelope, matching the compact footprint of standard macOS application icons.
+The Icon Composer `.icon` sources remain in `assets/` as design archives but are
+not shipped or used by Finder and Dock.
 
 Packaged-app self-check:
 `MONGOG_SMOKE=1 out/MongoG-darwin-arm64/MongoG.app/Contents/MacOS/MongoG`.

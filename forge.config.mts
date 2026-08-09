@@ -1,12 +1,7 @@
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
-const legacyMacIcon = process.env.MONGOG_LEGACY_MAC_ICON === '1';
-const packagerIcon = process.platform === 'darwin'
-  ? legacyMacIcon
-    ? 'assets/legacy/mongog-icon'
-    : ['assets/mongog-icon.icon', 'assets/mongog-icon.icns']
-  : 'assets/mongog-icon';
+const packagerIcon = 'assets/mongog-icon';
 
 const config: ForgeConfig = {
   packagerConfig: {

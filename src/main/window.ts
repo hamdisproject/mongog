@@ -85,8 +85,8 @@ export function createMainWindow(options?: CreateWindowOptions): BrowserWindow {
     minWidth: 900,
     minHeight: 600,
     title: 'MongoG',
-    // On packaged macOS builds Finder/Dock resolve the adaptive bundle icon.
-    // Supplying a static PNG here would override that behavior.
+    // Packaged macOS builds resolve the compact ICNS directly from the bundle.
+    // Development uses the matching PNG through applicationIconPath().
     ...(process.platform === 'darwin' && app.isPackaged
       ? {}
       : { icon: applicationIconPath() }),
