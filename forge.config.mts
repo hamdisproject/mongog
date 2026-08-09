@@ -108,6 +108,11 @@ const config: ForgeConfig = {
       platforms: ['darwin'],
       config: {
         format: 'ULFO',
+        // appdmg's legacy HFS+ path invokes `bless --openfolder` on Intel.
+        // On hosted macOS runners Finder can race the subsequent detach and
+        // unmount the temporary volume first. APFS skips that legacy step and
+        // is supported by MongoG's macOS 12 minimum deployment target.
+        additionalDMGOptions: { filesystem: 'APFS' },
         ...(macRelease
           ? {
               'code-sign': {

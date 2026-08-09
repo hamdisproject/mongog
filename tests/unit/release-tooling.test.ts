@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import packageMetadata from '../../package.json';
+import { isRecoverableDmgDetachFailure } from '../../scripts/release-utils.mjs';
 
 const scratchDirectories: string[] = [];
 
@@ -34,12 +35,26 @@ describe('release tooling', () => {
     expect(releaseWorkflow).not.toContain('windows-latest');
     expect(releaseWorkflow).toContain('if [[ "$EXPECTED_MACHO_ARCH" == "x64" ]]; then EXPECTED_MACHO_ARCH="x86_64"; fi');
     expect(releaseWorkflow).toContain('grep -Fxq "$EXPECTED_MACHO_ARCH"');
+    expect(releaseWorkflow).toContain('node scripts/make-macos-dmg.mjs --arch ${{ matrix.arch }}');
+    expect(releaseWorkflow).toContain('--targets=@electron-forge/maker-zip');
+    expect(releaseWorkflow).toContain('hdiutil verify "$DMG_PATH"');
     for (const workflow of [ciWorkflow, releaseWorkflow]) {
       expect(workflow).toContain("python-version: '3.12'");
       expect(workflow).toContain('npm_config_msvs_version=2022');
       expect(workflow).toContain('sudo chmod 4755 out/MongoG-linux-x64/chrome-sandbox');
       expect(workflow).not.toContain('--no-sandbox');
     }
+  });
+
+  it('retries only the known idempotent macOS DMG detach failure', () => {
+    expect(isRecoverableDmgDetachFailure(
+      'Command failed: hdiutil detach /Volumes/MongoG\nhdiutil: detach failed - No such file or directory',
+    )).toBe(true);
+    expect(isRecoverableDmgDetachFailure('hdiutil: detach failed - Resource busy')).toBe(false);
+    expect(isRecoverableDmgDetachFailure('codesign failed')).toBe(false);
+
+    const forgeConfig = readFileSync(path.resolve(process.cwd(), 'forge.config.mts'), 'utf8');
+    expect(forgeConfig).toContain("additionalDMGOptions: { filesystem: 'APFS' }");
   });
 
   it('requires the release tag to match package.json', () => {

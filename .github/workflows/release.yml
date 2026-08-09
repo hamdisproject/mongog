@@ -53,10 +53,23 @@ jobs:
           npm run package -- --platform=darwin --arch=${{ matrix.arch }}
           npm run verify:package -- --platform darwin --arch ${{ matrix.arch }}
           npm run test:e2e
-      - name: Build hardened unsigned production artifacts
+      - name: Build hardened unsigned production package
         env:
           MONGOG_RELEASE: '1'
-        run: npm run make -- --platform=darwin --arch=${{ matrix.arch }}
+        run: npm run package -- --platform=darwin --arch=${{ matrix.arch }}
+      - name: Make macOS ZIP
+        env:
+          MONGOG_RELEASE: '1'
+        run: npm run make -- --skip-package --platform=darwin --arch=${{ matrix.arch }} --targets=@electron-forge/maker-zip
+      - name: Make macOS DMG
+        env:
+          MONGOG_RELEASE: '1'
+        shell: bash
+        run: |
+          node scripts/make-macos-dmg.mjs --arch ${{ matrix.arch }}
+          DMG_PATH="$(find out/make -type f -name '*.dmg' -print -quit)"
+          test -n "$DMG_PATH"
+          hdiutil verify "$DMG_PATH"
       - name: Verify production package and architecture
         env:
           MONGOG_RELEASE: '1'

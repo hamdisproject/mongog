@@ -129,3 +129,7 @@ export function releaseTagVersion(tag) {
   }
   return tag.slice(1);
 }
+
+export function isRecoverableDmgDetachFailure(output) {
+  return output.includes('hdiutil detach') && output.includes('No such file or directory');
+}
