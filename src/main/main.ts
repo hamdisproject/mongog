@@ -11,10 +11,14 @@ import { IpcEvents } from '../shared/ipc/index.js';
 import { serializeError } from '../shared/errors/index.js';
 import { AuditService } from './services/audit-service.js';
 import { DataTransferCoordinator } from './data-transfer/coordinator.js';
+import squirrelStartup from 'electron-squirrel-startup';
 
 const supervisor = new RuntimeSupervisor({ maxRuntimes: 10, idleTimeoutMS: 15 * 60 * 1000 });
 const dataTransfer = new DataTransferCoordinator(supervisor);
 app.setName('MongoG');
+if (process.platform === 'win32') app.setAppUserModelId('com.squirrel.MongoG.MongoG');
+const isSquirrelStartup = process.platform === 'win32' && squirrelStartup;
+if (isSquirrelStartup) app.quit();
 const smokeUserDataPath = process.env.MONGOG_SMOKE === '1'
   ? join(app.getPath('temp'), `mongog-smoke-${process.pid}`)
   : null;
@@ -59,7 +63,7 @@ async function getSpikeMongoUri(): Promise<string | null> {
   return spikeMongoUri;
 }
 
-void app.whenReady().then(async () => {
+if (!isSquirrelStartup) void app.whenReady().then(async () => {
   // Packaged macOS builds resolve the standard compact ICNS from the bundle.
   // Development uses the matching padded master so both modes have equal sizing.
   if (process.platform === 'darwin' && app.dock && !app.isPackaged) {

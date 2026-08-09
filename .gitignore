@@ -4,6 +4,7 @@ out/
 dist/
 coverage/
 test-results/
+release-artifacts/
 *.log
 .DS_Store
 src/renderer/generated/

@@ -1,7 +1,7 @@
 # MongoG
 
 Production-grade, cross-platform MongoDB desktop IDE.
-**Status: Phase 5.5 complete; Phase 6 is next.** See
+**Status: Phase 5.5 complete; Phase 6 release packaging is in progress.** See
 [docs/phase5.5-report.md](docs/phase5.5-report.md),
 [docs/phase5-report.md](docs/phase5-report.md),
 [docs/phase4-report.md](docs/phase4-report.md),
@@ -60,7 +60,9 @@ npm run typecheck
 
 ```bash
 npm run package     # → out/MongoG-<platform>-<arch>/ (asar + fuses + unpacked runtime)
-npm run make        # installers (zip/dmg on macOS)
+npm run make        # host installers: macOS DMG/ZIP, Windows Setup/ZIP, Linux DEB/RPM/ZIP
+npm run verify:package -- --platform darwin --arch arm64
+npm run smoke:packaged -- --platform darwin --arch arm64
 npm run build:icons        # builds compact ICNS from the standard ten-image iconset
 npm run verify:icons       # validates optical bounds, iconset sizes, and ICNS contents
 npm run package:mac:legacy # compatibility alias for the default compact macOS package
@@ -77,6 +79,45 @@ Packaged-app self-check:
 For its DB path, start mongod externally and also set
 `MONGOG_SMOKE_MONGO_URI`; packaged builds never launch
 `mongodb-memory-server`.
+
+## GitHub releases
+
+Kısa yayın kontrol listesi: [docs/RELEASE.md](docs/RELEASE.md)
+
+Pull requests and pushes to `main` run typecheck, lint, unit/integration tests,
+and unsigned packaged smoke checks on macOS arm64/x64, Windows x64, and Linux
+x64. Release builds are created only from a version tag matching
+`package.json`, for example `v1.0.0`. The release workflow creates a draft
+GitHub Release containing nine normalized installers/portable archives plus
+`SHA256SUMS.txt`.
+
+Releases are temporarily produced as **unsigned pre-releases**. Artifact names
+contain `UNSIGNED`, the draft title carries the same warning, and macOS/Windows
+security prompts are expected. Production Electron fuses remain hardened; only
+Apple signing/notarization and Windows Authenticode signing are disabled.
+
+Create a protected GitHub Environment named `release` and optionally add a
+required reviewer. No certificate, notarization, or Authenticode secrets are
+required in the current unsigned phase. The signing-capable Forge configuration
+is retained for a later phase and is enabled separately with
+`MONGOG_SIGN_RELEASE=1`; `MONGOG_RELEASE=1` now controls production hardening
+without implicitly requiring credentials.
+
+Release sequence:
+
+```bash
+npm version 1.0.0 --no-git-tag-version
+git add package.json package-lock.json
+git commit -m "release: v1.0.0"
+git tag v1.0.0
+git push origin main v1.0.0
+```
+
+After every platform job succeeds, review the generated draft and its unsigned
+warning before publishing it in GitHub Releases. `workflow_dispatch` can rebuild
+an existing tag but refuses to overwrite a release that has already been
+published. Automatic application updates are intentionally outside this release
+phase.
 
 ## Layout
 

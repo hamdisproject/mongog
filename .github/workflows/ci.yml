@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_OPTIONS: --max-old-space-size=8192
+
+jobs:
+  quality:
+    name: Quality and integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run test:integ
+
+  package-smoke:
+    name: Package smoke (${{ matrix.platform }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            platform: darwin
+            arch: arm64
+          - os: macos-15-intel
+            platform: darwin
+            arch: x64
+          - os: windows-latest
+            platform: win32
+            arch: x64
+          - os: ubuntu-24.04
+            platform: linux
+            arch: x64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
+      - name: Install Linux packaging and display dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fakeroot rpm xvfb
+      - run: npm ci
+      - name: Install Electron runtime libraries
+        if: runner.os == 'Linux'
+        run: npx playwright install-deps
+      - name: Build unsigned test package
+        run: npm run package -- --platform=${{ matrix.platform }} --arch=${{ matrix.arch }}
+      - name: Verify package contents and test fuses
+        run: npm run verify:package -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
+      - name: Run packaged smoke
+        if: runner.os != 'Linux'
+        run: npm run smoke:packaged -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
+      - name: Run packaged smoke under Xvfb
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npm run smoke:packaged -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-smoke-diagnostics-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            test-results/
+            *.log
+          if-no-files-found: ignore
+          retention-days: 7

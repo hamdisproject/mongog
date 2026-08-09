@@ -329,13 +329,14 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(databaseTreeItem).not.toBeFocused();
   await page.keyboard.press('ArrowDown');
   await expect(databaseTreeItem).toBeFocused();
-  await page.keyboard.press('ArrowRight');
+  await databaseTreeItem.press('ArrowRight');
   await expect(databaseTreeItem).toBeFocused();
   const collectionTreeItem = explorer.getByRole('treeitem', { name: 'Collection mongog_e2e.inventory' });
   await expect(collectionTreeItem).toBeVisible();
-  await page.keyboard.press('ArrowRight');
-  await expect(collectionTreeItem).toBeFocused();
-  await page.keyboard.press('ArrowLeft');
+  await databaseTreeItem.press('ArrowRight');
+  const focusedCollectionTreeItem = explorer.locator('[role="treeitem"][aria-level="4"]:focus');
+  await expect(focusedCollectionTreeItem).toBeVisible();
+  await focusedCollectionTreeItem.press('ArrowLeft');
   await expect(databaseTreeItem).toBeFocused();
   await page.keyboard.press('ArrowLeft');
   await expect(collectionTreeItem).toHaveCount(0);
@@ -968,14 +969,26 @@ async function redirectOpenDialogs(app: ElectronApplication, filePaths: string[]
 }
 
 function packagedExecutable(): string {
+  const configuredExecutable = process.env.MONGOG_E2E_EXECUTABLE?.trim();
+  if (configuredExecutable) {
+    if (!existsSync(configuredExecutable)) throw new Error(`MONGOG_E2E_EXECUTABLE does not exist: ${configuredExecutable}`);
+    return configuredExecutable;
+  }
+  const macArchitectures = process.arch === 'x64' ? ['x64', 'arm64'] : ['arm64', 'x64'];
   const candidates = process.platform === 'darwin'
-    ? [
-        join(process.cwd(), 'out/MongoG-darwin-arm64/MongoG.app/Contents/MacOS/MongoG'),
-        join(process.cwd(), 'out/MongoG-darwin-arm64/MongoG.app/Contents/MacOS/mongog'),
-      ]
+    ? macArchitectures.flatMap((arch) => [
+        join(process.cwd(), `out/MongoG-darwin-${arch}/MongoG.app/Contents/MacOS/MongoG`),
+        join(process.cwd(), `out/MongoG-darwin-${arch}/MongoG.app/Contents/MacOS/mongog`),
+      ])
     : process.platform === 'win32'
-      ? [join(process.cwd(), 'out/MongoG-win32-x64/mongog.exe')]
-      : [join(process.cwd(), 'out/MongoG-linux-x64/mongog')];
+      ? [
+          join(process.cwd(), 'out/MongoG-win32-x64/MongoG.exe'),
+          join(process.cwd(), 'out/MongoG-win32-x64/mongog.exe'),
+        ]
+      : [
+          join(process.cwd(), 'out/MongoG-linux-x64/mongog'),
+          join(process.cwd(), 'out/MongoG-linux-x64/MongoG'),
+        ];
   const executable = candidates.find(existsSync);
   if (!executable) throw new Error('Packaged MongoG executable not found. Run npm run package first.');
   return executable;
