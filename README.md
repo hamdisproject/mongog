@@ -61,10 +61,18 @@ npm run typecheck
 ```bash
 npm run package     # → out/MongoG-<platform>-<arch>/ (asar + fuses + unpacked runtime)
 npm run make        # installers (zip/dmg on macOS)
+npm run verify:icons       # validates .icon renditions and legacy .icns sizes
+npm run package:mac:legacy # macOS 12–25 build path; skips Icon Composer/actool
 ```
 
+The default macOS package uses `assets/mongog-icon.icon` for adaptive Default,
+Dark, Clear, and Tinted Liquid Glass appearances and keeps
+`assets/mongog-icon.icns` as its macOS 12–25 fallback. Building the adaptive
+asset catalog requires macOS 26 and Xcode/actool 26; the explicit legacy command
+uses only the ICNS copy under `assets/legacy/`.
+
 Packaged-app self-check:
-`MONGOG_SMOKE=1 out/MongoG-darwin-arm64/MongoG.app/Contents/MacOS/mongog`.
+`MONGOG_SMOKE=1 out/MongoG-darwin-arm64/MongoG.app/Contents/MacOS/MongoG`.
 For its DB path, start mongod externally and also set
 `MONGOG_SMOKE_MONGO_URI`; packaged builds never launch
 `mongodb-memory-server`.

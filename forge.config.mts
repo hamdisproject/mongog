@@ -1,13 +1,23 @@
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
+const legacyMacIcon = process.env.MONGOG_LEGACY_MAC_ICON === '1';
+const packagerIcon = process.platform === 'darwin'
+  ? legacyMacIcon
+    ? 'assets/legacy/mongog-icon'
+    : ['assets/mongog-icon.icon', 'assets/mongog-icon.icns']
+  : 'assets/mongog-icon';
+
 const config: ForgeConfig = {
   packagerConfig: {
     name: 'MongoG',
     executableName: 'MongoG',
     appBundleId: 'com.mongog.desktop',
-    icon: 'assets/mongog-icon',
-    extraResource: ['assets/mongog-icon.png', 'assets/mongog-icon-macos.png'],
+    icon: packagerIcon,
+    extraResource: ['assets/mongog-icon.png'],
+    extendInfo: {
+      LSMinimumSystemVersion: '12.0',
+    },
     asar: {
       // utilityProcess.fork() must load a real file path: keep the query
       // runtime outside the asar archive (see src/main/runtime/paths.ts).

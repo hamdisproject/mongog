@@ -60,7 +60,9 @@ async function getSpikeMongoUri(): Promise<string | null> {
 }
 
 void app.whenReady().then(async () => {
-  if (process.platform === 'darwin' && app.dock) {
+  // A packaged macOS app must use the bundle's Icon Composer asset catalog.
+  // Setting a static Dock image here would replace its adaptive appearance.
+  if (process.platform === 'darwin' && app.dock && !app.isPackaged) {
     const icon = nativeImage.createFromPath(applicationIconPath());
     if (!icon.isEmpty()) app.dock.setIcon(icon);
   }

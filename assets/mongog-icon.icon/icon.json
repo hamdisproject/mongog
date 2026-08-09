@@ -1,0 +1,147 @@
+{
+  "fill-specializations": [
+    {
+      "value": {
+        "linear-gradient": [
+          "srgb:0.07843,0.16471,0.29020,1.00000",
+          "srgb:0.02745,0.07451,0.14902,1.00000"
+        ],
+        "orientation": {
+          "start": {
+            "x": 0.18,
+            "y": 0.08
+          },
+          "stop": {
+            "x": 0.82,
+            "y": 0.92
+          }
+        }
+      }
+    },
+    {
+      "appearance": "dark",
+      "value": {
+        "linear-gradient": [
+          "srgb:0.03922,0.09412,0.16863,1.00000",
+          "srgb:0.01176,0.03529,0.07059,1.00000"
+        ],
+        "orientation": {
+          "start": {
+            "x": 0.18,
+            "y": 0.08
+          },
+          "stop": {
+            "x": 0.82,
+            "y": 0.92
+          }
+        }
+      }
+    }
+  ],
+  "groups": [
+    {
+      "layers": [
+        {
+          "name": "Database and G ribbon",
+          "image-name-specializations": [
+            {
+              "value": "database-default.png"
+            },
+            {
+              "appearance": "dark",
+              "value": "database-dark.png"
+            },
+            {
+              "appearance": "tinted",
+              "value": "database-mono.png"
+            }
+          ],
+          "glass": true,
+          "hidden": false,
+          "opacity": 1
+        }
+      ],
+      "lighting": "combined",
+      "blur": 0.08,
+      "specular": true,
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.28
+      },
+      "translucency": {
+        "enabled": true,
+        "value": 0.18
+      }
+    },
+    {
+      "layers": [
+        {
+          "name": "Code badge",
+          "image-name-specializations": [
+            {
+              "value": "badge-default.png"
+            },
+            {
+              "appearance": "dark",
+              "value": "badge-dark.png"
+            },
+            {
+              "appearance": "tinted",
+              "value": "badge-mono.png"
+            }
+          ],
+          "glass": true,
+          "hidden": false,
+          "opacity": 1
+        }
+      ],
+      "lighting": "combined",
+      "blur": 0.06,
+      "specular": true,
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.22
+      },
+      "translucency": {
+        "enabled": true,
+        "value": 0.12
+      }
+    },
+    {
+      "layers": [
+        {
+          "name": "Code glyph",
+          "image-name-specializations": [
+            {
+              "value": "glyph-default.png"
+            },
+            {
+              "appearance": "dark",
+              "value": "glyph-dark.png"
+            },
+            {
+              "appearance": "tinted",
+              "value": "glyph-mono.png"
+            }
+          ],
+          "glass": false,
+          "hidden": false,
+          "opacity": 1
+        }
+      ],
+      "lighting": "individual",
+      "specular": false,
+      "shadow": {
+        "kind": "none",
+        "opacity": 0
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0
+      }
+    }
+  ],
+  "supported-platforms": {
+    "squares": "shared"
+  }
+}
