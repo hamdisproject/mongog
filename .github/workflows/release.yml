@@ -64,7 +64,9 @@ jobs:
         run: |
           npm run verify:package -- --platform darwin --arch ${{ matrix.arch }} --release
           APP_PATH="out/MongoG-darwin-${{ matrix.arch }}/MongoG.app"
-          lipo -archs "$APP_PATH/Contents/MacOS/MongoG" | grep -qw "${{ matrix.arch }}"
+          EXPECTED_MACHO_ARCH="${{ matrix.arch }}"
+          if [[ "$EXPECTED_MACHO_ARCH" == "x64" ]]; then EXPECTED_MACHO_ARCH="x86_64"; fi
+          lipo -archs "$APP_PATH/Contents/MacOS/MongoG" | tr ' ' '\n' | grep -Fxq "$EXPECTED_MACHO_ARCH"
       - name: Run production packaged smoke
         run: npm run smoke:packaged -- --platform darwin --arch ${{ matrix.arch }}
       - name: Normalize macOS artifacts

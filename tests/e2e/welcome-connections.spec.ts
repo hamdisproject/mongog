@@ -966,10 +966,19 @@ async function expectQueryEditorFullHeight(page: Page): Promise<void> {
 
 async function expectQueryColumnsFillWidth(page: Page): Promise<void> {
   await expect.poll(() => page.getByTestId('query-documents-table-wrap').evaluate((wrapper) => {
+    const table = wrapper.querySelector('table');
+    const headerRow = wrapper.querySelector('thead tr');
     const lastHeader = wrapper.querySelector('th:last-child');
-    if (!lastHeader) return Number.POSITIVE_INFINITY;
-    return Math.round(Math.abs(
-      wrapper.getBoundingClientRect().right - lastHeader.getBoundingClientRect().right,
+    if (!table || !headerRow || !lastHeader) return Number.POSITIVE_INFINITY;
+    const tableRect = table.getBoundingClientRect();
+    const headerRowRect = headerRow.getBoundingClientRect();
+    const lastHeaderRect = lastHeader.getBoundingClientRect();
+    return Math.round(Math.max(
+      // A table must fill the visible viewport, but it may legitimately be
+      // wider when its minimum column widths require horizontal scrolling.
+      Math.max(0, wrapper.clientWidth - tableRect.width),
+      Math.abs(tableRect.width - headerRowRect.width),
+      Math.abs(tableRect.right - lastHeaderRect.right),
     ));
   })).toBeLessThanOrEqual(2);
 }

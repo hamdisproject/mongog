@@ -32,6 +32,8 @@ describe('release tooling', () => {
     expect(releaseWorkflow).toContain('runs-on: windows-2022');
     expect(ciWorkflow).not.toContain('windows-latest');
     expect(releaseWorkflow).not.toContain('windows-latest');
+    expect(releaseWorkflow).toContain('if [[ "$EXPECTED_MACHO_ARCH" == "x64" ]]; then EXPECTED_MACHO_ARCH="x86_64"; fi');
+    expect(releaseWorkflow).toContain('grep -Fxq "$EXPECTED_MACHO_ARCH"');
     for (const workflow of [ciWorkflow, releaseWorkflow]) {
       expect(workflow).toContain("python-version: '3.12'");
       expect(workflow).toContain('npm_config_msvs_version=2022');
