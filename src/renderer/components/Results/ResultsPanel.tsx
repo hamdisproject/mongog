@@ -68,16 +68,16 @@ const s: Record<string, React.CSSProperties> = {
     width: '100%', maxWidth: '100%', minWidth: 0, overflow: 'auto',
     maxHeight: 300, border: '1px solid var(--color-border)',
   },
-  table: { width: '100%', borderCollapse: 'collapse', fontSize: 11 },
+  table: { display: 'block', borderCollapse: 'collapse', fontSize: 11 },
   th: {
     position: 'sticky', top: 0, textAlign: 'left', padding: '4px 7px',
     background: 'var(--color-panel-raised)', color: 'var(--color-text-muted)', borderBottom: '1px solid var(--color-border)',
-    whiteSpace: 'nowrap', zIndex: 1,
+    boxSizing: 'border-box', whiteSpace: 'nowrap', zIndex: 1,
   },
   td: {
     padding: '3px 7px', borderBottom: '1px solid #303030',
     maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-    fontFamily: 'monospace',
+    boxSizing: 'border-box', fontFamily: 'monospace',
   },
   selectedRow: { background: 'var(--color-selected)' },
   controls: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, color: 'var(--color-text-muted)', fontSize: 11 },
@@ -419,12 +419,10 @@ function DocumentsResult({
             data-testid="query-documents-table"
             style={{
               ...s.table,
-              display: 'grid',
-              width: table.getTotalSize(),
-              minWidth: '100%',
+              width: `max(100%, ${table.getTotalSize()}px)`,
             }}
           >
-            <thead style={{ display: 'grid', position: 'sticky', top: 0, zIndex: 2 }}>
+            <thead style={{ display: 'block', width: '100%', position: 'sticky', top: 0, zIndex: 2 }}>
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id} style={{ display: 'flex', width: '100%' }}>
                   {headerGroup.headers.map((header) => (
@@ -447,7 +445,8 @@ function DocumentsResult({
             </thead>
             <tbody
               style={{
-                display: 'grid',
+                display: 'block',
+                width: '100%',
                 height: rowVirtualizer.getTotalSize(),
                 position: 'relative',
               }}

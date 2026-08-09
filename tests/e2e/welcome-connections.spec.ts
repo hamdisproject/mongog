@@ -989,7 +989,15 @@ async function launch(): Promise<Page> {
     executablePath,
     env: { ...process.env, MONGOG_E2E_USER_DATA: userDataPath },
   });
-  return application.firstWindow();
+  const page = await application.firstWindow();
+  await application.evaluate(({ BrowserWindow }) => {
+    const window = BrowserWindow.getAllWindows()[0];
+    if (!window) throw new Error('MongoG test window was not created');
+    window.setSize(1000, 700);
+  });
+  await expect.poll(() => page.evaluate(() => ({ width: window.outerWidth, height: window.outerHeight })))
+    .toEqual({ width: 1000, height: 700 });
+  return page;
 }
 
 async function redirectSaveDialogs(app: ElectronApplication, directory: string): Promise<void> {
