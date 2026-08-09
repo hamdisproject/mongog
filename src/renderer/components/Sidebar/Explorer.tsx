@@ -526,6 +526,7 @@ function ProfileNode({
     expandedDatabaseIds,
     toggleDatabase,
     collections,
+    collectionsLoading,
     refreshCollections,
     renameCollection,
     dropCollection,
@@ -799,6 +800,7 @@ function ProfileNode({
             const dbKey = `${profile.id}:${db.name}`;
             const dbExpanded = search ? true : expandedDatabaseIds.has(dbKey);
             const dbCols = collections[dbKey] ?? [];
+            const collectionsAreLoading = collectionsLoading[dbKey] === true;
             const databaseMatches = !!search && db.name.toLocaleLowerCase().includes(search);
             const visibleCollections = !search || profileNameMatches || databaseMatches
               ? dbCols
@@ -862,7 +864,12 @@ function ProfileNode({
                       </div>
                     ))}
                     {visibleCollections.length === 0 && (
-                      <div style={{ padding: '2px 8px', fontSize: 11, color: 'var(--color-text-faint)' }}>(empty)</div>
+                      <div
+                        aria-live="polite"
+                        style={{ padding: '2px 8px', fontSize: 11, color: 'var(--color-text-faint)' }}
+                      >
+                        {collectionsAreLoading ? '(loading)' : '(empty)'}
+                      </div>
                     )}
                   </div>
                 )}

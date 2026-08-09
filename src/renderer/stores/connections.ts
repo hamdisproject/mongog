@@ -37,6 +37,7 @@ interface ConnectionState {
   expandedDatabaseIds: Set<string>;
   databases: Record<string, DbInfo[]>;
   collections: Record<string, CollectionInfo[]>;
+  collectionsLoading: Record<string, boolean>;
   loading: boolean;
 
   load: () => Promise<void>;
@@ -84,6 +85,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
   expandedDatabaseIds: new Set(),
   databases: {},
   collections: {},
+  collectionsLoading: {},
   loading: false,
 
   load: async () => {
@@ -176,12 +178,21 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
 
   loadCollections: async (connId, dbName) => {
     const key = `${connId}:${dbName}`;
-    if (get().collections[key]) return;
+    if (Object.hasOwn(get().collections, key) || get().collectionsLoading[key]) return;
+    set((state) => ({
+      collectionsLoading: { ...state.collectionsLoading, [key]: true },
+    }));
     try {
       const cols = await window.mongog.query.listCollections(connId, dbName);
       set((s) => ({ collections: { ...s.collections, [key]: cols } }));
     } catch {
       // Connection may have been disconnected.
+    } finally {
+      set((state) => {
+        const collectionsLoading = { ...state.collectionsLoading };
+        delete collectionsLoading[key];
+        return { collectionsLoading };
+      });
     }
   },
 
@@ -192,8 +203,19 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
 
   refreshCollections: async (connId, dbName) => {
     const key = `${connId}:${dbName}`;
-    const values = await window.mongog.query.listCollections(connId, dbName);
-    set((state) => ({ collections: { ...state.collections, [key]: values } }));
+    set((state) => ({
+      collectionsLoading: { ...state.collectionsLoading, [key]: true },
+    }));
+    try {
+      const values = await window.mongog.query.listCollections(connId, dbName);
+      set((state) => ({ collections: { ...state.collections, [key]: values } }));
+    } finally {
+      set((state) => {
+        const collectionsLoading = { ...state.collectionsLoading };
+        delete collectionsLoading[key];
+        return { collectionsLoading };
+      });
+    }
   },
 
   renameCollection: async (connId, dbName, oldName, newName) => {
@@ -237,6 +259,8 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
     set((state) => {
       const collections = { ...state.collections };
       delete collections[key];
+      const collectionsLoading = { ...state.collectionsLoading };
+      delete collectionsLoading[key];
       const expandedDatabaseIds = new Set(state.expandedDatabaseIds);
       expandedDatabaseIds.delete(key);
       return {
@@ -245,6 +269,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
           [connId]: (state.databases[connId] ?? []).filter((item) => item.name !== dbName),
         },
         collections,
+        collectionsLoading,
         expandedDatabaseIds,
       };
     });
@@ -304,6 +329,9 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
     const collections = Object.fromEntries(
       Object.entries(get().collections).filter(([key]) => !key.startsWith(`${id}:`)),
     );
+    const collectionsLoading = Object.fromEntries(
+      Object.entries(get().collectionsLoading).filter(([key]) => !key.startsWith(`${id}:`)),
+    );
     const expandedProfileIds = new Set(get().expandedProfileIds);
     expandedProfileIds.delete(id);
     const expandedDatabaseIds = new Set(
@@ -318,6 +346,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
       connected,
       databases,
       collections,
+      collectionsLoading,
       expandedProfileIds,
       expandedDatabaseIds,
       selectedProfileId: get().selectedProfileId === id ? null : get().selectedProfileId,
@@ -343,6 +372,9 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
     const collections = Object.fromEntries(
       Object.entries(get().collections).filter(([key]) => !key.startsWith(`${profile.id}:`)),
     );
+    const collectionsLoading = Object.fromEntries(
+      Object.entries(get().collectionsLoading).filter(([key]) => !key.startsWith(`${profile.id}:`)),
+    );
     useSchemaCache.getState().invalidateConnection(profile.id);
     if (result.connected) {
       const state = await window.mongog.connections.getState(profile.id);
@@ -354,7 +386,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
       delete connected[profile.id];
       if (result.connectionError) errors[profile.id] = result.connectionError.message;
     }
-    set({ profiles, connected, errors, databases, collections, selectedProfileId: profile.id });
+    set({ profiles, connected, errors, databases, collections, collectionsLoading, selectedProfileId: profile.id });
     if (result.connected) void get().loadDatabases(profile.id);
     return result;
   },
@@ -386,6 +418,9 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
     const collections = Object.fromEntries(
       Object.entries(get().collections).filter(([key]) => !key.startsWith(`${profileId}:`)),
     );
+    const collectionsLoading = Object.fromEntries(
+      Object.entries(get().collectionsLoading).filter(([key]) => !key.startsWith(`${profileId}:`)),
+    );
     const expandedProfileIds = new Set(get().expandedProfileIds);
     expandedProfileIds.delete(profileId);
     const expandedDatabaseIds = new Set(
@@ -395,6 +430,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
       connected: next,
       databases,
       collections,
+      collectionsLoading,
       expandedProfileIds,
       expandedDatabaseIds,
       errors,
@@ -436,6 +472,9 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
     const collections = Object.fromEntries(
       Object.entries(get().collections).filter(([key]) => !key.startsWith(`${connectionId}:`)),
     );
+    const collectionsLoading = Object.fromEntries(
+      Object.entries(get().collectionsLoading).filter(([key]) => !key.startsWith(`${connectionId}:`)),
+    );
     const expandedProfileIds = new Set(get().expandedProfileIds);
     expandedProfileIds.delete(connectionId);
     const expandedDatabaseIds = new Set(
@@ -445,6 +484,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
       connected,
       databases,
       collections,
+      collectionsLoading,
       expandedProfileIds,
       expandedDatabaseIds,
       errors,
