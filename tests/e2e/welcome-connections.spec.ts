@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
@@ -64,7 +64,14 @@ test.afterAll(async () => {
 test('Welcome, Connections, and Collection Query provide the complete lifecycle', async () => {
   let page = await launch();
   await expectViewportLocked(page);
+  await expect(page).toHaveTitle('MongoG');
   await expect(page.getByText('Welcome back')).toBeVisible();
+  await expect(page.getByTestId('welcome-mongog-brand')).toHaveAccessibleName('MongoG');
+  await expect(page.getByTestId('welcome-mongog-brand').locator('img'))
+    .toHaveAttribute('src', /mongog-icon.*\.png/);
+  await expect(page.getByTestId('sidebar-mongog-brand')).toHaveAccessibleName('MongoG');
+  await expect(page.getByTestId('sidebar-mongog-brand').locator('img'))
+    .toHaveAttribute('src', /mongog-icon.*\.png/);
   await expect(page.locator('[title^="welcome: Welcome"]')).toHaveCount(1);
   await expect(page.getByTitle('New query tab')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open global search' })).toBeVisible();
@@ -120,6 +127,30 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   let explorer = page.getByRole('navigation', { name: 'Connection explorer' });
   await expect(explorer.getByRole('button', { name: 'Disconnect', exact: true })).toBeVisible();
   await expect(explorer.getByRole('button', { name: 'Connection settings for E2E Local' })).toBeVisible();
+
+  const importPath = join(userDataPath, 'transfer-products.csv');
+  await writeFile(importPath, '\uFEFFsku,description,price\r\n001,"first\nline",1492.00\r\n002,second,8.50\r\n');
+  await redirectOpenDialogs(application!, [importPath]);
+  await page.getByTitle('Import files or copy collections').click();
+  await expect(page.getByRole('heading', { name: 'Data Transfer' })).toBeVisible();
+  await expect(page.getByText('Source data is always read-only and is never deleted.')).toBeVisible();
+  await expect(page.getByLabel('Target connection')).not.toHaveValue('');
+  await page.getByRole('button', { name: 'Choose CSV / XLSX files…' }).click();
+  await expect(page.getByRole('button', { name: 'Refresh preview' })).toBeVisible();
+  await page.getByLabel('Target collection').fill('transfer_import');
+  await page.getByRole('button', { name: 'Start import' }).click();
+  const transferJobs = page.getByLabel('Data transfer jobs');
+  await expect(transferJobs.getByText('completed', { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect.poll(async () => {
+    const verify = new MongoClient(mongoUri);
+    await verify.connect();
+    try {
+      return await verify.db('mongog_e2e').collection('transfer_import').countDocuments();
+    } finally {
+      await verify.close();
+    }
+  }).toBe(2);
+
   await page.getByRole('button', { name: 'New group' }).click();
   await page.getByPlaceholder('Group name').fill('E2E Group');
   await page.getByPlaceholder('Group name').press('Enter');
@@ -893,6 +924,15 @@ async function redirectSaveDialogs(app: ElectronApplication, directory: string):
       return { canceled: false, filePath: `${targetDirectory}/${filename}` };
     };
   }, directory);
+}
+
+async function redirectOpenDialogs(app: ElectronApplication, filePaths: string[]): Promise<void> {
+  await app.evaluate(({ dialog }, paths) => {
+    const target = dialog as unknown as {
+      showOpenDialog: (...args: unknown[]) => Promise<{ canceled: boolean; filePaths: string[] }>;
+    };
+    target.showOpenDialog = async () => ({ canceled: false, filePaths: paths });
+  }, filePaths);
 }
 
 function packagedExecutable(): string {

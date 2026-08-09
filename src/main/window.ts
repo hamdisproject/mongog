@@ -85,6 +85,7 @@ export function createMainWindow(options?: CreateWindowOptions): BrowserWindow {
     minWidth: 900,
     minHeight: 600,
     title: 'MongoG',
+    icon: applicationIconPath(),
     backgroundColor: '#1e1e1e',
     show: false,
     webPreferences: {
@@ -122,6 +123,12 @@ export function createMainWindow(options?: CreateWindowOptions): BrowserWindow {
   }
 
   return win;
+}
+
+export function applicationIconPath(): string {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'mongog-icon.png')
+    : path.join(app.getAppPath(), 'assets', 'mongog-icon.png');
 }
 
 function contentType(filePath: string): string {

@@ -109344,13 +109344,13 @@ ${lanes.join("\n")}
             if (!headMessage2 && maybeSuppress) {
               const savedErrorState = captureErrorCalculationState();
               reportRelationError(headMessage2, source2, target2);
-              let canonical;
+              let canonical2;
               if (errorInfo && errorInfo !== savedErrorState.errorInfo) {
-                canonical = { code: errorInfo.code, messageText: errorInfo.messageText };
+                canonical2 = { code: errorInfo.code, messageText: errorInfo.messageText };
               }
               resetErrorInfo(savedErrorState);
-              if (canonical && errorInfo) {
-                errorInfo.canonicalHead = canonical;
+              if (canonical2 && errorInfo) {
+                errorInfo.canonicalHead = canonical2;
               }
               lastSkippedInfo = [source2, target2];
               return;
@@ -111589,9 +111589,9 @@ ${lanes.join("\n")}
         function getGenericTypeReferenceRelationKey(source, target, postFix, ignoreConstraints) {
           const typeParameters = [];
           let constraintMarker = "";
-          const sourceId = getTypeReferenceId(source, 0);
+          const sourceId2 = getTypeReferenceId(source, 0);
           const targetId = getTypeReferenceId(target, 0);
-          return `${constraintMarker}${sourceId},${targetId}${postFix}`;
+          return `${constraintMarker}${sourceId2},${targetId}${postFix}`;
           function getTypeReferenceId(type, depth = 0) {
             let result = "" + type.target.id;
             for (const t of getTypeArguments(type)) {
@@ -218543,8 +218543,8 @@ ${newComment.split("\n").map((c) => ` * ${c}`).join("\n")}
           }
           /** Returns `true` the first time we search for a symbol in a file and `false` afterwards. */
           markSearchedSymbols(sourceFile, symbols) {
-            const sourceId = getNodeId(sourceFile);
-            const seenSymbols = this.sourceFileToSeenSymbols[sourceId] || (this.sourceFileToSeenSymbols[sourceId] = /* @__PURE__ */ new Set());
+            const sourceId2 = getNodeId(sourceFile);
+            const seenSymbols = this.sourceFileToSeenSymbols[sourceId2] || (this.sourceFileToSeenSymbols[sourceId2] = /* @__PURE__ */ new Set());
             let anyNewSymbols = false;
             for (const sym of symbols) {
               anyNewSymbols = tryAddToSet(seenSymbols, getSymbolId(sym)) || anyNewSymbols;
@@ -249449,7 +249449,7 @@ function serializeDocument(doc, options) {
     throw new BSONError("_bsontype must be a string, but was: " + typeof bsontype);
   }
 }
-function parse$2(text, options) {
+function parse$3(text, options) {
   const ejsonOptions = {
     useBigInt64: options?.useBigInt64 ?? false,
     relaxed: options?.relaxed ?? true,
@@ -249483,10 +249483,10 @@ function EJSONserialize(value, options) {
 }
 function EJSONdeserialize(ejson, options) {
   options = options || {};
-  return parse$2(JSON.stringify(ejson), options);
+  return parse$3(JSON.stringify(ejson), options);
 }
 const EJSON = /* @__PURE__ */ Object.create(null);
-EJSON.parse = parse$2;
+EJSON.parse = parse$3;
 EJSON.stringify = stringify$1;
 EJSON.serialize = EJSONserialize;
 EJSON.deserialize = EJSONdeserialize;
@@ -251759,8 +251759,8 @@ async function globalSearch(client2, options) {
         const document2 = await cursor.next();
         if (!document2) break;
         scannedDocuments += 1;
-        const canonical = EJSON.stringify(document2, void 0, 0, { relaxed: false });
-        if (canonical.toLocaleLowerCase().includes(needle)) {
+        const canonical2 = EJSON.stringify(document2, void 0, 0, { relaxed: false });
+        if (canonical2.toLocaleLowerCase().includes(needle)) {
           matches.push({ collection: collectionName, document: serializeToEjson(document2) });
           if (matches.length >= options.maxResults) {
             truncated = true;
@@ -277497,15 +277497,15 @@ function requireV1() {
 }
 var v3 = {};
 var v35 = {};
-var parse$1 = {};
+var parse$2 = {};
 var hasRequiredParse$1;
 function requireParse$1() {
-  if (hasRequiredParse$1) return parse$1;
+  if (hasRequiredParse$1) return parse$2;
   hasRequiredParse$1 = 1;
-  Object.defineProperty(parse$1, "__esModule", {
+  Object.defineProperty(parse$2, "__esModule", {
     value: true
   });
-  parse$1.default = void 0;
+  parse$2.default = void 0;
   var _validate = _interopRequireDefault(/* @__PURE__ */ requireValidate());
   function _interopRequireDefault(obj) {
     return obj && obj.__esModule ? obj : { default: obj };
@@ -277535,8 +277535,8 @@ function requireParse$1() {
     return arr;
   }
   var _default = parse2;
-  parse$1.default = _default;
-  return parse$1;
+  parse$2.default = _default;
+  return parse$2;
 }
 var hasRequiredV35;
 function requireV35() {
@@ -284012,7 +284012,7 @@ function requireTransforms() {
   return transforms;
 }
 var parser = {};
-var Parser = {};
+var Parser$1 = {};
 var Scanner = {};
 var Token = {};
 var hasRequiredToken;
@@ -284407,14 +284407,14 @@ function requireRowParser() {
 }
 var hasRequiredParser$1;
 function requireParser$1() {
-  if (hasRequiredParser$1) return Parser;
+  if (hasRequiredParser$1) return Parser$1;
   hasRequiredParser$1 = 1;
-  Object.defineProperty(Parser, "__esModule", { value: true });
-  Parser.Parser = void 0;
+  Object.defineProperty(Parser$1, "__esModule", { value: true });
+  Parser$1.Parser = void 0;
   const Scanner_1 = requireScanner();
   const RowParser_1 = requireRowParser();
   const Token_1 = requireToken();
-  let Parser$1 = class Parser2 {
+  class Parser2 {
     constructor(parserOptions) {
       this.parserOptions = parserOptions;
       this.rowParser = new RowParser_1.RowParser(this.parserOptions);
@@ -284478,9 +284478,9 @@ function requireParser$1() {
       rows.push(row2);
       return true;
     }
-  };
-  Parser.Parser = Parser$1;
-  return Parser;
+  }
+  Parser$1.Parser = Parser2;
+  return Parser$1;
 }
 var hasRequiredParser;
 function requireParser() {
@@ -286510,11 +286510,11 @@ function requireMinimatch$1() {
       }
       const addPatternStart = addPatternStartSet[re.charAt(0)];
       for (let n = negativeLists.length - 1; n > -1; n--) {
-        const nl = negativeLists[n];
-        const nlBefore = re.slice(0, nl.reStart);
-        const nlFirst = re.slice(nl.reStart, nl.reEnd - 8);
-        let nlAfter = re.slice(nl.reEnd);
-        const nlLast = re.slice(nl.reEnd - 8, nl.reEnd) + nlAfter;
+        const nl2 = negativeLists[n];
+        const nlBefore = re.slice(0, nl2.reStart);
+        const nlFirst = re.slice(nl2.reStart, nl2.reEnd - 8);
+        let nlAfter = re.slice(nl2.reEnd);
+        const nlLast = re.slice(nl2.reEnd - 8, nl2.reEnd) + nlAfter;
         const closeParensBefore = nlBefore.split(")").length;
         const openParensBefore = nlBefore.split("(").length - closeParensBefore;
         let cleanAfter = nlAfter;
@@ -288420,7 +288420,7 @@ function times(n, iteratee, callback) {
 function timesSeries(n, iteratee, callback) {
   return timesLimit(n, 1, iteratee, callback);
 }
-function transform(coll, accumulator, iteratee, callback) {
+function transform$1(coll, accumulator, iteratee, callback) {
   if (arguments.length <= 3 && typeof accumulator === "function") {
     callback = iteratee;
     iteratee = accumulator;
@@ -288569,7 +288569,7 @@ var index = {
   times,
   timesLimit,
   timesSeries,
-  transform,
+  transform: transform$1,
   tryEach: tryEach$1,
   unmemoize,
   until,
@@ -288703,7 +288703,7 @@ const async$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.definePrope
   times,
   timesLimit,
   timesSeries,
-  transform,
+  transform: transform$1,
   tryEach: tryEach$1,
   unmemoize,
   until,
@@ -295097,11 +295097,11 @@ function requireMinimatch() {
         addPatternStart = true;
     }
     for (var n = negativeLists.length - 1; n > -1; n--) {
-      var nl = negativeLists[n];
-      var nlBefore = re.slice(0, nl.reStart);
-      var nlFirst = re.slice(nl.reStart, nl.reEnd - 8);
-      var nlLast = re.slice(nl.reEnd - 8, nl.reEnd);
-      var nlAfter = re.slice(nl.reEnd);
+      var nl2 = negativeLists[n];
+      var nlBefore = re.slice(0, nl2.reStart);
+      var nlFirst = re.slice(nl2.reStart, nl2.reEnd - 8);
+      var nlLast = re.slice(nl2.reEnd - 8, nl2.reEnd);
+      var nlAfter = re.slice(nl2.reEnd);
       nlLast += nlAfter;
       var openParensBefore = nlBefore.split("(").length - 1;
       var cleanAfter = nlAfter;
@@ -305522,10 +305522,10 @@ var hasRequiredCall_get;
 function requireCall_get() {
   if (hasRequiredCall_get) return call_get;
   hasRequiredCall_get = 1;
-  var cr = Object.create;
-  if (cr) {
-    var callerCache = cr(null);
-    var getterCache = cr(null);
+  var cr2 = Object.create;
+  if (cr2) {
+    var callerCache = cr2(null);
+    var getterCache = cr2(null);
     callerCache[" size"] = getterCache[" size"] = 0;
   }
   call_get = function(Promise2) {
@@ -309764,10 +309764,10 @@ function requireParseDateTime() {
   };
   return parseDateTime;
 }
-var parse;
+var parse$1;
 var hasRequiredParse;
 function requireParse() {
-  if (hasRequiredParse) return parse;
+  if (hasRequiredParse) return parse$1;
   hasRequiredParse = 1;
   var util2 = require$$0$5;
   var zlib = require$$0$9;
@@ -309959,8 +309959,8 @@ function requireParse() {
       self2.on("error", reject2);
     });
   };
-  parse = Parse;
-  return parse;
+  parse$1 = Parse;
+  return parse$1;
 }
 var duplexer2 = { exports: {} };
 var readable = { exports: {} };
@@ -316596,6 +316596,9 @@ class ExportManager {
   registry;
   emit;
   active = null;
+  get hasActiveJob() {
+    return this.active !== null;
+  }
   start(client2, request) {
     if (this.active) {
       throw appError("Validation", "Another export is already running for this connection.", {
@@ -317051,6 +317054,2611 @@ function sanitizeExportErrorMessage(message, request, partialPath, temporaryDire
   if (temporaryDirectory) safe = safe.split(temporaryDirectory).join("[temporary export directory]");
   return safe.slice(0, 2e3);
 }
+const TRANSFER_MAX_BATCH_DOCUMENTS = 500;
+const TRANSFER_MAX_BATCH_BYTES = 8 * 1024 * 1024;
+async function writeTransferBatch(client2, request) {
+  if (request.documentsEjson.length > TRANSFER_MAX_BATCH_DOCUMENTS) {
+    throw appError("Validation", `Transfer batch exceeds ${TRANSFER_MAX_BATCH_DOCUMENTS} documents.`);
+  }
+  const byteSize = request.documentsEjson.reduce((sum, value) => sum + Buffer.byteLength(value), 0);
+  if (byteSize > TRANSFER_MAX_BATCH_BYTES) {
+    throw appError("Validation", "Transfer batch exceeds the 8 MiB safety limit.");
+  }
+  const documents = request.documentsEjson.map((source, index2) => {
+    let value;
+    try {
+      value = EJSON.parse(source, { relaxed: false });
+    } catch {
+      throw appError("Validation", `Transferred document ${index2 + 1} is not valid Canonical EJSON.`);
+    }
+    if (!isDocument(value)) {
+      throw appError("Validation", `Transferred value ${index2 + 1} must be a document.`);
+    }
+    return value;
+  });
+  await assertUsableUpsertKey(client2, request.database, request.collection, request.upsertFields);
+  const collection2 = client2.db(request.database).collection(request.collection);
+  const result = { inserted: 0, updated: 0, skipped: 0, errors: [] };
+  if (request.conflictMode === "insert-stop") {
+    const write = await collection2.insertMany(documents, { ordered: true });
+    result.inserted = write.insertedCount;
+    return result;
+  }
+  const operations = documents.map((document2) => {
+    if (request.conflictMode === "insert-skip") {
+      return { insertOne: { document: document2 } };
+    }
+    const filter2 = buildUpsertFilter(document2, request.upsertFields);
+    if (request.conflictMode === "replace-upsert") {
+      return { replaceOne: { filter: filter2, replacement: document2, upsert: true } };
+    }
+    const mutable = { ...document2 };
+    delete mutable._id;
+    return {
+      updateOne: {
+        filter: filter2,
+        update: {
+          $set: mutable,
+          ...document2._id !== void 0 ? { $setOnInsert: { _id: document2._id } } : {}
+        },
+        upsert: true
+      }
+    };
+  });
+  try {
+    const write = await collection2.bulkWrite(operations, { ordered: false });
+    result.inserted = write.insertedCount + write.upsertedCount;
+    result.updated = write.modifiedCount + (request.conflictMode === "merge-upsert" ? write.matchedCount : 0);
+    return result;
+  } catch (error2) {
+    const bulk = error2;
+    result.inserted = (bulk.result?.insertedCount ?? 0) + (bulk.result?.upsertedCount ?? 0);
+    result.updated = (bulk.result?.modifiedCount ?? 0) + (request.conflictMode === "merge-upsert" ? bulk.result?.matchedCount ?? 0 : 0);
+    for (const writeError of bulk.writeErrors ?? []) {
+      const index2 = writeError.index ?? -1;
+      const duplicate = writeError.code === 11e3;
+      if (duplicate && request.conflictMode === "insert-skip") {
+        result.skipped += 1;
+        continue;
+      }
+      const safe = serializeError(new Error(writeError.errmsg ?? "MongoDB write failed."));
+      result.errors.push({
+        index: index2,
+        category: duplicate ? "DuplicateKey" : safe.category,
+        message: duplicate ? "Duplicate key; row was not written." : safe.message,
+        ...sourceId(documents[index2])
+      });
+    }
+    if (result.errors.length > 0 && request.rowErrorPolicy === "stop") {
+      throw appError("Validation", result.errors[0].message);
+    }
+    result.skipped += result.errors.length;
+    return result;
+  }
+}
+function buildUpsertFilter(document2, fields) {
+  const filter2 = /* @__PURE__ */ Object.create(null);
+  for (const field of fields) {
+    const value = readPath(document2, field);
+    if (value === void 0) {
+      throw appError("Validation", `Upsert key "${field}" is missing from a source document.`);
+    }
+    setPath(filter2, field, value);
+  }
+  return filter2;
+}
+async function assertUsableUpsertKey(client2, database, collectionName, fields) {
+  if (fields.length === 1 && fields[0] === "_id") return;
+  const collection2 = client2.db(database).collection(collectionName);
+  const exists = await collectionExists(client2, database, collectionName);
+  if (!exists) {
+    throw appError("Validation", "A non-_id upsert key requires an existing matching unique index.");
+  }
+  const cursor = collection2.listIndexes();
+  try {
+    for (; ; ) {
+      const index2 = await cursor.next();
+      if (!index2) break;
+      if (!index2.unique) continue;
+      if (sameFields(Object.keys(index2.key), fields)) return;
+    }
+  } finally {
+    await cursor.close().catch(() => void 0);
+  }
+  throw appError("Validation", `No unique target index exactly matches: ${fields.join(", ")}.`);
+}
+async function collectionExists(client2, database, name) {
+  const cursor = client2.db(database).listCollections({ name }, { nameOnly: true });
+  try {
+    return Boolean(await cursor.next());
+  } finally {
+    await cursor.close().catch(() => void 0);
+  }
+}
+function sameFields(a, b) {
+  return a.length === b.length && a.every((field, index2) => field === b[index2]);
+}
+function readPath(document2, path2) {
+  return path2.split(".").reduce((value, part) => value && typeof value === "object" ? value[part] : void 0, document2);
+}
+function setPath(document2, path2, value) {
+  const parts = path2.split(".");
+  let current = document2;
+  for (let i = 0; i < parts.length - 1; i += 1) {
+    const part = parts[i];
+    const existing = current[part];
+    if (!isDocument(existing)) current[part] = /* @__PURE__ */ Object.create(null);
+    current = current[part];
+  }
+  current[parts.at(-1)] = value;
+}
+function sourceId(document2) {
+  if (!document2 || document2._id === void 0) return {};
+  try {
+    return { sourceId: EJSON.stringify(document2._id, void 0, 0, { relaxed: false }) };
+  } catch {
+    return {};
+  }
+}
+function isDocument(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+class CopySourceManager {
+  cursors = /* @__PURE__ */ new Map();
+  async preview(client2, database, collection2, filterSource) {
+    const filter2 = parseQueryDocumentExpression(filterSource, "Transfer filter");
+    const cursor = client2.db(database).collection(collection2).find(filter2, {
+      limit: 21,
+      maxTimeMS: 3e4
+    });
+    const documents = [];
+    try {
+      for (; ; ) {
+        const document2 = await cursor.next();
+        if (!document2) break;
+        documents.push(canonical$1(document2));
+        if (documents.length >= 21) break;
+      }
+    } finally {
+      await cursor.close().catch(() => void 0);
+    }
+    return { documents: documents.slice(0, 20), truncated: documents.length > 20 };
+  }
+  async count(client2, database, collection2, filterSource) {
+    const filter2 = parseQueryDocumentExpression(filterSource, "Transfer filter");
+    return {
+      count: await client2.db(database).collection(collection2).countDocuments(filter2, {
+        maxTimeMS: 11e4
+      })
+    };
+  }
+  async metadata(client2, database, collection2) {
+    const infoCursor = client2.db(database).listCollections({ name: collection2 });
+    let info = null;
+    try {
+      info = await infoCursor.next();
+    } finally {
+      await infoCursor.close().catch(() => void 0);
+    }
+    if (!info) throw appError("NotFound", `Source collection no longer exists: ${database}.${collection2}`);
+    const indexes2 = [];
+    const indexCursor = client2.db(database).collection(collection2).listIndexes();
+    try {
+      for (; ; ) {
+        const index2 = await indexCursor.next();
+        if (!index2) break;
+        indexes2.push(canonical$1(index2));
+      }
+    } finally {
+      await indexCursor.close().catch(() => void 0);
+    }
+    return { collectionInfoEjson: canonical$1(info), indexesEjson: indexes2 };
+  }
+  open(client2, database, collection2, filterSource) {
+    const filter2 = parseQueryDocumentExpression(filterSource, "Transfer filter");
+    const cursorId = node_crypto.randomUUID();
+    this.cursors.set(cursorId, {
+      cursor: client2.db(database).collection(collection2).find(filter2, {
+        batchSize: 100,
+        maxTimeMS: 11e4
+      })
+    });
+    return { cursorId };
+  }
+  async next(cursorId) {
+    const state2 = this.cursors.get(cursorId);
+    if (!state2) throw appError("NotFound", "Transfer source cursor has expired.");
+    const values = [];
+    let bytes = 0;
+    for (; ; ) {
+      let item = state2.pending;
+      state2.pending = void 0;
+      if (!item) {
+        const document2 = await state2.cursor.next();
+        if (!document2) {
+          await this.close(cursorId);
+          return { documentsEjson: values, hasMore: false, bytes };
+        }
+        const ejson = canonical$1(document2);
+        item = { ejson, bytes: Buffer.byteLength(ejson) };
+      }
+      if (item.bytes > TRANSFER_MAX_BATCH_BYTES) {
+        await this.close(cursorId);
+        throw appError("Validation", "A source document exceeds the 8 MiB transfer batch limit.");
+      }
+      if (values.length > 0 && (values.length >= TRANSFER_MAX_BATCH_DOCUMENTS || bytes + item.bytes > TRANSFER_MAX_BATCH_BYTES)) {
+        state2.pending = item;
+        return { documentsEjson: values, hasMore: true, bytes };
+      }
+      values.push(item.ejson);
+      bytes += item.bytes;
+      if (values.length >= TRANSFER_MAX_BATCH_DOCUMENTS) {
+        return { documentsEjson: values, hasMore: true, bytes };
+      }
+    }
+  }
+  async close(cursorId) {
+    const state2 = this.cursors.get(cursorId);
+    this.cursors.delete(cursorId);
+    if (state2) await state2.cursor.close().catch(() => void 0);
+  }
+  async dispose() {
+    await Promise.all([...this.cursors.keys()].map((id) => this.close(id)));
+  }
+}
+function canonical$1(value) {
+  return EJSON.stringify(value, void 0, 0, { relaxed: false });
+}
+const is_object = function(obj) {
+  return typeof obj === "object" && obj !== null && !Array.isArray(obj);
+};
+class CsvError extends Error {
+  constructor(code, message, options, ...contexts) {
+    if (Array.isArray(message)) message = message.join(" ").trim();
+    super(message);
+    if (Error.captureStackTrace !== void 0) {
+      Error.captureStackTrace(this, CsvError);
+    }
+    this.code = code;
+    for (const context2 of contexts) {
+      for (const key in context2) {
+        const value = context2[key];
+        this[key] = Buffer.isBuffer(value) ? value.toString(options.encoding) : value == null ? value : JSON.parse(JSON.stringify(value));
+      }
+    }
+  }
+}
+const normalize_columns_array = function(columns) {
+  const normalizedColumns = [];
+  for (let i = 0, l = columns.length; i < l; i++) {
+    const column2 = columns[i];
+    if (column2 === void 0 || column2 === null || column2 === false) {
+      normalizedColumns[i] = { disabled: true };
+    } else if (typeof column2 === "string" || typeof column2 === "number") {
+      normalizedColumns[i] = { name: `${column2}` };
+    } else if (is_object(column2)) {
+      if (typeof column2.name !== "string") {
+        throw new CsvError("CSV_OPTION_COLUMNS_MISSING_NAME", [
+          "Option columns missing name:",
+          `property "name" is required at position ${i}`,
+          "when column is an object literal"
+        ]);
+      }
+      normalizedColumns[i] = column2;
+    } else {
+      throw new CsvError("CSV_INVALID_COLUMN_DEFINITION", [
+        "Invalid column definition:",
+        "expect a string or a literal object,",
+        `got ${JSON.stringify(column2)} at position ${i}`
+      ]);
+    }
+  }
+  return normalizedColumns;
+};
+class ResizeableBuffer {
+  constructor(size = 100) {
+    this.size = size;
+    this.length = 0;
+    this.buf = Buffer.allocUnsafe(size);
+  }
+  prepend(val) {
+    if (Buffer.isBuffer(val)) {
+      const length = this.length + val.length;
+      if (length >= this.size) {
+        this.resize();
+        if (length >= this.size) {
+          throw Error("INVALID_BUFFER_STATE");
+        }
+      }
+      const buf = this.buf;
+      this.buf = Buffer.allocUnsafe(this.size);
+      val.copy(this.buf, 0);
+      buf.copy(this.buf, val.length);
+      this.length += val.length;
+    } else {
+      const length = this.length++;
+      if (length === this.size) {
+        this.resize();
+      }
+      const buf = this.clone();
+      this.buf[0] = val;
+      buf.copy(this.buf, 1, 0, length);
+    }
+  }
+  append(val) {
+    const length = this.length++;
+    if (length === this.size) {
+      this.resize();
+    }
+    this.buf[length] = val;
+  }
+  clone() {
+    return Buffer.from(this.buf.slice(0, this.length));
+  }
+  resize() {
+    const length = this.length;
+    this.size = this.size * 2;
+    const buf = Buffer.allocUnsafe(this.size);
+    this.buf.copy(buf, 0, 0, length);
+    this.buf = buf;
+  }
+  toString(encoding2) {
+    if (encoding2) {
+      return this.buf.toString(encoding2, 0, this.length);
+    } else {
+      return Uint8Array.prototype.slice.call(this.buf.slice(0, this.length));
+    }
+  }
+  toJSON() {
+    return this.toString("utf8");
+  }
+  reset() {
+    this.length = 0;
+  }
+}
+const init_state = function(options) {
+  const timchars = [
+    // Basic Latin
+    32,
+    // [Space](https://www.fileformat.info/info/unicode/char/0020/index.htm)
+    9,
+    // [CHARACTER TABULATION (HT)](https://www.fileformat.info/info/unicode/char/0009/index.htm)
+    10,
+    // [LINE FEED (LF)](https://www.fileformat.info/info/unicode/char/000a/index.htm)
+    13,
+    // [CARRIAGE RETURN (CR)](https://www.fileformat.info/info/unicode/char/000d/index.htm)
+    12,
+    // [FORM FEED (FF)](https://www.fileformat.info/info/unicode/char/000c/index.htm)
+    11,
+    // [LINE TABULATION (VT)](https://www.fileformat.info/info/unicode/char/000b/index.htm)
+    // Latin-1 Supplement
+    160,
+    // [NO-BREAK SPACE (NBSP)](https://www.fileformat.info/info/unicode/char/00a0/index.htm)
+    // Ogham
+    5760,
+    // [OGHAM SPACE MARK](https://www.fileformat.info/info/unicode/char/1680/index.htm)
+    // General Punctuation
+    8192,
+    // [EN QUAD](https://www.fileformat.info/info/unicode/char/2000/index.htm)
+    8193,
+    // [EM QUAD](https://www.fileformat.info/info/unicode/char/2001/index.htm)
+    8194,
+    // [EN SPACE](https://www.fileformat.info/info/unicode/char/2002/index.htm)
+    8195,
+    // [EM SPACE](https://www.fileformat.info/info/unicode/char/2003/index.htm)
+    8196,
+    // [THREE-PER-EM SPACE](https://www.fileformat.info/info/unicode/char/2004/index.htm)
+    8197,
+    // [FOUR-PER-EM SPACE](https://www.fileformat.info/info/unicode/char/2005/index.htm)
+    8198,
+    // [SIX-PER-EM SPACE](https://www.fileformat.info/info/unicode/char/2006/index.htm)
+    8199,
+    // [FIGURE SPACE](https://www.fileformat.info/info/unicode/char/2007/index.htm)
+    8200,
+    // [PUNCTUATION SPACE](https://www.fileformat.info/info/unicode/char/2008/index.htm)
+    8201,
+    // [THIN SPACE](https://www.fileformat.info/info/unicode/char/2009/index.htm)
+    8202,
+    // [HAIR SPACE](https://www.fileformat.info/info/unicode/char/200a/index.htm)
+    8232,
+    // [LINE SEPARATOR](https://www.fileformat.info/info/unicode/char/2028/index.htm)
+    8233,
+    // [PARAGRAPH SEPARATOR](https://www.fileformat.info/info/unicode/char/2029/index.htm)
+    8239,
+    // [NARROW NO-BREAK SPACE (NNBSP)](https://www.fileformat.info/info/unicode/char/202f/index.htm)
+    8287,
+    // [MEDIUM MATHEMATICAL SPACE (MMSP)](https://www.fileformat.info/info/unicode/char/205f/index.htm)
+    12288,
+    // [IDEOGRAPHIC SPACE](https://www.fileformat.info/info/unicode/char/3000/index.htm)
+    65279
+    // [ZERO WIDTH NO-BREAK SPACE (BOM)](https://www.fileformat.info/info/unicode/char/feff/index.htm)
+  ].reduce((acc, codepoint) => {
+    const encoded = Buffer.from(
+      String.fromCharCode(codepoint),
+      options.encoding
+    );
+    if (codepoint !== 63 && encoded.length === 1 && encoded[0] === 63) {
+      return acc;
+    }
+    acc.push(encoded);
+    return acc;
+  }, []);
+  const timcharFirstBytes = new Uint8Array(256);
+  for (const t of timchars) timcharFirstBytes[t[0]] = 1;
+  return {
+    bomSkipped: false,
+    bufBytesStart: 0,
+    castField: options.cast_function,
+    commenting: false,
+    delimiterBufPrevious: void 0,
+    delimiterDiscovered: false,
+    // Current error encountered by a record
+    error: void 0,
+    enabled: options.from_line === 1,
+    escaping: false,
+    escapeIsQuote: Buffer.isBuffer(options.escape) && Buffer.isBuffer(options.quote) && Buffer.compare(options.escape, options.quote) === 0,
+    // columns can be `false`, `true`, `Array`
+    expectedRecordLength: Array.isArray(options.columns) ? options.columns.length : void 0,
+    field: new ResizeableBuffer(20),
+    firstLineToHeaders: options.cast_first_line_to_header,
+    needMoreDataSize: Math.max(
+      // Skip if the remaining buffer smaller than comment
+      options.comment !== null ? options.comment.length : 0,
+      ...options.delimiter ? options.delimiter.map((delimiter2) => delimiter2.length) : [],
+      // Auto discovery of delimiter is limited to 1 character
+      options.delimiter_auto ? 1 : 0,
+      // Skip if the remaining buffer can be escape sequence
+      options.quote !== null ? options.quote.length : 0,
+      ...timchars.map((t) => t.length)
+    ),
+    previousBuf: void 0,
+    quoting: false,
+    stop: false,
+    rawBuffer: new ResizeableBuffer(100),
+    record: [],
+    recordHasError: false,
+    record_length: 0,
+    recordDelimiterMaxLength: options.record_delimiter.length === 0 ? 0 : Math.max(...options.record_delimiter.map((v) => v.length)),
+    trimChars: [
+      Buffer.from(" ", options.encoding)[0],
+      Buffer.from("	", options.encoding)[0]
+    ],
+    wasQuoting: false,
+    wasRowDelimiter: false,
+    timchars,
+    timcharFirstBytes
+  };
+};
+const underscore = function(str) {
+  return str.replace(/([A-Z])/g, function(_2, match) {
+    return "_" + match.toLowerCase();
+  });
+};
+const normalize_options = function(opts) {
+  const options = {};
+  for (const opt in opts) {
+    options[underscore(opt)] = opts[opt];
+  }
+  if (options.encoding === void 0 || options.encoding === true) {
+    options.encoding = "utf8";
+  } else if (options.encoding === null || options.encoding === false) {
+    options.encoding = null;
+  } else if (typeof options.encoding !== "string" && options.encoding !== null) {
+    throw new CsvError(
+      "CSV_INVALID_OPTION_ENCODING",
+      [
+        "Invalid option encoding:",
+        "encoding must be a string or null to return a buffer,",
+        `got ${JSON.stringify(options.encoding)}`
+      ],
+      options
+    );
+  }
+  if (options.bom === void 0 || options.bom === null || options.bom === false) {
+    options.bom = false;
+  } else if (options.bom !== true) {
+    throw new CsvError(
+      "CSV_INVALID_OPTION_BOM",
+      [
+        "Invalid option bom:",
+        "bom must be true,",
+        `got ${JSON.stringify(options.bom)}`
+      ],
+      options
+    );
+  }
+  options.cast_function = null;
+  if (options.cast === void 0 || options.cast === null || options.cast === false || options.cast === "") {
+    options.cast = void 0;
+  } else if (typeof options.cast === "function") {
+    options.cast_function = options.cast;
+    options.cast = true;
+  } else if (options.cast !== true) {
+    throw new CsvError(
+      "CSV_INVALID_OPTION_CAST",
+      [
+        "Invalid option cast:",
+        "cast must be true or a function,",
+        `got ${JSON.stringify(options.cast)}`
+      ],
+      options
+    );
+  }
+  if (options.cast_date === void 0 || options.cast_date === null || options.cast_date === false || options.cast_date === "") {
+    options.cast_date = false;
+  } else if (options.cast_date === true) {
+    options.cast_date = function(value) {
+      const date = Date.parse(value);
+      return !isNaN(date) ? new Date(date) : value;
+    };
+  } else if (typeof options.cast_date !== "function") {
+    throw new CsvError(
+      "CSV_INVALID_OPTION_CAST_DATE",
+      [
+        "Invalid option cast_date:",
+        "cast_date must be true or a function,",
+        `got ${JSON.stringify(options.cast_date)}`
+      ],
+      options
+    );
+  }
+  options.cast_first_line_to_header = void 0;
+  if (options.columns === true) {
+    options.cast_first_line_to_header = void 0;
+  } else if (typeof options.columns === "function") {
+    options.cast_first_line_to_header = options.columns;
+    options.columns = true;
+  } else if (Array.isArray(options.columns)) {
+    options.columns = normalize_columns_array(options.columns);
+  } else if (options.columns === void 0 || options.columns === null || options.columns === false) {
+    options.columns = false;
+  } else {
+    throw new CsvError(
+      "CSV_INVALID_OPTION_COLUMNS",
+      [
+        "Invalid option columns:",
+        "expect an array, a function or true,",
+        `got ${JSON.stringify(options.columns)}`
+      ],
+      options
+    );
+  }
+  if (options.group_columns_by_name === void 0 || options.group_columns_by_name === null || options.group_columns_by_name === false) {
+    options.group_columns_by_name = false;
+  } else if (options.group_columns_by_name !== true) {
+    throw new CsvError(
+      "CSV_INVALID_OPTION_GROUP_COLUMNS_BY_NAME",
+      [
+        "Invalid option group_columns_by_name:",
+        "expect an boolean,",
+        `got ${JSON.stringify(options.group_columns_by_name)}`
+      ],
+      options
+    );
+  } else if (options.columns === false) {
+    throw new CsvError(
+      "CSV_INVALID_OPTION_GROUP_COLUMNS_BY_NAME",
+      [
+        "Invalid option group_columns_by_name:",
+        "the `columns` mode must be activated."
+      ],
+      options
+    );
+  }
+  if (options.comment === void 0 || options.comment === null || options.comment === false || options.comment === "") {
+    options.comment = null;
+  } else {
+    if (typeof options.comment === "string") {
+      options.comment = Buffer.from(options.comment, options.encoding);
+    }
+    if (!Buffer.isBuffer(options.comment)) {
+      throw new CsvError(
+        "CSV_INVALID_OPTION_COMMENT",
+        [
+          "Invalid option comment:",
+          "comment must be a buffer or a string,",
+          `got ${JSON.stringify(options.comment)}`
+        ],
+        options
+      );
+    }
+  }
+  if (options.comment_no_infix === void 0 || options.comment_no_infix === null || options.comment_no_infix === false) {
+    options.comment_no_infix = false;
+  } else if (options.comment_no_infix !== true) {
+    throw new CsvError(
+      "CSV_INVALID_OPTION_COMMENT",
+      [
+        "Invalid option comment_no_infix:",
+        "value must be a boolean,",
+        `got ${JSON.stringify(options.comment_no_infix)}`
+      ],
+      options
+    );
+  }
+  if (options.delimiter_auto === void 0 || options.delimiter_auto === null || options.delimiter_auto === false) {
+    options.delimiter_auto = false;
+  } else if (options.delimiter_auto === true) {
+    options.delimiter_auto = {};
+  } else if (!is_object(options.delimiter_auto)) {
+    throw new CsvError(
+      "CSV_INVALID_OPTION_DELIMITER_AUTO",
+      [
+        "Invalid option delimiter_auto:",
+        "delimiter_auto must be a boolean or a configuration object,",
+        `got ${JSON.stringify(options.delimiter_auto)}`
+      ],
+      options
+    );
+  }
+  if (options.delimiter_auto) {
+    if (options.delimiter_auto.preferred === void 0)
+      options.delimiter_auto.preferred = {
+        [",".charCodeAt(0)]: 1.8,
+        ["	".charCodeAt(0)]: 1.8,
+        [";".charCodeAt(0)]: 1.6,
+        [" ".charCodeAt(0)]: 1.6,
+        [":".charCodeAt(0)]: 1.5,
+        [".".charCodeAt(0)]: 1.4,
+        ["/".charCodeAt(0)]: 1.4
+      };
+    else if (!is_object(options.delimiter_auto.preferred)) {
+      throw new CsvError(
+        "CSV_INVALID_OPTION_DELIMITER_AUTO",
+        [
+          "Invalid option delimiter_auto:",
+          "preferred must be an object,",
+          `got ${JSON.stringify(options.delimiter_auto.preferred)}`
+        ],
+        options
+      );
+    }
+    if (options.delimiter_auto.score === void 0)
+      options.delimiter_auto.score = (info, options2) => {
+        return (info.total - info.std) * (options2.preferred[info.char_code] || 1);
+      };
+    else if (typeof options.delimiter_auto.score !== "function") {
+      throw new CsvError(
+        "CSV_INVALID_OPTION_DELIMITER_AUTO",
+        [
+          "Invalid option delimiter_auto:",
+          "score must be a function,",
+          `got ${JSON.stringify(options.delimiter_auto.score)}`
+        ],
+        options
+      );
+    }
+    if (options.delimiter_auto.size === void 0)
+      options.delimiter_auto.size = 2048;
+    else if (typeof options.delimiter_auto.size !== "number") {
+      throw new CsvError(
+        "CSV_INVALID_OPTION_DELIMITER_AUTO",
+        [
+          "Invalid option delimiter_auto:",
+          "size must be a number,",
+          `got ${JSON.stringify(options.delimiter_auto.size)}`
+        ],
+        options
+      );
+    }
+  }
+  const delimiter_json = JSON.stringify(options.delimiter);
+  if (options.delimiter_auto !== false) {
+    options.delimiter = [];
+  }
+  if (!Array.isArray(options.delimiter)) {
+    if (options.delimiter === void 0 || options.delimiter === null || options.delimiter === false) {
+      options.delimiter = Buffer.from(",", options.encoding);
+    }
+    options.delimiter = [options.delimiter];
+  }
+  options.delimiter = options.delimiter.map(function(delimiter2) {
+    if (typeof delimiter2 === "string") {
+      delimiter2 = Buffer.from(delimiter2, options.encoding);
+    }
+    if (!Buffer.isBuffer(delimiter2) || delimiter2.length === 0) {
+      throw new CsvError(
+        "CSV_INVALID_OPTION_DELIMITER",
+        [
+          "Invalid option delimiter:",
+          "delimiter must be a non empty string or buffer or array of string|buffer,",
+          `got ${delimiter_json}`
+        ],
+        options
+      );
+    }
+    return delimiter2;
+  });
+  if (options.escape === void 0 || options.escape === true) {
+    options.escape = Buffer.from('"', options.encoding);
+  } else if (typeof options.escape === "string") {
+    options.escape = Buffer.from(options.escape, options.encoding);
+  } else if (options.escape === null || options.escape === false) {
+    options.escape = null;
+  }
+  if (options.escape !== null) {
+    if (!Buffer.isBuffer(options.escape)) {
+      throw new Error(
+        `Invalid Option: escape must be a buffer, a string or a boolean, got ${JSON.stringify(options.escape)}`
+      );
+    }
+  }
+  if (options.from === void 0 || options.from === null) {
+    options.from = 1;
+  } else {
+    if (typeof options.from === "string" && /\d+/.test(options.from)) {
+      options.from = parseInt(options.from);
+    }
+    if (Number.isInteger(options.from)) {
+      if (options.from < 0) {
+        throw new Error(
+          `Invalid Option: from must be a positive integer, got ${JSON.stringify(opts.from)}`
+        );
+      }
+    } else {
+      throw new Error(
+        `Invalid Option: from must be an integer, got ${JSON.stringify(options.from)}`
+      );
+    }
+  }
+  if (options.from_line === void 0 || options.from_line === null) {
+    options.from_line = 1;
+  } else {
+    if (typeof options.from_line === "string" && /\d+/.test(options.from_line)) {
+      options.from_line = parseInt(options.from_line);
+    }
+    if (Number.isInteger(options.from_line)) {
+      if (options.from_line <= 0) {
+        throw new Error(
+          `Invalid Option: from_line must be a positive integer greater than 0, got ${JSON.stringify(opts.from_line)}`
+        );
+      }
+    } else {
+      throw new Error(
+        `Invalid Option: from_line must be an integer, got ${JSON.stringify(opts.from_line)}`
+      );
+    }
+  }
+  if (options.ignore_last_delimiters === void 0 || options.ignore_last_delimiters === null) {
+    options.ignore_last_delimiters = false;
+  } else if (typeof options.ignore_last_delimiters === "number") {
+    options.ignore_last_delimiters = Math.floor(options.ignore_last_delimiters);
+    if (options.ignore_last_delimiters === 0) {
+      options.ignore_last_delimiters = false;
+    }
+  } else if (typeof options.ignore_last_delimiters !== "boolean") {
+    throw new CsvError(
+      "CSV_INVALID_OPTION_IGNORE_LAST_DELIMITERS",
+      [
+        "Invalid option `ignore_last_delimiters`:",
+        "the value must be a boolean value or an integer,",
+        `got ${JSON.stringify(options.ignore_last_delimiters)}`
+      ],
+      options
+    );
+  }
+  if (options.ignore_last_delimiters === true && options.columns === false) {
+    throw new CsvError(
+      "CSV_IGNORE_LAST_DELIMITERS_REQUIRES_COLUMNS",
+      [
+        "The option `ignore_last_delimiters`",
+        "requires the activation of the `columns` option"
+      ],
+      options
+    );
+  }
+  if (options.info === void 0 || options.info === null || options.info === false) {
+    options.info = false;
+  } else if (options.info !== true) {
+    throw new Error(
+      `Invalid Option: info must be true, got ${JSON.stringify(options.info)}`
+    );
+  }
+  if (options.max_record_size === void 0 || options.max_record_size === null || options.max_record_size === false) {
+    options.max_record_size = 0;
+  } else if (Number.isInteger(options.max_record_size) && options.max_record_size >= 0) ;
+  else if (typeof options.max_record_size === "string" && /\d+/.test(options.max_record_size)) {
+    options.max_record_size = parseInt(options.max_record_size);
+  } else {
+    throw new Error(
+      `Invalid Option: max_record_size must be a positive integer, got ${JSON.stringify(options.max_record_size)}`
+    );
+  }
+  if (options.objname === void 0 || options.objname === null || options.objname === false) {
+    options.objname = void 0;
+  } else if (Buffer.isBuffer(options.objname)) {
+    if (options.objname.length === 0) {
+      throw new Error(`Invalid Option: objname must be a non empty buffer`);
+    }
+    if (options.encoding === null) ;
+    else {
+      options.objname = options.objname.toString(options.encoding);
+    }
+  } else if (typeof options.objname === "string") {
+    if (options.objname.length === 0) {
+      throw new Error(`Invalid Option: objname must be a non empty string`);
+    }
+  } else if (typeof options.objname === "number") ;
+  else {
+    throw new Error(
+      `Invalid Option: objname must be a string or a buffer, got ${options.objname}`
+    );
+  }
+  if (options.objname !== void 0) {
+    if (typeof options.objname === "number") {
+      if (options.columns !== false) {
+        throw Error(
+          "Invalid Option: objname index cannot be combined with columns or be defined as a field"
+        );
+      }
+    } else {
+      if (options.columns === false) {
+        throw Error(
+          "Invalid Option: objname field must be combined with columns or be defined as an index"
+        );
+      }
+    }
+  }
+  if (options.on_record === void 0 || options.on_record === null) {
+    options.on_record = void 0;
+  } else if (typeof options.on_record !== "function") {
+    throw new CsvError(
+      "CSV_INVALID_OPTION_ON_RECORD",
+      [
+        "Invalid option `on_record`:",
+        "expect a function,",
+        `got ${JSON.stringify(options.on_record)}`
+      ],
+      options
+    );
+  }
+  if (options.on_skip !== void 0 && options.on_skip !== null && typeof options.on_skip !== "function") {
+    throw new Error(
+      `Invalid Option: on_skip must be a function, got ${JSON.stringify(options.on_skip)}`
+    );
+  }
+  if (options.quote === null || options.quote === false || options.quote === "") {
+    options.quote = null;
+  } else {
+    if (options.quote === void 0 || options.quote === true) {
+      options.quote = Buffer.from('"', options.encoding);
+    } else if (typeof options.quote === "string") {
+      options.quote = Buffer.from(options.quote, options.encoding);
+    }
+    if (!Buffer.isBuffer(options.quote)) {
+      throw new Error(
+        `Invalid Option: quote must be a buffer or a string, got ${JSON.stringify(options.quote)}`
+      );
+    }
+  }
+  if (options.raw === void 0 || options.raw === null || options.raw === false) {
+    options.raw = false;
+  } else if (options.raw !== true) {
+    throw new Error(
+      `Invalid Option: raw must be true, got ${JSON.stringify(options.raw)}`
+    );
+  }
+  if (options.record_delimiter === void 0) {
+    options.record_delimiter = [];
+  } else if (typeof options.record_delimiter === "string" || Buffer.isBuffer(options.record_delimiter)) {
+    if (options.record_delimiter.length === 0) {
+      throw new CsvError(
+        "CSV_INVALID_OPTION_RECORD_DELIMITER",
+        [
+          "Invalid option `record_delimiter`:",
+          "value must be a non empty string or buffer,",
+          `got ${JSON.stringify(options.record_delimiter)}`
+        ],
+        options
+      );
+    }
+    options.record_delimiter = [options.record_delimiter];
+  } else if (!Array.isArray(options.record_delimiter)) {
+    throw new CsvError(
+      "CSV_INVALID_OPTION_RECORD_DELIMITER",
+      [
+        "Invalid option `record_delimiter`:",
+        "value must be a string, a buffer or array of string|buffer,",
+        `got ${JSON.stringify(options.record_delimiter)}`
+      ],
+      options
+    );
+  }
+  options.record_delimiter = options.record_delimiter.map(function(rd, i) {
+    if (typeof rd !== "string" && !Buffer.isBuffer(rd)) {
+      throw new CsvError(
+        "CSV_INVALID_OPTION_RECORD_DELIMITER",
+        [
+          "Invalid option `record_delimiter`:",
+          "value must be a string, a buffer or array of string|buffer",
+          `at index ${i},`,
+          `got ${JSON.stringify(rd)}`
+        ],
+        options
+      );
+    } else if (rd.length === 0) {
+      throw new CsvError(
+        "CSV_INVALID_OPTION_RECORD_DELIMITER",
+        [
+          "Invalid option `record_delimiter`:",
+          "value must be a non empty string or buffer",
+          `at index ${i},`,
+          `got ${JSON.stringify(rd)}`
+        ],
+        options
+      );
+    }
+    if (typeof rd === "string") {
+      rd = Buffer.from(rd, options.encoding);
+    }
+    return rd;
+  });
+  if (typeof options.relax_column_count === "boolean") ;
+  else if (options.relax_column_count === void 0 || options.relax_column_count === null) {
+    options.relax_column_count = false;
+  } else {
+    throw new Error(
+      `Invalid Option: relax_column_count must be a boolean, got ${JSON.stringify(options.relax_column_count)}`
+    );
+  }
+  if (typeof options.relax_column_count_less === "boolean") ;
+  else if (options.relax_column_count_less === void 0 || options.relax_column_count_less === null) {
+    options.relax_column_count_less = false;
+  } else {
+    throw new Error(
+      `Invalid Option: relax_column_count_less must be a boolean, got ${JSON.stringify(options.relax_column_count_less)}`
+    );
+  }
+  if (typeof options.relax_column_count_more === "boolean") ;
+  else if (options.relax_column_count_more === void 0 || options.relax_column_count_more === null) {
+    options.relax_column_count_more = false;
+  } else {
+    throw new Error(
+      `Invalid Option: relax_column_count_more must be a boolean, got ${JSON.stringify(options.relax_column_count_more)}`
+    );
+  }
+  if (typeof options.relax_quotes === "boolean") ;
+  else if (options.relax_quotes === void 0 || options.relax_quotes === null) {
+    options.relax_quotes = false;
+  } else {
+    throw new Error(
+      `Invalid Option: relax_quotes must be a boolean, got ${JSON.stringify(options.relax_quotes)}`
+    );
+  }
+  if (typeof options.skip_empty_lines === "boolean") ;
+  else if (options.skip_empty_lines === void 0 || options.skip_empty_lines === null) {
+    options.skip_empty_lines = false;
+  } else {
+    throw new Error(
+      `Invalid Option: skip_empty_lines must be a boolean, got ${JSON.stringify(options.skip_empty_lines)}`
+    );
+  }
+  if (typeof options.skip_records_with_empty_values === "boolean") ;
+  else if (options.skip_records_with_empty_values === void 0 || options.skip_records_with_empty_values === null) {
+    options.skip_records_with_empty_values = false;
+  } else {
+    throw new Error(
+      `Invalid Option: skip_records_with_empty_values must be a boolean, got ${JSON.stringify(options.skip_records_with_empty_values)}`
+    );
+  }
+  if (typeof options.skip_records_with_error === "boolean") ;
+  else if (options.skip_records_with_error === void 0 || options.skip_records_with_error === null) {
+    options.skip_records_with_error = false;
+  } else {
+    throw new Error(
+      `Invalid Option: skip_records_with_error must be a boolean, got ${JSON.stringify(options.skip_records_with_error)}`
+    );
+  }
+  if (options.rtrim === void 0 || options.rtrim === null || options.rtrim === false) {
+    options.rtrim = false;
+  } else if (options.rtrim !== true) {
+    throw new Error(
+      `Invalid Option: rtrim must be a boolean, got ${JSON.stringify(options.rtrim)}`
+    );
+  }
+  if (options.ltrim === void 0 || options.ltrim === null || options.ltrim === false) {
+    options.ltrim = false;
+  } else if (options.ltrim !== true) {
+    throw new Error(
+      `Invalid Option: ltrim must be a boolean, got ${JSON.stringify(options.ltrim)}`
+    );
+  }
+  if (options.trim === void 0 || options.trim === null || options.trim === false) {
+    options.trim = false;
+  } else if (options.trim !== true) {
+    throw new Error(
+      `Invalid Option: trim must be a boolean, got ${JSON.stringify(options.trim)}`
+    );
+  }
+  if (options.trim === true && opts.ltrim !== false) {
+    options.ltrim = true;
+  } else if (options.ltrim !== true) {
+    options.ltrim = false;
+  }
+  if (options.trim === true && opts.rtrim !== false) {
+    options.rtrim = true;
+  } else if (options.rtrim !== true) {
+    options.rtrim = false;
+  }
+  if (options.to === void 0 || options.to === null) {
+    options.to = -1;
+  } else if (options.to !== -1) {
+    if (typeof options.to === "string" && /\d+/.test(options.to)) {
+      options.to = parseInt(options.to);
+    }
+    if (Number.isInteger(options.to)) {
+      if (options.to <= 0) {
+        throw new Error(
+          `Invalid Option: to must be a positive integer greater than 0, got ${JSON.stringify(opts.to)}`
+        );
+      }
+    } else {
+      throw new Error(
+        `Invalid Option: to must be an integer, got ${JSON.stringify(opts.to)}`
+      );
+    }
+  }
+  if (options.to_line === void 0 || options.to_line === null) {
+    options.to_line = -1;
+  } else if (options.to_line !== -1) {
+    if (typeof options.to_line === "string" && /\d+/.test(options.to_line)) {
+      options.to_line = parseInt(options.to_line);
+    }
+    if (Number.isInteger(options.to_line)) {
+      if (options.to_line <= 0) {
+        throw new Error(
+          `Invalid Option: to_line must be a positive integer greater than 0, got ${JSON.stringify(opts.to_line)}`
+        );
+      }
+    } else {
+      throw new Error(
+        `Invalid Option: to_line must be an integer, got ${JSON.stringify(opts.to_line)}`
+      );
+    }
+  }
+  return options;
+};
+const delimiter_discover = function(records, options) {
+  if (!options) {
+    ({ delimiter_auto: options } = normalize_options({ delimiter_auto: true }));
+  }
+  if (typeof records === "string") {
+    records = Buffer.from(records);
+  }
+  if (Buffer.isBuffer(records)) {
+    records = ((data) => {
+      const records2 = [];
+      const parser2 = transform({ delimiter: [] });
+      const push = (record) => records2.push(record);
+      const close = () => {
+      };
+      const error2 = parser2.parse(data, true, push, close);
+      if (error2 !== void 0) throw error2;
+      return records2;
+    })(records);
+  }
+  const info = Array(127).fill().map(() => ({ lines: [] }));
+  records.map(([record], line) => {
+    for (let i = 0, l = record.length; i < l; i++) {
+      const code = record.charCodeAt(i);
+      if (info[code].lines[line] === void 0) info[code].lines[line] = 0;
+      info[code].lines[line]++;
+    }
+  });
+  info.map((info2, i) => {
+    info2.char_code = i;
+    info2.std = std(info2.lines);
+    info2.total = info2.lines.reduce((acc, val) => acc + val, 0);
+    info2.preferred = !!options.preferred[i];
+    info2.score = options.score(info2, options);
+  });
+  const result = info.reduce(
+    (acc, info2) => acc.score > info2.score ? acc : info2,
+    {}
+  );
+  return String.fromCharCode(result.char_code);
+};
+const std = function(array) {
+  const n = array.length;
+  if (n === 0) return 0;
+  const mean = array.reduce((a, b) => a + b) / n;
+  return Math.sqrt(
+    array.map((x) => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / n
+  );
+};
+const isRecordEmpty = function(record) {
+  return record.every(
+    (field) => field == null || field.toString && field.toString().trim() === ""
+  );
+};
+const cr = 13;
+const nl = 10;
+const boms = {
+  // Note, the following are equals:
+  // Buffer.from("\ufeff")
+  // Buffer.from([239, 187, 191])
+  // Buffer.from('EFBBBF', 'hex')
+  utf8: Buffer.from([239, 187, 191]),
+  // Note, the following are equals:
+  // Buffer.from "\ufeff", 'utf16le
+  // Buffer.from([255, 254])
+  utf16le: Buffer.from([255, 254])
+};
+const transform = function(original_options = {}) {
+  const info = {
+    bytes: 0,
+    bytes_records: 0,
+    comment_lines: 0,
+    empty_lines: 0,
+    invalid_field_length: 0,
+    lines: 1,
+    records: 0
+  };
+  const options = normalize_options(original_options);
+  return {
+    info,
+    original_options,
+    options,
+    state: init_state(options),
+    __needMoreData: function(i, bufLen, end) {
+      if (end) return false;
+      const { encoding: encoding2, escape, quote } = this.options;
+      const { quoting, needMoreDataSize, recordDelimiterMaxLength } = this.state;
+      const numOfCharLeft = bufLen - i - 1;
+      const requiredLength = Math.max(
+        needMoreDataSize,
+        // Skip if the remaining buffer smaller than record delimiter
+        // If "record_delimiter" is yet to be discovered:
+        // 1. It is equals to `[]` and "recordDelimiterMaxLength" equals `0`
+        // 2. We set the length to windows line ending in the current encoding
+        // Note, that encoding is known from user or bom discovery at that point
+        // recordDelimiterMaxLength,
+        recordDelimiterMaxLength === 0 ? Buffer.from("\r\n", encoding2).length : recordDelimiterMaxLength,
+        // Skip if remaining buffer can be an escaped quote
+        quoting ? (escape === null ? 0 : escape.length) + quote.length : 0,
+        // Skip if remaining buffer can be record delimiter following the closing quote
+        quoting ? quote.length + recordDelimiterMaxLength : 0
+      );
+      return numOfCharLeft < requiredLength;
+    },
+    // Central parser implementation
+    parse: function(nextBuf, end, push, close) {
+      const {
+        bom,
+        comment_no_infix,
+        delimiter_auto,
+        encoding: encoding2,
+        from_line,
+        ltrim,
+        max_record_size,
+        raw,
+        relax_quotes,
+        rtrim,
+        skip_empty_lines,
+        to,
+        to_line
+      } = this.options;
+      let { comment, escape, quote, record_delimiter } = this.options;
+      const {
+        bomSkipped,
+        delimiterDiscovered,
+        delimiterBufPrevious,
+        rawBuffer,
+        escapeIsQuote
+      } = this.state;
+      if (!delimiterDiscovered && delimiter_auto) {
+        let delimiterBuf;
+        if (delimiterBufPrevious === void 0) {
+          delimiterBuf = nextBuf;
+        } else if (delimiterBufPrevious !== void 0 && nextBuf === void 0) {
+          delimiterBuf = delimiterBufPrevious;
+        } else {
+          delimiterBuf = Buffer.concat([delimiterBufPrevious, nextBuf]);
+        }
+        nextBuf = void 0;
+        if (end || delimiterBuf.length > delimiter_auto.size) {
+          this.options.delimiter = [
+            Buffer.from(
+              delimiter_discover(delimiterBuf, this.options.delimiter_auto)
+            )
+          ];
+          this.state.previousBuf = delimiterBuf;
+          this.state.delimiterBufPrevious = void 0;
+          this.state.delimiterDiscovered = true;
+        } else {
+          this.state.delimiterBufPrevious = delimiterBuf;
+          return;
+        }
+      }
+      const { previousBuf } = this.state;
+      let buf;
+      if (previousBuf === void 0) {
+        if (nextBuf === void 0) {
+          close();
+          return;
+        } else {
+          buf = nextBuf;
+        }
+      } else if (previousBuf !== void 0 && nextBuf === void 0) {
+        buf = previousBuf;
+      } else {
+        buf = Buffer.concat([previousBuf, nextBuf]);
+      }
+      if (bomSkipped === false) {
+        if (bom === false) {
+          this.state.bomSkipped = true;
+        } else if (buf.length < 3) {
+          if (end === false) {
+            this.state.previousBuf = buf;
+            return;
+          }
+        } else {
+          for (const encoding3 in boms) {
+            if (boms[encoding3].compare(buf, 0, boms[encoding3].length) === 0) {
+              const bomLength = boms[encoding3].length;
+              this.state.bufBytesStart += bomLength;
+              buf = buf.slice(bomLength);
+              const options2 = normalize_options({
+                ...this.original_options,
+                encoding: encoding3
+              });
+              for (const key in options2) {
+                this.options[key] = options2[key];
+              }
+              ({ comment, escape, quote } = this.options);
+              break;
+            }
+          }
+          this.state.bomSkipped = true;
+        }
+      }
+      const bufLen = buf.length;
+      let pos;
+      for (pos = 0; pos < bufLen; pos++) {
+        if (this.__needMoreData(pos, bufLen, end)) {
+          break;
+        }
+        if (this.state.wasRowDelimiter === true) {
+          this.info.lines++;
+          this.state.wasRowDelimiter = false;
+        }
+        if (to_line !== -1 && this.info.lines > to_line) {
+          this.state.stop = true;
+          close();
+          return;
+        }
+        if (this.state.quoting === false && record_delimiter.length === 0) {
+          const record_delimiterCount = this.__autoDiscoverRecordDelimiter(
+            buf,
+            pos
+          );
+          if (record_delimiterCount) {
+            record_delimiter = this.options.record_delimiter;
+          }
+        }
+        const chr = buf[pos];
+        if (raw === true) {
+          rawBuffer.append(chr);
+        }
+        if ((chr === cr || chr === nl) && this.state.wasRowDelimiter === false) {
+          this.state.wasRowDelimiter = true;
+        }
+        if (this.state.escaping === true) {
+          this.state.escaping = false;
+        } else {
+          if (escape !== null && this.state.quoting === true && this.__isEscape(buf, pos, chr) && pos + escape.length < bufLen) {
+            if (escapeIsQuote) {
+              if (this.__isQuote(buf, pos + escape.length)) {
+                this.state.escaping = true;
+                pos += escape.length - 1;
+                continue;
+              }
+            } else {
+              this.state.escaping = true;
+              pos += escape.length - 1;
+              continue;
+            }
+          }
+          if (this.state.commenting === false && this.__isQuote(buf, pos)) {
+            if (this.state.quoting === true) {
+              const nextChr = buf[pos + quote.length];
+              const isNextChrTrimable = rtrim && this.__isCharTrimable(buf, pos + quote.length);
+              const isNextChrComment = comment !== null && this.__compareBytes(comment, buf, pos + quote.length, nextChr);
+              const isNextChrDelimiter = this.__isDelimiter(
+                buf,
+                pos + quote.length,
+                nextChr
+              );
+              const isNextChrRecordDelimiter = record_delimiter.length === 0 ? this.__autoDiscoverRecordDelimiter(buf, pos + quote.length) : this.__isRecordDelimiter(nextChr, buf, pos + quote.length);
+              if (escape !== null && this.__isEscape(buf, pos, chr) && this.__isQuote(buf, pos + escape.length)) {
+                pos += escape.length - 1;
+              } else if (!nextChr || isNextChrDelimiter || isNextChrRecordDelimiter || isNextChrComment || isNextChrTrimable) {
+                this.state.quoting = false;
+                this.state.wasQuoting = true;
+                pos += quote.length - 1;
+                continue;
+              } else if (relax_quotes === false) {
+                const err = this.__error(
+                  new CsvError(
+                    "CSV_INVALID_CLOSING_QUOTE",
+                    [
+                      "Invalid Closing Quote:",
+                      `got "${String.fromCharCode(nextChr)}"`,
+                      `at line ${this.info.lines}`,
+                      "instead of delimiter, record delimiter, trimable character",
+                      "(if activated) or comment"
+                    ],
+                    this.options,
+                    this.__infoField()
+                  )
+                );
+                if (err !== void 0) return err;
+              } else {
+                this.state.quoting = false;
+                this.state.wasQuoting = true;
+                this.state.field.prepend(quote);
+                pos += quote.length - 1;
+              }
+            } else {
+              if (this.state.field.length !== 0) {
+                if (relax_quotes === false) {
+                  const info2 = this.__infoField();
+                  const bom2 = Object.keys(boms).map(
+                    (b) => boms[b].equals(this.state.field.toString()) ? b : false
+                  ).filter(Boolean)[0];
+                  const err = this.__error(
+                    new CsvError(
+                      "INVALID_OPENING_QUOTE",
+                      [
+                        "Invalid Opening Quote:",
+                        `a quote is found on field ${JSON.stringify(info2.column)} at line ${info2.lines}, value is ${JSON.stringify(this.state.field.toString(encoding2))}`,
+                        bom2 ? `(${bom2} bom)` : void 0
+                      ],
+                      this.options,
+                      info2,
+                      {
+                        field: this.state.field
+                      }
+                    )
+                  );
+                  if (err !== void 0) return err;
+                }
+              } else {
+                this.state.quoting = true;
+                pos += quote.length - 1;
+                continue;
+              }
+            }
+          }
+          if (this.state.quoting === false) {
+            const recordDelimiterLength = this.__isRecordDelimiter(
+              chr,
+              buf,
+              pos
+            );
+            if (recordDelimiterLength !== 0) {
+              const skipCommentLine = this.state.commenting && this.state.wasQuoting === false && this.state.record.length === 0 && this.state.field.length === 0;
+              if (skipCommentLine) {
+                this.info.comment_lines++;
+              } else {
+                if (this.state.enabled === false && this.info.lines + (this.state.wasRowDelimiter === true ? 1 : 0) >= from_line) {
+                  this.state.enabled = true;
+                  this.__resetField();
+                  this.__resetRecord();
+                  pos += recordDelimiterLength - 1;
+                  continue;
+                }
+                if (skip_empty_lines === true && this.state.wasQuoting === false && this.state.record.length === 0 && this.state.field.length === 0) {
+                  this.info.empty_lines++;
+                  pos += recordDelimiterLength - 1;
+                  continue;
+                }
+                this.info.bytes = this.state.bufBytesStart + pos;
+                const errField = this.__onField();
+                if (errField !== void 0) return errField;
+                this.info.bytes = this.state.bufBytesStart + pos + recordDelimiterLength;
+                const errRecord = this.__onRecord(push);
+                if (errRecord !== void 0) return errRecord;
+                if (to !== -1 && this.info.records >= to) {
+                  this.state.stop = true;
+                  close();
+                  return;
+                }
+              }
+              this.state.commenting = false;
+              pos += recordDelimiterLength - 1;
+              continue;
+            }
+            if (this.state.commenting) {
+              continue;
+            }
+            if (comment !== null && (comment_no_infix === false || this.state.record.length === 0 && this.state.field.length === 0)) {
+              const commentCount = this.__compareBytes(comment, buf, pos, chr);
+              if (commentCount !== 0) {
+                this.state.commenting = true;
+                continue;
+              }
+            }
+            const delimiterLength = this.__isDelimiter(buf, pos, chr);
+            if (delimiterLength !== 0) {
+              this.info.bytes = this.state.bufBytesStart + pos;
+              const errField = this.__onField();
+              if (errField !== void 0) return errField;
+              pos += delimiterLength - 1;
+              continue;
+            }
+          }
+        }
+        if (this.state.commenting === false) {
+          if (max_record_size !== 0 && this.state.record_length + this.state.field.length > max_record_size) {
+            return this.__error(
+              new CsvError(
+                "CSV_MAX_RECORD_SIZE",
+                [
+                  "Max Record Size:",
+                  "record exceed the maximum number of tolerated bytes",
+                  `of ${max_record_size}`,
+                  `at line ${this.info.lines}`
+                ],
+                this.options,
+                this.__infoField()
+              )
+            );
+          }
+        }
+        const lappend = ltrim === false || this.state.quoting === true || this.state.field.length !== 0 || !this.__isCharTrimable(buf, pos);
+        const rappend = rtrim === false || this.state.wasQuoting === false;
+        if (lappend === true && rappend === true) {
+          this.state.field.append(chr);
+        } else if (rtrim === true && !this.__isCharTrimable(buf, pos)) {
+          return this.__error(
+            new CsvError(
+              "CSV_NON_TRIMABLE_CHAR_AFTER_CLOSING_QUOTE",
+              [
+                "Invalid Closing Quote:",
+                "found non trimable byte after quote",
+                `at line ${this.info.lines}`
+              ],
+              this.options,
+              this.__infoField()
+            )
+          );
+        } else {
+          if (lappend === false) {
+            pos += this.__isCharTrimable(buf, pos) - 1;
+          }
+          continue;
+        }
+      }
+      if (end === true) {
+        if (this.state.quoting === true) {
+          const err = this.__error(
+            new CsvError(
+              "CSV_QUOTE_NOT_CLOSED",
+              [
+                "Quote Not Closed:",
+                `the parsing is finished with an opening quote at line ${this.info.lines}`
+              ],
+              this.options,
+              this.__infoField()
+            )
+          );
+          if (err !== void 0) return err;
+        } else {
+          if (this.state.wasQuoting === true || this.state.record.length !== 0 || this.state.field.length !== 0) {
+            this.info.bytes = this.state.bufBytesStart + pos;
+            const errField = this.__onField();
+            if (errField !== void 0) return errField;
+            const errRecord = this.__onRecord(push);
+            if (errRecord !== void 0) return errRecord;
+          } else if (this.state.wasRowDelimiter === true) {
+            this.info.empty_lines++;
+          } else if (this.state.commenting === true) {
+            this.info.comment_lines++;
+          }
+        }
+      } else {
+        this.state.bufBytesStart += pos;
+        this.state.previousBuf = buf.slice(pos);
+      }
+      if (this.state.wasRowDelimiter === true) {
+        this.info.lines++;
+        this.state.wasRowDelimiter = false;
+      }
+    },
+    __onRecord: function(push) {
+      const {
+        columns,
+        group_columns_by_name,
+        encoding: encoding2,
+        info: info2,
+        from,
+        relax_column_count,
+        relax_column_count_less,
+        relax_column_count_more,
+        raw,
+        skip_records_with_empty_values
+      } = this.options;
+      const { enabled, record } = this.state;
+      if (enabled === false) {
+        return this.__resetRecord();
+      }
+      const recordLength = record.length;
+      if (columns === true) {
+        if (skip_records_with_empty_values === true && isRecordEmpty(record)) {
+          this.__resetRecord();
+          return;
+        }
+        return this.__firstLineToColumns(record);
+      }
+      if (columns === false && this.info.records === 0) {
+        this.state.expectedRecordLength = recordLength;
+      }
+      if (recordLength !== this.state.expectedRecordLength) {
+        const err = columns === false ? new CsvError(
+          "CSV_RECORD_INCONSISTENT_FIELDS_LENGTH",
+          [
+            "Invalid Record Length:",
+            `expect ${this.state.expectedRecordLength},`,
+            `got ${recordLength} on line ${this.info.lines}`
+          ],
+          this.options,
+          this.__infoField(),
+          {
+            record
+          }
+        ) : new CsvError(
+          "CSV_RECORD_INCONSISTENT_COLUMNS",
+          [
+            "Invalid Record Length:",
+            `columns length is ${columns.length},`,
+            // rename columns
+            `got ${recordLength} on line ${this.info.lines}`
+          ],
+          this.options,
+          this.__infoField(),
+          {
+            record
+          }
+        );
+        if (relax_column_count === true || relax_column_count_less === true && recordLength < this.state.expectedRecordLength || relax_column_count_more === true && recordLength > this.state.expectedRecordLength) {
+          this.info.invalid_field_length++;
+          this.state.error = err;
+        } else {
+          const finalErr = this.__error(err);
+          if (finalErr) return finalErr;
+        }
+      }
+      if (skip_records_with_empty_values === true && isRecordEmpty(record)) {
+        this.__resetRecord();
+        return;
+      }
+      if (this.state.recordHasError === true) {
+        this.__resetRecord();
+        this.state.recordHasError = false;
+        return;
+      }
+      this.info.records++;
+      if (from === 1 || this.info.records >= from) {
+        const { objname } = this.options;
+        if (columns !== false) {
+          const obj = {};
+          for (let i = 0, l = record.length; i < l; i++) {
+            if (columns[i] === void 0 || columns[i].disabled) continue;
+            if (group_columns_by_name === true && Object.hasOwn(obj, columns[i].name)) {
+              if (Array.isArray(obj[columns[i].name])) {
+                obj[columns[i].name] = obj[columns[i].name].concat(record[i]);
+              } else {
+                obj[columns[i].name] = [obj[columns[i].name], record[i]];
+              }
+            } else {
+              Object.defineProperty(obj, columns[i].name, {
+                value: record[i],
+                enumerable: true,
+                writable: true,
+                configurable: true
+              });
+            }
+          }
+          if (raw === true || info2 === true) {
+            const extRecord = Object.assign(
+              { record: obj },
+              raw === true ? { raw: this.state.rawBuffer.toString(encoding2) } : {},
+              info2 === true ? { info: this.__infoRecord() } : {}
+            );
+            const err = this.__push(
+              objname === void 0 ? extRecord : [obj[objname], extRecord],
+              push
+            );
+            if (err) {
+              return err;
+            }
+          } else {
+            const err = this.__push(
+              objname === void 0 ? obj : [obj[objname], obj],
+              push
+            );
+            if (err) {
+              return err;
+            }
+          }
+        } else {
+          if (raw === true || info2 === true) {
+            const extRecord = Object.assign(
+              { record },
+              raw === true ? { raw: this.state.rawBuffer.toString(encoding2) } : {},
+              info2 === true ? { info: this.__infoRecord() } : {}
+            );
+            const err = this.__push(
+              objname === void 0 ? extRecord : [record[objname], extRecord],
+              push
+            );
+            if (err) {
+              return err;
+            }
+          } else {
+            const err = this.__push(
+              objname === void 0 ? record : [record[objname], record],
+              push
+            );
+            if (err) {
+              return err;
+            }
+          }
+        }
+      }
+      this.__resetRecord();
+    },
+    __firstLineToColumns: function(record) {
+      const { firstLineToHeaders } = this.state;
+      try {
+        const headers2 = firstLineToHeaders === void 0 ? record : firstLineToHeaders.call(null, record);
+        if (!Array.isArray(headers2)) {
+          return this.__error(
+            new CsvError(
+              "CSV_INVALID_COLUMN_MAPPING",
+              [
+                "Invalid Column Mapping:",
+                "expect an array from column function,",
+                `got ${JSON.stringify(headers2)}`
+              ],
+              this.options,
+              this.__infoField(),
+              {
+                headers: headers2
+              }
+            )
+          );
+        }
+        const normalizedHeaders = normalize_columns_array(headers2);
+        this.state.expectedRecordLength = normalizedHeaders.length;
+        this.options.columns = normalizedHeaders;
+        this.__resetRecord();
+        return;
+      } catch (err) {
+        return err;
+      }
+    },
+    __resetRecord: function() {
+      if (this.options.raw === true) {
+        this.state.rawBuffer.reset();
+      }
+      this.state.error = void 0;
+      this.state.record = [];
+      this.state.record_length = 0;
+    },
+    __onField: function() {
+      const { cast, encoding: encoding2, rtrim, max_record_size } = this.options;
+      const { enabled, wasQuoting } = this.state;
+      if (enabled === false) {
+        return this.__resetField();
+      }
+      let field = this.state.field.toString(encoding2);
+      if (rtrim === true && wasQuoting === false) {
+        field = field.trimRight();
+      }
+      if (cast === true) {
+        const [err, f] = this.__cast(field);
+        if (err !== void 0) return err;
+        field = f;
+      }
+      this.state.record.push(field);
+      if (max_record_size !== 0 && typeof field === "string") {
+        this.state.record_length += field.length;
+      }
+      this.__resetField();
+    },
+    __resetField: function() {
+      this.state.field.reset();
+      this.state.wasQuoting = false;
+    },
+    __push: function(record, push) {
+      const { on_record } = this.options;
+      if (on_record !== void 0) {
+        const info2 = this.__infoRecord();
+        try {
+          record = on_record.call(null, record, info2);
+        } catch (err) {
+          return err;
+        }
+        if (record === void 0 || record === null) {
+          return;
+        }
+      }
+      this.info.bytes_records += this.info.bytes;
+      push(record);
+    },
+    // Return a tuple with the error and the casted value
+    __cast: function(field) {
+      const { columns, relax_column_count } = this.options;
+      const isColumns = Array.isArray(columns);
+      if (isColumns === true && relax_column_count && this.options.columns.length <= this.state.record.length) {
+        return [void 0, void 0];
+      }
+      if (this.state.castField !== null) {
+        try {
+          const info2 = this.__infoField();
+          return [void 0, this.state.castField.call(null, field, info2)];
+        } catch (err) {
+          return [err];
+        }
+      }
+      if (this.__isFloat(field)) {
+        return [void 0, parseFloat(field)];
+      } else if (this.options.cast_date !== false) {
+        const info2 = this.__infoField();
+        return [void 0, this.options.cast_date.call(null, field, info2)];
+      }
+      return [void 0, field];
+    },
+    __compareBytes: function(sourceBuf, targetBuf, targetPos, firstByte) {
+      if (sourceBuf[0] !== firstByte) return 0;
+      const sourceLength = sourceBuf.length;
+      for (let i = 1; i < sourceLength; i++) {
+        if (sourceBuf[i] !== targetBuf[targetPos + i]) return 0;
+      }
+      return sourceLength;
+    },
+    // Helper to test if a character is trimable
+    __isCharTrimable: function(buf, pos) {
+      const { timchars, timcharFirstBytes } = this.state;
+      const first = buf[pos];
+      if (first === void 0 || timcharFirstBytes[first] === 0) return 0;
+      loop1: for (let i = 0; i < timchars.length; i++) {
+        const timchar = timchars[i];
+        for (let j = 0; j < timchar.length; j++) {
+          if (timchar[j] !== buf[pos + j]) continue loop1;
+        }
+        return timchar.length;
+      }
+      return 0;
+    },
+    __isDelimiter: function(buf, pos, chr) {
+      const { delimiter: delimiter2, ignore_last_delimiters } = this.options;
+      if (ignore_last_delimiters === true && this.state.record.length === this.options.columns.length - 1) {
+        return 0;
+      } else if (ignore_last_delimiters !== false && typeof ignore_last_delimiters === "number" && this.state.record.length === ignore_last_delimiters - 1) {
+        return 0;
+      }
+      loop1: for (let i = 0; i < delimiter2.length; i++) {
+        const del = delimiter2[i];
+        if (del[0] === chr) {
+          for (let j = 1; j < del.length; j++) {
+            if (del[j] !== buf[pos + j]) continue loop1;
+          }
+          return del.length;
+        }
+      }
+      return 0;
+    },
+    __isEscape: function(buf, pos, chr) {
+      const { escape } = this.options;
+      if (escape === null) return false;
+      const l = escape.length;
+      if (escape[0] === chr) {
+        for (let i = 0; i < l; i++) {
+          if (escape[i] !== buf[pos + i]) {
+            return false;
+          }
+        }
+        return true;
+      }
+      return false;
+    },
+    __isFloat: function(value) {
+      return value - parseFloat(value) + 1 >= 0;
+    },
+    // Keep it in case we implement the `cast_int` option
+    // __isInt(value){
+    //   // return Number.isInteger(parseInt(value))
+    //   // return !isNaN( parseInt( obj ) );
+    //   return /^(\-|\+)?[1-9][0-9]*$/.test(value)
+    // }
+    __isQuote: function(buf, pos) {
+      const { quote } = this.options;
+      if (quote === null) return false;
+      const l = quote.length;
+      for (let i = 0; i < l; i++) {
+        if (quote[i] !== buf[pos + i]) {
+          return false;
+        }
+      }
+      return true;
+    },
+    __isRecordDelimiter: function(chr, buf, pos) {
+      const { record_delimiter } = this.options;
+      const recordDelimiterLength = record_delimiter.length;
+      loop1: for (let i = 0; i < recordDelimiterLength; i++) {
+        const rd = record_delimiter[i];
+        const rdLength = rd.length;
+        if (rd[0] !== chr) {
+          continue;
+        }
+        for (let j = 1; j < rdLength; j++) {
+          if (rd[j] !== buf[pos + j]) {
+            continue loop1;
+          }
+        }
+        return rd.length;
+      }
+      return 0;
+    },
+    __autoDiscoverRecordDelimiter: function(buf, pos) {
+      const { encoding: encoding2 } = this.options;
+      const rds = [
+        // Important, the windows line ending must be before mac os 9
+        Buffer.from("\r\n", encoding2),
+        Buffer.from("\n", encoding2),
+        Buffer.from("\r", encoding2)
+      ];
+      loop: for (let i = 0; i < rds.length; i++) {
+        const l = rds[i].length;
+        for (let j = 0; j < l; j++) {
+          if (rds[i][j] !== buf[pos + j]) {
+            continue loop;
+          }
+        }
+        this.options.record_delimiter.push(rds[i]);
+        this.state.recordDelimiterMaxLength = rds[i].length;
+        return rds[i].length;
+      }
+      return 0;
+    },
+    __error: function(msg) {
+      const { encoding: encoding2, raw, skip_records_with_error } = this.options;
+      const err = typeof msg === "string" ? new Error(msg) : msg;
+      if (skip_records_with_error) {
+        this.state.recordHasError = true;
+        if (this.options.on_skip !== void 0) {
+          try {
+            this.options.on_skip(
+              err,
+              raw ? this.state.rawBuffer.toString(encoding2) : void 0
+            );
+          } catch (err2) {
+            return err2;
+          }
+        }
+        return void 0;
+      } else {
+        return err;
+      }
+    },
+    __infoDataSet: function() {
+      return {
+        ...this.info,
+        columns: this.options.columns
+      };
+    },
+    __infoRecord: function() {
+      const { columns, raw, encoding: encoding2 } = this.options;
+      return {
+        ...this.__infoDataSet(),
+        bytes_records: this.info.bytes,
+        error: this.state.error,
+        header: columns === true,
+        index: this.state.record.length,
+        raw: raw ? this.state.rawBuffer.toString(encoding2) : void 0
+      };
+    },
+    __infoField: function() {
+      const { columns } = this.options;
+      const isColumns = Array.isArray(columns);
+      const bytes_records = this.info.bytes_records;
+      return {
+        ...this.__infoRecord(),
+        bytes_records,
+        column: isColumns === true ? columns.length > this.state.record.length ? columns[this.state.record.length].name : null : this.state.record.length,
+        quoting: this.state.wasQuoting
+      };
+    }
+  };
+};
+class Parser extends require$$0$7.Transform {
+  constructor(opts = {}) {
+    super({ ...{ readableObjectMode: true }, ...opts, encoding: null });
+    this.api = transform({
+      on_skip: (err, chunk) => {
+        this.emit("skip", err, chunk);
+      },
+      ...opts
+    });
+    this.state = this.api.state;
+    this.options = this.api.options;
+    this.info = this.api.info;
+  }
+  // Implementation of `Transform._transform`
+  _transform(buf, _2, callback) {
+    if (this.state.stop === true) {
+      return;
+    }
+    const err = this.api.parse(
+      buf,
+      false,
+      (record) => {
+        this.push(record);
+      },
+      () => {
+        this.push(null);
+        this.end();
+        this.on("end", this.destroy);
+      }
+    );
+    if (err !== void 0) {
+      this.state.stop = true;
+    }
+    callback(err);
+  }
+  // Implementation of `Transform._flush`
+  _flush(callback) {
+    if (this.state.stop === true) {
+      return;
+    }
+    const err = this.api.parse(
+      void 0,
+      true,
+      (record) => {
+        this.push(record);
+      },
+      () => {
+        this.push(null);
+        this.on("end", this.destroy);
+      }
+    );
+    callback(err);
+  }
+}
+const parse = function() {
+  let data, options, callback;
+  for (const i in arguments) {
+    const argument = arguments[i];
+    const type = typeof argument;
+    if (data === void 0 && (typeof argument === "string" || Buffer.isBuffer(argument))) {
+      data = argument;
+    } else if (options === void 0 && is_object(argument)) {
+      options = argument;
+    } else if (callback === void 0 && type === "function") {
+      callback = argument;
+    } else {
+      throw new CsvError(
+        "CSV_INVALID_ARGUMENT",
+        ["Invalid argument:", `got ${JSON.stringify(argument)} at index ${i}`],
+        options || {}
+      );
+    }
+  }
+  const parser2 = new Parser(options);
+  if (callback) {
+    const records = options === void 0 || options.objname === void 0 ? [] : /* @__PURE__ */ Object.create(null);
+    parser2.on("readable", function() {
+      let record;
+      while ((record = this.read()) !== null) {
+        if (options === void 0 || options.objname === void 0) {
+          records.push(record);
+        } else {
+          Object.assign(records, {
+            [record[0]]: record[1]
+            // writable: true,
+            // enumerable: true,
+            // configurable: true
+          });
+        }
+      }
+    });
+    parser2.on("error", function(err) {
+      callback(err, void 0, parser2.api.__infoDataSet());
+    });
+    parser2.on("end", function() {
+      callback(void 0, records, parser2.api.__infoDataSet());
+    });
+  }
+  if (data !== void 0) {
+    const writer2 = function() {
+      parser2.write(data);
+      parser2.end();
+    };
+    if (typeof setImmediate === "function") {
+      setImmediate(writer2);
+    } else {
+      setTimeout(writer2, 0);
+    }
+  }
+  return parser2;
+};
+class FileImportManager {
+  constructor(emit) {
+    this.emit = emit;
+  }
+  emit;
+  jobs = /* @__PURE__ */ new Map();
+  get hasActiveJob() {
+    return [...this.jobs.values()].some((state2) => state2.active);
+  }
+  async inspect(path2, token) {
+    const stat = await node_fs.promises.stat(path2);
+    const extension = node_path.extname(path2).toLowerCase();
+    if (extension !== ".csv" && extension !== ".xlsx") {
+      throw appError("Validation", "Only .csv and .xlsx files are supported.");
+    }
+    const sheets = extension === ".xlsx" ? await listWorkbookSheets(path2) : [];
+    return {
+      path: path2,
+      token,
+      name: node_path.basename(path2),
+      format: extension === ".csv" ? "csv" : "xlsx",
+      size: stat.size,
+      sheets
+    };
+  }
+  async preview(path2, fileToken, sheet, delimiter2) {
+    const extension = node_path.extname(path2).toLowerCase();
+    const preview = extension === ".csv" ? await previewCsv(path2, delimiter2) : await previewXlsx(path2, sheet);
+    return { fileToken, ...preview };
+  }
+  start(client2, connectionId, datasets, requestedJobId) {
+    if (this.hasActiveJob) {
+      throw appError("Validation", "This connection already has an active file import.");
+    }
+    const jobId = requestedJobId ?? node_crypto.randomUUID();
+    this.jobs.set(jobId, { cancelled: false, active: true, report: [] });
+    setImmediate(() => {
+      void this.run(client2, connectionId, jobId, datasets);
+    });
+    return { jobId };
+  }
+  cancel(jobId) {
+    const job = this.jobs.get(jobId);
+    if (!job) return false;
+    job.cancelled = true;
+    return true;
+  }
+  report(jobId) {
+    return this.jobs.get(jobId)?.report ?? null;
+  }
+  async dispose() {
+    for (const job of this.jobs.values()) {
+      job.cancelled = true;
+      job.active = false;
+    }
+  }
+  async run(client2, connectionId, jobId, datasets) {
+    const job = this.jobs.get(jobId);
+    const startedAt = Date.now();
+    const summaries = [];
+    let rowsRead = 0;
+    let inserted = 0;
+    let updated = 0;
+    let skipped = 0;
+    let errors2 = 0;
+    const send = (status, phase, datasetIndex, message, summary) => this.emit({
+      jobId,
+      kind: "file-import",
+      status,
+      phase,
+      connectionIds: [connectionId],
+      datasetIndex,
+      datasetCount: datasets.length,
+      ...datasets[datasetIndex] ? { datasetName: datasetLabel(datasets[datasetIndex]) } : {},
+      rowsRead,
+      inserted,
+      updated,
+      skipped,
+      errors: errors2,
+      ...message ? { message } : {},
+      ...summary ? { summary } : {},
+      hasErrorReport: job.report.length > 0
+    });
+    try {
+      send("preparing", "preflight", 0, "Validating file mappings…");
+      for (let datasetIndex = 0; datasetIndex < datasets.length; datasetIndex += 1) {
+        const dataset = datasets[datasetIndex];
+        assertNotCancelled(job);
+        const datasetSummary = {
+          source: datasetLabel(dataset),
+          target: `${dataset.targetDatabase}.${dataset.targetCollection}`,
+          inserted: 0,
+          updated: 0,
+          skipped: 0,
+          errors: 0
+        };
+        summaries.push(datasetSummary);
+        const batch = [];
+        const batchRows = [];
+        let batchBytes = 0;
+        const flush = async () => {
+          if (batch.length === 0) return;
+          assertNotCancelled(job);
+          const write = await writeTransferBatch(client2, {
+            database: dataset.targetDatabase,
+            collection: dataset.targetCollection,
+            documentsEjson: batch,
+            conflictMode: dataset.conflictMode,
+            rowErrorPolicy: dataset.rowErrorPolicy,
+            upsertFields: dataset.upsertFields
+          });
+          inserted += write.inserted;
+          updated += write.updated;
+          skipped += write.skipped;
+          errors2 += write.errors.length;
+          datasetSummary.inserted += write.inserted;
+          datasetSummary.updated += write.updated;
+          datasetSummary.skipped += write.skipped;
+          datasetSummary.errors += write.errors.length;
+          for (const item of write.errors) {
+            job.report.push({
+              dataset: datasetLabel(dataset),
+              target: datasetSummary.target,
+              row: batchRows[item.index] ?? -1,
+              category: item.category,
+              message: item.message
+            });
+          }
+          batch.length = 0;
+          batchRows.length = 0;
+          batchBytes = 0;
+          send("running", "writing", datasetIndex);
+        };
+        for await (const row2 of readDatasetRows(dataset)) {
+          assertNotCancelled(job);
+          rowsRead += 1;
+          try {
+            const document2 = mapFileRow(row2.values, dataset.mappings, dataset.emptyCellPolicy);
+            const ejson = EJSON.stringify(document2, void 0, 0, { relaxed: false });
+            const bytes = Buffer.byteLength(ejson);
+            if (bytes > TRANSFER_MAX_BATCH_BYTES) {
+              throw appError("Validation", "Mapped document exceeds the 8 MiB transfer batch limit.");
+            }
+            if (batch.length > 0 && (batch.length >= TRANSFER_MAX_BATCH_DOCUMENTS || batchBytes + bytes > TRANSFER_MAX_BATCH_BYTES)) await flush();
+            batch.push(ejson);
+            batchRows.push(row2.number);
+            batchBytes += bytes;
+          } catch (error2) {
+            const safe = serializeError(error2);
+            errors2 += 1;
+            datasetSummary.errors += 1;
+            job.report.push({
+              dataset: datasetLabel(dataset),
+              target: datasetSummary.target,
+              row: row2.number,
+              category: safe.category,
+              message: safe.message
+            });
+            if (dataset.rowErrorPolicy === "stop") throw error2;
+            skipped += 1;
+            datasetSummary.skipped += 1;
+          }
+          if (rowsRead % 100 === 0) send("running", "reading", datasetIndex);
+        }
+        await flush();
+      }
+      const summary = {
+        jobId,
+        kind: "file-import",
+        status: "completed",
+        startedAt,
+        completedAt: Date.now(),
+        datasets: summaries,
+        inserted,
+        updated,
+        skipped,
+        errors: errors2
+      };
+      send("completed", "finalizing", Math.max(0, datasets.length - 1), "Import completed.", summary);
+    } catch (error2) {
+      const cancelled = job.cancelled;
+      const safe = sanitizeFileJobError(error2, datasets);
+      const status = cancelled ? "cancelled" : "failed";
+      const summary = {
+        jobId,
+        kind: "file-import",
+        status,
+        startedAt,
+        completedAt: Date.now(),
+        datasets: summaries,
+        inserted,
+        updated,
+        skipped,
+        errors: errors2 + (cancelled ? 0 : 1)
+      };
+      send(status, "finalizing", Math.max(0, summaries.length - 1), cancelled ? "Import cancelled." : safe.message, summary);
+    } finally {
+      job.active = false;
+    }
+  }
+}
+function inferColumnType(column2, values) {
+  const present = values.filter((value) => value !== null && value !== void 0 && value !== "");
+  if (present.length === 0) return "string";
+  if (present.every((value) => typeof value === "boolean" || /^(true|false)$/i.test(String(value)))) return "boolean";
+  const strings2 = present.map(String);
+  if (strings2.some((value) => /^[-+]?0\d+/.test(value))) return "string";
+  if (column2 === "_id" && strings2.every((value) => /^[0-9a-f]{24}$/i.test(value))) return "objectId";
+  if (present.every((value) => typeof value === "number" || /^[-+]?\d+$/.test(String(value)))) {
+    return strings2.every((value) => {
+      const number = Number(value);
+      return Number.isSafeInteger(number) && number >= -2147483648 && number <= 2147483647;
+    }) ? "int32" : "long";
+  }
+  if (present.every((value) => typeof value === "number" || /^[-+]?(?:\d+\.\d+|\d+e[-+]?\d+)$/i.test(String(value)))) return "double";
+  if (present.every((value) => !Number.isNaN(Date.parse(String(value))))) return "date";
+  return "string";
+}
+function mapFileRow(row2, mappings, emptyPolicy) {
+  const document2 = /* @__PURE__ */ Object.create(null);
+  for (const mapping of mappings) {
+    if (!mapping.included) continue;
+    const raw = row2[mapping.sourceColumn];
+    const empty = raw === "" || raw === null || raw === void 0;
+    if (empty && emptyPolicy === "omit") continue;
+    const value = empty ? emptyPolicy === "null" ? null : "" : convertColumnValue(raw, mapping.type);
+    if (mapping.literalFieldName) document2[mapping.targetField] = value;
+    else setPath(document2, mapping.targetField, value);
+  }
+  return document2;
+}
+function convertColumnValue(raw, type) {
+  if (type === "string") return typeof raw === "string" ? raw : String(raw);
+  if (type === "boolean") {
+    if (typeof raw === "boolean") return raw;
+    if (/^true$/i.test(String(raw))) return true;
+    if (/^false$/i.test(String(raw))) return false;
+    throw appError("Validation", `"${String(raw)}" is not a boolean.`);
+  }
+  if (type === "int32") {
+    const value = Number(raw);
+    if (!Number.isInteger(value) || value < -2147483648 || value > 2147483647) {
+      throw appError("Validation", `"${String(raw)}" is not an Int32.`);
+    }
+    return new Int32(value);
+  }
+  if (type === "long") {
+    if (!/^[-+]?\d+$/.test(String(raw))) throw appError("Validation", `"${String(raw)}" is not a Long.`);
+    return Long.fromString(String(raw));
+  }
+  if (type === "double") {
+    const value = Number(raw);
+    if (!Number.isFinite(value)) throw appError("Validation", `"${String(raw)}" is not a Double.`);
+    return value;
+  }
+  if (type === "decimal128") return Decimal128.fromString(String(raw));
+  if (type === "date") {
+    const value = raw instanceof Date ? raw : new Date(String(raw));
+    if (Number.isNaN(value.getTime())) throw appError("Validation", `"${String(raw)}" is not a Date.`);
+    return value;
+  }
+  if (type === "objectId") {
+    if (!ObjectId.isValid(String(raw))) throw appError("Validation", `"${String(raw)}" is not an ObjectId.`);
+    return new ObjectId(String(raw));
+  }
+  try {
+    return EJSON.parse(String(raw), { relaxed: false });
+  } catch {
+    const wrapped = parseQueryDocumentExpression(`{ value: ${String(raw)} }`, "JSON/EJSON cell");
+    return wrapped.value;
+  }
+}
+async function previewCsv(path2, requestedDelimiter) {
+  const delimiter2 = requestedDelimiter ?? await detectCsvDelimiter(path2);
+  const rows = [];
+  let headers2 = [];
+  let recordIndex = 0;
+  const parser2 = node_fs.createReadStream(path2).pipe(parse({ delimiter: delimiter2, bom: true, relax_column_count: false }));
+  for await (const record of parser2) {
+    recordIndex += 1;
+    if (recordIndex === 1) {
+      headers2 = normalizeHeaders(record);
+      continue;
+    }
+    rows.push(Object.fromEntries(headers2.map((header, index2) => [header, record[index2] ?? ""])));
+    if (rows.length >= 101) break;
+  }
+  return makePreview(headers2, rows, delimiter2);
+}
+async function previewXlsx(path2, selectedSheet) {
+  let headers2 = [];
+  const rows = [];
+  const workbook2 = new ExcelJS.stream.xlsx.WorkbookReader(path2, {
+    worksheets: "emit",
+    sharedStrings: "cache",
+    hyperlinks: "ignore",
+    styles: "ignore"
+  });
+  for await (const worksheet2 of workbook2) {
+    if (selectedSheet && worksheetName(worksheet2) !== selectedSheet) continue;
+    let rowIndex = 0;
+    for await (const row2 of worksheet2) {
+      rowIndex += 1;
+      const values = rowValues(row2);
+      if (rowIndex === 1) {
+        headers2 = normalizeHeaders(values.map((value) => String(value ?? "")));
+        continue;
+      }
+      rows.push(Object.fromEntries(headers2.map((header, index2) => [header, previewCell(values[index2])])));
+      if (rows.length >= 101) break;
+    }
+    break;
+  }
+  if (headers2.length === 0) throw appError("Validation", `Excel sheet not found or empty: ${selectedSheet ?? "first sheet"}`);
+  return makePreview(headers2, rows);
+}
+function makePreview(headers2, inputRows, delimiter2) {
+  const rows = inputRows.slice(0, 100);
+  return {
+    headers: headers2,
+    rows,
+    suggestedMappings: headers2.map((header) => ({
+      sourceColumn: header,
+      included: true,
+      targetField: header,
+      type: inferColumnType(header, rows.map((row2) => row2[header]))
+    })),
+    ...delimiter2 ? { delimiter: delimiter2 } : {},
+    truncated: inputRows.length > 100
+  };
+}
+async function* readDatasetRows(dataset) {
+  if (node_path.extname(dataset.path).toLowerCase() === ".csv") {
+    const delimiter2 = dataset.delimiter ?? await detectCsvDelimiter(dataset.path);
+    const parser2 = node_fs.createReadStream(dataset.path).pipe(parse({ delimiter: delimiter2, bom: true, relax_column_count: false }));
+    let headers2 = [];
+    let number = 0;
+    for await (const record of parser2) {
+      number += 1;
+      if (number === 1) {
+        headers2 = normalizeHeaders(record);
+        continue;
+      }
+      yield { number, values: Object.fromEntries(headers2.map((header, index2) => [header, record[index2] ?? ""])) };
+    }
+    return;
+  }
+  const workbook2 = new ExcelJS.stream.xlsx.WorkbookReader(dataset.path, {
+    worksheets: "emit",
+    sharedStrings: "cache",
+    hyperlinks: "ignore",
+    styles: "ignore"
+  });
+  for await (const worksheet2 of workbook2) {
+    if (dataset.sheet && worksheetName(worksheet2) !== dataset.sheet) continue;
+    let headers2 = [];
+    let number = 0;
+    for await (const row2 of worksheet2) {
+      number += 1;
+      const values = rowValues(row2);
+      if (number === 1) {
+        headers2 = normalizeHeaders(values.map((value) => String(value ?? "")));
+        continue;
+      }
+      yield {
+        number,
+        values: Object.fromEntries(headers2.map((header, index2) => [header, importCell(values[index2], number, header)]))
+      };
+    }
+    return;
+  }
+  throw appError("Validation", `Excel sheet not found: ${dataset.sheet ?? "first sheet"}`);
+}
+async function listWorkbookSheets(path2) {
+  const sheets = [];
+  const workbook2 = new ExcelJS.stream.xlsx.WorkbookReader(path2, {
+    worksheets: "emit",
+    sharedStrings: "ignore",
+    hyperlinks: "ignore",
+    styles: "ignore"
+  });
+  for await (const worksheet2 of workbook2) sheets.push(worksheetName(worksheet2));
+  return sheets;
+}
+async function detectCsvDelimiter(path2) {
+  const file2 = await node_fs.promises.open(path2, "r");
+  try {
+    const buffer2 = Buffer.alloc(64 * 1024);
+    const { bytesRead } = await file2.read(buffer2, 0, buffer2.length, 0);
+    const sample = buffer2.subarray(0, bytesRead).toString("utf8").replace(/^\uFEFF/, "");
+    const firstRecord = firstLogicalCsvRecord(sample);
+    const candidates = [",", ";", "	", "|"];
+    return candidates.map((delimiter2) => ({ delimiter: delimiter2, count: countOutsideQuotes(firstRecord, delimiter2) })).sort((a, b) => b.count - a.count)[0]?.delimiter ?? ",";
+  } finally {
+    await file2.close();
+  }
+}
+function firstLogicalCsvRecord(text) {
+  let quoted = false;
+  for (let index2 = 0; index2 < text.length; index2 += 1) {
+    if (text[index2] === '"') {
+      if (quoted && text[index2 + 1] === '"') index2 += 1;
+      else quoted = !quoted;
+    } else if (!quoted && (text[index2] === "\n" || text[index2] === "\r")) {
+      return text.slice(0, index2);
+    }
+  }
+  return text;
+}
+function countOutsideQuotes(text, delimiter2) {
+  let quoted = false;
+  let count2 = 0;
+  for (let index2 = 0; index2 < text.length; index2 += 1) {
+    if (text[index2] === '"') {
+      if (quoted && text[index2 + 1] === '"') index2 += 1;
+      else quoted = !quoted;
+    } else if (!quoted && text[index2] === delimiter2) count2 += 1;
+  }
+  return count2;
+}
+function normalizeHeaders(values) {
+  const headers2 = values.map((value) => value.trim());
+  if (headers2.some((value) => !value)) throw appError("Validation", "Every source column must have a header.");
+  const normalized = headers2.map((value) => value.toLocaleLowerCase());
+  if (new Set(normalized).size !== normalized.length) throw appError("Validation", "Source column headers must be unique.");
+  return headers2;
+}
+function rowValues(row2) {
+  const values = Array.isArray(row2.values) ? row2.values.slice(1) : [];
+  return values;
+}
+function previewCell(value) {
+  const resolved = resolveExcelCell(value, false, -1, "preview");
+  if (resolved === null || typeof resolved === "string" || typeof resolved === "number" || typeof resolved === "boolean") return resolved;
+  if (resolved instanceof Date) return resolved.toISOString();
+  return JSON.stringify(resolved);
+}
+function importCell(value, row2, column2) {
+  return resolveExcelCell(value, true, row2, column2);
+}
+function resolveExcelCell(value, failMissingFormula, row2, column2) {
+  if (value && typeof value === "object" && "formula" in value) {
+    const result = value.result;
+    if (result === void 0 && failMissingFormula) {
+      throw appError("Validation", `Formula at row ${row2}, column "${column2}" has no cached result.`);
+    }
+    return result ?? null;
+  }
+  if (value && typeof value === "object" && "text" in value) return String(value.text);
+  if (value && typeof value === "object" && "richText" in value) {
+    return value.richText.map((part) => part.text).join("");
+  }
+  return value ?? "";
+}
+function assertNotCancelled(job) {
+  if (job.cancelled) throw appError("Cancellation", "Data import was cancelled.");
+}
+function worksheetName(worksheet2) {
+  return worksheet2.name;
+}
+function sanitizeFileJobError(error2, datasets) {
+  const safe = serializeError(error2);
+  let message = safe.message;
+  for (const dataset of datasets) message = message.split(dataset.path).join("[selected file]");
+  return { ...safe, message };
+}
+function datasetLabel(dataset) {
+  return dataset.sheet ? `${dataset.fileName} / ${dataset.sheet}` : dataset.fileName;
+}
+async function prepareTransferTarget(client2, database, collectionName, metadata, selection) {
+  const databaseHandle = client2.db(database);
+  const existingCursor = databaseHandle.listCollections({ name: collectionName });
+  let existing;
+  try {
+    existing = await existingCursor.next();
+  } finally {
+    await existingCursor.close().catch(() => void 0);
+  }
+  const sourceInfo = metadata.collectionInfoEjson ? EJSON.parse(metadata.collectionInfoEjson, { relaxed: false }) : void 0;
+  const warnings = [];
+  if (!existing) {
+    const options = sourceInfo && (selection.collectionOptions || selection.validationRules) ? buildCreateOptions(sourceInfo, selection) : void 0;
+    await databaseHandle.createCollection(collectionName, options);
+    return { created: true, warnings };
+  }
+  if (selection.collectionOptions && sourceInfo) {
+    const mismatches = immutableOptionMismatches(sourceInfo.options, existing.options);
+    if (mismatches.length > 0) {
+      warnings.push(`Collection options not copied (${mismatches.join(", ")} differ on the target).`);
+    }
+  }
+  if (selection.validationRules && sourceInfo?.options && selection.replaceTargetValidator) {
+    const options = sourceInfo.options;
+    await databaseHandle.command({
+      collMod: collectionName,
+      validator: options.validator ?? {},
+      validationLevel: options.validationLevel ?? "strict",
+      validationAction: options.validationAction ?? "error"
+    });
+  } else if (selection.validationRules && sourceInfo?.options && !selection.replaceTargetValidator) {
+    const sourceValidator = sourceInfo.options.validator;
+    const targetValidator = existing.options?.validator;
+    if (sourceValidator && targetValidator && canonical(sourceValidator) !== canonical(targetValidator)) {
+      warnings.push("Target validator was preserved. Enable explicit validator replacement to copy it.");
+    }
+  }
+  return { created: false, warnings };
+}
+async function finalizeTransferIndexes(client2, database, collectionName, metadata, selection) {
+  if (!selection.indexes) return { created: 0, skipped: 0 };
+  const collection2 = client2.db(database).collection(collectionName);
+  const targetByName = /* @__PURE__ */ new Map();
+  const cursor = collection2.listIndexes();
+  try {
+    for (; ; ) {
+      const index2 = await cursor.next();
+      if (!index2) break;
+      if (index2.name) targetByName.set(index2.name, index2);
+    }
+  } finally {
+    await cursor.close().catch(() => void 0);
+  }
+  let created = 0;
+  let skipped = 0;
+  for (const raw of metadata.indexesEjson) {
+    const source = EJSON.parse(raw, { relaxed: false });
+    if (source.name === "_id_") continue;
+    const name = String(source.name ?? "");
+    const target = targetByName.get(name);
+    if (target && comparableIndex(target) === comparableIndex(source)) {
+      skipped += 1;
+      continue;
+    }
+    if (target && !selection.recreateConflictingIndexes) {
+      throw appError("Validation", `Target index "${name}" has a different definition.`);
+    }
+    if (target) await collection2.dropIndex(name);
+    const key = source.key;
+    const options = { ...source };
+    delete options.v;
+    delete options.key;
+    delete options.ns;
+    await collection2.createIndex(key, options);
+    created += 1;
+  }
+  return { created, skipped };
+}
+function buildCreateOptions(sourceInfo, selection) {
+  const source = sourceInfo.options ?? {};
+  const options = {};
+  if (selection.collectionOptions) {
+    for (const key of ["capped", "size", "max", "timeseries", "expireAfterSeconds", "clusteredIndex", "collation"]) {
+      if (source[key] !== void 0) options[key] = source[key];
+    }
+  }
+  if (selection.validationRules) {
+    for (const key of ["validator", "validationLevel", "validationAction"]) {
+      if (source[key] !== void 0) options[key] = source[key];
+    }
+  }
+  return options;
+}
+function immutableOptionMismatches(source = {}, target = {}) {
+  return ["capped", "size", "max", "timeseries", "clusteredIndex", "collation"].filter((key) => source[key] !== void 0 && canonical(source[key]) !== canonical(target[key]));
+}
+function comparableIndex(index2) {
+  const value = { ...index2 };
+  delete value.v;
+  delete value.ns;
+  return canonical(value);
+}
+function canonical(value) {
+  return EJSON.stringify(value, void 0, 0, { relaxed: false });
+}
 const parentPort = process.parentPort;
 const registry = new CursorRegistry();
 registry.startSweeper();
@@ -317058,9 +319666,15 @@ const engine = new ExecutionEngine(registry);
 const exportsManager = new ExportManager(registry, (event) => {
   parentPort.postMessage({ type: "export-event", event });
 });
+const copySourceManager = new CopySourceManager();
+const fileImportManager = new FileImportManager((event) => {
+  if (isTerminalDataJob(event.status) && dataTransferLockId === event.jobId) dataTransferLockId = null;
+  parentPort.postMessage({ type: "data-job-event", event });
+});
 let client = null;
 let serverVersion = "unknown";
 let shuttingDown = false;
+let dataTransferLockId = null;
 function reply(id, value) {
   parentPort.postMessage({ id, ok: true, value });
 }
@@ -317382,6 +319996,7 @@ async function handle(req) {
       return;
     }
     case "export-collection-start": {
+      assertNoDataTransferLock();
       reply(req.id, exportsManager.start(
         requireClient(),
         req
@@ -317389,6 +320004,7 @@ async function handle(req) {
       return;
     }
     case "export-query-start": {
+      assertNoDataTransferLock();
       reply(req.id, exportsManager.start(
         requireClient(),
         req
@@ -317397,6 +320013,132 @@ async function handle(req) {
     }
     case "export-cancel": {
       reply(req.id, { cancelled: exportsManager.cancel(req.jobId) });
+      return;
+    }
+    case "data-file-inspect": {
+      reply(req.id, await fileImportManager.inspect(req.path, req.token));
+      return;
+    }
+    case "data-file-preview": {
+      reply(req.id, await fileImportManager.preview(
+        req.path,
+        req.fileToken,
+        req.sheet,
+        req.delimiter
+      ));
+      return;
+    }
+    case "data-file-import-start": {
+      const jobId = req.jobId;
+      if (dataTransferLockId || exportsManager.hasActiveJob) {
+        throw { category: "Validation", message: "Another large data job is already using this connection." };
+      }
+      dataTransferLockId = jobId;
+      try {
+        reply(req.id, fileImportManager.start(
+          requireClient(),
+          req.connectionId,
+          req.datasets,
+          jobId
+        ));
+      } catch (error2) {
+        if (dataTransferLockId === jobId) dataTransferLockId = null;
+        throw error2;
+      }
+      return;
+    }
+    case "data-file-import-cancel": {
+      reply(req.id, { cancelled: fileImportManager.cancel(req.jobId) });
+      return;
+    }
+    case "data-file-import-report": {
+      reply(req.id, fileImportManager.report(req.jobId));
+      return;
+    }
+    case "data-transfer-lock": {
+      const jobId = req.jobId;
+      if (dataTransferLockId && dataTransferLockId !== jobId || exportsManager.hasActiveJob || fileImportManager.hasActiveJob) {
+        throw { category: "Validation", message: "Another large data job is already using this connection." };
+      }
+      dataTransferLockId = jobId;
+      reply(req.id, { locked: true });
+      return;
+    }
+    case "data-transfer-unlock": {
+      if (dataTransferLockId === req.jobId) dataTransferLockId = null;
+      reply(req.id, { unlocked: true });
+      return;
+    }
+    // Read-only source protocol. Do not add mutation operations to this group.
+    case "data-source-preview": {
+      reply(req.id, await copySourceManager.preview(
+        requireClient(),
+        req.database,
+        req.collection,
+        req.filterSource
+      ));
+      return;
+    }
+    case "data-source-count": {
+      reply(req.id, await copySourceManager.count(
+        requireClient(),
+        req.database,
+        req.collection,
+        req.filterSource
+      ));
+      return;
+    }
+    case "data-source-metadata": {
+      reply(req.id, await copySourceManager.metadata(
+        requireClient(),
+        req.database,
+        req.collection
+      ));
+      return;
+    }
+    case "data-source-open": {
+      reply(req.id, copySourceManager.open(
+        requireClient(),
+        req.database,
+        req.collection,
+        req.filterSource
+      ));
+      return;
+    }
+    case "data-source-next": {
+      reply(req.id, await copySourceManager.next(req.cursorId));
+      return;
+    }
+    case "data-source-close": {
+      await copySourceManager.close(req.cursorId);
+      reply(req.id, { closed: true });
+      return;
+    }
+    case "data-target-prepare": {
+      reply(req.id, await prepareTransferTarget(
+        requireClient(),
+        req.database,
+        req.collection,
+        req.sourceMetadata,
+        req.selection
+      ));
+      return;
+    }
+    case "data-target-write": {
+      reply(req.id, await writeTransferBatch(
+        requireClient(),
+        req.write
+      ));
+      return;
+    }
+    case "data-target-finalize-indexes": {
+      reply(req.id, await finalizeTransferIndexes(
+        requireClient(),
+        req.database,
+        req.collection,
+        req.sourceMetadata,
+        req.selection
+      ));
       return;
     }
     case "shutdown": {
@@ -317414,6 +320156,8 @@ async function shutdown(code) {
   }
   shuttingDown = true;
   await exportsManager.dispose().catch(() => void 0);
+  await fileImportManager.dispose().catch(() => void 0);
+  await copySourceManager.dispose().catch(() => void 0);
   await registry.dispose().catch(() => void 0);
   if (client) await client.close(true).catch(() => void 0);
   process.exit(code);
@@ -317422,6 +320166,14 @@ parentPort.on("message", ({ data }) => {
   handle(data).catch((err) => replyError(data.id, err));
 });
 parentPort.postMessage({ type: "ready", pid: process.pid });
+function assertNoDataTransferLock() {
+  if (dataTransferLockId) {
+    throw { category: "Validation", message: "Another large data job is already using this connection." };
+  }
+}
+function isTerminalDataJob(status) {
+  return status === "completed" || status === "failed" || status === "cancelled";
+}
 process.on?.("unhandledRejection", (err) => {
   parentPort.postMessage({
     type: "runtime-error",

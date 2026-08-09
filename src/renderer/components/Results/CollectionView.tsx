@@ -37,6 +37,7 @@ import { DocumentBsonEditor } from './DocumentBsonEditor.js';
 import { BsonSyntaxText } from '../Common/BsonSyntaxText.js';
 import { ExportDialog } from '../Export/ExportDialog.js';
 import { useExportJobsStore } from '../../stores/exports.js';
+import { useDataTransferStore } from '../../stores/data-transfer.js';
 
 const s: Record<string, React.CSSProperties> = {
   workspace: { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' },
@@ -801,6 +802,19 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
         </button>
         <ToolbarButton secondary onClick={() => void loadInitial()} disabled={busy}>Refresh</ToolbarButton>
         <ToolbarButton secondary onClick={() => setExportOpen(true)} disabled={busy || !cursorId}>Export…</ToolbarButton>
+        <ToolbarButton secondary onClick={() => useDataTransferStore.getState().open({
+          mode: 'file-import',
+          targetConnectionId: connectionId,
+          sourceDatabase: database,
+          sourceCollection: collection,
+        })} disabled={busy || readOnly || !isConnected}>Import…</ToolbarButton>
+        <ToolbarButton secondary onClick={() => useDataTransferStore.getState().open({
+          mode: 'connection-copy',
+          sourceConnectionId: connectionId,
+          sourceDatabase: database,
+          sourceCollection: collection,
+          filterSource: criteria.filter || EMPTY_FILTER,
+        })} disabled={busy || !isConnected}>Transfer matching documents…</ToolbarButton>
         {!isConnected && connectionId && (
           <ToolbarButton onClick={() => void connect(connectionId)} disabled={busy}>Connect</ToolbarButton>
         )}

@@ -52,6 +52,7 @@ const api: MongoGDesktopApi = {
     onConnectionState: (cb) => subscribe(IpcEvents.connectionState, cb),
     onAuditChanged: (cb) => subscribe(IpcEvents.auditChanged, cb),
     onExportProgress: (cb) => subscribe(IpcEvents.exportProgress, cb),
+    onDataJobProgress: (cb) => subscribe(IpcEvents.dataJobProgress, cb),
   },
   connections: {
     listGroups: () => invoke(IpcChannels.connListGroups),
@@ -153,6 +154,17 @@ const api: MongoGDesktopApi = {
     startCollection: (input) => invoke(IpcChannels.exportCollection, input),
     startQueryResult: (input) => invoke(IpcChannels.exportQueryResult, input),
     cancel: (connectionId, jobId) => invoke(IpcChannels.exportCancel, { connectionId, jobId }),
+  },
+  dataTransfer: {
+    selectFiles: (targetConnectionId) =>
+      invoke(IpcChannels.dataTransferSelectFiles, { targetConnectionId }),
+    previewFile: (input) => invoke(IpcChannels.dataTransferPreviewFile, input),
+    previewCollection: (input) => invoke(IpcChannels.dataTransferPreviewCollection, input),
+    countCollection: (input) => invoke(IpcChannels.dataTransferCountCollection, input),
+    startFileImport: (input) => invoke(IpcChannels.dataTransferStartFileImport, input),
+    startConnectionCopy: (input) => invoke(IpcChannels.dataTransferStartConnectionCopy, input),
+    cancel: (jobId) => invoke(IpcChannels.dataTransferCancel, { jobId }),
+    saveErrorReport: (jobId) => invoke(IpcChannels.dataTransferSaveErrorReport, { jobId }),
   },
 };
 

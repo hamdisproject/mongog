@@ -20,6 +20,9 @@ import { useSavedLibraryStore } from './stores/saved.js';
 import { bootMonaco } from './monaco/setup.js';
 import { ExportProgressOverlay } from './components/Export/ExportProgressOverlay.js';
 import { useExportJobsStore } from './stores/exports.js';
+import { DataTransferView } from './components/DataTransfer/DataTransferView.js';
+import { DataTransferProgressOverlay } from './components/DataTransfer/DataTransferProgressOverlay.js';
+import { useDataTransferStore } from './stores/data-transfer.js';
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -113,12 +116,17 @@ export default function App() {
             : 'Connection closed while the query was running.';
         useWorkspaceStore.getState().failExecutionsForConnection(state.connectionId, message);
         useExportJobsStore.getState().failConnection(state.connectionId, message);
+        useDataTransferStore.getState().failConnection(state.connectionId, message);
       }
     });
   }, []);
 
   useEffect(() => window.mongog.events.onExportProgress((event) => {
     useExportJobsStore.getState().apply(event);
+  }), []);
+
+  useEffect(() => window.mongog.events.onDataJobProgress((event) => {
+    useDataTransferStore.getState().applyProgress(event);
   }), []);
 
   useEffect(() => {
@@ -157,6 +165,7 @@ export default function App() {
       <Explorer />
       <CommandPalette />
       <ExportProgressOverlay />
+      <DataTransferProgressOverlay />
       <div style={{
         flex: 1, minWidth: 0, minHeight: 0, display: 'flex',
         flexDirection: 'column', overflow: 'hidden',
@@ -246,6 +255,8 @@ function renderTabContent(activeTabId: string | null, tabs: WorkspaceTab[]) {
       return <SettingsView />;
     case 'history':
       return <ActivityLogView />;
+    case 'data-transfer':
+      return <DataTransferView />;
     default:
       return <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-faint)' }}>
         {activeTab.kind} tab

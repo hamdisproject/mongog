@@ -17,6 +17,7 @@ export const theme = {
     textFaint: 'var(--color-text-faint)',
     accent: 'var(--color-accent)',
     accentHover: 'var(--color-accent-hover)',
+    brand: 'var(--color-brand)',
     selected: 'var(--color-selected)',
     success: 'var(--color-success)',
     warning: 'var(--color-warning)',

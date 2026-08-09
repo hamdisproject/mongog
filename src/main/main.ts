@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { rmSync } from 'node:fs';
-import { app, BrowserWindow, type IpcMainInvokeEvent } from 'electron';
-import { createMainWindow, allowedRendererOrigins, installRendererProtocol } from './window.js';
+import { app, BrowserWindow, nativeImage, type IpcMainInvokeEvent } from 'electron';
+import { createMainWindow, allowedRendererOrigins, applicationIconPath, installRendererProtocol } from './window.js';
 import { registerIpcHandlers } from './ipc/handlers.js';
 import { RuntimeSupervisor } from './runtime/supervisor.js';
 import { Database } from './storage/database.js';
@@ -10,8 +10,11 @@ import { loadWindowState, startWindowStateSaver } from './window-state.js';
 import { IpcEvents } from '../shared/ipc/index.js';
 import { serializeError } from '../shared/errors/index.js';
 import { AuditService } from './services/audit-service.js';
+import { DataTransferCoordinator } from './data-transfer/coordinator.js';
 
 const supervisor = new RuntimeSupervisor({ maxRuntimes: 10, idleTimeoutMS: 15 * 60 * 1000 });
+const dataTransfer = new DataTransferCoordinator(supervisor);
+app.setName('MongoG');
 const smokeUserDataPath = process.env.MONGOG_SMOKE === '1'
   ? join(app.getPath('temp'), `mongog-smoke-${process.pid}`)
   : null;
@@ -57,6 +60,10 @@ async function getSpikeMongoUri(): Promise<string | null> {
 }
 
 void app.whenReady().then(async () => {
+  if (process.platform === 'darwin' && app.dock) {
+    const icon = nativeImage.createFromPath(applicationIconPath());
+    if (!icon.isEmpty()) app.dock.setIcon(icon);
+  }
   db = Database.openOrCreate(join(app.getPath('userData'), 'mongog.db'));
   secretVault.bind(db.secrets);
   audit = new AuditService(db);
@@ -84,6 +91,7 @@ void app.whenReady().then(async () => {
       getDb,
       secretStore: secretVault,
       audit,
+      dataTransfer,
     },
     validateSender,
   );
@@ -104,6 +112,12 @@ void app.whenReady().then(async () => {
     audit?.handleExportEvent(event);
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IpcEvents.exportProgress, event);
+    }
+  });
+  dataTransfer.on('progress', (event) => {
+    audit?.handleDataTransferEvent(event);
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send(IpcEvents.dataJobProgress, event);
     }
   });
   supervisor.on('runtime-connecting', (connectionId) => {
@@ -137,6 +151,7 @@ void app.whenReady().then(async () => {
   supervisor.on('runtime-exit', (connectionId) => {
     audit?.failQueriesForConnection(connectionId, 'Query runtime exited before execution completed.');
     audit?.failExportsForConnection(connectionId, 'Query runtime exited before export completed.');
+    audit?.failDataTransfersForConnection(connectionId, 'Query runtime exited before data transfer completed.');
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IpcEvents.connectionState, {
         connectionId,
@@ -156,6 +171,7 @@ void app.whenReady().then(async () => {
   supervisor.on('runtime-force-killed', (connectionId) => {
     audit?.failQueriesForConnection(connectionId, 'Query runtime was force-killed before execution completed.');
     audit?.failExportsForConnection(connectionId, 'Query runtime was force-killed before export completed.');
+    audit?.failDataTransfersForConnection(connectionId, 'Query runtime was force-killed before data transfer completed.');
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IpcEvents.connectionState, {
         connectionId,
@@ -195,6 +211,7 @@ app.on('before-quit', () => {
     void import('./spike-mongo.js').then((m) => m.stopSpikeMongo());
   }
   void supervisor.disposeAll();
+  dataTransfer.dispose();
   audit?.dispose();
   db?.close();
   if (smokeUserDataPath) {

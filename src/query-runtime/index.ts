@@ -55,6 +55,11 @@ import {
   type RuntimeCollectionExportRequest,
   type RuntimeQueryExportRequest,
 } from './export/export-manager.js';
+import { CopySourceManager, type SourceMetadata } from './data-transfer/copy-source.js';
+import { FileImportManager, type RuntimeFileDataset } from './data-transfer/file-import.js';
+import { writeTransferBatch, type TransferWriteRequest } from './data-transfer/write.js';
+import { finalizeTransferIndexes, prepareTransferTarget } from './data-transfer/metadata.js';
+import type { DataMetadataSelection } from '../shared/domain/index.js';
 
 interface RuntimeRequest {
   id: number;
@@ -76,10 +81,16 @@ const engine = new ExecutionEngine(registry);
 const exportsManager = new ExportManager(registry, (event) => {
   parentPort.postMessage({ type: 'export-event', event });
 });
+const copySourceManager = new CopySourceManager();
+const fileImportManager = new FileImportManager((event) => {
+  if (isTerminalDataJob(event.status) && dataTransferLockId === event.jobId) dataTransferLockId = null;
+  parentPort.postMessage({ type: 'data-job-event', event });
+});
 
 let client: MongoClient | null = null;
 let serverVersion = 'unknown';
 let shuttingDown = false;
+let dataTransferLockId: string | null = null;
 
 function reply(id: number, value: unknown): void {
   parentPort.postMessage({ id, ok: true, value });
@@ -412,6 +423,7 @@ async function handle(req: RuntimeRequest): Promise<void> {
       return;
     }
     case 'export-collection-start': {
+      assertNoDataTransferLock();
       reply(req.id, exportsManager.start(
         requireClient(),
         req as unknown as RuntimeCollectionExportRequest,
@@ -419,6 +431,7 @@ async function handle(req: RuntimeRequest): Promise<void> {
       return;
     }
     case 'export-query-start': {
+      assertNoDataTransferLock();
       reply(req.id, exportsManager.start(
         requireClient(),
         req as unknown as RuntimeQueryExportRequest,
@@ -427,6 +440,132 @@ async function handle(req: RuntimeRequest): Promise<void> {
     }
     case 'export-cancel': {
       reply(req.id, { cancelled: exportsManager.cancel(req.jobId as string) });
+      return;
+    }
+    case 'data-file-inspect': {
+      reply(req.id, await fileImportManager.inspect(req.path as string, req.token as string));
+      return;
+    }
+    case 'data-file-preview': {
+      reply(req.id, await fileImportManager.preview(
+        req.path as string,
+        req.fileToken as string,
+        req.sheet as string | undefined,
+        req.delimiter as string | undefined,
+      ));
+      return;
+    }
+    case 'data-file-import-start': {
+      const jobId = req.jobId as string;
+      if (dataTransferLockId || exportsManager.hasActiveJob) {
+        throw { category: 'Validation', message: 'Another large data job is already using this connection.' };
+      }
+      dataTransferLockId = jobId;
+      try {
+        reply(req.id, fileImportManager.start(
+          requireClient(),
+          req.connectionId as string,
+          req.datasets as RuntimeFileDataset[],
+          jobId,
+        ));
+      } catch (error) {
+        if (dataTransferLockId === jobId) dataTransferLockId = null;
+        throw error;
+      }
+      return;
+    }
+    case 'data-file-import-cancel': {
+      reply(req.id, { cancelled: fileImportManager.cancel(req.jobId as string) });
+      return;
+    }
+    case 'data-file-import-report': {
+      reply(req.id, fileImportManager.report(req.jobId as string));
+      return;
+    }
+    case 'data-transfer-lock': {
+      const jobId = req.jobId as string;
+      if ((dataTransferLockId && dataTransferLockId !== jobId) || exportsManager.hasActiveJob || fileImportManager.hasActiveJob) {
+        throw { category: 'Validation', message: 'Another large data job is already using this connection.' };
+      }
+      dataTransferLockId = jobId;
+      reply(req.id, { locked: true });
+      return;
+    }
+    case 'data-transfer-unlock': {
+      if (dataTransferLockId === req.jobId) dataTransferLockId = null;
+      reply(req.id, { unlocked: true });
+      return;
+    }
+    // Read-only source protocol. Do not add mutation operations to this group.
+    case 'data-source-preview': {
+      reply(req.id, await copySourceManager.preview(
+        requireClient(),
+        req.database as string,
+        req.collection as string,
+        req.filterSource as string,
+      ));
+      return;
+    }
+    case 'data-source-count': {
+      reply(req.id, await copySourceManager.count(
+        requireClient(),
+        req.database as string,
+        req.collection as string,
+        req.filterSource as string,
+      ));
+      return;
+    }
+    case 'data-source-metadata': {
+      reply(req.id, await copySourceManager.metadata(
+        requireClient(),
+        req.database as string,
+        req.collection as string,
+      ));
+      return;
+    }
+    case 'data-source-open': {
+      reply(req.id, copySourceManager.open(
+        requireClient(),
+        req.database as string,
+        req.collection as string,
+        req.filterSource as string,
+      ));
+      return;
+    }
+    case 'data-source-next': {
+      reply(req.id, await copySourceManager.next(req.cursorId as string));
+      return;
+    }
+    case 'data-source-close': {
+      await copySourceManager.close(req.cursorId as string);
+      reply(req.id, { closed: true });
+      return;
+    }
+    case 'data-target-prepare': {
+      reply(req.id, await prepareTransferTarget(
+        requireClient(),
+        req.database as string,
+        req.collection as string,
+        req.sourceMetadata as SourceMetadata,
+        req.selection as DataMetadataSelection,
+      ));
+      return;
+    }
+    case 'data-target-write': {
+      reply(req.id, await writeTransferBatch(
+        requireClient(),
+        req.write as TransferWriteRequest,
+      ));
+      return;
+    }
+    case 'data-target-finalize-indexes': {
+      reply(req.id, await finalizeTransferIndexes(
+        requireClient(),
+        req.database as string,
+        req.collection as string,
+        req.sourceMetadata as SourceMetadata,
+        req.selection as DataMetadataSelection,
+      ));
       return;
     }
     case 'shutdown': {
@@ -445,6 +584,8 @@ async function shutdown(code: number): Promise<never> {
   }
   shuttingDown = true;
   await exportsManager.dispose().catch(() => undefined);
+  await fileImportManager.dispose().catch(() => undefined);
+  await copySourceManager.dispose().catch(() => undefined);
   await registry.dispose().catch(() => undefined);
   if (client) await client.close(true).catch(() => undefined);
   process.exit(code);
@@ -455,6 +596,16 @@ parentPort.on('message', ({ data }) => {
 });
 
 parentPort.postMessage({ type: 'ready', pid: process.pid });
+
+function assertNoDataTransferLock(): void {
+  if (dataTransferLockId) {
+    throw { category: 'Validation', message: 'Another large data job is already using this connection.' };
+  }
+}
+
+function isTerminalDataJob(status: string): boolean {
+  return status === 'completed' || status === 'failed' || status === 'cancelled';
+}
 
 // Crash hygiene: never die silently with pending work.
 process.on?.('unhandledRejection', (err) => {

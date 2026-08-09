@@ -8,6 +8,7 @@ import type {
   AuditSummary,
   EngineEvent,
   ExportProgressEvent,
+  DataJobProgressEvent,
 } from '../../shared/domain/index.js';
 import { normalizeApplicationSettings } from '../../shared/domain/workspace.js';
 import { serializeError } from '../../shared/errors/index.js';
@@ -55,6 +56,7 @@ export class AuditService {
   private emitChange: (event: AuditChangedEvent) => void = () => undefined;
   private activeQueries = new Map<string, ActiveQuery>();
   private activeExports = new Map<string, ActiveExport>();
+  private activeDataJobs = new Map<string, ActiveExport>();
   private pruneTimer: NodeJS.Timeout | null = null;
 
   constructor(private readonly db: Database) {}
@@ -246,6 +248,44 @@ export class AuditService {
     }
   }
 
+  beginDataTransfer(context: AuditContext & { correlationId: string }): void {
+    const startedAt = Date.now();
+    const id = this.begin(context);
+    if (!id) return;
+    this.activeDataJobs.set(context.correlationId, {
+      id,
+      startedAt,
+      ...(context.connectionId ? { connectionId: context.connectionId } : {}),
+    });
+  }
+
+  handleDataTransferEvent(event: DataJobProgressEvent): void {
+    if (!isTerminalDataJob(event.status)) return;
+    const active = this.activeDataJobs.get(event.jobId);
+    if (!active) return;
+    this.activeDataJobs.delete(event.jobId);
+    this.finish(active.id, active.startedAt, {
+      status: event.status === 'completed' ? 'success' : event.status === 'cancelled' ? 'cancelled' : 'error',
+      resultCount: event.rowsRead,
+      affectedCount: event.inserted + event.updated,
+      ...(event.status === 'failed'
+        ? { errorCategory: 'DataTransfer', errorMessage: event.message ?? 'Data transfer failed.' }
+        : {}),
+    });
+  }
+
+  failDataTransfersForConnection(connectionId: string, message: string): void {
+    for (const [jobId, active] of [...this.activeDataJobs]) {
+      if (active.connectionId !== connectionId) continue;
+      this.activeDataJobs.delete(jobId);
+      this.finish(active.id, active.startedAt, {
+        status: 'interrupted',
+        errorCategory: 'UtilityProcessCrash',
+        errorMessage: message,
+      });
+    }
+  }
+
   handleEngineEvent(runId: string | undefined, event: EngineEvent): void {
     if (!runId) return;
     const active = this.activeQueries.get(runId);
@@ -337,6 +377,10 @@ export class AuditService {
       return false;
     }
   }
+}
+
+function isTerminalDataJob(status: DataJobProgressEvent['status']): boolean {
+  return status === 'completed' || status === 'failed' || status === 'cancelled';
 }
 
 function sanitizeDetail(detail: Record<string, unknown>): Record<string, unknown> {

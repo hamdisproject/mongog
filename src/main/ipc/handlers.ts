@@ -65,6 +65,14 @@ import {
   exportCollectionSchema,
   exportQueryResultSchema,
   exportCancelSchema,
+  dataTransferSelectFilesSchema,
+  dataTransferPreviewFileSchema,
+  dataTransferPreviewCollectionSchema,
+  dataTransferCountCollectionSchema,
+  dataTransferStartFileImportSchema,
+  dataTransferStartConnectionCopySchema,
+  dataTransferCancelSchema,
+  dataTransferSaveErrorReportSchema,
   type ExecuteResponse,
   type PingRuntimeResponse,
   type SystemInfoResponse,
@@ -87,6 +95,10 @@ import type {
   SavedLibrarySnapshot,
   DeleteSavedFolderResult,
   ExportStartResult,
+  DataFileDescriptor,
+  DataFilePreview,
+  CollectionTransferPreview,
+  DataJobStartResult,
 } from '../../shared/domain/index.js';
 import type { EjsonEnvelope } from '../../shared/ejson/index.js';
 import { appError } from '../../shared/errors/index.js';
@@ -98,6 +110,7 @@ import { ConnectionManager, type ConnectionSecretStore } from '../services/conne
 import { AuditService, type AuditContext } from '../services/audit-service.js';
 import type { Database } from '../storage/database.js';
 import { buildExportFilename, exportDialogFilters } from '../export/filename.js';
+import type { DataTransferCoordinator } from '../data-transfer/coordinator.js';
 
 export interface HandlerContext {
   supervisor: RuntimeSupervisor;
@@ -106,6 +119,7 @@ export interface HandlerContext {
   getDb: () => Database;
   secretStore: ConnectionSecretStore;
   audit: AuditService;
+  dataTransfer: DataTransferCoordinator;
 }
 
 const emptySchema = z.object({}).strict();
@@ -855,6 +869,108 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
     if (!client) return { cancelled: false };
     return client.request<{ cancelled: boolean }>('export-cancel', { jobId });
   }, validateSender);
+
+  // ── Streaming data import / read-only source copy ──
+  registerChannel(
+    IpcChannels.dataTransferSelectFiles,
+    dataTransferSelectFilesSchema,
+    async ({ targetConnectionId }): Promise<DataFileDescriptor[]> => {
+      requireWritableConnection(targetConnectionId);
+      return ctx.dataTransfer.selectFiles(ctx.getWindow(), targetConnectionId);
+    },
+    validateSender,
+  );
+
+  registerChannel(
+    IpcChannels.dataTransferPreviewFile,
+    dataTransferPreviewFileSchema,
+    async (payload): Promise<DataFilePreview> => ctx.dataTransfer.previewFile(payload),
+    validateSender,
+  );
+
+  registerChannel(
+    IpcChannels.dataTransferPreviewCollection,
+    dataTransferPreviewCollectionSchema,
+    async (payload): Promise<CollectionTransferPreview> => ctx.dataTransfer.previewCollection(payload),
+    validateSender,
+  );
+
+  registerChannel(
+    IpcChannels.dataTransferCountCollection,
+    dataTransferCountCollectionSchema,
+    async (payload): Promise<{ count: number }> => ctx.dataTransfer.countCollection(payload),
+    validateSender,
+  );
+
+  registerChannel(
+    IpcChannels.dataTransferStartFileImport,
+    dataTransferStartFileImportSchema,
+    async (payload): Promise<DataJobStartResult> => {
+      requireWritableConnection(payload.targetConnectionId);
+      const result = await ctx.dataTransfer.startFileImport(payload);
+      ctx.audit.beginDataTransfer(auditContext(payload.targetConnectionId, {
+        correlationId: result.jobId,
+        category: 'data-transfer',
+        action: 'data-transfer.file-import',
+        origin: 'user',
+        operationClass: 'write',
+        summary: `Import ${payload.datasets.length} file dataset(s)`,
+        detail: {
+          kind: 'file-import',
+          datasets: payload.datasets.map((dataset) => ({
+            targetDatabase: dataset.targetDatabase,
+            targetCollection: dataset.targetCollection,
+            conflictMode: dataset.conflictMode,
+          })),
+        },
+      }) as AuditContext & { correlationId: string });
+      return result;
+    },
+    validateSender,
+  );
+
+  registerChannel(
+    IpcChannels.dataTransferStartConnectionCopy,
+    dataTransferStartConnectionCopySchema,
+    async (payload): Promise<DataJobStartResult> => {
+      requireWritableConnection(payload.targetConnectionId);
+      if (!conn.getProfile(payload.sourceConnectionId)) {
+        throw appError('NotFound', `Source connection profile not found: ${payload.sourceConnectionId}`);
+      }
+      const result = await ctx.dataTransfer.startConnectionCopy(payload);
+      ctx.audit.beginDataTransfer(auditContext(payload.targetConnectionId, {
+        correlationId: result.jobId,
+        category: 'data-transfer',
+        action: 'data-transfer.connection-copy',
+        origin: 'user',
+        operationClass: 'write',
+        summary: `Copy ${payload.datasets.length} collection(s) without modifying the source`,
+        detail: {
+          kind: 'connection-copy',
+          sourceConnectionId: payload.sourceConnectionId,
+          datasets: payload.datasets.map((dataset) => ({
+            sourceDatabase: dataset.sourceDatabase,
+            sourceCollection: dataset.sourceCollection,
+            targetDatabase: dataset.targetDatabase,
+            targetCollection: dataset.targetCollection,
+            filter: dataset.filterSource,
+            conflictMode: dataset.conflictMode,
+            metadata: dataset.metadata,
+          })),
+        },
+      }) as AuditContext & { correlationId: string });
+      return result;
+    },
+    validateSender,
+  );
+
+  registerChannel(IpcChannels.dataTransferCancel, dataTransferCancelSchema, async ({ jobId }) => ({
+    cancelled: await ctx.dataTransfer.cancel(jobId),
+  }), validateSender);
+
+  registerChannel(IpcChannels.dataTransferSaveErrorReport, dataTransferSaveErrorReportSchema, async ({ jobId }) => (
+    ctx.dataTransfer.saveErrorReport(ctx.getWindow(), jobId)
+  ), validateSender);
 
   // ── Workspace persistence ──
   registerChannel(IpcChannels.workspaceSave, workspaceSaveSchema, async ({ state }) => {

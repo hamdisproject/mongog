@@ -86,6 +86,7 @@ interface WorkspaceState {
   openConnections: (options?: { mode?: 'list' | 'create' | 'edit'; profileId?: string }) => string;
   openSettings: () => string;
   openActivityLog: () => string;
+  openDataTransfer: () => string;
   setCollectionView: (tabId: string, view: CollectionViewMode) => void;
   detachConnection: (connectionId: string) => void;
   detachSavedItems: (savedItemIds: string[]) => void;
@@ -200,6 +201,8 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
             ? 'Administration'
             : kind === 'change-stream'
               ? 'Change Stream'
+            : kind === 'data-transfer'
+              ? 'Data Transfer'
             : kind === 'connection-settings'
               ? 'Connections'
               : kind === 'settings'
@@ -442,6 +445,28 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
       return keep.id;
     }
     return get().createTab('history', null);
+  },
+
+  openDataTransfer: () => {
+    const current = get();
+    const transferTabs = current.tabs.filter((tab) => tab.kind === 'data-transfer');
+    const keep = transferTabs[0];
+    if (keep) {
+      const duplicateIds = new Set(transferTabs.slice(1).map((tab) => tab.id));
+      const results = { ...current.results };
+      for (const id of duplicateIds) delete results[id];
+      set({
+        tabs: current.tabs
+          .filter((tab) => !duplicateIds.has(tab.id))
+          .map((tab) => tab.id === keep.id
+            ? { ...tab, title: 'Data Transfer', customTitle: false }
+            : tab),
+        activeTabId: keep.id,
+        results,
+      });
+      return keep.id;
+    }
+    return get().createTab('data-transfer', null);
   },
 
   setCollectionView: (tabId, view) => {
@@ -820,14 +845,21 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
 
   restore: (state) => {
     const seenHistory = new Set<string>();
+    const seenTransfer = new Set<string>();
     const normalizedTabs = state.tabs.filter((tab) => {
-      if (tab.kind !== 'history') return true;
-      if (seenHistory.size) return false;
-      seenHistory.add(tab.id);
+      if (tab.kind === 'history') {
+        if (seenHistory.size) return false;
+        seenHistory.add(tab.id);
+      }
+      if (tab.kind === 'data-transfer') {
+        if (seenTransfer.size) return false;
+        seenTransfer.add(tab.id);
+      }
       return true;
     }).map((tab) => ({
       ...tab,
       ...(tab.kind === 'history' ? { title: 'Activity Log', customTitle: false } : {}),
+      ...(tab.kind === 'data-transfer' ? { title: 'Data Transfer', customTitle: false } : {}),
       pinned: tab.pinned ?? false,
       customTitle: tab.customTitle ?? false,
       ...(tab.kind === 'collection' && tab.collectionViewMode === undefined

@@ -8,6 +8,8 @@ import { ActionDialog } from '../Common/ActionDialog.js';
 import { ContextMenu, type ContextMenuItem } from '../Common/ContextMenu.js';
 import { useSavedLibraryStore } from '../../stores/saved.js';
 import { SavedTree } from './SavedTree.js';
+import { useDataTransferStore } from '../../stores/data-transfer.js';
+import { MongoGBrand } from '../Brand/MongoGBrand.js';
 
 const s: Record<string, React.CSSProperties> = {
   sidebar: {
@@ -16,8 +18,7 @@ const s: Record<string, React.CSSProperties> = {
     fontFamily: 'system-ui', fontSize: 13, userSelect: 'none', overflow: 'hidden',
   },
   header: {
-    padding: '8px 12px', fontWeight: 600, fontSize: 11, textTransform: 'uppercase',
-    letterSpacing: '0.5px', color: 'var(--color-text-muted)', borderBottom: '1px solid var(--color-border)',
+    padding: '7px 8px 7px 10px', color: 'var(--color-text-muted)', borderBottom: '1px solid var(--color-border)',
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
   },
   tree: { flex: 1, overflow: 'auto', padding: '4px 0' },
@@ -202,7 +203,7 @@ function ExplorerTree() {
   return (
     <div style={s.sidebar}>
       <div style={s.header}>
-        <span>Connections</span>
+        <MongoGBrand size="compact" testId="sidebar-mongog-brand" />
         <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
           <button
             type="button"
@@ -531,6 +532,7 @@ function ProfileNode({
     dropDatabase,
   } = useConnectionStore();
   const { openCollection, openQuery, openAdmin, openChangeStream } = useWorkspaceStore();
+  const openDataTransfer = useDataTransferStore((state) => state.open);
   const [connectionBusy, setConnectionBusy] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
   const [namespaceAction, setNamespaceAction] = useState<NamespaceAction | null>(null);
@@ -560,6 +562,22 @@ function ProfileNode({
     openCollection({ connectionId: profile.id, database, collection });
   };
 
+  const showConnectionMenu = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      items: [{
+        label: 'Import / Transfer Data…',
+        onSelect: () => openDataTransfer({
+          mode: profile.readOnly ? 'connection-copy' : 'file-import',
+          ...(profile.readOnly ? { sourceConnectionId: profile.id } : { targetConnectionId: profile.id }),
+        }),
+      }],
+    });
+  };
+
   const showDatabaseMenu = (event: React.MouseEvent, database: string) => {
     event.preventDefault();
     event.stopPropagation();
@@ -584,8 +602,16 @@ function ProfileNode({
           onSelect: () => openChangeStream({ connectionId: profile.id, database }),
         },
         {
-          label: 'Refresh Collections',
+          label: 'Import / Transfer Data…',
           separatorBefore: true,
+          onSelect: () => openDataTransfer({
+            mode: 'connection-copy',
+            sourceConnectionId: profile.id,
+            sourceDatabase: database,
+          }),
+        },
+        {
+          label: 'Refresh Collections',
           onSelect: () => void refreshCollections(profile.id, database),
         },
         {
@@ -649,8 +675,18 @@ function ProfileNode({
           onSelect: () => openChangeStream({ connectionId: profile.id, database, collection }),
         },
         {
-          label: 'Rename Collection…',
+          label: 'Import / Transfer Data…',
           separatorBefore: true,
+          onSelect: () => openDataTransfer({
+            mode: 'connection-copy',
+            sourceConnectionId: profile.id,
+            sourceDatabase: database,
+            sourceCollection: collection,
+            filterSource: '{}',
+          }),
+        },
+        {
+          label: 'Rename Collection…',
           disabled: profile.readOnly,
           onSelect: () => { setNamespaceError(null); setNamespaceAction({ kind: 'rename-collection', database, collection }); },
         },
@@ -698,6 +734,7 @@ function ProfileNode({
         data-tree-parent-key={parentKey}
         style={{ ...s.treeItem, ...(isSelected ? s.treeItemSelected : {}) }}
         onClick={onSelect}
+        onContextMenu={showConnectionMenu}
         onDoubleClick={() => void handleConnectionAction()}
         onKeyDown={(event) => handleTreeKeyDown(event, {
           key: profileKey,

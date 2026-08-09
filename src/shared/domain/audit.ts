@@ -8,6 +8,7 @@ export const AUDIT_CATEGORIES = [
   'change-stream',
   'gridfs',
   'export',
+  'data-transfer',
 ] as const;
 
 export const AUDIT_STATUSES = [

@@ -3,6 +3,7 @@ import type { ConnectionProfile } from '../../../shared/domain/index.js';
 import { useConnectionStore } from '../../stores/connections.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
 import { theme } from '../../theme.js';
+import { MongoGBrand } from '../Brand/MongoGBrand.js';
 
 const c = theme.colors;
 const card: React.CSSProperties = {
@@ -64,15 +65,14 @@ export function WelcomeView() {
   return (
     <div style={{ flex: 1, overflow: 'auto', background: c.app }}>
       <main style={{ width: 'min(1040px, calc(100% - 48px))', margin: '0 auto', padding: '54px 0 48px' }}>
-        <section style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 30, marginBottom: 34 }}>
-          <div>
-            <div style={{ color: c.success, fontSize: 13, fontWeight: 700, letterSpacing: 1.4, textTransform: 'uppercase' }}>MongoG</div>
-            <h1 style={{ fontSize: 34, lineHeight: 1.15, margin: '9px 0 10px', color: c.text }}>Welcome back</h1>
+        <section style={{ marginBottom: 34 }}>
+          <MongoGBrand size="hero" testId="welcome-mongog-brand" />
+          <div style={{ marginTop: 23 }}>
+            <h1 style={{ fontSize: 34, lineHeight: 1.15, margin: '0 0 10px', color: c.text }}>Welcome back</h1>
             <p style={{ maxWidth: 580, color: c.textMuted, fontSize: 14, lineHeight: 1.65, margin: 0 }}>
               Connect to MongoDB, explore collections, run typed scripts, and manage your data from one secure desktop workspace.
             </p>
           </div>
-          <div style={{ width: 84, height: 84, borderRadius: 22, display: 'grid', placeItems: 'center', background: 'linear-gradient(145deg, #0e639c, #174d3d)', color: '#fff', fontSize: 28, fontWeight: 800, boxShadow: '0 16px 42px #0007' }}>MG</div>
         </section>
 
         <section style={{ display: 'flex', gap: 10, marginBottom: 34 }}>

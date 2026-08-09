@@ -5,7 +5,7 @@
 import { EventEmitter } from 'node:events';
 import { resolveRuntimeEntry } from './paths.js';
 import { RuntimeClient } from './runtime-client.js';
-import type { EngineEvent, ExportProgressEvent } from '../../shared/domain/index.js';
+import type { DataJobProgressEvent, EngineEvent, ExportProgressEvent } from '../../shared/domain/index.js';
 import { appError, serializeError } from '../../shared/errors/index.js';
 
 export interface SupervisorOptions {
@@ -78,6 +78,9 @@ export class RuntimeSupervisor extends EventEmitter {
     });
     client.onExportProgress((event: ExportProgressEvent) => {
       this.emit('export-progress', connectionId, event);
+    });
+    client.onDataJobProgress((event: DataJobProgressEvent) => {
+      this.emit('data-job-progress', connectionId, event);
     });
     client.on('exit', () => {
       const current = this.runtimes.get(connectionId);

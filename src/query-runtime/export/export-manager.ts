@@ -81,6 +81,10 @@ export class ExportManager {
     void cleanupStaleExportDirectories();
   }
 
+  get hasActiveJob(): boolean {
+    return this.active !== null;
+  }
+
   start(client: MongoClient, request: RuntimeExportRequest): { jobId: string } {
     if (this.active) {
       throw appError('Validation', 'Another export is already running for this connection.', {

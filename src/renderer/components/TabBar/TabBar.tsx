@@ -7,6 +7,7 @@ import {
 import type { WorkspaceTab } from '../../../shared/domain/index.js';
 import { ContextMenu, type ContextMenuItem } from '../Common/ContextMenu.js';
 import { useCommandPaletteStore } from '../../stores/command-palette.js';
+import { useDataTransferStore } from '../../stores/data-transfer.js';
 
 const TAB_DRAG_MIME = 'application/x-mongog-workspace-tab';
 
@@ -59,6 +60,7 @@ const kindIcon: Record<string, string> = {
   settings: '⚙',
   admin: 'A',
   'change-stream': '⇄',
+  'data-transfer': '⇥',
 };
 
 interface DropTarget {
@@ -77,6 +79,7 @@ export function TabBar() {
     renameTab,
   } = useWorkspaceStore();
   const openGlobalSearch = useCommandPaletteStore((state) => state.open);
+  const openDataTransfer = useDataTransferStore((state) => state.open);
   const [menu, setMenu] = useState<{ tabId: string; x: number; y: number } | null>(null);
   const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
@@ -160,6 +163,10 @@ export function TabBar() {
         <span style={{ color: 'var(--color-success)', fontSize: 15 }} aria-hidden="true">⌕</span>
         Search
         <span style={{ color: 'var(--color-text-faint)', fontSize: 9, marginLeft: 2 }}>⌘/Ctrl K</span>
+      </button>
+      <button type="button" onClick={() => openDataTransfer()} style={s.newBtn} title="Import files or copy collections">
+        <span style={{ color: 'var(--color-success)', fontSize: 14 }} aria-hidden="true">⇥</span>
+        Transfer
       </button>
       {tabs.map((tab, index) => (
         <Fragment key={tab.id}>

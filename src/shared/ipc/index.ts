@@ -42,6 +42,14 @@ import type {
   QueryResultExportInput,
   ExportStartResult,
   ExportProgressEvent,
+  DataFileDescriptor,
+  DataFilePreview,
+  StartFileImportInput,
+  StartConnectionCopyInput,
+  CollectionTransferPreviewInput,
+  CollectionTransferPreview,
+  DataJobStartResult,
+  DataJobProgressEvent,
 } from '../domain/index.js';
 import {
   AUDIT_CATEGORIES,
@@ -49,6 +57,10 @@ import {
   AUDIT_STATUSES,
   EXPORT_FORMATS,
   EXPORT_SCOPES,
+  DATA_CONFLICT_MODES,
+  DATA_ROW_ERROR_POLICIES,
+  DATA_COLUMN_TYPES,
+  DATA_EMPTY_CELL_POLICIES,
 } from '../domain/index.js';
 
 export const IpcChannels = {
@@ -132,6 +144,15 @@ export const IpcChannels = {
   exportCollection: 'mongog:export:collection',
   exportQueryResult: 'mongog:export:query-result',
   exportCancel: 'mongog:export:cancel',
+  // ── Streaming import and read-only source copy ──
+  dataTransferSelectFiles: 'mongog:data-transfer:select-files',
+  dataTransferPreviewFile: 'mongog:data-transfer:preview-file',
+  dataTransferPreviewCollection: 'mongog:data-transfer:preview-collection',
+  dataTransferCountCollection: 'mongog:data-transfer:count-collection',
+  dataTransferStartFileImport: 'mongog:data-transfer:start-file-import',
+  dataTransferStartConnectionCopy: 'mongog:data-transfer:start-connection-copy',
+  dataTransferCancel: 'mongog:data-transfer:cancel',
+  dataTransferSaveErrorReport: 'mongog:data-transfer:save-error-report',
 } as const;
 
 export const IpcEvents = {
@@ -139,6 +160,7 @@ export const IpcEvents = {
   connectionState: 'mongog:event:connection-state',
   auditChanged: 'mongog:event:audit-changed',
   exportProgress: 'mongog:event:export-progress',
+  dataJobProgress: 'mongog:event:data-job-progress',
 } as const;
 
 // ── Existing schemas ──
@@ -269,7 +291,7 @@ export const workspaceSaveSchema = z.object({
   state: z.object({
     tabs: z.array(z.object({
       id: z.string(),
-      kind: z.enum(['welcome', 'query', 'collection', 'history', 'connection-settings', 'settings', 'admin', 'change-stream']),
+      kind: z.enum(['welcome', 'query', 'collection', 'history', 'connection-settings', 'settings', 'admin', 'change-stream', 'data-transfer']),
       title: z.string(),
       connectionId: z.string().nullable(),
       database: z.string().optional(),
@@ -504,6 +526,100 @@ export const exportCancelSchema = z.object({
   connectionId: z.string().min(1),
   jobId: z.string().uuid(),
 });
+
+// ── Streaming import / connection copy ──
+
+const dataNamespaceNameSchema = z.string().trim().min(1).max(255);
+const dataConflictModeSchema = z.enum(DATA_CONFLICT_MODES);
+const dataRowErrorPolicySchema = z.enum(DATA_ROW_ERROR_POLICIES);
+const dataColumnMappingSchema = z.object({
+  sourceColumn: z.string().min(1).max(1_024),
+  included: z.boolean(),
+  targetField: z.string().trim().min(1).max(1_024),
+  literalFieldName: z.boolean().optional(),
+  type: z.enum(DATA_COLUMN_TYPES),
+}).strict();
+
+const dataMetadataSelectionSchema = z.object({
+  collectionOptions: z.boolean(),
+  validationRules: z.boolean(),
+  indexes: z.boolean(),
+  recreateConflictingIndexes: z.boolean().optional(),
+  replaceTargetValidator: z.boolean().optional(),
+}).strict();
+
+const fileImportDatasetSchema = z.object({
+  fileToken: z.string().uuid(),
+  sheet: z.string().min(1).max(255).optional(),
+  delimiter: z.string().length(1).optional(),
+  targetDatabase: dataNamespaceNameSchema,
+  targetCollection: dataNamespaceNameSchema,
+  mappings: z.array(dataColumnMappingSchema).min(1).max(16_384),
+  emptyCellPolicy: z.enum(DATA_EMPTY_CELL_POLICIES),
+  conflictMode: dataConflictModeSchema,
+  rowErrorPolicy: dataRowErrorPolicySchema,
+  upsertFields: z.array(z.string().trim().min(1).max(1_024)).min(1).max(64),
+}).strict();
+
+const connectionCopyDatasetSchema = z.object({
+  sourceDatabase: dataNamespaceNameSchema,
+  sourceCollection: dataNamespaceNameSchema,
+  targetDatabase: dataNamespaceNameSchema,
+  targetCollection: dataNamespaceNameSchema,
+  filterSource: z.string().min(1).max(17 * 1024 * 1024),
+  conflictMode: dataConflictModeSchema,
+  rowErrorPolicy: dataRowErrorPolicySchema,
+  upsertFields: z.array(z.string().trim().min(1).max(1_024)).min(1).max(64),
+  metadata: dataMetadataSelectionSchema,
+}).strict();
+
+export const dataTransferSelectFilesSchema = z.object({
+  targetConnectionId: z.string().min(1),
+}).strict();
+
+export const dataTransferPreviewFileSchema = z.object({
+  targetConnectionId: z.string().min(1),
+  fileToken: z.string().uuid(),
+  sheet: z.string().min(1).max(255).optional(),
+  delimiter: z.string().length(1).optional(),
+}).strict();
+
+export const dataTransferPreviewCollectionSchema = z.object({
+  connectionId: z.string().min(1),
+  database: dataNamespaceNameSchema,
+  collection: dataNamespaceNameSchema,
+  filterSource: z.string().min(1).max(17 * 1024 * 1024),
+}).strict() satisfies z.ZodType<CollectionTransferPreviewInput>;
+
+export const dataTransferCountCollectionSchema = dataTransferPreviewCollectionSchema;
+
+export const dataTransferStartFileImportSchema = z.object({
+  targetConnectionId: z.string().min(1),
+  datasets: z.array(fileImportDatasetSchema).min(1).max(500),
+}).strict() satisfies z.ZodType<StartFileImportInput>;
+
+export const dataTransferStartConnectionCopySchema = z.object({
+  sourceConnectionId: z.string().min(1),
+  targetConnectionId: z.string().min(1),
+  datasets: z.array(connectionCopyDatasetSchema).min(1).max(500),
+}).strict().superRefine((input, ctx) => {
+  if (input.sourceConnectionId !== input.targetConnectionId) return;
+  input.datasets.forEach((dataset, index) => {
+    if (
+      dataset.sourceDatabase === dataset.targetDatabase &&
+      dataset.sourceCollection === dataset.targetCollection
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['datasets', index, 'targetCollection'],
+        message: 'Source and target namespace must be different.',
+      });
+    }
+  });
+}) satisfies z.ZodType<StartConnectionCopyInput>;
+
+export const dataTransferCancelSchema = z.object({ jobId: z.string().uuid() }).strict();
+export const dataTransferSaveErrorReportSchema = z.object({ jobId: z.string().uuid() }).strict();
 
 // ── Phase 2: Query schemas ──
 
@@ -745,6 +861,7 @@ export interface MongoGDesktopApi {
     onConnectionState(cb: (s: ConnectionState & { connectionId: string }) => void): () => void;
     onAuditChanged(cb: (event: import('../domain/index.js').AuditChangedEvent) => void): () => void;
     onExportProgress(cb: (event: ExportProgressEvent) => void): () => void;
+    onDataJobProgress(cb: (event: DataJobProgressEvent) => void): () => void;
   };
   connections: {
     listGroups(): Promise<ConnectionGroup[]>;
@@ -939,6 +1056,21 @@ export interface MongoGDesktopApi {
     startCollection(input: CollectionExportInput): Promise<ExportStartResult>;
     startQueryResult(input: QueryResultExportInput): Promise<ExportStartResult>;
     cancel(connectionId: string, jobId: string): Promise<{ cancelled: boolean }>;
+  };
+  dataTransfer: {
+    selectFiles(targetConnectionId: string): Promise<DataFileDescriptor[]>;
+    previewFile(input: {
+      targetConnectionId: string;
+      fileToken: string;
+      sheet?: string;
+      delimiter?: string;
+    }): Promise<DataFilePreview>;
+    previewCollection(input: CollectionTransferPreviewInput): Promise<CollectionTransferPreview>;
+    countCollection(input: CollectionTransferPreviewInput): Promise<{ count: number }>;
+    startFileImport(input: StartFileImportInput): Promise<DataJobStartResult>;
+    startConnectionCopy(input: StartConnectionCopyInput): Promise<DataJobStartResult>;
+    cancel(jobId: string): Promise<{ cancelled: boolean }>;
+    saveErrorReport(jobId: string): Promise<{ saved: boolean }>;
   };
 }
 

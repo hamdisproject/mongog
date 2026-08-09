@@ -11,7 +11,8 @@ export type WorkspaceTabKind =
   | 'connection-settings'
   | 'settings'
   | 'admin'
-  | 'change-stream';
+  | 'change-stream'
+  | 'data-transfer';
 
 export type AdminSection = 'indexes' | 'explain' | 'search' | 'changes' | 'gridfs';
 

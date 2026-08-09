@@ -76,6 +76,40 @@ export {
   EXPORT_JOB_STATUSES,
 } from './exports.js';
 
+export {
+  DATA_JOB_KINDS,
+  DATA_CONFLICT_MODES,
+  DATA_ROW_ERROR_POLICIES,
+  DATA_COLUMN_TYPES,
+  DATA_EMPTY_CELL_POLICIES,
+  DATA_JOB_STATUSES,
+  DATA_JOB_PHASES,
+} from './data-transfer.js';
+
+export type {
+  DataJobKind,
+  DataConflictMode,
+  DataRowErrorPolicy,
+  FileColumnType,
+  DataEmptyCellPolicy,
+  DataJobStatus,
+  DataJobPhase,
+  DataMetadataSelection,
+  FileColumnMapping,
+  DataFileDescriptor,
+  DataFilePreview,
+  FileImportDataset,
+  StartFileImportInput,
+  ConnectionCopyDataset,
+  StartConnectionCopyInput,
+  CollectionTransferPreviewInput,
+  CollectionTransferPreview,
+  DataJobStartResult,
+  DataDatasetSummary,
+  DataJobSummary,
+  DataJobProgressEvent,
+} from './data-transfer.js';
+
 export type {
   ExportFormat,
   ExportScope,
