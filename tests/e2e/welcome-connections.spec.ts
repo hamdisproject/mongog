@@ -537,6 +537,14 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page.getByText('"beta"', { exact: true })).toBeVisible();
 
+  // Keep enough vertical room for the drag assertion on smaller CI displays.
+  // The Criteria surface has its own growable Monaco editors and deliberately
+  // takes precedence over the document panel's maximum height.
+  const criteriaToggle = page.locator(`button[aria-controls="criteria-${collectionTabId}"]`);
+  await expect(criteriaToggle).toHaveAttribute('aria-expanded', 'true');
+  await criteriaToggle.click();
+  await expect(criteriaToggle).toHaveAttribute('aria-expanded', 'false');
+
   const alphaDocumentRow = documentsTable.locator('tbody tr').filter({ hasText: '"alpha"' }).first();
   await alphaDocumentRow.click();
   const documentPanel = page.getByTestId('document-panel');
@@ -576,6 +584,8 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expectViewportLocked(page);
   await documentPanel.getByRole('button', { name: 'Cancel', exact: true }).click();
 
+  await criteriaToggle.click();
+  await expect(criteriaToggle).toHaveAttribute('aria-expanded', 'true');
   const initialFilterHeight = await page.getByTestId('criteria-editor-filter').evaluate(
     (element) => element.getBoundingClientRect().height,
   );
@@ -708,12 +718,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expectQueryColumnsFillWidth(page);
   const initialResultsHeight = await page.getByTestId('query-results-region').evaluate((element) => element.getBoundingClientRect().height);
   const resultsResizer = page.getByTestId('query-results-resizer');
-  const resultsResizeBox = await resultsResizer.boundingBox();
-  if (!resultsResizeBox) throw new Error('Results resize handle is missing');
-  await page.mouse.move(resultsResizeBox.x + 10, resultsResizeBox.y + 2);
-  await page.mouse.down();
-  await page.mouse.move(resultsResizeBox.x + 10, resultsResizeBox.y - 80);
-  await page.mouse.up();
+  await dragVerticalSeparator(page, resultsResizer, -80);
   await expect.poll(() => page.getByTestId('query-results-region').evaluate((element) => element.getBoundingClientRect().height))
     .toBeGreaterThan(initialResultsHeight + 50);
   const statement = page.getByRole('button', { name: /Statement 1.*documents/ });
@@ -873,12 +878,44 @@ async function setMonacoValue(page: Page, label: string, value: string): Promise
 async function dragVerticalSeparator(page: Page, separator: ReturnType<Page['locator']>, deltaY: number): Promise<void> {
   const box = await separator.boundingBox();
   if (!box) throw new Error('Vertical resize handle is missing');
-  const x = box.x + Math.min(12, box.width / 2);
+  const x = box.x + box.width / 2;
   const y = box.y + box.height / 2;
-  await page.mouse.move(x, y);
-  await page.mouse.down();
-  await page.mouse.move(x, y + deltaY);
-  await page.mouse.up();
+  const pointerId = 1;
+  await separator.dispatchEvent('pointerdown', {
+    clientX: x,
+    clientY: y,
+    pointerId,
+    pointerType: 'mouse',
+    isPrimary: true,
+    button: 0,
+    buttons: 1,
+    bubbles: true,
+  });
+  await page.evaluate(({ clientX, clientY, movement, id }) => {
+    const steps = 6;
+    for (let step = 1; step <= steps; step += 1) {
+      window.dispatchEvent(new PointerEvent('pointermove', {
+        clientX,
+        clientY: clientY + (movement * step) / steps,
+        pointerId: id,
+        pointerType: 'mouse',
+        isPrimary: true,
+        button: -1,
+        buttons: 1,
+        bubbles: true,
+      }));
+    }
+    window.dispatchEvent(new PointerEvent('pointerup', {
+      clientX,
+      clientY: clientY + movement,
+      pointerId: id,
+      pointerType: 'mouse',
+      isPrimary: true,
+      button: 0,
+      buttons: 0,
+      bubbles: true,
+    }));
+  }, { clientX: x, clientY: y, movement: deltaY, id: pointerId });
 }
 
 async function expectViewportLocked(page: Page): Promise<void> {
