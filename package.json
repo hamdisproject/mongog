@@ -27,6 +27,7 @@
     "build:runtime": "vite build -c vite.runtime.config.mts",
     "build:icons": "node scripts/build-macos-icns.mjs",
     "extract:types": "node scripts/extract-mongo-types.mjs",
+    "pretypecheck": "npm run extract:types",
     "prepackage": "npm run extract:types && npm run build:runtime && npm run build:icons && npm run verify:icons",
     "package": "electron-forge package",
     "package:mac:legacy": "npm run package -- --platform=darwin",
