@@ -16,9 +16,13 @@ export const supportedTargets = new Set([
 
 export function parseArguments(argv) {
   const values = new Map();
+  const positional = [];
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
-    if (!argument?.startsWith('--')) throw new Error(`Unexpected argument: ${argument}`);
+    if (!argument?.startsWith('--')) {
+      positional.push(argument);
+      continue;
+    }
     const name = argument.slice(2);
     const next = argv[index + 1];
     if (!next || next.startsWith('--')) {
@@ -27,6 +31,17 @@ export function parseArguments(argv) {
     }
     values.set(name, next);
     index += 1;
+  }
+  // npm on Windows consumes its own --platform/--arch config switches even
+  // after `npm run ... --`, leaving only their values for the child script.
+  // All release tools share the same optional target pair, so accept exactly
+  // that transformed form while continuing to reject arbitrary positionals.
+  if (positional.length > 0) {
+    if (positional.length > 2 || values.has('platform') || values.has('arch')) {
+      throw new Error(`Unexpected positional arguments: ${positional.join(' ')}`);
+    }
+    values.set('platform', positional[0]);
+    if (positional[1]) values.set('arch', positional[1]);
   }
   return values;
 }

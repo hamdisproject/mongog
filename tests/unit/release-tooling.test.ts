@@ -54,6 +54,35 @@ describe('release tooling', () => {
     expect(mismatch.stderr).toContain('does not match package.json');
   });
 
+  it('accepts the positional target form produced by npm on Windows', () => {
+    execFileSync(
+      process.execPath,
+      [script('validate-release-environment.mjs'), 'linux', 'x64'],
+      {
+        env: {
+          ...process.env,
+          MONGOG_RELEASE: '1',
+          RELEASE_TAG: `v${packageMetadata.version}`,
+        },
+      },
+    );
+
+    const invalid = spawnSync(
+      process.execPath,
+      [script('validate-release-environment.mjs'), 'linux', 'x64', 'extra'],
+      {
+        env: {
+          ...process.env,
+          MONGOG_RELEASE: '1',
+          RELEASE_TAG: `v${packageMetadata.version}`,
+        },
+        encoding: 'utf8',
+      },
+    );
+    expect(invalid.status).not.toBe(0);
+    expect(invalid.stderr).toContain('Unexpected positional arguments');
+  });
+
   it('accepts an unsigned production release without signing material', () => {
     for (const platform of ['darwin', 'win32']) {
       execFileSync(
