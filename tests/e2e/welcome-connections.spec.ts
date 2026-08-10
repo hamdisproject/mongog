@@ -252,6 +252,27 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await queryTab.click();
   await expectWorkspaceSurfaceFullWidth(page, 'query-editor');
 
+  await setQueryEditorValue(page, `const data = db.collection("inventory").find({}).toArray();
+console.log(data);`);
+  await page.getByRole('button', { name: /^Run/ }).click();
+  const promiseWarnings = page.getByTestId('query-warnings');
+  await expect(promiseWarnings).toBeVisible({ timeout: 30_000 });
+  await expect(promiseWarnings).toContainText('Variable "data" contains an unresolved Promise');
+  await expect(promiseWarnings).toContainText('Console received an unresolved Promise');
+  await expect(page.getByText(/Promise: unresolved — add await to inspect the value/)).toBeVisible();
+  const promiseMarker = page.getByTestId('query-editor-surface').locator('.squiggly-warning').first();
+  await expect(promiseMarker).toBeVisible();
+  await promiseMarker.click({ force: true });
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+.' : 'Control+.');
+  const addAwaitAction = page.getByText('Add await', { exact: true }).last();
+  await expect(addAwaitAction).toBeVisible();
+  await addAwaitAction.click({ force: true });
+  await expect(page.getByTestId('query-editor-surface').locator('.view-lines'))
+    .toContainText('const data = await db.collection');
+  await page.getByRole('button', { name: /^Run/ }).click();
+  await expect(promiseWarnings).toHaveCount(0);
+  await expect(page.getByTestId('query-editor-surface').locator('.squiggly-warning')).toHaveCount(0);
+
   await page.getByTestId('save-query').click();
   let saveDialog = page.getByRole('dialog', { name: 'Save item' });
   await saveDialog.getByLabel('Saved item name').fill('E2E Saved Query');
@@ -891,6 +912,13 @@ async function setMonacoValue(page: Page, label: string, value: string): Promise
     (element as HTMLElement).click();
   });
   await expect(page.getByLabel(label)).toBeFocused();
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+  await page.keyboard.press('Backspace');
+  await page.keyboard.insertText(value);
+}
+
+async function setQueryEditorValue(page: Page, value: string): Promise<void> {
+  await page.getByTestId('query-editor-surface').locator('.view-lines').click();
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
   await page.keyboard.press('Backspace');
   await page.keyboard.insertText(value);

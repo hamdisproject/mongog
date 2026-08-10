@@ -86,6 +86,38 @@ describe('workspace execution store', () => {
     expect(execution.status).toBe('starting');
   });
 
+  it('stores statement warnings separately and clears them for a new run', () => {
+    const tabId = useWorkspaceStore.getState().createTab('query', 'conn-1');
+    useWorkspaceStore.getState().prepareExecution(tabId, 'conn-1', 'run-1');
+    useWorkspaceStore.getState().applyEngineEvent(
+      tabId,
+      'conn-1',
+      'exec-1',
+      'run-1',
+      {
+        type: 'statement-warning',
+        index: 0,
+        range,
+        code: 'UnawaitedPromise',
+        message: 'Variable "data" contains an unresolved Promise. Add await before this expression.',
+        hint: 'Execution continues.',
+        fix: {
+          title: 'Add await',
+          range: { startLine: 1, startCol: 14, endLine: 1, endCol: 14 },
+          text: 'await ',
+        },
+      },
+    );
+
+    const warning = useWorkspaceStore.getState().results[tabId]!.statementWarnings[0]!;
+    expect(warning.code).toBe('UnawaitedPromise');
+    expect(warning.fix?.text).toBe('await ');
+    expect(useWorkspaceStore.getState().results[tabId]!.statementErrors).toEqual([]);
+
+    useWorkspaceStore.getState().prepareExecution(tabId, 'conn-1', 'run-2');
+    expect(useWorkspaceStore.getState().results[tabId]!.statementWarnings).toEqual([]);
+  });
+
   it('stores document pages and cursor state without flattening the cursor', () => {
     const tabId = useWorkspaceStore.getState().createTab('query', 'conn-1');
     useWorkspaceStore.getState().prepareExecution(tabId, 'conn-1', 'run-1');

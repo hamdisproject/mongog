@@ -34,6 +34,7 @@ xs.length;
         captured.push({ index, value: await thunk() });
       },
       __mongogMark: (index: number) => marks.push(index),
+      __mongogInspectPromise: () => undefined,
     };
     vm.createContext(sandbox);
     await vm.runInContext(code, sandbox);
@@ -56,6 +57,7 @@ xs.length;
         captured.push(await thunk());
       },
       __mongogMark: () => undefined,
+      __mongogInspectPromise: () => undefined,
     };
     vm.createContext(sandbox);
     await vm.runInContext(code, sandbox);
@@ -72,9 +74,53 @@ xs.length;
         captured.push(await thunk());
       },
       __mongogMark: () => undefined,
+      __mongogInspectPromise: () => undefined,
     };
     vm.createContext(sandbox);
     await vm.runInContext(code, sandbox);
     expect(captured).toEqual([7]);
+  });
+
+  it('adds runtime probes for unresolved top-level bindings and simple assignments', async () => {
+    const src = `let value = 0;
+const pending = Promise.resolve(7);
+value = Promise.resolve(9);
+`;
+    const parsed = parseScript(src);
+    const { code, promiseProbes } = buildInstrumentedSource(src, parsed);
+    const inspected: Array<{ id: number; thenable: boolean }> = [];
+    const sandbox = {
+      __mongogCapture: async (_index: number, thunk: () => Promise<unknown>) => thunk(),
+      __mongogMark: () => undefined,
+      __mongogInspectPromise: (id: number, value: unknown) => inspected.push({
+        id,
+        thenable: typeof (value as { then?: unknown })?.then === 'function',
+      }),
+    };
+    vm.createContext(sandbox);
+    await vm.runInContext(code, sandbox);
+
+    expect(promiseProbes.map((probe) => probe.bindingName)).toEqual(['value', 'pending', 'value']);
+    expect(promiseProbes[1]?.range.startLine).toBe(2);
+    expect(inspected).toEqual([
+      { id: 0, thenable: false },
+      { id: 1, thenable: true },
+      { id: 2, thenable: true },
+    ]);
+  });
+
+  it('does not probe explicit await and honours the next-line suppression comment', () => {
+    const src = `const resolved = await Promise.resolve(1);
+// mongog-ignore-next-line no-unawaited-promise
+const intentional = Promise.resolve(2);
+const unresolved = Promise.resolve(3);
+`;
+    const { code, promiseProbes } = buildInstrumentedSource(src, parseScript(src));
+
+    expect(promiseProbes).toHaveLength(1);
+    expect(promiseProbes[0]?.bindingName).toBe('unresolved');
+    expect(code).not.toContain('__mongogInspectPromise(0, resolved)');
+    expect(code).not.toContain('__mongogInspectPromise(0, intentional)');
+    expect(code).toContain('__mongogInspectPromise(0, unresolved)');
   });
 });

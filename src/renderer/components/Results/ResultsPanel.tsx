@@ -109,6 +109,7 @@ export function ResultsPanel() {
 
   const hasOutput = execution.statementResults.length > 0 ||
     execution.statementErrors.length > 0 ||
+    execution.statementWarnings.length > 0 ||
     execution.consoleEntries.length > 0 ||
     execution.skippedStatements.length > 0 ||
     execution.error !== null;
@@ -119,6 +120,11 @@ export function ResultsPanel() {
         <span>Results</span>
         {execution.executionId && <span style={s.badge}>{execution.executionId.slice(0, 8)}</span>}
         <span style={s.badge}>{execution.status}</span>
+        {execution.statementWarnings.length > 0 && (
+          <span style={{ ...s.badge, color: 'var(--color-warning-text)', background: 'var(--color-warning-surface)' }}>
+            {execution.statementWarnings.length} warning{execution.statementWarnings.length === 1 ? '' : 's'}
+          </span>
+        )}
         <span style={s.headerSpacer} />
         <span title="Change in Settings">{displayMode === 'mongosh' ? 'MongoDB Shell' : displayMode === 'relaxed' ? 'Relaxed EJSON' : 'Canonical EJSON'}</span>
       </div>
@@ -132,6 +138,26 @@ export function ResultsPanel() {
         )}
 
         {execution.error && <div style={s.errorCard}>{execution.error}</div>}
+
+        {execution.statementWarnings.length > 0 && (
+          <div data-testid="query-warnings" style={s.console}>
+            <div style={{ marginBottom: 5, fontSize: 11, fontWeight: 600 }}>Warnings</div>
+            {execution.statementWarnings.map((warning, index) => (
+              <div
+                key={`${warning.index}:${warning.code}:${index}`}
+                data-warning-code={warning.code}
+                style={{ padding: '4px 0', borderTop: index === 0 ? 'none' : '1px solid var(--color-warning-border)' }}
+              >
+                <strong style={{ fontSize: 11 }}>
+                  {warning.index >= 0 ? `Statement ${warning.index + 1}: ` : ''}{warning.code}
+                </strong>
+                <div style={{ marginTop: 2 }}>{warning.message}</div>
+                {warning.hint && <div style={{ marginTop: 2, opacity: 0.8 }}>{warning.hint}</div>}
+                {warning.fix && <div style={{ marginTop: 2, opacity: 0.8 }}>Quick Fix: {warning.fix.title}</div>}
+              </div>
+            ))}
+          </div>
+        )}
 
         {execution.statementResults.map((item) => (
           <ResultCard
@@ -170,7 +196,11 @@ export function ResultsPanel() {
       <div style={s.status}>
         {execution.durationMs === null
           ? execution.status
-          : `${execution.status} in ${execution.durationMs.toFixed(0)} ms`}
+          : `${execution.status} in ${execution.durationMs.toFixed(0)} ms${
+            execution.statementWarnings.length > 0
+              ? ` · ${execution.statementWarnings.length} warning${execution.statementWarnings.length === 1 ? '' : 's'}`
+              : ''
+          }`}
       </div>
     </div>
   );

@@ -59,5 +59,46 @@ async function initializeMonaco(): Promise<typeof monaco> {
   await loadMongoTypeLibs();
   registerSchemaCompletions();
   registerObjectExpressionLanguage();
+  registerUnawaitedPromiseQuickFix();
   return monaco;
+}
+
+function registerUnawaitedPromiseQuickFix(): void {
+  const provider: monaco.languages.CodeActionProvider = {
+    provideCodeActions(model, _range, context) {
+      const actions = context.markers.flatMap((marker): monaco.languages.CodeAction[] => {
+        const code = typeof marker.code === 'string' ? marker.code : marker.code?.value;
+        if (code !== 'UnawaitedPromise') return [];
+        const insertRange = new monaco.Range(
+          marker.startLineNumber,
+          marker.startColumn,
+          marker.startLineNumber,
+          marker.startColumn,
+        );
+        const followingText = model.getValueInRange(new monaco.Range(
+          marker.startLineNumber,
+          marker.startColumn,
+          marker.startLineNumber,
+          marker.startColumn + 6,
+        ));
+        if (/^await\b/u.test(followingText)) return [];
+        return [{
+          title: 'Add await',
+          kind: 'quickfix',
+          isPreferred: true,
+          diagnostics: [marker],
+          edit: {
+            edits: [{
+              resource: model.uri,
+              versionId: model.getVersionId(),
+              textEdit: { range: insertRange, text: 'await ' },
+            }],
+          },
+        }];
+      });
+      return { actions, dispose: () => undefined };
+    },
+  };
+  monaco.languages.registerCodeActionProvider('typescript', provider);
+  monaco.languages.registerCodeActionProvider('javascript', provider);
 }
