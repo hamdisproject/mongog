@@ -105,9 +105,9 @@ export async function runSmokeChecks(supervisor: RuntimeSupervisor, spikeMongoUr
       expect(cm.getProfile(secretProfile.id) === null, 'secret profile deleted');
     } catch (err) {
       const secureStorageError = serializeError(err);
-      // Ad-hoc macOS packages may be denied Keychain access until Phase 6
-      // signing. The security invariant is that persistence fails closed and
-      // no plaintext profile/secret is left behind.
+      if (process.platform === 'darwin') throw err;
+      // Linux CI environments may not provide an OS keyring. The security
+      // invariant remains that persistence fails closed with no plaintext.
       expect(
         secureStorageError.category === 'SecureStorageFailure' &&
           cm.listProfiles().every((candidate) => candidate.name !== 'Secret Profile'),
