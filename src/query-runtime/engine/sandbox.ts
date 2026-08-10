@@ -21,9 +21,7 @@ export interface SandboxOptions {
   mode: 'query' | 'trusted';
   capture: (index: number, thunk: () => Promise<unknown>) => Promise<unknown>;
   mark: (index: number) => void;
-  inspectPromise: (probeId: number, value: unknown) => void;
   onConsole: (entry: ConsoleEntry) => void;
-  onConsolePromise: (statementIndex: number) => void;
   currentStatementIndex: () => number;
   consoleEntryLimit?: number;
 }
@@ -35,7 +33,6 @@ export interface SandboxHandle {
 }
 
 const CONSOLE_ARG_PREVIEW_BYTES = 16 * 1024;
-export const UNRESOLVED_PROMISE_PREVIEW = '[Promise: unresolved — add await to inspect the value]';
 
 function shellFactory<T extends abstract new (...args: never[]) => unknown>(
   constructor: T,
@@ -129,17 +126,10 @@ export function createSandbox(options: SandboxOptions): SandboxHandle {
       }
       return;
     }
-    let containsPromise = false;
-    const displayValues = values.map((value) => {
-      if (!isThenable(value)) return value;
-      containsPromise = true;
-      return UNRESOLVED_PROMISE_PREVIEW;
-    });
-    if (containsPromise) options.onConsolePromise(options.currentStatementIndex());
     options.onConsole({
       level,
       statementIndex: options.currentStatementIndex(),
-      args: displayValues.map((v) => serializeToEjson(v, CONSOLE_ARG_PREVIEW_BYTES)),
+      args: values.map((v) => serializeToEjson(v, CONSOLE_ARG_PREVIEW_BYTES)),
     });
   };
 
@@ -187,7 +177,6 @@ export function createSandbox(options: SandboxOptions): SandboxHandle {
     console: sandboxConsole,
     __mongogCapture: options.capture,
     __mongogMark: options.mark,
-    __mongogInspectPromise: options.inspectPromise,
   };
 
   if (options.mode === 'trusted') {
@@ -213,15 +202,6 @@ export function createSandbox(options: SandboxOptions): SandboxHandle {
     getCurrentDb: () => currentDb,
     getCurrentDatabaseName: () => currentDb.databaseName,
   };
-}
-
-function isThenable(value: unknown): value is PromiseLike<unknown> {
-  if ((typeof value !== 'object' || value === null) && typeof value !== 'function') return false;
-  try {
-    return typeof (value as { then?: unknown }).then === 'function';
-  } catch {
-    return false;
-  }
 }
 
 export function moduleNotAllowedError(name: string) {

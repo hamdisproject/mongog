@@ -13,16 +13,14 @@ interface Collected {
   events: EngineEvent[];
   results: Array<{ index: number; result: QueryResult }>;
   errors: Array<{ index: number; category?: string; message: string }>;
-  warnings: Array<Extract<EngineEvent, { type: 'statement-warning' }>>;
   finished?: { status: string; durationMs: number };
 }
 
 function collect(events: EngineEvent[]): Collected {
-  const c: Collected = { events, results: [], errors: [], warnings: [] };
+  const c: Collected = { events, results: [], errors: [] };
   for (const e of events) {
     if (e.type === 'result') c.results.push({ index: e.index, result: e.result });
     if (e.type === 'statement-error') c.errors.push({ index: e.index, category: e.error.category, message: e.error.message });
-    if (e.type === 'statement-warning') c.warnings.push(e);
     if (e.type === 'execution-finished') c.finished = { status: e.status, durationMs: e.durationMs };
   }
   return c;
@@ -154,42 +152,6 @@ printjson({ nested: [1, 2, 3] });
     const consoles = c.events.filter((e) => e.type === 'console');
     expect(consoles.length).toBe(2);
     expect(c.results[0]!.result.kind).toBe('scalar');
-  });
-
-  it('warns without blocking when a Promise is assigned without await', async () => {
-    const c = await run(`
-const data = db.collection("users").find({}).toArray();
-const modifiedData = [];
-for (let i = 0; i < data.length; i++) {
-  const { _id, ...rest } = data[i];
-  modifiedData.push({ ...rest, countryCode: "RU" });
-}
-console.log(data);
-console.log(modifiedData);
-`);
-
-    expect(c.finished?.status).toBe('completed');
-    expect(c.warnings.some((warning) => (
-      warning.message.includes('Variable "data"') && warning.fix?.text === 'await '
-    ))).toBe(true);
-    expect(c.warnings.some((warning) => warning.message.includes('Console received'))).toBe(true);
-    const consoles = c.events.filter((event) => event.type === 'console');
-    expect(parseEjson(consoles[0]!.entry.args[0]!)).toBe(
-      '[Promise: unresolved — add await to inspect the value]',
-    );
-    expect(parseEjson(consoles[1]!.entry.args[0]!)).toEqual([]);
-  });
-
-  it('does not warn when the Promise is explicitly awaited', async () => {
-    const c = await run(`
-const data = await db.collection("users").find({}).toArray();
-console.log(data.length);
-`);
-
-    expect(c.finished?.status).toBe('completed');
-    expect(c.warnings).toEqual([]);
-    const consoleEntry = c.events.find((event) => event.type === 'console');
-    expect(consoleEntry?.type === 'console' && Number(parseEjson(consoleEntry.entry.args[0]!))).toBe(3);
   });
 
   it('supports Mongo shell-style getSiblingDB without rebinding the active db', async () => {

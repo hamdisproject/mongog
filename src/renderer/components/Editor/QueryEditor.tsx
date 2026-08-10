@@ -226,7 +226,7 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
       if (disposed) return;
       const model = editorRef.current?.getModel();
       if (!model) return;
-      const errorMarkers: Monaco.editor.IMarkerData[] = (execution?.statementErrors ?? []).map((item) => ({
+      const markers: Monaco.editor.IMarkerData[] = (execution?.statementErrors ?? []).map((item) => ({
         severity: monaco.MarkerSeverity.Error,
         message: `${item.error.category}: ${item.error.message}${
           item.error.hint ? `\n${item.error.hint}` : ''
@@ -238,28 +238,12 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
           ? Math.max(item.range.startCol + 1, item.range.endCol)
           : Math.max(1, item.range.endCol),
       }));
-      const warningMarkers: Monaco.editor.IMarkerData[] = (execution?.statementWarnings ?? []).map((item) => ({
-        severity: monaco.MarkerSeverity.Warning,
-        source: 'MongoG',
-        ...(item.fix ? { code: item.code } : {}),
-        message: `${item.message}${item.hint ? `\n${item.hint}` : ''}`,
-        startLineNumber: Math.max(1, item.range.startLine),
-        startColumn: Math.max(1, item.range.startCol),
-        endLineNumber: Math.max(item.range.startLine, item.range.endLine),
-        endColumn: item.range.startLine === item.range.endLine
-          ? Math.max(item.range.startCol + 1, item.range.endCol)
-          : Math.max(1, item.range.endCol),
-      }));
-      monaco.editor.setModelMarkers(
-        model,
-        'mongog-query-execution',
-        [...errorMarkers, ...warningMarkers],
-      );
+      monaco.editor.setModelMarkers(model, 'mongog-query-execution', markers);
     });
     return () => {
       disposed = true;
     };
-  }, [activeTabId, execution?.statementErrors, execution?.statementWarnings]);
+  }, [activeTabId, execution?.statementErrors]);
 
   const handleConnectionChange = (connectionId: string) => {
     if (!activeTab || contextLocked) return;

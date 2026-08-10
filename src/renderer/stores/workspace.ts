@@ -6,7 +6,6 @@ import type {
   QueryResult,
   SavedItem,
   StatementInfo,
-  StatementWarning,
   WorkspaceTab,
 } from '../../shared/domain/index.js';
 import {
@@ -66,7 +65,6 @@ export interface TabExecutionState {
   runningStatementIndex: number | null;
   statementResults: StatementResultState[];
   statementErrors: StatementErrorState[];
-  statementWarnings: StatementWarning[];
   consoleEntries: ConsoleEntry[];
   skippedStatements: SkippedStatementState[];
   durationMs: number | null;
@@ -168,7 +166,6 @@ function emptyExecution(): TabExecutionState {
     runningStatementIndex: null,
     statementResults: [],
     statementErrors: [],
-    statementWarnings: [],
     consoleEntries: [],
     skippedStatements: [],
     durationMs: null,
@@ -711,7 +708,6 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
             ...next,
             status: 'running',
             statements: event.statements,
-            statementWarnings: [],
             error: null,
           };
           break;
@@ -749,26 +745,6 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
                 range: event.range,
                 durationMs: event.durationMs,
                 error: event.error,
-              },
-            ].sort((a, b) => a.index - b.index),
-          };
-          break;
-        case 'statement-warning':
-          next = {
-            ...next,
-            statementWarnings: [
-              ...next.statementWarnings.filter((item) => !(
-                item.index === event.index &&
-                item.code === event.code &&
-                item.message === event.message
-              )),
-              {
-                index: event.index,
-                range: event.range,
-                code: event.code,
-                message: event.message,
-                ...(event.hint ? { hint: event.hint } : {}),
-                ...(event.fix ? { fix: event.fix } : {}),
               },
             ].sort((a, b) => a.index - b.index),
           };

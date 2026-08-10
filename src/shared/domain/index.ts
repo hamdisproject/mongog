@@ -207,19 +207,6 @@ export interface ConsoleEntry {
   statementIndex: number;
 }
 
-export interface StatementWarning {
-  index: number;
-  range: SourceRange;
-  code: 'UnawaitedPromise';
-  message: string;
-  hint?: string;
-  fix?: {
-    title: 'Add await';
-    range: SourceRange;
-    text: 'await ';
-  };
-}
-
 export interface DocumentsPage {
   documents: EjsonEnvelope[];
   hasMore: boolean;
@@ -247,7 +234,6 @@ export type EngineEvent =
   | { type: 'statement-started'; index: number; range: SourceRange }
   | { type: 'result'; index: number; range: SourceRange; result: QueryResult; durationMs: number }
   | { type: 'console'; entry: ConsoleEntry }
-  | ({ type: 'statement-warning' } & StatementWarning)
   | { type: 'statement-error'; index: number; range: SourceRange; error: AppError; durationMs: number }
   | { type: 'statement-skipped'; index: number; range: SourceRange; reason: 'cancelled' | 'error' }
   | { type: 'execution-finished'; status: 'completed' | 'failed' | 'cancelled'; durationMs: number };

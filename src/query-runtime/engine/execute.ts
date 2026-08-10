@@ -147,18 +147,7 @@ export class ExecutionEngine {
 
     // ---- 3. Instrument -----------------------------------------------------
     const instrumented = buildInstrumentedSource(opts.source, parsed);
-    const promiseProbes = new Map(instrumented.promiseProbes.map((probe) => [probe.id, probe]));
-    const emittedPromiseWarnings = new Set<string>();
     const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
-
-    const emitPromiseWarning = (
-      key: string,
-      warning: Omit<Extract<EngineEvent, { type: 'statement-warning' }>, 'type'>,
-    ): void => {
-      if (emittedPromiseWarnings.has(key)) return;
-      emittedPromiseWarnings.add(key);
-      emit({ type: 'statement-warning', ...warning });
-    };
 
     const capture = async (index: number, thunk: () => Promise<unknown>): Promise<unknown> => {
       scope.throwIfCancelled();
@@ -209,37 +198,7 @@ export class ExecutionEngine {
       mark: (i) => {
         scope.currentIndex = i;
       },
-      inspectPromise: (probeId, value) => {
-        if (!isThenable(value)) return;
-        const probe = promiseProbes.get(probeId);
-        if (!probe) return;
-        emitPromiseWarning(`binding:${probeId}`, {
-          index: probe.statementIndex,
-          range: editorRange(probe.range),
-          code: 'UnawaitedPromise',
-          message: `Variable "${probe.bindingName}" contains an unresolved Promise. Add await before this expression.`,
-          hint: 'The query will continue with normal JavaScript Promise semantics.',
-          fix: {
-            title: 'Add await',
-            range: editorRange(probe.fixRange),
-            text: 'await ',
-          },
-        });
-      },
       onConsole: (entry) => emit({ type: 'console', entry }),
-      onConsolePromise: (statementIndex) => {
-        const statement = parsed.statements[statementIndex];
-        const range = statement
-          ? editorRange(statement.range)
-          : editorRange({ startLine: 1, startCol: 1, endLine: 1, endCol: 1 });
-        emitPromiseWarning(`console:${statementIndex}`, {
-          index: statementIndex,
-          range,
-          code: 'UnawaitedPromise',
-          message: 'Console received an unresolved Promise. Add await to inspect its resolved value.',
-          hint: 'The Promise was not awaited automatically; execution continues unchanged.',
-        });
-      },
       currentStatementIndex: () => scope.currentIndex,
     });
 
@@ -450,12 +409,11 @@ class ExecutionScope {
 }
 
 function isThenable(v: unknown): v is PromiseLike<unknown> {
-  if (v === null || (typeof v !== 'object' && typeof v !== 'function')) return false;
-  try {
-    return typeof (v as { then?: unknown }).then === 'function';
-  } catch {
-    return false;
-  }
+  return (
+    v !== null &&
+    (typeof v === 'object' || typeof v === 'function') &&
+    typeof (v as { then?: unknown }).then === 'function'
+  );
 }
 
 function namespaceOf(cursor: mongodb.AbstractCursor): string {

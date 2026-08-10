@@ -245307,17 +245307,12 @@ function toRange(sourceFile, start, end) {
 }
 const CAPTURE_FN = "__mongogCapture";
 const MARK_FN = "__mongogMark";
-const INSPECT_PROMISE_FN = "__mongogInspectPromise";
-const PROMISE_WARNING_SUPPRESSION = "mongog-ignore-next-line no-unawaited-promise";
 function buildInstrumentedSource(source, parsed) {
   const parts = [];
   const captured = [];
-  const promiseProbes = [];
   let cursor = 0;
   for (const stmt of parsed.statements) {
     parts.push(source.slice(cursor, stmt.start));
-    const probes = promiseProbesForStatement(source, parsed, stmt, promiseProbes.length);
-    promiseProbes.push(...probes);
     if (stmt.kind === "expression") {
       captured.push(stmt.index);
       const expr = stmt.text.replace(/;+\s*$/, "");
@@ -245328,10 +245323,6 @@ ${expr}
       parts.push(`${MARK_FN}(${stmt.index});
 ${stmt.text}`);
     }
-    for (const probe of probes) {
-      parts.push(`
-${INSPECT_PROMISE_FN}(${probe.id}, ${probe.bindingName});`);
-    }
     cursor = stmt.end;
   }
   parts.push(source.slice(cursor));
@@ -245339,53 +245330,7 @@ ${INSPECT_PROMISE_FN}(${probe.id}, ${probe.bindingName});`);
   const code = `(async () => {
 ${body}
 })()`;
-  return { code, capturedStatementIndexes: captured, promiseProbes };
-}
-function promiseProbesForStatement(source, parsed, statement, firstId) {
-  const node2 = parsed.sourceFile.statements[statement.index];
-  if (!node2 || isPromiseWarningSuppressed(source, parsed.sourceFile, node2)) return [];
-  const candidates = [];
-  if (ts.isVariableStatement(node2)) {
-    for (const declaration of node2.declarationList.declarations) {
-      if (declaration.initializer && ts.isIdentifier(declaration.name) && !isExplicitlyAwaited(declaration.initializer)) {
-        candidates.push({ bindingName: declaration.name.text, expression: declaration.initializer });
-      }
-    }
-  } else if (ts.isExpressionStatement(node2)) {
-    const expression = unwrapExpression(node2.expression);
-    if (ts.isBinaryExpression(expression) && expression.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isIdentifier(expression.left) && !isExplicitlyAwaited(expression.right)) {
-      candidates.push({ bindingName: expression.left.text, expression: expression.right });
-    }
-  }
-  return candidates.map(({ bindingName, expression }, offset) => {
-    const start = expression.getStart(parsed.sourceFile);
-    return {
-      id: firstId + offset,
-      statementIndex: statement.index,
-      bindingName,
-      range: toRange(parsed.sourceFile, start, expression.getEnd()),
-      fixRange: toRange(parsed.sourceFile, start, start)
-    };
-  });
-}
-function unwrapExpression(expression) {
-  let current = expression;
-  while (ts.isParenthesizedExpression(current) || ts.isAsExpression(current) || ts.isTypeAssertionExpression(current) || ts.isNonNullExpression(current) || ts.isSatisfiesExpression(current)) {
-    current = current.expression;
-  }
-  return current;
-}
-function isExplicitlyAwaited(expression) {
-  return ts.isAwaitExpression(unwrapExpression(expression));
-}
-function isPromiseWarningSuppressed(source, sourceFile, statement) {
-  const statementLine = ts.getLineAndCharacterOfPosition(
-    sourceFile,
-    statement.getStart(sourceFile)
-  ).line;
-  if (statementLine === 0) return false;
-  const previousLine = source.split(/\r?\n/u)[statementLine - 1]?.trim() ?? "";
-  return previousLine.includes(PROMISE_WARNING_SUPPRESSION);
+  return { code, capturedStatementIndexes: captured };
 }
 const TypedArrayPrototypeGetSymbolToStringTag = (() => {
   const g = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(Uint8Array.prototype), Symbol.toStringTag).get;
@@ -250446,7 +250391,6 @@ function indent(depth) {
   return "  ".repeat(depth);
 }
 const CONSOLE_ARG_PREVIEW_BYTES = 16 * 1024;
-const UNRESOLVED_PROMISE_PREVIEW = "[Promise: unresolved — add await to inspect the value]";
 function shellFactory(constructor, factory) {
   Object.setPrototypeOf(factory, constructor);
   Object.defineProperty(factory, "prototype", { value: constructor.prototype });
@@ -250505,17 +250449,10 @@ function createSandbox(options) {
       }
       return;
     }
-    let containsPromise = false;
-    const displayValues = values.map((value) => {
-      if (!isThenable$1(value)) return value;
-      containsPromise = true;
-      return UNRESOLVED_PROMISE_PREVIEW;
-    });
-    if (containsPromise) options.onConsolePromise(options.currentStatementIndex());
     options.onConsole({
       level,
       statementIndex: options.currentStatementIndex(),
-      args: displayValues.map((v) => serializeToEjson(v, CONSOLE_ARG_PREVIEW_BYTES))
+      args: values.map((v) => serializeToEjson(v, CONSOLE_ARG_PREVIEW_BYTES))
     });
   };
   const sandboxConsole = {
@@ -250560,8 +250497,7 @@ function createSandbox(options) {
     printjson: (v) => emitConsole("log", [v]),
     console: sandboxConsole,
     __mongogCapture: options.capture,
-    __mongogMark: options.mark,
-    __mongogInspectPromise: options.inspectPromise
+    __mongogMark: options.mark
   };
   if (options.mode === "trusted") {
     sandbox.require = (name) => {
@@ -250583,14 +250519,6 @@ function createSandbox(options) {
     getCurrentDb: () => currentDb,
     getCurrentDatabaseName: () => currentDb.databaseName
   };
-}
-function isThenable$1(value) {
-  if ((typeof value !== "object" || value === null) && typeof value !== "function") return false;
-  try {
-    return typeof value.then === "function";
-  } catch {
-    return false;
-  }
 }
 const QUERY_MODE_DENIED_IDENTIFIERS = /* @__PURE__ */ new Set([
   "process",
@@ -250816,14 +250744,7 @@ class ExecutionEngine {
       }
     }
     const instrumented = buildInstrumentedSource(opts.source, parsed);
-    const promiseProbes = new Map(instrumented.promiseProbes.map((probe) => [probe.id, probe]));
-    const emittedPromiseWarnings = /* @__PURE__ */ new Set();
     const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
-    const emitPromiseWarning = (key, warning) => {
-      if (emittedPromiseWarnings.has(key)) return;
-      emittedPromiseWarnings.add(key);
-      emit({ type: "statement-warning", ...warning });
-    };
     const capture = async (index2, thunk) => {
       scope.throwIfCancelled();
       const stmt = parsed.statements[index2];
@@ -250867,35 +250788,7 @@ class ExecutionEngine {
       mark: (i) => {
         scope.currentIndex = i;
       },
-      inspectPromise: (probeId, value) => {
-        if (!isThenable(value)) return;
-        const probe = promiseProbes.get(probeId);
-        if (!probe) return;
-        emitPromiseWarning(`binding:${probeId}`, {
-          index: probe.statementIndex,
-          range: editorRange(probe.range),
-          code: "UnawaitedPromise",
-          message: `Variable "${probe.bindingName}" contains an unresolved Promise. Add await before this expression.`,
-          hint: "The query will continue with normal JavaScript Promise semantics.",
-          fix: {
-            title: "Add await",
-            range: editorRange(probe.fixRange),
-            text: "await "
-          }
-        });
-      },
       onConsole: (entry) => emit({ type: "console", entry }),
-      onConsolePromise: (statementIndex) => {
-        const statement = parsed.statements[statementIndex];
-        const range2 = statement ? editorRange(statement.range) : editorRange({ startLine: 1, startCol: 1, endLine: 1, endCol: 1 });
-        emitPromiseWarning(`console:${statementIndex}`, {
-          index: statementIndex,
-          range: range2,
-          code: "UnawaitedPromise",
-          message: "Console received an unresolved Promise. Add await to inspect its resolved value.",
-          hint: "The Promise was not awaited automatically; execution continues unchanged."
-        });
-      },
       currentStatementIndex: () => scope.currentIndex
     });
     const timeoutMS = opts.timeoutMS ?? (opts.mode === "trusted" ? 0 : DEFAULT_TIMEOUT_MS);
@@ -251060,12 +250953,7 @@ class ExecutionScope {
   }
 }
 function isThenable(v) {
-  if (v === null || typeof v !== "object" && typeof v !== "function") return false;
-  try {
-    return typeof v.then === "function";
-  } catch {
-    return false;
-  }
+  return v !== null && (typeof v === "object" || typeof v === "function") && typeof v.then === "function";
 }
 function namespaceOf(cursor) {
   const ns = cursor.namespace;
