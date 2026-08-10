@@ -137,7 +137,19 @@ export type {
 
 export { MAX_SAVED_FOLDER_DEPTH } from './saved.js';
 
-export { DEFAULT_WORKSPACE, DEFAULT_SETTINGS, normalizeApplicationSettings } from './workspace.js';
+export {
+  DEFAULT_WORKSPACE,
+  DEFAULT_SETTINGS,
+  SIDEBAR_DEFAULT_WIDTH,
+  SIDEBAR_MIN_WIDTH,
+  SIDEBAR_MAX_WIDTH,
+  SIDEBAR_MIN_WORKSPACE_WIDTH,
+  normalizeApplicationSettings,
+  normalizeSidebarWidth,
+  sidebarMaximumForViewport,
+  clampSidebarWidth,
+  effectiveSidebarWidth,
+} from './workspace.js';
 
 export type ConnectionState =
   | { status: 'disconnected' }

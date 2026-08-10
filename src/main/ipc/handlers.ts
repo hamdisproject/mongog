@@ -77,7 +77,11 @@ import {
   type PingRuntimeResponse,
   type SystemInfoResponse,
 } from '../../shared/ipc/index.js';
-import { DEFAULT_SETTINGS, normalizeApplicationSettings } from '../../shared/domain/workspace.js';
+import {
+  DEFAULT_SETTINGS,
+  normalizeApplicationSettings,
+  normalizeSidebarWidth,
+} from '../../shared/domain/workspace.js';
 import type {
   CollectionDocumentsPage,
   CollectionMutationResult,
@@ -976,7 +980,7 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
   registerChannel(IpcChannels.workspaceSave, workspaceSaveSchema, async ({ state }) => {
     ctx.getDb().workspace.upsert({
       version: 1,
-      sidebarWidth: 260,
+      sidebarWidth: state.sidebarWidth,
       expandedNodeKeys: [],
       tabs: state.tabs,
       activeTabId: state.activeTabId,
@@ -986,7 +990,11 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
   registerChannel(IpcChannels.workspaceLoad, emptySchema, async () => {
     const ws = ctx.getDb().workspace.get();
     if (!ws) return null;
-    return { tabs: ws.tabs, activeTabId: ws.activeTabId };
+    return {
+      tabs: ws.tabs,
+      activeTabId: ws.activeTabId,
+      sidebarWidth: normalizeSidebarWidth(ws.sidebarWidth),
+    };
   }, validateSender);
 
   registerChannel(IpcChannels.settingsSave, settingsSaveSchema, async ({ settings }) => {

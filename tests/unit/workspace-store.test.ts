@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { EngineEvent } from '../../src/shared/domain/index.js';
-import { DEFAULT_SETTINGS } from '../../src/shared/domain/workspace.js';
+import { DEFAULT_SETTINGS, SIDEBAR_DEFAULT_WIDTH } from '../../src/shared/domain/workspace.js';
 import {
   bulkClosableTabIds,
   useWorkspaceStore,
@@ -11,13 +11,31 @@ const range = { startLine: 1, startCol: 1, endLine: 1, endCol: 10 };
 
 describe('workspace execution store', () => {
   beforeEach(() => {
-    useWorkspaceStore.setState({ tabs: [], activeTabId: null, results: {} });
+    useWorkspaceStore.setState({
+      tabs: [], activeTabId: null, sidebarWidth: SIDEBAR_DEFAULT_WIDTH, results: {},
+    });
     useSettingsStore.setState({
       settings: structuredClone(DEFAULT_SETTINGS),
       loaded: true,
       saving: false,
       error: null,
     });
+  });
+
+  it('keeps sidebar width in workspace state and normalizes legacy restore values', () => {
+    expect(useWorkspaceStore.getState().sidebarWidth).toBe(260);
+
+    useWorkspaceStore.getState().setSidebarWidth(440);
+    expect(useWorkspaceStore.getState().sidebarWidth).toBe(440);
+
+    useWorkspaceStore.getState().setSidebarWidth(999);
+    expect(useWorkspaceStore.getState().sidebarWidth).toBe(520);
+
+    useWorkspaceStore.getState().restore({ tabs: [], activeTabId: null, sidebarWidth: 340 });
+    expect(useWorkspaceStore.getState().sidebarWidth).toBe(340);
+
+    useWorkspaceStore.getState().restore({ tabs: [], activeTabId: null });
+    expect(useWorkspaceStore.getState().sidebarWidth).toBe(260);
   });
 
   it('routes early engine events by run token before execute IPC resolves', () => {

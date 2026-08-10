@@ -27,7 +27,7 @@ import { useDataTransferStore } from './stores/data-transfer.js';
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
 export default function App() {
-  const { activeTabId, tabs, restore } = useWorkspaceStore();
+  const { activeTabId, tabs, sidebarWidth, restore } = useWorkspaceStore();
   const { load } = useConnectionStore();
   const loadSettings = useSettingsStore((state) => state.load);
   const engineSubRef = useRef<(() => void) | null>(null);
@@ -40,8 +40,8 @@ export default function App() {
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = null;
     const save = () => {
-      const { tabs: t, activeTabId: a } = useWorkspaceStore.getState();
-      void window.mongog.workspace.save({ tabs: t, activeTabId: a });
+      const { tabs: t, activeTabId: a, sidebarWidth: width } = useWorkspaceStore.getState();
+      void window.mongog.workspace.save({ tabs: t, activeTabId: a, sidebarWidth: width });
     };
     if (delayMs === 0) {
       save();
@@ -144,13 +144,13 @@ export default function App() {
     const metadataChanged = metadata !== workspaceMetadataRef.current;
     workspaceMetadataRef.current = metadata;
     persist(metadataChanged ? 0 : 500);
-  }, [tabs, activeTabId]);
+  }, [tabs, activeTabId, sidebarWidth]);
 
   // Save on window close.
   useEffect(() => {
     const onUnload = () => {
-      const { tabs: t, activeTabId: a } = useWorkspaceStore.getState();
-      void window.mongog.workspace.save({ tabs: t, activeTabId: a });
+      const { tabs: t, activeTabId: a, sidebarWidth: width } = useWorkspaceStore.getState();
+      void window.mongog.workspace.save({ tabs: t, activeTabId: a, sidebarWidth: width });
     };
     window.addEventListener('beforeunload', onUnload);
     return () => window.removeEventListener('beforeunload', onUnload);

@@ -289,6 +289,7 @@ export const sampleSchemaSchema = z.object({
 
 export const workspaceSaveSchema = z.object({
   state: z.object({
+    sidebarWidth: z.number().int().min(180).max(520),
     tabs: z.array(z.object({
       id: z.string(),
       kind: z.enum(['welcome', 'query', 'collection', 'history', 'connection-settings', 'settings', 'admin', 'change-stream', 'data-transfer']),
@@ -1030,8 +1031,8 @@ export interface MongoGDesktopApi {
     deleteGridFsFile(connectionId: string, database: string, bucketName: string, idEjson: string): Promise<{ deleted: true }>;
   };
   workspace: {
-    save(state: { tabs: WorkspaceTab[]; activeTabId: string | null }): Promise<void>;
-    load(): Promise<{ tabs: WorkspaceTab[]; activeTabId: string | null } | null>;
+    save(state: { tabs: WorkspaceTab[]; activeTabId: string | null; sidebarWidth: number }): Promise<void>;
+    load(): Promise<{ tabs: WorkspaceTab[]; activeTabId: string | null; sidebarWidth: number } | null>;
   };
   settings: {
     save(settings: ApplicationSettings): Promise<void>;

@@ -8,6 +8,11 @@ import type {
   StatementInfo,
   WorkspaceTab,
 } from '../../shared/domain/index.js';
+import {
+  SIDEBAR_DEFAULT_WIDTH,
+  clampSidebarWidth,
+  normalizeSidebarWidth,
+} from '../../shared/domain/workspace.js';
 import type { AppError, SourceRange } from '../../shared/errors/index.js';
 import {
   collectionDocumentsOwnerId,
@@ -69,6 +74,7 @@ export interface TabExecutionState {
 interface WorkspaceState {
   tabs: WorkspaceTab[];
   activeTabId: string | null;
+  sidebarWidth: number;
   results: Record<string, TabExecutionState>;
 
   createTab: (kind: WorkspaceTab['kind'], connectionId?: string | null) => string;
@@ -98,6 +104,7 @@ interface WorkspaceState {
   setTabPinned: (tabId: string, pinned: boolean) => void;
   renameTab: (tabId: string, title: string) => boolean;
   setActiveTab: (id: string) => void;
+  setSidebarWidth: (width: number) => void;
   updateTab: (id: string, partial: Partial<WorkspaceTab>) => void;
   prepareExecution: (tabId: string, connectionId: string, runId: string) => void;
   setExecutionId: (tabId: string, runId: string, executionId: string) => void;
@@ -114,7 +121,7 @@ interface WorkspaceState {
   markCursorClosed: (tabId: string, cursorId: string) => void;
   failExecutionsForConnection: (connectionId: string, message: string) => void;
   clearResults: (tabId: string) => void;
-  restore: (state: { tabs: WorkspaceTab[]; activeTabId: string | null }) => void;
+  restore: (state: { tabs: WorkspaceTab[]; activeTabId: string | null; sidebarWidth?: number }) => void;
 }
 
 let tabCounter = 0;
@@ -186,6 +193,7 @@ function cleanupTabResources(tab: WorkspaceTab, execution: TabExecutionState | u
 export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
   tabs: [],
   activeTabId: null,
+  sidebarWidth: SIDEBAR_DEFAULT_WIDTH,
   results: {},
 
   createTab: (kind, connectionId = null) => {
@@ -616,6 +624,8 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
 
   setActiveTab: (id) => set({ activeTabId: id }),
 
+  setSidebarWidth: (width) => set({ sidebarWidth: clampSidebarWidth(width) }),
+
   updateTab: (id, partial) => {
     set((state) => ({
       tabs: state.tabs.map((tab) => (tab.id === id ? { ...tab, ...partial } : tab)),
@@ -881,6 +891,11 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
     const activeTabId = tabs.some((tab) => tab.id === state.activeTabId)
       ? state.activeTabId
       : tabs[0]?.id ?? null;
-    set({ tabs, activeTabId, results });
+    set({
+      tabs,
+      activeTabId,
+      sidebarWidth: normalizeSidebarWidth(state.sidebarWidth),
+      results,
+    });
   },
 }));

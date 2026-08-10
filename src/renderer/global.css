@@ -113,6 +113,22 @@ body {
   color: var(--color-text) !important;
 }
 
+.sidebar-resize-handle {
+  background: linear-gradient(
+    to right,
+    transparent 2px,
+    var(--color-border) 2px,
+    var(--color-border) 3px,
+    transparent 3px
+  );
+}
+
+.sidebar-resize-handle:hover,
+.sidebar-resize-handle:focus-visible {
+  background: color-mix(in srgb, var(--color-accent) 24%, transparent);
+  box-shadow: inset -1px 0 var(--color-accent);
+}
+
 /* Tabs remain horizontally scrollable with mouse/trackpad, but the native
    overlay scrollbar must not cover the tab labels or change the bar height. */
 .workspace-tab-bar {

@@ -57,9 +57,41 @@ export interface WorkspaceState {
   activeTabId: string | null;
 }
 
+export const SIDEBAR_DEFAULT_WIDTH = 260;
+export const SIDEBAR_MIN_WIDTH = 180;
+export const SIDEBAR_MAX_WIDTH = 520;
+export const SIDEBAR_MIN_WORKSPACE_WIDTH = 620;
+
+/** Invalid legacy persistence falls back instead of silently changing layout. */
+export function normalizeSidebarWidth(value: unknown): number {
+  return typeof value === 'number' && Number.isInteger(value) &&
+    value >= SIDEBAR_MIN_WIDTH && value <= SIDEBAR_MAX_WIDTH
+    ? value
+    : SIDEBAR_DEFAULT_WIDTH;
+}
+
+export function sidebarMaximumForViewport(viewportWidth: number): number {
+  const available = Number.isFinite(viewportWidth)
+    ? Math.floor(viewportWidth) - SIDEBAR_MIN_WORKSPACE_WIDTH
+    : SIDEBAR_MAX_WIDTH;
+  return Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, available));
+}
+
+export function clampSidebarWidth(value: number, viewportWidth?: number): number {
+  const maximum = viewportWidth === undefined
+    ? SIDEBAR_MAX_WIDTH
+    : sidebarMaximumForViewport(viewportWidth);
+  const rounded = Number.isFinite(value) ? Math.round(value) : SIDEBAR_DEFAULT_WIDTH;
+  return Math.max(SIDEBAR_MIN_WIDTH, Math.min(maximum, rounded));
+}
+
+export function effectiveSidebarWidth(preferredWidth: unknown, viewportWidth: number): number {
+  return Math.min(normalizeSidebarWidth(preferredWidth), sidebarMaximumForViewport(viewportWidth));
+}
+
 export const DEFAULT_WORKSPACE: WorkspaceState = {
   version: 1,
-  sidebarWidth: 280,
+  sidebarWidth: SIDEBAR_DEFAULT_WIDTH,
   expandedNodeKeys: [],
   tabs: [],
   activeTabId: null,

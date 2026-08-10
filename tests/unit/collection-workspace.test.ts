@@ -66,6 +66,7 @@ describe('collection workspace helpers', () => {
   it('accepts the persisted collection view mode', () => {
     expect(workspaceSaveSchema.safeParse({
       state: {
+        sidebarWidth: 320,
         tabs: [{
           id: 'tab-1',
           kind: 'collection',
@@ -90,6 +91,7 @@ describe('collection workspace helpers', () => {
     }).success).toBe(true);
     const parsed = workspaceSaveSchema.parse({
       state: {
+        sidebarWidth: 260,
         tabs: [{
           id: 'runtime-only', kind: 'collection', title: 'db.items', connectionId: 'conn-1',
           collectionViewMode: 'query', autoExecuteOnOpen: true, documentsPageSizeOverride: 100,
@@ -104,6 +106,7 @@ describe('collection workspace helpers', () => {
   it('accepts a persisted namespace-locked change stream tab', () => {
     expect(workspaceSaveSchema.safeParse({
       state: {
+        sidebarWidth: 260,
         tabs: [{
           id: 'changes-1',
           kind: 'change-stream',

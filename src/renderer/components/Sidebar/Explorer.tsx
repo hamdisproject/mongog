@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useConnectionStore } from '../../stores/connections.js';
 import { useSettingsStore } from '../../stores/settings.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
@@ -10,6 +10,13 @@ import { useSavedLibraryStore } from '../../stores/saved.js';
 import { SavedTree } from './SavedTree.js';
 import { useDataTransferStore } from '../../stores/data-transfer.js';
 import { MongoGBrand } from '../Brand/MongoGBrand.js';
+import {
+  SIDEBAR_DEFAULT_WIDTH,
+  SIDEBAR_MIN_WIDTH,
+  clampSidebarWidth,
+  effectiveSidebarWidth,
+  sidebarMaximumForViewport,
+} from '../../../shared/domain/workspace.js';
 
 const s: Record<string, React.CSSProperties> = {
   sidebar: {
@@ -77,7 +84,7 @@ type GroupAction = {
   group: ConnectionGroup;
 };
 
-function ExplorerTree() {
+function ExplorerTree({ compactHeader = false }: { compactHeader?: boolean }) {
   const {
     groups, profiles, connected, selectedProfileId, selectedGroupId,
     expandedGroupIds, expandedProfileIds, expandedDatabaseIds,
@@ -202,9 +209,23 @@ function ExplorerTree() {
 
   return (
     <div style={s.sidebar}>
-      <div style={s.header}>
+      <div
+        data-sidebar-compact-header={compactHeader ? 'true' : 'false'}
+        style={{
+          ...s.header,
+          ...(compactHeader ? {
+            flexDirection: 'column',
+            alignItems: 'stretch',
+            justifyContent: 'initial',
+            gap: 3,
+          } : {}),
+        }}
+      >
         <MongoGBrand size="compact" testId="sidebar-mongog-brand" />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 3,
+          ...(compactHeader ? { justifyContent: 'flex-end' } : {}),
+        }}>
           <button
             type="button"
             className="sidebar-header-action"
@@ -920,12 +941,114 @@ function ProfileNode({
 }
 
 export function Explorer() {
+  const preferredWidth = useWorkspaceStore((state) => state.sidebarWidth);
+  const setSidebarWidth = useWorkspaceStore((state) => state.setSidebarWidth);
+  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
+  const resizeCleanupRef = useRef<(() => void) | null>(null);
+  const maximumWidth = sidebarMaximumForViewport(viewportWidth);
+  const width = effectiveSidebarWidth(preferredWidth, viewportWidth);
+
+  const stopActiveResize = useCallback(() => {
+    resizeCleanupRef.current?.();
+  }, []);
+
+  const persistWidth = useCallback(() => {
+    const state = useWorkspaceStore.getState();
+    void window.mongog.workspace.save({
+      tabs: state.tabs,
+      activeTabId: state.activeTabId,
+      sidebarWidth: state.sidebarWidth,
+    }).catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    const updateViewportWidth = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', updateViewportWidth);
+    return () => {
+      window.removeEventListener('resize', updateViewportWidth);
+      stopActiveResize();
+    };
+  }, [stopActiveResize]);
+
+  const beginResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = width;
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+
+    stopActiveResize();
+    const onMove = (moveEvent: PointerEvent) => {
+      setSidebarWidth(clampSidebarWidth(
+        startWidth + moveEvent.clientX - startX,
+        window.innerWidth,
+      ));
+    };
+    const cleanup = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', cleanup);
+      window.removeEventListener('pointercancel', cleanup);
+      window.removeEventListener('blur', cleanup);
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+      if (resizeCleanupRef.current === cleanup) resizeCleanupRef.current = null;
+      persistWidth();
+    };
+    resizeCleanupRef.current = cleanup;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', cleanup, { once: true });
+    window.addEventListener('pointercancel', cleanup, { once: true });
+    window.addEventListener('blur', cleanup, { once: true });
+  };
+
+  const handleResizeKey = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = event.shiftKey ? 25 : 10;
+    let next: number | null = null;
+    if (event.key === 'ArrowLeft') next = width - step;
+    if (event.key === 'ArrowRight') next = width + step;
+    if (event.key === 'Home') next = SIDEBAR_MIN_WIDTH;
+    if (event.key === 'End') next = maximumWidth;
+    if (next === null) return;
+    event.preventDefault();
+    setSidebarWidth(clampSidebarWidth(next, viewportWidth));
+    persistWidth();
+  };
+
   return (
     <nav
       aria-label="Connection explorer"
-      style={{ width: 260, height: '100%', minHeight: 0, flexShrink: 0, overflow: 'hidden' }}
+      data-testid="connection-explorer"
+      style={{
+        position: 'relative', width, height: '100%', minHeight: 0,
+        flexShrink: 0, overflow: 'hidden', boxSizing: 'border-box',
+      }}
     >
-      <ExplorerTree />
+      <ExplorerTree compactHeader={width < 210} />
+      <div
+        className="sidebar-resize-handle"
+        data-testid="sidebar-resizer"
+        role="separator"
+        tabIndex={0}
+        aria-label="Resize connection explorer"
+        aria-orientation="vertical"
+        aria-valuemin={SIDEBAR_MIN_WIDTH}
+        aria-valuemax={maximumWidth}
+        aria-valuenow={width}
+        title="Drag to resize sidebar · double-click to reset"
+        onPointerDown={beginResize}
+        onDoubleClick={() => {
+          setSidebarWidth(SIDEBAR_DEFAULT_WIDTH);
+          persistWidth();
+        }}
+        onKeyDown={handleResizeKey}
+        style={{
+          position: 'absolute', top: 0, right: 0, bottom: 0, width: 5,
+          zIndex: 5, cursor: 'col-resize', touchAction: 'none', outline: 0,
+        }}
+      />
     </nav>
   );
 }

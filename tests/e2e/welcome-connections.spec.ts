@@ -78,6 +78,22 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByTitle('Open administration')).toHaveCount(0);
   const sidebarHeaderActions = page.getByRole('navigation', { name: 'Connection explorer' })
     .locator('.sidebar-header-action');
+  const sidebar = page.getByTestId('connection-explorer');
+  const sidebarResizer = page.getByTestId('sidebar-resizer');
+  await expect(sidebarResizer).toHaveAttribute('aria-valuenow', '260');
+  await sidebarResizer.focus();
+  await sidebarResizer.press('Home');
+  await expect(sidebar).toHaveJSProperty('clientWidth', 180);
+  await expect(sidebar.locator('[data-sidebar-compact-header="true"]')).toBeVisible();
+  await sidebarResizer.press('End');
+  await expect(sidebar).toHaveJSProperty('clientWidth', 380);
+  await sidebarResizer.dblclick();
+  await expect(sidebar).toHaveJSProperty('clientWidth', 260);
+  await dragHorizontalSeparator(page, sidebarResizer, 80);
+  await expect(sidebar).toHaveJSProperty('clientWidth', 340);
+  await expectViewportLocked(page);
+  await sidebarResizer.dblclick();
+  await expect(sidebar).toHaveJSProperty('clientWidth', 260);
   await expect(sidebarHeaderActions).toHaveCount(3);
   await expect(page.getByRole('button', { name: 'Open Welcome' }))
     .toHaveAttribute('title', 'Open Welcome — return to the start page');
@@ -192,7 +208,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await preRestartQuantitySort.click();
   await expect(preRestartQuantitySort).toHaveAttribute('aria-label', /sorted ascending, priority 1/);
 
-  await collectionTab.dragTo(queryTab, { targetPosition: { x: 2, y: 12 } });
+  await dragWorkspaceTabBefore(page, collectionTabId, queryTabId);
   await expect.poll(async () => {
     const ids = await page.locator('[data-tab-id]').evaluateAll((elements) => (
       elements.map((element) => element.getAttribute('data-tab-id'))
@@ -264,10 +280,15 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(explorer.locator('[data-saved-item-type="query"]')).toHaveCount(1);
   await expect(explorer.locator('[data-saved-item-type="tab"]')).toHaveCount(1);
 
+  await dragHorizontalSeparator(page, page.getByTestId('sidebar-resizer'), 80);
+  await expect(page.getByTestId('connection-explorer')).toHaveJSProperty('clientWidth', 340);
+  await expectViewportLocked(page);
+
   await application!.close();
   application = null;
   page = await launch();
   await expect(page.getByText('Welcome back')).toBeVisible();
+  await expect(page.getByTestId('connection-explorer')).toHaveJSProperty('clientWidth', 340);
   await expect(page.locator('[title^="welcome: Welcome"]')).toHaveCount(1);
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await page.locator('[data-tab-kind="settings"]').click();
@@ -916,6 +937,83 @@ async function dragVerticalSeparator(page: Page, separator: ReturnType<Page['loc
       bubbles: true,
     }));
   }, { clientX: x, clientY: y, movement: deltaY, id: pointerId });
+}
+
+async function dragHorizontalSeparator(page: Page, separator: ReturnType<Page['locator']>, deltaX: number): Promise<void> {
+  const box = await separator.boundingBox();
+  if (!box) throw new Error('Horizontal resize handle is missing');
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  const pointerId = 2;
+  await separator.dispatchEvent('pointerdown', {
+    clientX: x,
+    clientY: y,
+    pointerId,
+    pointerType: 'mouse',
+    isPrimary: true,
+    button: 0,
+    buttons: 1,
+    bubbles: true,
+  });
+  await page.evaluate(({ clientX, clientY, movement, id }) => {
+    const steps = 6;
+    for (let step = 1; step <= steps; step += 1) {
+      window.dispatchEvent(new PointerEvent('pointermove', {
+        clientX: clientX + (movement * step) / steps,
+        clientY,
+        pointerId: id,
+        pointerType: 'mouse',
+        isPrimary: true,
+        button: -1,
+        buttons: 1,
+        bubbles: true,
+      }));
+    }
+    window.dispatchEvent(new PointerEvent('pointerup', {
+      clientX: clientX + movement,
+      clientY,
+      pointerId: id,
+      pointerType: 'mouse',
+      isPrimary: true,
+      button: 0,
+      buttons: 0,
+      bubbles: true,
+    }));
+  }, { clientX: x, clientY: y, movement: deltaX, id: pointerId });
+}
+
+async function dragWorkspaceTabBefore(page: Page, sourceId: string, targetId: string): Promise<void> {
+  await page.evaluate(({ sourceId: source, targetId: target }) => {
+    const sourceElement = document.querySelector<HTMLElement>(`[data-tab-id="${CSS.escape(source)}"]`);
+    const targetElement = document.querySelector<HTMLElement>(`[data-tab-id="${CSS.escape(target)}"]`);
+    if (!sourceElement || !targetElement) throw new Error('Workspace tab drag target is missing');
+    const dataTransfer = new DataTransfer();
+    const targetRect = targetElement.getBoundingClientRect();
+    sourceElement.dispatchEvent(new DragEvent('dragstart', {
+      bubbles: true,
+      cancelable: true,
+      dataTransfer,
+    }));
+    targetElement.dispatchEvent(new DragEvent('dragover', {
+      bubbles: true,
+      cancelable: true,
+      clientX: targetRect.left + 2,
+      clientY: targetRect.top + targetRect.height / 2,
+      dataTransfer,
+    }));
+    targetElement.dispatchEvent(new DragEvent('drop', {
+      bubbles: true,
+      cancelable: true,
+      clientX: targetRect.left + 2,
+      clientY: targetRect.top + targetRect.height / 2,
+      dataTransfer,
+    }));
+    sourceElement.dispatchEvent(new DragEvent('dragend', {
+      bubbles: true,
+      cancelable: true,
+      dataTransfer,
+    }));
+  }, { sourceId, targetId });
 }
 
 async function expectViewportLocked(page: Page): Promise<void> {
