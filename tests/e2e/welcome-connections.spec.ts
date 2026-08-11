@@ -429,6 +429,11 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByRole('status', { name: 'Change stream stopped' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Open application settings' }).click();
+  const alphabeticalColumnOrder = page.getByRole('radio', { name: 'Alphabetical table column order' });
+  const documentColumnOrder = page.getByRole('radio', { name: 'Database document order table column order' });
+  await expect(alphabeticalColumnOrder).toHaveAttribute('aria-checked', 'true');
+  await documentColumnOrder.click();
+  await expect(documentColumnOrder).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByTestId('audit-settings')).toBeVisible();
   await expect(page.getByLabel('Audit retention days')).toHaveValue('90');
   await expect(page.getByLabel('Maximum audit entries')).toHaveValue('50000');
@@ -455,6 +460,8 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByLabel('Collection projection')).toBeVisible();
   await expectViewportLocked(page);
   const documentsTable = page.getByTestId('collection-documents-table');
+  await expect.poll(() => collectionColumnNames(page))
+    .toEqual(['_id', 'sku', 'quantity', 'amenities', 'catalog', 'status']);
   const firstDocumentRow = documentsTable.locator('tbody tr').first();
   const headerQuantitySort = page.locator('[data-sort-column="quantity"]');
   const headerSkuSort = page.locator('[data-sort-column="sku"]');
@@ -478,8 +485,22 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   const skuHeader = headerSkuSort.locator('xpath=ancestor::th');
   const quantityHeader = headerQuantitySort.locator('xpath=ancestor::th');
   await skuHeader.dragTo(quantityHeader);
+  await expect.poll(() => collectionColumnNames(page))
+    .toEqual(['_id', 'quantity', 'sku', 'amenities', 'catalog', 'status']);
   await expect(headerSkuSort).toHaveAttribute('aria-label', 'Sort sku ascending');
   await expect(headerQuantitySort).toHaveAttribute('aria-label', 'Sort quantity ascending');
+
+  await page.locator('[data-tab-kind="settings"]').click();
+  await alphabeticalColumnOrder.click();
+  await expect(alphabeticalColumnOrder).toHaveAttribute('aria-checked', 'true');
+  await page.locator(`[data-tab-id="${collectionTabId}"]`).click();
+  await expect.poll(() => collectionColumnNames(page))
+    .toEqual(['_id', 'quantity', 'sku', 'amenities', 'catalog', 'status']);
+  await page.locator('[data-tab-kind="settings"]').click();
+  await expect(documentColumnOrder).toBeEnabled();
+  await documentColumnOrder.click();
+  await expect(documentColumnOrder).toHaveAttribute('aria-checked', 'true');
+  await page.locator(`[data-tab-id="${collectionTabId}"]`).click();
 
   await page.getByRole('button', { name: 'Show column filter syntax' }).click();
   await expect(page.getByRole('note')).toContainText('100..200');
@@ -734,6 +755,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   if (!collectionTabId) throw new Error('Expected reopened collection tab id');
   await expect(page.getByText('"beta"', { exact: true })).toBeVisible();
   await expect(page.getByText('"alpha"', { exact: true })).toHaveCount(0);
+  await expect.poll(() => collectionColumnNames(page)).toEqual(['_id', 'sku', 'quantity']);
 
   await expect(explorer.locator('[data-saved-item-type="documents"] svg')).toBeVisible();
   await expect(explorer.locator('[data-saved-item-type="tab"] svg')).toBeVisible();
@@ -766,8 +788,25 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByTestId('query-documents-table')).toHaveCount(0);
   await statement.click();
   await expect(page.getByTestId('query-documents-table')).toBeVisible();
+  await expect.poll(() => queryColumnNames(page))
+    .toEqual(['#', '_id', 'sku', 'quantity', 'amenities', 'status']);
   await expect(page.getByTestId('query-documents-table').locator('[data-bson-syntax]').first()).toBeVisible();
   await expect(page.getByTestId('query-documents-table').locator('[data-bson-token="string"]').first()).toBeVisible();
+
+  await page.locator('[data-tab-kind="settings"]').click();
+  await alphabeticalColumnOrder.click();
+  await expect(alphabeticalColumnOrder).toHaveAttribute('aria-checked', 'true');
+  await page.locator(`[data-tab-id="${collectionTabId}"]`).click();
+  await expect.poll(() => queryColumnNames(page))
+    .toEqual(['#', '_id', 'amenities', 'quantity', 'sku', 'status']);
+  await page.locator('[data-tab-kind="settings"]').click();
+  await expect(documentColumnOrder).toBeEnabled();
+  await documentColumnOrder.click();
+  await expect(documentColumnOrder).toHaveAttribute('aria-checked', 'true');
+  await page.locator(`[data-tab-id="${collectionTabId}"]`).click();
+  await expect.poll(() => queryColumnNames(page))
+    .toEqual(['#', '_id', 'sku', 'quantity', 'amenities', 'status']);
+
   await page.getByRole('button', { name: 'Export…', exact: true }).click();
   const queryExportDialog = page.getByRole('dialog', { name: 'Export Statement 1' });
   await queryExportDialog.getByRole('button', { name: /Text/ }).click();
@@ -841,6 +880,14 @@ test('global collection defaults persist and auto-run a new Query collection onc
   let page = await launch();
   await page.getByRole('button', { name: 'Open application settings' }).click();
   await expect(page.getByTestId('collection-defaults-settings')).toBeVisible();
+  const documentColumnOrder = page.getByRole('radio', {
+    name: 'Database document order table column order',
+  });
+  if (await documentColumnOrder.getAttribute('aria-checked') !== 'true') {
+    await documentColumnOrder.click();
+  }
+  await expect(documentColumnOrder).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByText('Preferences are saved automatically.')).toBeVisible();
 
   const queryDefault = page.getByRole('radio', { name: 'Query default collection view' });
   if (await queryDefault.getAttribute('aria-checked') !== 'true') await queryDefault.click();
@@ -868,6 +915,8 @@ test('global collection defaults persist and auto-run a new Query collection onc
   application = null;
   page = await launch();
   await page.getByRole('button', { name: 'Open application settings' }).click();
+  await expect(page.getByRole('radio', { name: 'Database document order table column order' }))
+    .toHaveAttribute('aria-checked', 'true');
   await expect(page.getByRole('radio', { name: 'Query default collection view' }))
     .toHaveAttribute('aria-checked', 'true');
   await expect(page.getByRole('switch', { name: 'Run default collection query automatically' }))
@@ -926,6 +975,16 @@ async function setMonacoValue(page: Page, label: string, value: string): Promise
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
   await page.keyboard.press('Backspace');
   await page.keyboard.insertText(value);
+}
+
+async function collectionColumnNames(page: Page): Promise<string[]> {
+  return page.getByTestId('collection-documents-table').locator('[data-sort-column]')
+    .evaluateAll((elements) => elements.map((element) => element.getAttribute('data-sort-column') ?? ''));
+}
+
+async function queryColumnNames(page: Page): Promise<string[]> {
+  return page.getByTestId('query-documents-table').locator('thead th')
+    .evaluateAll((elements) => elements.map((element) => element.textContent?.trim() ?? ''));
 }
 
 async function dragVerticalSeparator(page: Page, separator: ReturnType<Page['locator']>, deltaY: number): Promise<void> {

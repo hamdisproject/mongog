@@ -29,6 +29,7 @@ export type {
   QueryHistoryEntry,
   HistoryQuery,
   ApplicationSettings,
+  TableColumnOrder,
 } from './workspace.js';
 
 export type {

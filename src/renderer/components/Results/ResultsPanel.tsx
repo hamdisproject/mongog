@@ -16,6 +16,7 @@ import type {
   ExportFormat,
   QueryExportValue,
   QueryResult,
+  TableColumnOrder,
 } from '../../../shared/domain/index.js';
 import {
   useWorkspaceStore,
@@ -26,6 +27,7 @@ import { useSettingsStore } from '../../stores/settings.js';
 import { BsonSyntaxText } from '../Common/BsonSyntaxText.js';
 import { ExportDialog } from '../Export/ExportDialog.js';
 import { useExportJobsStore } from '../../stores/exports.js';
+import { extractCollectionColumns } from '../../collection-workspace.js';
 
 const s: Record<string, React.CSSProperties> = {
   panel: {
@@ -100,6 +102,7 @@ const s: Record<string, React.CSSProperties> = {
 export function ResultsPanel() {
   const { activeTabId, results, tabs } = useWorkspaceStore();
   const displayMode = useSettingsStore((state) => state.settings.ejson.defaultMode);
+  const tableColumnOrder = useSettingsStore((state) => state.settings.table.columnOrder);
   const execution = activeTabId ? results[activeTabId] : undefined;
   const database = tabs.find((tab) => tab.id === activeTabId)?.database ?? 'admin';
 
@@ -141,6 +144,7 @@ export function ResultsPanel() {
             database={database}
             item={item}
             displayMode={displayMode}
+            tableColumnOrder={tableColumnOrder}
           />
         ))}
 
@@ -182,12 +186,14 @@ function ResultCard({
   database,
   item,
   displayMode,
+  tableColumnOrder,
 }: {
   tabId: string;
   connectionId: string | null;
   database: string;
   item: StatementResultState;
   displayMode: BsonDisplayMode;
+  tableColumnOrder: TableColumnOrder;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   return (
@@ -224,6 +230,7 @@ function ResultCard({
             item={item}
             result={item.result}
             displayMode={displayMode}
+            tableColumnOrder={tableColumnOrder}
           />
         ) : (
           <NonDocumentResult result={item.result} displayMode={displayMode} />
@@ -298,12 +305,14 @@ function DocumentsResult({
   item,
   result,
   displayMode,
+  tableColumnOrder,
 }: {
   tabId: string;
   connectionId: string | null;
   item: StatementResultState;
   result: Extract<QueryResult, { kind: 'documents' }>;
   displayMode: BsonDisplayMode;
+  tableColumnOrder: TableColumnOrder;
 }) {
   const { updateDocumentPage, markCursorClosed } = useWorkspaceStore();
   const [loading, setLoading] = useState<'next' | 'prev' | 'close' | null>(null);
@@ -317,7 +326,10 @@ function DocumentsResult({
     () => result.documents.map((envelope) => envelopeToRow(envelope)),
     [result.documents],
   );
-  const columns = useMemo(() => extractColumns(rows), [rows]);
+  const columns = useMemo(
+    () => extractCollectionColumns(rows, tableColumnOrder),
+    [rows, tableColumnOrder],
+  );
   const columnDefinitions = useMemo<Array<ColumnDef<Record<string, unknown>>>>(
     () => [
       {
@@ -613,14 +625,6 @@ function envelopeToRow(envelope: EjsonEnvelope): Record<string, unknown> {
   } catch {
     return { $preview: envelope.ejson, $parseError: true };
   }
-}
-
-function extractColumns(rows: Array<Record<string, unknown>>): string[] {
-  const keys = new Set<string>();
-  for (const row of rows) {
-    for (const key of Object.keys(row)) keys.add(key);
-  }
-  return ['_id', ...[...keys].filter((key) => key !== '_id').sort()];
 }
 
 function renderEnvelope(envelope: EjsonEnvelope, mode: BsonDisplayMode, pretty: boolean): string {

@@ -69,6 +69,21 @@ const collectionViewOptions = [
   },
 ];
 
+const tableColumnOrderOptions = [
+  {
+    id: 'alphabetical' as const,
+    label: 'Alphabetical',
+    description: 'Keep _id first, then sort the remaining columns alphabetically.',
+    example: '_id · amenities · price · sku',
+  },
+  {
+    id: 'document' as const,
+    label: 'Database document order',
+    description: 'Follow field order in returned documents and append newly discovered fields.',
+    example: '_id · sku · price · amenities',
+  },
+];
+
 const connectionIdleOptions = [
   { value: 15 * 60 * 1000, label: '15 minutes' },
   { value: 30 * 60 * 1000, label: '30 minutes' },
@@ -88,6 +103,7 @@ export function SettingsView() {
     setTheme,
     setBsonDisplayMode,
     setCollectionDefaults,
+    setTableColumnOrder,
     setConnectionIdleTimeout,
     setPageSize,
     setAuditSettings,
@@ -217,6 +233,51 @@ export function SettingsView() {
                     <span>
                       <strong style={{ display: 'block', fontSize: 12 }}>{option.label}</strong>
                       <span style={{ display: 'block', marginTop: 4, color: theme.colors.textMuted, fontSize: 10, lineHeight: 1.4 }}>{option.description}</span>
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ padding: '14px 17px 0', borderTop: `1px solid ${theme.colors.border}` }}>
+            <strong style={{ display: 'block', fontSize: 12 }}>Table column order</strong>
+            <span style={{ display: 'block', marginTop: 4, color: theme.colors.textMuted, fontSize: 10, lineHeight: 1.45 }}>
+              Applies to Collection Documents and Query Results. A manually reordered Documents tab keeps its own order until closed.
+            </span>
+          </div>
+          <div
+            data-testid="table-column-order-settings"
+            role="radiogroup"
+            aria-label="Table column order"
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, padding: 16 }}
+          >
+            {tableColumnOrderOptions.map((option) => {
+              const selected = settings.table.columnOrder === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  aria-label={`${option.label} table column order`}
+                  disabled={!loaded || saving}
+                  onClick={() => void setTableColumnOrder(option.id)}
+                  style={{
+                    minWidth: 0, minHeight: 82,
+                    border: `1px solid ${selected ? theme.colors.accentHover : theme.colors.borderStrong}`,
+                    borderRadius: 6, background: selected ? theme.colors.selected : theme.colors.input,
+                    color: theme.colors.text, padding: '11px 12px', textAlign: 'left',
+                    cursor: !loaded || saving ? 'default' : 'pointer',
+                    boxShadow: selected ? `0 0 0 1px ${theme.colors.accentHover}` : 'none',
+                  }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
+                    <span aria-hidden="true" style={{ marginTop: 2, width: 13, height: 13, borderRadius: '50%', border: `1px solid ${selected ? theme.colors.accentHover : theme.colors.borderStrong}`, background: selected ? theme.colors.accent : 'transparent', boxShadow: selected ? `inset 0 0 0 3px ${theme.colors.input}` : 'none', flexShrink: 0 }} />
+                    <span style={{ minWidth: 0 }}>
+                      <strong style={{ display: 'block', fontSize: 12 }}>{option.label}</strong>
+                      <span style={{ display: 'block', marginTop: 4, color: theme.colors.textMuted, fontSize: 10, lineHeight: 1.4 }}>{option.description}</span>
+                      <code style={{ display: 'block', marginTop: 7, color: theme.colors.warning, fontSize: 9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{option.example}</code>
                     </span>
                   </span>
                 </button>

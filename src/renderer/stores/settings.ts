@@ -13,6 +13,7 @@ interface SettingsState {
   setTheme: (theme: ThemePreference) => Promise<void>;
   setBsonDisplayMode: (mode: BsonDisplayMode) => Promise<void>;
   setCollectionDefaults: (collection: ApplicationSettings['collection']) => Promise<void>;
+  setTableColumnOrder: (columnOrder: ApplicationSettings['table']['columnOrder']) => Promise<void>;
   setConnectionIdleTimeout: (idleTimeoutMS: number) => Promise<void>;
   setPageSize: (pageSize: number) => Promise<void>;
   setAuditSettings: (audit: ApplicationSettings['audit']) => Promise<void>;
@@ -80,6 +81,19 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       previous.collection.autoExecuteDefaultQuery === normalized.autoExecuteDefaultQuery
     ) return;
     const settings = { ...previous, collection: normalized };
+    set({ settings, saving: true, error: null });
+    try {
+      await window.mongog.settings.save(settings);
+      set({ saving: false });
+    } catch (error) {
+      set({ settings: previous, saving: false, error: errorMessage(error) });
+    }
+  },
+
+  setTableColumnOrder: async (columnOrder) => {
+    if (get().saving || get().settings.table.columnOrder === columnOrder) return;
+    const previous = get().settings;
+    const settings = { ...previous, table: { columnOrder } };
     set({ settings, saving: true, error: null });
     try {
       await window.mongog.settings.save(settings);

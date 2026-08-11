@@ -29,6 +29,10 @@ export interface WorkspaceTab {
   autoExecuteOnOpen?: boolean;
   /** Renderer-only Documents page size; deliberately omitted from workspace persistence and saved templates. */
   documentsPageSizeOverride?: number;
+  /** Renderer-only Documents columns; keeps manual order while this tab remains open. */
+  documentsColumnOrder?: string[];
+  /** Renderer-only marker that prevents global table-order changes from replacing a manual order. */
+  documentsColumnOrderManual?: boolean;
   /** query tabs */
   editorContent?: string;
   mode?: 'query' | 'trusted';
@@ -142,9 +146,12 @@ export interface ApplicationSettings {
     defaultView: 'documents' | 'query';
     autoExecuteDefaultQuery: boolean;
   };
+  table: { columnOrder: TableColumnOrder };
   ejson: { defaultMode: BsonDisplayMode };
   window?: { bounds?: { x: number; y: number; width: number; height: number } };
 }
+
+export type TableColumnOrder = 'alphabetical' | 'document';
 
 export const CONNECTION_IDLE_TIMEOUT_VALUES = [
   15 * 60 * 1000,
@@ -175,6 +182,7 @@ export const DEFAULT_SETTINGS: ApplicationSettings = {
   history: { retentionDays: 90, maxEntries: 10_000 },
   audit: { retentionDays: 90, maxEntries: 50_000 },
   collection: { defaultView: 'documents', autoExecuteDefaultQuery: false },
+  table: { columnOrder: 'alphabetical' },
   ejson: { defaultMode: 'mongosh' },
 };
 
@@ -187,6 +195,7 @@ export function normalizeApplicationSettings(value: unknown): ApplicationSetting
   const history = isRecord(source.history) ? source.history : {};
   const audit = isRecord(source.audit) ? source.audit : {};
   const collection = isRecord(source.collection) ? source.collection : {};
+  const table = isRecord(source.table) ? source.table : {};
   const ejson = isRecord(source.ejson) ? source.ejson : {};
   const mode = ejson.defaultMode;
 
@@ -231,6 +240,11 @@ export function normalizeApplicationSettings(value: unknown): ApplicationSetting
             DEFAULT_SETTINGS.collection.autoExecuteDefaultQuery,
           )
         : false,
+    },
+    table: {
+      columnOrder: table.columnOrder === 'document' || table.columnOrder === 'alphabetical'
+        ? table.columnOrder
+        : DEFAULT_SETTINGS.table.columnOrder,
     },
     ejson: {
       defaultMode: mode === 'relaxed' || mode === 'canonical' || mode === 'mongosh'

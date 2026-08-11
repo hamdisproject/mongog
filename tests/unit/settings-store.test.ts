@@ -44,6 +44,26 @@ describe('renderer settings store', () => {
     expect(save).toHaveBeenCalledTimes(2);
   });
 
+  it('persists the global table column order', async () => {
+    save.mockResolvedValue(undefined);
+
+    await useSettingsStore.getState().setTableColumnOrder('document');
+
+    expect(useSettingsStore.getState().settings.table.columnOrder).toBe('document');
+    expect(save).toHaveBeenCalledOnce();
+    expect(save.mock.calls[0]?.[0].table).toEqual({ columnOrder: 'document' });
+  });
+
+  it('rolls back an optimistic table column order when persistence fails', async () => {
+    save.mockRejectedValue(new Error('settings unavailable'));
+
+    await useSettingsStore.getState().setTableColumnOrder('document');
+
+    expect(useSettingsStore.getState().settings.table.columnOrder).toBe('alphabetical');
+    expect(useSettingsStore.getState().saving).toBe(false);
+    expect(useSettingsStore.getState().error).toBe('settings unavailable');
+  });
+
   it('forces auto-run off for Documents', async () => {
     save.mockResolvedValue(undefined);
     useSettingsStore.setState((state) => ({

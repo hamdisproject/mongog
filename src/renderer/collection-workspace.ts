@@ -1,4 +1,8 @@
-import type { DocumentCriteriaState, DocumentCriteriaText } from '../shared/domain/index.js';
+import type {
+  DocumentCriteriaState,
+  DocumentCriteriaText,
+  TableColumnOrder,
+} from '../shared/domain/index.js';
 
 export type CollectionViewMode = 'documents' | 'query';
 
@@ -42,23 +46,35 @@ export function collectionPageSizeOptions(defaultPageSize: number): CollectionPa
 }
 
 /** Keep the last useful Documents schema when a filter returns no rows. */
-export function reconcileCollectionColumns(previous: string[], discovered: string[]): string[] {
+export function reconcileCollectionColumns(
+  previous: string[],
+  discovered: string[],
+  manuallyReordered = false,
+): string[] {
   if (discovered.length === 0) return previous;
+  if (!manuallyReordered) return arraysEqual(previous, discovered) ? previous : discovered;
   const retained = previous.filter((column) => discovered.includes(column));
   const next = [...retained, ...discovered.filter((column) => !retained.includes(column))];
-  return next.length === previous.length && next.every((column, index) => column === previous[index])
-    ? previous
-    : next;
+  return arraysEqual(previous, next) ? previous : next;
 }
 
 /** Discover top-level table columns; no documents means no new schema was observed. */
-export function extractCollectionColumns(documents: Array<Record<string, unknown>>): string[] {
+export function extractCollectionColumns(
+  documents: Array<Record<string, unknown>>,
+  columnOrder: TableColumnOrder = 'alphabetical',
+): string[] {
   if (documents.length === 0) return [];
   const keys = new Set<string>();
   for (const document of documents) {
     for (const key of Object.keys(document)) keys.add(key);
   }
-  return ['_id', ...Array.from(keys).filter((key) => key !== '_id').sort()];
+  const fields = Array.from(keys).filter((key) => key !== '_id');
+  if (columnOrder === 'alphabetical') fields.sort();
+  return ['_id', ...fields];
+}
+
+function arraysEqual(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 /** Rename only an untouched generated collection query while retaining its original limit. */

@@ -353,6 +353,9 @@ export const applicationSettingsSchema = z.object({
     defaultView: z.enum(['documents', 'query']),
     autoExecuteDefaultQuery: z.boolean(),
   }),
+  table: z.object({
+    columnOrder: z.enum(['alphabetical', 'document']),
+  }),
   ejson: z.object({ defaultMode: z.enum(['mongosh', 'relaxed', 'canonical']) }),
   window: z.object({
     bounds: z.object({

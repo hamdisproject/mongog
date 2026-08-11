@@ -17,6 +17,7 @@ describe('application settings normalization', () => {
       autoExecuteDefaultQuery: false,
     });
     expect(DEFAULT_SETTINGS.execution.pageSize).toBe(50);
+    expect(DEFAULT_SETTINGS.table).toEqual({ columnOrder: 'alphabetical' });
     expect(DEFAULT_SETTINGS.connection.idleTimeoutMS).toBe(3_600_000);
     expect(normalizeApplicationSettings({ theme: 'light' }).connection.idleTimeoutMS)
       .toBe(DEFAULT_CONNECTION_IDLE_TIMEOUT_MS);
@@ -32,6 +33,7 @@ describe('application settings normalization', () => {
       editor: { fontSize: 'large', tabSize: 4, wordWrap: true },
       execution: { pageSize: -1, confirmDestructive: false },
       history: null,
+      table: { columnOrder: 'unknown' },
       ejson: { defaultMode: 'broken' },
     });
     expect(settings.theme).toBe('light');
@@ -45,7 +47,21 @@ describe('application settings normalization', () => {
     expect(settings.history).toEqual(DEFAULT_SETTINGS.history);
     expect(settings.audit).toEqual(DEFAULT_SETTINGS.audit);
     expect(settings.collection).toEqual(DEFAULT_SETTINGS.collection);
+    expect(settings.table).toEqual(DEFAULT_SETTINGS.table);
     expect(settings.ejson.defaultMode).toBe('mongosh');
+  });
+
+  it.each(['alphabetical', 'document'] as const)('preserves the valid %s table column order', (columnOrder) => {
+    expect(normalizeApplicationSettings({ table: { columnOrder } }).table.columnOrder).toBe(columnOrder);
+  });
+
+  it('defaults and rejects an unsupported table column order', () => {
+    expect(normalizeApplicationSettings({ table: { columnOrder: 'server' } }).table)
+      .toEqual({ columnOrder: 'alphabetical' });
+    expect(applicationSettingsSchema.safeParse({
+      ...structuredClone(DEFAULT_SETTINGS),
+      table: { columnOrder: 'server' },
+    }).success).toBe(false);
   });
 
   it('preserves valid collection defaults and disables auto-run for Documents', () => {

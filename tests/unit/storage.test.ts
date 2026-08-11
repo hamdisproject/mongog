@@ -231,6 +231,7 @@ describe('Database', () => {
         history: { retentionDays: 90, maxEntries: 10000 },
         audit: { retentionDays: 90, maxEntries: 50000 },
         collection: { defaultView: 'documents', autoExecuteDefaultQuery: false },
+        table: { columnOrder: 'alphabetical' },
         ejson: { defaultMode: 'relaxed' },
       });
 

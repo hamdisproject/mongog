@@ -58,8 +58,24 @@ describe('collection workspace helpers', () => {
       .toEqual(['_id', 'note', 'quantity', 'sku']);
   });
 
-  it('reconciles a new non-empty schema while retaining the existing column order', () => {
+  it('uses first-seen field order across heterogeneous documents in document mode', () => {
+    expect(extractCollectionColumns([
+      { sku: 'a', quantity: 1 },
+      { sku: 'b', note: 'new', amenities: [] },
+    ], 'document')).toEqual(['_id', 'sku', 'quantity', 'note', 'amenities']);
+  });
+
+  it('applies a new automatic order while removing columns absent from a non-empty page', () => {
     expect(reconcileCollectionColumns(['quantity', '_id', 'legacy'], ['_id', 'sku', 'quantity']))
+      .toEqual(['_id', 'sku', 'quantity']);
+  });
+
+  it('preserves a manual order and appends newly discovered columns', () => {
+    expect(reconcileCollectionColumns(
+      ['quantity', '_id', 'legacy'],
+      ['_id', 'sku', 'quantity'],
+      true,
+    ))
       .toEqual(['quantity', '_id', 'sku']);
   });
 
@@ -77,6 +93,8 @@ describe('collection workspace helpers', () => {
           collectionViewMode: 'query',
           autoExecuteOnOpen: true,
           documentsPageSizeOverride: 100,
+          documentsColumnOrder: ['_id', 'quantity', 'sku'],
+          documentsColumnOrderManual: true,
           editorContent: 'db.collection("items").find({});',
           savedItemId: 'saved-view-1',
           documentsState: {
@@ -95,12 +113,15 @@ describe('collection workspace helpers', () => {
         tabs: [{
           id: 'runtime-only', kind: 'collection', title: 'db.items', connectionId: 'conn-1',
           collectionViewMode: 'query', autoExecuteOnOpen: true, documentsPageSizeOverride: 100,
+          documentsColumnOrder: ['_id', 'quantity', 'sku'], documentsColumnOrderManual: true,
         }],
         activeTabId: 'runtime-only',
       },
     });
     expect('autoExecuteOnOpen' in parsed.state.tabs[0]!).toBe(false);
     expect('documentsPageSizeOverride' in parsed.state.tabs[0]!).toBe(false);
+    expect('documentsColumnOrder' in parsed.state.tabs[0]!).toBe(false);
+    expect('documentsColumnOrderManual' in parsed.state.tabs[0]!).toBe(false);
   });
 
   it('accepts a persisted namespace-locked change stream tab', () => {

@@ -391,6 +391,34 @@ describe('workspace execution store', () => {
       .toBeUndefined();
   });
 
+  it('keeps a manual Documents column order only for the lifetime of its collection tab', () => {
+    const tabId = useWorkspaceStore.getState().openCollection({
+      connectionId: 'conn-1', database: 'db', collection: 'items',
+    });
+    useWorkspaceStore.getState().updateTab(tabId, {
+      documentsColumnOrder: ['_id', 'quantity', 'sku'],
+      documentsColumnOrderManual: true,
+    });
+
+    const queryId = useWorkspaceStore.getState().openQuery({ connectionId: 'conn-1', database: 'db' });
+    useWorkspaceStore.getState().setActiveTab(tabId);
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === tabId)).toMatchObject({
+      documentsColumnOrder: ['_id', 'quantity', 'sku'],
+      documentsColumnOrderManual: true,
+    });
+    expect(useWorkspaceStore.getState().activeTabId).toBe(tabId);
+    expect(queryId).not.toBe(tabId);
+
+    useWorkspaceStore.getState().closeTab(tabId);
+    const reopenedId = useWorkspaceStore.getState().openCollection({
+      connectionId: 'conn-1', database: 'db', collection: 'items',
+    });
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === reopenedId)?.documentsColumnOrder)
+      .toBeUndefined();
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === reopenedId)?.documentsColumnOrderManual)
+      .toBeUndefined();
+  });
+
   it('opens a new collection with the global Query, auto-run and page-size defaults', () => {
     useSettingsStore.setState((state) => ({
       settings: {

@@ -230,6 +230,8 @@ function workspaceMetadataFingerprint(tabs: WorkspaceTab[], activeTabId: string 
       editorContent: _editorContent,
       documentsState: _documentsState,
       documentsPageSizeOverride: _documentsPageSizeOverride,
+      documentsColumnOrder: _documentsColumnOrder,
+      documentsColumnOrderManual: _documentsColumnOrderManual,
       dirty: _dirty,
       ...metadata
     }) => metadata),

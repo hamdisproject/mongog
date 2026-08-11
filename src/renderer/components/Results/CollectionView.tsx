@@ -245,6 +245,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const updateTab = useWorkspaceStore((state) => state.updateTab);
   const displayMode = useSettingsStore((state) => state.settings.ejson.defaultMode);
   const configuredPageSize = useSettingsStore((state) => state.settings.execution.pageSize);
+  const tableColumnOrder = useSettingsStore((state) => state.settings.table.columnOrder);
   const connectionId = tab.connectionId ?? '';
   const database = tab.database ?? 'admin';
   const collection = tab.collection ?? '';
@@ -300,10 +301,14 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   }, [effectivePageSize]);
 
   const discoveredColumns = useMemo(
-    () => extractCollectionColumns(rows.map((row) => row.value).filter(isDocumentValue)),
-    [rows],
+    () => extractCollectionColumns(
+      rows.map((row) => row.value).filter(isDocumentValue),
+      tableColumnOrder,
+    ),
+    [rows, tableColumnOrder],
   );
-  const [columnOrder, setColumnOrder] = useState<string[]>([]);
+  const columnOrder = tab.documentsColumnOrder ?? [];
+  const columnsManuallyReordered = tab.documentsColumnOrderManual ?? false;
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
   const [columnFilterErrors, setColumnFilterErrors] = useState<Record<string, string>>({});
@@ -317,8 +322,8 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
   const suppressSortClick = useRef(false);
   const columns = useMemo(
-    () => reconcileCollectionColumns(columnOrder, discoveredColumns),
-    [columnOrder, discoveredColumns],
+    () => reconcileCollectionColumns(columnOrder, discoveredColumns, columnsManuallyReordered),
+    [columnOrder, columnsManuallyReordered, discoveredColumns],
   );
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [countLoading, setCountLoading] = useState(false);
@@ -395,8 +400,9 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   ]);
 
   useEffect(() => {
-    setColumnOrder((current) => reconcileCollectionColumns(current, discoveredColumns));
-  }, [discoveredColumns]);
+    if (sameColumnOrder(columnOrder, columns)) return;
+    updateTab(tab.id, { documentsColumnOrder: columns });
+  }, [columnOrder, columns, tab.id, updateTab]);
 
   useEffect(() => {
     countRequestGeneration.current += 1;
@@ -577,9 +583,10 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
 
   const moveColumn = (source: string, target: string) => {
     if (source === target) return;
-    setColumnOrder((current) => {
-      const order = current.length > 0 ? [...current] : [...columns];
-      return reorderColumns(order, source, target);
+    const order = columnOrder.length > 0 ? [...columnOrder] : [...columns];
+    updateTab(tab.id, {
+      documentsColumnOrder: reorderColumns(order, source, target),
+      documentsColumnOrderManual: true,
     });
   };
 
@@ -1393,6 +1400,10 @@ function truncate(value: string, length: number): string {
 
 function isDocumentValue(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function sameColumnOrder(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((column, index) => column === right[index]);
 }
 
 function sameCriteria(left: DocumentCriteriaText, right: DocumentCriteriaText): boolean {
