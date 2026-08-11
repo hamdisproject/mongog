@@ -203,6 +203,25 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   let collectionTabId = await collectionTab.getAttribute('data-tab-id');
   if (!queryTabId || !collectionTabId) throw new Error('Expected query and collection tab ids');
 
+  await expect(queryTab).not.toHaveAttribute('draggable', 'true');
+  await expect(queryTab.locator('[data-tab-drag-handle]')).toHaveAttribute('draggable', 'true');
+  const queryCloseButton = queryTab.locator('[data-tab-close]');
+  await expect(queryCloseButton).toBeVisible();
+  const queryCloseBox = await queryCloseButton.boundingBox();
+  expect(queryCloseBox?.width).toBeGreaterThanOrEqual(24);
+  expect(queryCloseBox?.height).toBeGreaterThanOrEqual(24);
+
+  await queryTab.locator('[data-tab-select]').click();
+  await expect(queryTab).toHaveAttribute('data-tab-active', 'true');
+  await collectionTab.locator('[data-tab-select]').focus();
+  await page.keyboard.press('Space');
+  await expect(collectionTab).toHaveAttribute('data-tab-active', 'true');
+  await queryTab.locator('[data-tab-select]').focus();
+  await page.keyboard.press('Enter');
+  await expect(queryTab).toHaveAttribute('data-tab-active', 'true');
+  await collectionTab.locator('[data-tab-select]').click();
+  await expect(collectionTab).toHaveAttribute('data-tab-active', 'true');
+
   const preRestartQuantitySort = page.locator('[data-sort-column="quantity"]');
   await expect(preRestartQuantitySort).toBeVisible();
   await preRestartQuantitySort.click();
@@ -808,8 +827,14 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await deleteGroupDialog.getByRole('textbox').fill('E2E Renamed Group');
   await deleteGroupDialog.getByRole('textbox').press('Enter');
   await expect(renamedGroupNode).toHaveCount(0);
-  await page.getByTitle('Close Pinned query').click();
+  const activeBeforeClosingPinnedQuery = await page.locator('[data-tab-active="true"]').getAttribute('data-tab-id');
+  if (!activeBeforeClosingPinnedQuery) throw new Error('Expected an active tab before closing the pinned query');
+  expect(activeBeforeClosingPinnedQuery).not.toBe(queryTabId);
+  const closePinnedQuery = page.getByTitle('Close Pinned query');
+  await closePinnedQuery.focus();
+  await page.keyboard.press('Enter');
   await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toHaveCount(0);
+  await expect(page.locator(`[data-tab-id="${activeBeforeClosingPinnedQuery}"]`)).toHaveAttribute('data-tab-active', 'true');
 });
 
 test('global collection defaults persist and auto-run a new Query collection once', async () => {
@@ -984,7 +1009,9 @@ async function dragHorizontalSeparator(page: Page, separator: ReturnType<Page['l
 
 async function dragWorkspaceTabBefore(page: Page, sourceId: string, targetId: string): Promise<void> {
   await page.evaluate(({ sourceId: source, targetId: target }) => {
-    const sourceElement = document.querySelector<HTMLElement>(`[data-tab-id="${CSS.escape(source)}"]`);
+    const sourceElement = document.querySelector<HTMLElement>(
+      `[data-tab-id="${CSS.escape(source)}"] [data-tab-drag-handle]`,
+    );
     const targetElement = document.querySelector<HTMLElement>(`[data-tab-id="${CSS.escape(target)}"]`);
     if (!sourceElement || !targetElement) throw new Error('Workspace tab drag target is missing');
     const dataTransfer = new DataTransfer();

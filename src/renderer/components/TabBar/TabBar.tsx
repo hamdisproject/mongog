@@ -17,14 +17,21 @@ const s: Record<string, React.CSSProperties> = {
     minHeight: 32, overflowX: 'auto', overflowY: 'hidden', flexShrink: 0,
   },
   tab: {
-    position: 'relative', display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px',
-    fontSize: 12, cursor: 'pointer', borderRight: '1px solid var(--color-border)',
+    position: 'relative', display: 'flex', alignItems: 'center', gap: 2, padding: '3px 4px',
+    fontSize: 12, borderRight: '1px solid var(--color-border)',
     whiteSpace: 'nowrap', color: 'var(--color-text-muted)', minWidth: 0, flexShrink: 0,
   },
   tabActive: { background: 'var(--color-app)', color: 'var(--color-text)' },
-  closeBtn: {
-    fontSize: 14, lineHeight: '14px', cursor: 'pointer', opacity: 0.4,
-    padding: '0 2px', borderRadius: 2,
+  tabIdentity: {
+    height: 24, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6,
+  },
+  tabSelect: {
+    height: 24, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6,
+    padding: '0 4px', border: 0, borderRadius: 3, background: 'transparent',
+    color: 'inherit', font: 'inherit', whiteSpace: 'nowrap', cursor: 'pointer',
+  },
+  tabTitle: {
+    maxWidth: 160, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis',
   },
   dirtyDot: { width: 6, height: 6, borderRadius: '50%', background: 'var(--color-warning)', flexShrink: 0 },
   newBtn: {
@@ -277,62 +284,109 @@ function Tab({
       data-tab-id={tab.id}
       data-tab-kind={tab.kind}
       data-tab-pinned={tab.pinned ? 'true' : 'false'}
-      draggable={!renaming}
+      data-tab-active={active ? 'true' : 'false'}
       style={{ ...s.tab, ...(active ? s.tabActive : {}), ...(dragging ? { opacity: 0.45 } : {}) }}
-      onClick={() => { if (!renaming) setActiveTab(tab.id); }}
-      onDoubleClick={(event) => {
-        if (!isTabRenameable(tab)) return;
-        event.preventDefault();
-        event.stopPropagation();
-        onStartRename();
-      }}
       onContextMenu={onContextMenu}
-      onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDrop={onDrop}
-      onDragEnd={onDragEnd}
       title={`${tab.kind}: ${tab.title}${tab.dirty ? ' (modified)' : ''}`}
     >
       {dropPosition === 'before' && <span style={s.dropBefore} data-testid="tab-drop-before" />}
       {dropPosition === 'after' && <span style={s.dropAfter} data-testid="tab-drop-after" />}
-      <span style={{ fontSize: 10, opacity: 0.6 }}>{kindIcon[tab.kind] ?? '?'}</span>
-      {tab.pinned && <PinIcon />}
-      {renaming ? (
-        <input
-          ref={inputRef}
-          aria-label="Tab name"
-          maxLength={120}
-          value={renameDraft}
-          style={s.renameInput}
-          onChange={(event) => onRenameDraft(event.target.value)}
-          onClick={(event) => event.stopPropagation()}
-          onDoubleClick={(event) => event.stopPropagation()}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault();
-              onCommitRename();
-            } else if (event.key === 'Escape') {
-              event.preventDefault();
-              cancelledRef.current = true;
-              onCancelRename();
-            }
-          }}
-          onBlur={() => {
-            if (!cancelledRef.current) onCommitRename();
-          }}
-        />
-      ) : (
-        <span style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {tab.title}
-        </span>
-      )}
-      {tab.dirty && <div style={s.dirtyDot} title="Modified" />}
       <span
-        style={s.closeBtn}
+        className="workspace-tab-drag-handle"
+        data-tab-drag-handle
+        draggable={!renaming}
+        role="img"
+        aria-label={`Drag to reorder ${tab.title} tab`}
+        title="Drag to reorder tab"
+        onDragStart={(event) => {
+          if (renaming) {
+            event.preventDefault();
+            return;
+          }
+          onDragStart(event);
+        }}
+        onDragEnd={onDragEnd}
+      >
+        <DragGripIcon />
+      </span>
+      {renaming ? (
+        <div style={s.tabIdentity}>
+          <span style={{ fontSize: 10, opacity: 0.6 }}>{kindIcon[tab.kind] ?? '?'}</span>
+          {tab.pinned && <PinIcon />}
+          <input
+            ref={inputRef}
+            aria-label="Tab name"
+            maxLength={120}
+            value={renameDraft}
+            style={s.renameInput}
+            onChange={(event) => onRenameDraft(event.target.value)}
+            onClick={(event) => event.stopPropagation()}
+            onDoubleClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                onCommitRename();
+              } else if (event.key === 'Escape') {
+                event.preventDefault();
+                cancelledRef.current = true;
+                onCancelRename();
+              }
+            }}
+            onBlur={() => {
+              if (!cancelledRef.current) onCommitRename();
+            }}
+          />
+          {tab.dirty && <span style={s.dirtyDot} title="Modified" />}
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="workspace-tab-select"
+          data-tab-select
+          aria-label={`Activate ${tab.title} tab`}
+          aria-current={active ? 'page' : undefined}
+          style={s.tabSelect}
+          onClick={() => setActiveTab(tab.id)}
+          onDoubleClick={(event) => {
+            if (!isTabRenameable(tab)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            onStartRename();
+          }}
+        >
+          <span style={{ fontSize: 10, opacity: 0.6 }}>{kindIcon[tab.kind] ?? '?'}</span>
+          {tab.pinned && <PinIcon />}
+          <span style={s.tabTitle}>{tab.title}</span>
+          {tab.dirty && <span style={s.dirtyDot} title="Modified" />}
+        </button>
+      )}
+      <button
+        type="button"
+        className="workspace-tab-close"
+        data-tab-close
+        aria-label={`Close ${tab.title}`}
         title={`Close ${tab.title}`}
+        draggable={false}
+        onPointerDown={(event) => event.stopPropagation()}
         onClick={(event) => { event.stopPropagation(); closeTab(tab.id); }}
-      >&#x2715;</span>
+        onDragStart={(event) => event.preventDefault()}
+      >&#x2715;</button>
     </div>
+  );
+}
+
+function DragGripIcon() {
+  return (
+    <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor" aria-hidden="true">
+      <circle cx="3" cy="4" r="1" />
+      <circle cx="7" cy="4" r="1" />
+      <circle cx="3" cy="8" r="1" />
+      <circle cx="7" cy="8" r="1" />
+      <circle cx="3" cy="12" r="1" />
+      <circle cx="7" cy="12" r="1" />
+    </svg>
   );
 }
 
