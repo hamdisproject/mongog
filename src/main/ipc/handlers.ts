@@ -690,7 +690,9 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
     }), async () => {
       const client = supervisor.get(payload.connectionId);
       if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
-      return client.request<ChangeStreamStartResult>('change-start', payload);
+      const result = await client.request<ChangeStreamStartResult>('change-start', payload);
+      supervisor.setChangeStreamActive(payload.connectionId, result.streamId, true);
+      return result;
     });
   }, validateSender);
 
@@ -701,22 +703,28 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
     }), async () => {
       const client = supervisor.get(connectionId);
       if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
-      return client.request<ChangeStreamPollResult>('change-poll', {
+      const result = await client.request<ChangeStreamPollResult>('change-poll', {
         streamId,
         maxEvents: maxEvents ?? 50,
       });
+      if (result.closed) supervisor.setChangeStreamActive(connectionId, streamId, false);
+      return result;
     }, (result) => ({ resultCount: result.events.length }));
   }, validateSender);
 
   registerChannel(IpcChannels.connChangeClose, connChangeCloseSchema, async ({ connectionId, streamId }) => {
-    await ctx.audit.run(auditContext(connectionId, {
-      category: 'change-stream', action: 'change-stream.close', origin: 'user', operationClass: 'admin',
-      summary: 'Close change stream',
-    }), async () => {
-      const client = supervisor.get(connectionId);
-      if (!client) return;
-      await client.request('change-close', { streamId });
-    });
+    try {
+      await ctx.audit.run(auditContext(connectionId, {
+        category: 'change-stream', action: 'change-stream.close', origin: 'user', operationClass: 'admin',
+        summary: 'Close change stream',
+      }), async () => {
+        const client = supervisor.get(connectionId);
+        if (!client) return;
+        await client.request('change-close', { streamId });
+      });
+    } finally {
+      supervisor.setChangeStreamActive(connectionId, streamId, false);
+    }
   }, validateSender);
 
   registerChannel(IpcChannels.connGridFsList, connGridFsListSchema, async ({ connectionId, database, bucketName, limit }) => {
@@ -999,6 +1007,7 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
 
   registerChannel(IpcChannels.settingsSave, settingsSaveSchema, async ({ settings }) => {
     ctx.getDb().settings.upsert(settings);
+    ctx.supervisor.setIdleTimeoutMS(settings.connection.idleTimeoutMS);
     ctx.audit.pruneSafely();
   }, validateSender);
 

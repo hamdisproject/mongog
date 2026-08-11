@@ -140,6 +140,8 @@ export { MAX_SAVED_FOLDER_DEPTH } from './saved.js';
 export {
   DEFAULT_WORKSPACE,
   DEFAULT_SETTINGS,
+  CONNECTION_IDLE_TIMEOUT_VALUES,
+  DEFAULT_CONNECTION_IDLE_TIMEOUT_MS,
   SIDEBAR_DEFAULT_WIDTH,
   SIDEBAR_MIN_WIDTH,
   SIDEBAR_MAX_WIDTH,
@@ -152,7 +154,7 @@ export {
 } from './workspace.js';
 
 export type ConnectionState =
-  | { status: 'disconnected' }
+  | { status: 'disconnected'; reason?: 'idle' | 'user'; since?: number; idleTimeoutMS?: number }
   | { status: 'connecting' }
   | { status: 'connected'; runtimePid: number; serverVersion: string; connectedAt: number }
   | { status: 'error'; error: AppError }

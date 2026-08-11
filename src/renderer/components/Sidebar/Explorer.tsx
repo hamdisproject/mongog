@@ -86,7 +86,7 @@ type GroupAction = {
 
 function ExplorerTree({ compactHeader = false }: { compactHeader?: boolean }) {
   const {
-    groups, profiles, connected, selectedProfileId, selectedGroupId,
+    groups, profiles, connected, idleDisconnects, selectedProfileId, selectedGroupId,
     expandedGroupIds, expandedProfileIds, expandedDatabaseIds,
     databases, collections, loading,
     selectGroup, selectProfile, toggleGroup, toggleProfile, toggleDatabase,
@@ -368,6 +368,7 @@ function ExplorerTree({ compactHeader = false }: { compactHeader?: boolean }) {
                   {groupProfiles.map((p) => (
                     <ProfileNode key={p.id} profile={p}
                       isConnected={!!connected[p.id]}
+                      idleDisconnect={idleDisconnects[p.id]}
                       isSelected={selectedProfileId === p.id}
                       isExpanded={expandedProfileIds.has(p.id)}
                       onSelect={() => selectProfile(p.id)}
@@ -389,6 +390,7 @@ function ExplorerTree({ compactHeader = false }: { compactHeader?: boolean }) {
         {ungrouped.map((p) => (
           <ProfileNode key={p.id} profile={p}
             isConnected={!!connected[p.id]}
+            idleDisconnect={idleDisconnects[p.id]}
             isSelected={selectedProfileId === p.id}
             isExpanded={expandedProfileIds.has(p.id)}
             onSelect={() => selectProfile(p.id)}
@@ -511,6 +513,7 @@ function ExplorerTree({ compactHeader = false }: { compactHeader?: boolean }) {
 interface ProfileNodeProps {
   profile: { id: string; name: string; color: string | null; readOnly: boolean };
   isConnected: boolean;
+  idleDisconnect?: { since: number; idleTimeoutMS: number };
   isSelected: boolean;
   isExpanded: boolean;
   onSelect: () => void;
@@ -531,6 +534,7 @@ type NamespaceAction =
 function ProfileNode({
   profile,
   isConnected,
+  idleDisconnect,
   isSelected,
   isExpanded,
   onSelect,
@@ -774,7 +778,11 @@ function ProfileNode({
           onDragStart(profile.id);
         }}
         onDragEnd={onDragEnd}
-        title={isConnected ? 'Double-click to disconnect' : 'Double-click to connect'}
+        title={isConnected
+          ? 'Double-click to disconnect'
+          : idleDisconnect
+            ? `Disconnected after ${formatIdleDuration(idleDisconnect.idleTimeoutMS)} of inactivity. Double-click to reconnect.`
+            : 'Double-click to connect'}
       >
         <span
           style={{ fontSize: 10, width: 14, textAlign: 'center' }}
@@ -938,6 +946,12 @@ function ProfileNode({
       )}
     </div>
   );
+}
+
+function formatIdleDuration(milliseconds: number): string {
+  if (milliseconds === 0) return 'no timeout';
+  const minutes = milliseconds / 60_000;
+  return minutes < 60 ? `${minutes} minutes` : `${minutes / 60} ${minutes === 60 ? 'hour' : 'hours'}`;
 }
 
 export function Explorer() {

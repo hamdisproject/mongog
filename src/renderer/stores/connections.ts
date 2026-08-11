@@ -25,11 +25,17 @@ interface CollectionInfo {
   type?: string;
 }
 
+interface IdleDisconnectInfo {
+  since: number;
+  idleTimeoutMS: number;
+}
+
 interface ConnectionState {
   groups: ConnectionGroup[];
   profiles: ConnectionProfile[];
   connected: Record<string, ConnectedInfo>;
   errors: Record<string, string>;
+  idleDisconnects: Record<string, IdleDisconnectInfo>;
   selectedGroupId: string | null;
   selectedProfileId: string | null;
   expandedGroupIds: Set<string>;
@@ -78,6 +84,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
   profiles: [],
   connected: {},
   errors: {},
+  idleDisconnects: {},
   selectedGroupId: null,
   selectedProfileId: null,
   expandedGroupIds: new Set(),
@@ -339,6 +346,8 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
     );
     const errors = { ...get().errors };
     delete errors[id];
+    const idleDisconnects = { ...get().idleDisconnects };
+    delete idleDisconnects[id];
     useSchemaCache.getState().invalidateConnection(id);
     useWorkspaceStore.getState().detachConnection(id);
     set({
@@ -351,6 +360,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
       expandedDatabaseIds,
       selectedProfileId: get().selectedProfileId === id ? null : get().selectedProfileId,
       errors,
+      idleDisconnects,
     });
     await useSavedLibraryStore.getState().load();
   },
@@ -367,6 +377,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
       : [...get().profiles, profile];
     const connected = { ...get().connected };
     const errors = { ...get().errors };
+    const idleDisconnects = { ...get().idleDisconnects };
     const databases = { ...get().databases };
     delete databases[profile.id];
     const collections = Object.fromEntries(
@@ -382,11 +393,12 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
         connected[profile.id] = { pid: state.pid, serverVersion: state.serverVersion };
       }
       delete errors[profile.id];
+      delete idleDisconnects[profile.id];
     } else {
       delete connected[profile.id];
       if (result.connectionError) errors[profile.id] = result.connectionError.message;
     }
-    set({ profiles, connected, errors, databases, collections, collectionsLoading, selectedProfileId: profile.id });
+    set({ profiles, connected, errors, idleDisconnects, databases, collections, collectionsLoading, selectedProfileId: profile.id });
     if (result.connected) void get().loadDatabases(profile.id);
     return result;
   },
@@ -395,15 +407,17 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
     await window.mongog.connections.connect(profileId);
     const state = await window.mongog.connections.getState(profileId);
     const connected = { ...get().connected };
+    const idleDisconnects = { ...get().idleDisconnects };
+    delete idleDisconnects[profileId];
     if (state.status === 'connected') {
       connected[profileId] = { pid: state.pid, serverVersion: state.serverVersion };
       const errors = { ...get().errors };
       delete errors[profileId];
-      set({ connected, errors });
+      set({ connected, errors, idleDisconnects });
       void get().loadDatabases(profileId);
     } else {
       delete connected[profileId];
-      set({ connected });
+      set({ connected, idleDisconnects });
     }
   },
 
@@ -413,6 +427,8 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
     delete next[profileId];
     const errors = { ...get().errors };
     delete errors[profileId];
+    const idleDisconnects = { ...get().idleDisconnects };
+    delete idleDisconnects[profileId];
     const databases = { ...get().databases };
     delete databases[profileId];
     const collections = Object.fromEntries(
@@ -434,6 +450,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
       expandedProfileIds,
       expandedDatabaseIds,
       errors,
+      idleDisconnects,
     });
   },
 
@@ -452,6 +469,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
   applyRuntimeState: (state) => {
     const { connectionId } = state;
     const connected = { ...get().connected };
+    const idleDisconnects = { ...get().idleDisconnects };
     if (state.status === 'connected') {
       connected[connectionId] = {
         pid: state.runtimePid,
@@ -459,14 +477,27 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
       };
       const errors = { ...get().errors };
       delete errors[connectionId];
-      set({ connected, errors });
+      delete idleDisconnects[connectionId];
+      set({ connected, errors, idleDisconnects });
       return;
     }
-    if (state.status === 'connecting') return;
+    if (state.status === 'connecting') {
+      delete idleDisconnects[connectionId];
+      set({ idleDisconnects });
+      return;
+    }
 
     delete connected[connectionId];
     const errors = { ...get().errors };
     if (state.status === 'error') errors[connectionId] = state.error.message;
+    if (state.status === 'disconnected' && state.reason === 'idle' && state.idleTimeoutMS !== undefined) {
+      idleDisconnects[connectionId] = {
+        since: state.since ?? Date.now(),
+        idleTimeoutMS: state.idleTimeoutMS,
+      };
+    } else {
+      delete idleDisconnects[connectionId];
+    }
     const databases = { ...get().databases };
     delete databases[connectionId];
     const collections = Object.fromEntries(
@@ -488,6 +519,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
       expandedProfileIds,
       expandedDatabaseIds,
       errors,
+      idleDisconnects,
     });
   },
 }));

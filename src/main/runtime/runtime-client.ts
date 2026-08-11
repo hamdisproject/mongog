@@ -46,6 +46,10 @@ export class RuntimeClient extends EventEmitter {
     return this.child !== null && this.exitInfo === null;
   }
 
+  get pendingCount(): number {
+    return this.pending.size;
+  }
+
   async start(): Promise<void> {
     if (this.child && this.isAlive) return;
     this.exitInfo = null;
@@ -84,7 +88,8 @@ export class RuntimeClient extends EventEmitter {
     const id = this.nextId++;
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
-        this.pending.delete(id);
+        if (!this.pending.delete(id)) return;
+        this.emit('request-settled');
         reject(appError('NetworkTimeout', `Runtime request "${type}" timed out.`));
       }, this.requestTimeoutMS);
       timer.unref?.();
@@ -162,6 +167,7 @@ export class RuntimeClient extends EventEmitter {
       if (!p) return;
       this.pending.delete(m.id);
       clearTimeout(p.timer);
+      this.emit('request-settled');
       if (m.ok) p.resolve(m.value);
       else p.reject(m.error ?? appError('Unknown', 'Runtime request failed.'));
     }

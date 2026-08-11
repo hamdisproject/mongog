@@ -858,6 +858,12 @@ test('global collection defaults persist and auto-run a new Query collection onc
   await expect(globalPageSize).toHaveValue('100');
   await expect(page.getByText('Preferences are saved automatically.')).toBeVisible();
 
+  const idleTimeout = page.getByLabel('Disconnect idle connections after');
+  await expect(idleTimeout).toHaveValue('3600000');
+  await idleTimeout.selectOption(String(2 * 60 * 60 * 1000));
+  await expect(idleTimeout).toHaveValue('7200000');
+  await expect(page.getByText('Preferences are saved automatically.')).toBeVisible();
+
   await application!.close();
   application = null;
   page = await launch();
@@ -867,6 +873,7 @@ test('global collection defaults persist and auto-run a new Query collection onc
   await expect(page.getByRole('switch', { name: 'Run default collection query automatically' }))
     .toHaveAttribute('aria-checked', 'true');
   await expect(page.getByLabel('Global page size')).toHaveValue('100');
+  await expect(page.getByLabel('Disconnect idle connections after')).toHaveValue('7200000');
 
   await page.locator('[title^="welcome: Welcome"]').click();
   await page.getByRole('button', { name: 'New Connection', exact: true }).click();

@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CONNECTION_IDLE_TIMEOUT_VALUES,
+  DEFAULT_CONNECTION_IDLE_TIMEOUT_MS,
   DEFAULT_SETTINGS,
   normalizeApplicationSettings,
 } from '../../src/shared/domain/workspace.js';
+import { applicationSettingsSchema } from '../../src/shared/ipc/index.js';
 
 describe('application settings normalization', () => {
   it('defaults new and missing settings to MongoDB Shell display', () => {
@@ -14,6 +17,9 @@ describe('application settings normalization', () => {
       autoExecuteDefaultQuery: false,
     });
     expect(DEFAULT_SETTINGS.execution.pageSize).toBe(50);
+    expect(DEFAULT_SETTINGS.connection.idleTimeoutMS).toBe(3_600_000);
+    expect(normalizeApplicationSettings({ theme: 'light' }).connection.idleTimeoutMS)
+      .toBe(DEFAULT_CONNECTION_IDLE_TIMEOUT_MS);
   });
 
   it.each(['relaxed', 'canonical', 'mongosh'] as const)('preserves the valid %s preference', (mode) => {
@@ -65,5 +71,21 @@ describe('application settings normalization', () => {
       .toEqual({ retentionDays: 30, maxEntries: 2_500 });
     expect(normalizeApplicationSettings({ audit: { retentionDays: 0, maxEntries: 20 } }).audit)
       .toEqual(DEFAULT_SETTINGS.audit);
+  });
+
+  it.each(CONNECTION_IDLE_TIMEOUT_VALUES)('preserves supported connection idle timeout %i', (idleTimeoutMS) => {
+    expect(normalizeApplicationSettings({ connection: { idleTimeoutMS } }).connection.idleTimeoutMS)
+      .toBe(idleTimeoutMS);
+  });
+
+  it('repairs invalid idle timeouts and rejects them at the IPC boundary', () => {
+    for (const idleTimeoutMS of [-1, 1, 12.5, 86_400_000, 'never', null]) {
+      expect(normalizeApplicationSettings({ connection: { idleTimeoutMS } }).connection.idleTimeoutMS)
+        .toBe(DEFAULT_CONNECTION_IDLE_TIMEOUT_MS);
+      expect(applicationSettingsSchema.safeParse({
+        ...structuredClone(DEFAULT_SETTINGS),
+        connection: { idleTimeoutMS },
+      }).success).toBe(false);
+    }
   });
 });

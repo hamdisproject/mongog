@@ -63,7 +63,7 @@ export interface SecretPayload {
 }
 
 export type ConnectionRuntimeState =
-  | { status: 'disconnected' }
+  | { status: 'disconnected'; reason?: 'idle' | 'user'; since?: number; idleTimeoutMS?: number }
   | { status: 'connecting'; since: number }
   | {
       status: 'connected';

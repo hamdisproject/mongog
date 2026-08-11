@@ -69,6 +69,16 @@ const collectionViewOptions = [
   },
 ];
 
+const connectionIdleOptions = [
+  { value: 15 * 60 * 1000, label: '15 minutes' },
+  { value: 30 * 60 * 1000, label: '30 minutes' },
+  { value: 60 * 60 * 1000, label: '1 hour' },
+  { value: 2 * 60 * 60 * 1000, label: '2 hours' },
+  { value: 4 * 60 * 60 * 1000, label: '4 hours' },
+  { value: 8 * 60 * 60 * 1000, label: '8 hours' },
+  { value: 0, label: 'Never' },
+] as const;
+
 export function SettingsView() {
   const {
     settings,
@@ -78,6 +88,7 @@ export function SettingsView() {
     setTheme,
     setBsonDisplayMode,
     setCollectionDefaults,
+    setConnectionIdleTimeout,
     setPageSize,
     setAuditSettings,
   } = useSettingsStore();
@@ -323,6 +334,43 @@ export function SettingsView() {
                   borderRadius: 4, background: theme.colors.input, color: theme.colors.text, padding: '0 8px',
                 }}
               />
+            </label>
+          </div>
+        </section>
+
+        <section data-testid="connection-lifecycle-settings" style={{ marginTop: 18, border: `1px solid ${theme.colors.border}`, borderRadius: 7, background: theme.colors.panel, overflow: 'hidden' }}>
+          <div style={{ padding: '15px 17px', borderBottom: `1px solid ${theme.colors.border}` }}>
+            <h2 style={{ margin: 0, fontSize: 14 }}>Connection lifecycle</h2>
+            <div style={{ marginTop: 5, color: theme.colors.textMuted, fontSize: 11, lineHeight: 1.45 }}>
+              Control how long an unused MongoDB connection stays online. Running queries, exports, transfers and live Change Streams are never disconnected as idle.
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: '16px 24px', padding: 17 }}>
+            <div>
+              <strong style={{ display: 'block', fontSize: 12 }}>Disconnect idle connections after</strong>
+              <span style={{ display: 'block', marginTop: 4, color: theme.colors.textMuted, fontSize: 10, lineHeight: 1.45 }}>
+                {settings.connection.idleTimeoutMS === 0
+                  ? 'Connections remain online until you disconnect them, the app closes or the runtime stops.'
+                  : 'Saving a new duration restarts the idle timer for every currently open connection.'}
+              </span>
+            </div>
+            <label style={{ display: 'grid', gap: 4, color: theme.colors.textMuted, fontSize: 9 }}>
+              IDLE TIMEOUT
+              <select
+                aria-label="Disconnect idle connections after"
+                value={settings.connection.idleTimeoutMS}
+                disabled={!loaded || saving}
+                onChange={(event) => void setConnectionIdleTimeout(Number(event.target.value))}
+                style={{
+                  width: 160, height: 30, boxSizing: 'border-box',
+                  border: `1px solid ${theme.colors.borderStrong}`, borderRadius: 4,
+                  background: theme.colors.input, color: theme.colors.text, padding: '0 8px',
+                }}
+              >
+                {connectionIdleOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
             </label>
           </div>
         </section>

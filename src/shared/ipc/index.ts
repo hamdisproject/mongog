@@ -61,6 +61,7 @@ import {
   DATA_ROW_ERROR_POLICIES,
   DATA_COLUMN_TYPES,
   DATA_EMPTY_CELL_POLICIES,
+  CONNECTION_IDLE_TIMEOUT_VALUES,
 } from '../domain/index.js';
 
 export const IpcChannels = {
@@ -324,6 +325,12 @@ export const applicationSettingsSchema = z.object({
     tabSize: z.number().int().min(1).max(16),
     wordWrap: z.boolean(),
     minimap: z.boolean(),
+  }),
+  connection: z.object({
+    idleTimeoutMS: z.number().int().refine(
+      (value) => CONNECTION_IDLE_TIMEOUT_VALUES.some((candidate) => candidate === value),
+      'Unsupported connection idle timeout.',
+    ),
   }),
   execution: z.object({
     defaultTimeoutMS: z.number().int().min(0).max(600_000),

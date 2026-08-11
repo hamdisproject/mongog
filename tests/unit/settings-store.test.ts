@@ -72,4 +72,24 @@ describe('renderer settings store', () => {
     expect(useSettingsStore.getState().saving).toBe(false);
     expect(useSettingsStore.getState().error).toBe('disk full');
   });
+
+  it('persists the global idle timeout, including Never', async () => {
+    save.mockResolvedValue(undefined);
+
+    await useSettingsStore.getState().setConnectionIdleTimeout(0);
+
+    expect(useSettingsStore.getState().settings.connection.idleTimeoutMS).toBe(0);
+    expect(save).toHaveBeenCalledOnce();
+    expect(save.mock.calls[0]?.[0].connection).toEqual({ idleTimeoutMS: 0 });
+  });
+
+  it('rolls back an optimistic idle-timeout change when persistence fails', async () => {
+    save.mockRejectedValue(new Error('settings unavailable'));
+
+    await useSettingsStore.getState().setConnectionIdleTimeout(2 * 60 * 60 * 1000);
+
+    expect(useSettingsStore.getState().settings.connection.idleTimeoutMS).toBe(60 * 60 * 1000);
+    expect(useSettingsStore.getState().saving).toBe(false);
+    expect(useSettingsStore.getState().error).toBe('settings unavailable');
+  });
 });

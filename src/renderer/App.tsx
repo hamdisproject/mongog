@@ -113,7 +113,9 @@ export default function App() {
           ? state.error.message
           : state.status === 'runtime-crashed'
             ? 'Query runtime stopped unexpectedly or was force-killed.'
-            : 'Connection closed while the query was running.';
+            : state.reason === 'idle'
+              ? `Connection closed after ${formatIdleDuration(state.idleTimeoutMS)} of inactivity. Reconnect to continue.`
+              : 'Connection closed while the query was running.';
         useWorkspaceStore.getState().failExecutionsForConnection(state.connectionId, message);
         useExportJobsStore.getState().failConnection(state.connectionId, message);
         useDataTransferStore.getState().failConnection(state.connectionId, message);
@@ -175,6 +177,14 @@ export default function App() {
       </div>
     </div>
   );
+}
+
+function formatIdleDuration(idleTimeoutMS?: number): string {
+  if (!idleTimeoutMS) return 'the configured idle period';
+  const minutes = Math.round(idleTimeoutMS / 60_000);
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+  const hours = minutes / 60;
+  return `${hours} hour${hours === 1 ? '' : 's'}`;
 }
 
 /**

@@ -11,9 +11,10 @@ import { IpcEvents } from '../shared/ipc/index.js';
 import { serializeError } from '../shared/errors/index.js';
 import { AuditService } from './services/audit-service.js';
 import { DataTransferCoordinator } from './data-transfer/coordinator.js';
+import { normalizeApplicationSettings } from '../shared/domain/workspace.js';
 import squirrelStartup from 'electron-squirrel-startup';
 
-const supervisor = new RuntimeSupervisor({ maxRuntimes: 10, idleTimeoutMS: 15 * 60 * 1000 });
+const supervisor = new RuntimeSupervisor({ maxRuntimes: 10 });
 const dataTransfer = new DataTransferCoordinator(supervisor);
 app.setName('MongoG');
 if (process.platform === 'win32') app.setAppUserModelId('com.squirrel.MongoG.MongoG');
@@ -71,6 +72,8 @@ if (!isSquirrelStartup) void app.whenReady().then(async () => {
     if (!icon.isEmpty()) app.dock.setIcon(icon);
   }
   db = Database.openOrCreate(join(app.getPath('userData'), 'mongog.db'));
+  const startupSettings = normalizeApplicationSettings(db.settings.get());
+  supervisor.setIdleTimeoutMS(startupSettings.connection.idleTimeoutMS, false);
   secretVault.bind(db.secrets);
   audit = new AuditService(db);
   audit.setChangeEmitter((event) => {
@@ -121,6 +124,7 @@ if (!isSquirrelStartup) void app.whenReady().then(async () => {
     }
   });
   dataTransfer.on('progress', (event) => {
+    supervisor.trackDataJobProgress(event);
     audit?.handleDataTransferEvent(event);
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IpcEvents.dataJobProgress, event);
@@ -166,11 +170,25 @@ if (!isSquirrelStartup) void app.whenReady().then(async () => {
       });
     }
   });
-  supervisor.on('runtime-idle-evicted', (connectionId) => {
+  supervisor.on('runtime-idle-evicted', (connectionId, idleTimeoutMS: number) => {
+    const startedAt = Date.now();
+    const auditId = audit?.begin({
+      connectionId,
+      category: 'connection',
+      action: 'connection.idle-disconnect',
+      origin: 'system',
+      operationClass: 'connection',
+      summary: 'Disconnect idle MongoDB connection',
+      detail: { idleTimeoutMS },
+    }) ?? null;
+    audit?.finish(auditId, startedAt, { status: 'success' });
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IpcEvents.connectionState, {
         connectionId,
         status: 'disconnected',
+        reason: 'idle',
+        since: Date.now(),
+        idleTimeoutMS,
       });
     }
   });

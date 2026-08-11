@@ -226,6 +226,7 @@ describe('Database', () => {
       db.settings.upsert({
         schemaVersion: 1, theme: 'dark',
         editor: { fontSize: 14, tabSize: 2, wordWrap: false, minimap: false },
+        connection: { idleTimeoutMS: 3600000 },
         execution: { defaultTimeoutMS: 30000, pageSize: 50, maxRetainedPages: 20, maxPreviewBytes: 256000, cursorIdleTimeoutMS: 600000, maxRuntimes: 10, confirmDestructive: true },
         history: { retentionDays: 90, maxEntries: 10000 },
         audit: { retentionDays: 90, maxEntries: 50000 },

@@ -126,6 +126,7 @@ export interface ApplicationSettings {
   schemaVersion: number;
   theme: 'dark' | 'light' | 'system';
   editor: { fontSize: number; tabSize: number; wordWrap: boolean; minimap: boolean };
+  connection: { idleTimeoutMS: number };
   execution: {
     defaultTimeoutMS: number;
     pageSize: number;
@@ -145,10 +146,23 @@ export interface ApplicationSettings {
   window?: { bounds?: { x: number; y: number; width: number; height: number } };
 }
 
+export const CONNECTION_IDLE_TIMEOUT_VALUES = [
+  15 * 60 * 1000,
+  30 * 60 * 1000,
+  60 * 60 * 1000,
+  2 * 60 * 60 * 1000,
+  4 * 60 * 60 * 1000,
+  8 * 60 * 60 * 1000,
+  0,
+] as const;
+
+export const DEFAULT_CONNECTION_IDLE_TIMEOUT_MS = 60 * 60 * 1000;
+
 export const DEFAULT_SETTINGS: ApplicationSettings = {
   schemaVersion: 1,
   theme: 'dark',
   editor: { fontSize: 13, tabSize: 2, wordWrap: false, minimap: false },
+  connection: { idleTimeoutMS: DEFAULT_CONNECTION_IDLE_TIMEOUT_MS },
   execution: {
     defaultTimeoutMS: 30_000,
     pageSize: 50,
@@ -168,6 +182,7 @@ export const DEFAULT_SETTINGS: ApplicationSettings = {
 export function normalizeApplicationSettings(value: unknown): ApplicationSettings {
   const source = isRecord(value) ? value : {};
   const editor = isRecord(source.editor) ? source.editor : {};
+  const connection = isRecord(source.connection) ? source.connection : {};
   const execution = isRecord(source.execution) ? source.execution : {};
   const history = isRecord(source.history) ? source.history : {};
   const audit = isRecord(source.audit) ? source.audit : {};
@@ -185,6 +200,9 @@ export function normalizeApplicationSettings(value: unknown): ApplicationSetting
       tabSize: integerInRange(editor.tabSize, 1, 16, DEFAULT_SETTINGS.editor.tabSize),
       wordWrap: booleanValue(editor.wordWrap, DEFAULT_SETTINGS.editor.wordWrap),
       minimap: booleanValue(editor.minimap, DEFAULT_SETTINGS.editor.minimap),
+    },
+    connection: {
+      idleTimeoutMS: connectionIdleTimeoutValue(connection.idleTimeoutMS),
     },
     execution: {
       defaultTimeoutMS: integerInRange(execution.defaultTimeoutMS, 0, 600_000, DEFAULT_SETTINGS.execution.defaultTimeoutMS),
@@ -239,6 +257,12 @@ function integerInRange(value: unknown, min: number, max: number, fallback: numb
 
 function booleanValue(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback;
+}
+
+function connectionIdleTimeoutValue(value: unknown): number {
+  return typeof value === 'number' && CONNECTION_IDLE_TIMEOUT_VALUES.some((candidate) => candidate === value)
+    ? value
+    : DEFAULT_CONNECTION_IDLE_TIMEOUT_MS;
 }
 
 function normalizeWindowSettings(value: unknown): ApplicationSettings['window'] {

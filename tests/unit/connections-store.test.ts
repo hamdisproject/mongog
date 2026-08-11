@@ -7,7 +7,16 @@ describe('renderer connections store collection loading', () => {
   beforeEach(() => {
     listCollections.mockReset();
     vi.stubGlobal('window', { mongog: { query: { listCollections } } });
-    useConnectionStore.setState({ collections: {}, collectionsLoading: {} });
+    useConnectionStore.setState({
+      connected: {},
+      errors: {},
+      idleDisconnects: {},
+      databases: {},
+      collections: {},
+      collectionsLoading: {},
+      expandedProfileIds: new Set(),
+      expandedDatabaseIds: new Set(),
+    });
   });
 
   afterEach(() => {
@@ -38,5 +47,30 @@ describe('renderer connections store collection loading', () => {
 
     expect(useConnectionStore.getState().collectionsLoading['conn-1:app']).toBeUndefined();
     expect(useConnectionStore.getState().collections['conn-1:app']).toBeUndefined();
+  });
+
+  it('retains idle disconnect context until the connection starts again', () => {
+    useConnectionStore.setState({
+      connected: { 'conn-1': { pid: 123, serverVersion: '8.0.0' } },
+      databases: { 'conn-1': [{ name: 'app' }] },
+    });
+
+    useConnectionStore.getState().applyRuntimeState({
+      connectionId: 'conn-1',
+      status: 'disconnected',
+      reason: 'idle',
+      since: 123_456,
+      idleTimeoutMS: 3_600_000,
+    });
+
+    expect(useConnectionStore.getState().connected['conn-1']).toBeUndefined();
+    expect(useConnectionStore.getState().databases['conn-1']).toBeUndefined();
+    expect(useConnectionStore.getState().idleDisconnects['conn-1']).toEqual({
+      since: 123_456,
+      idleTimeoutMS: 3_600_000,
+    });
+
+    useConnectionStore.getState().applyRuntimeState({ connectionId: 'conn-1', status: 'connecting' });
+    expect(useConnectionStore.getState().idleDisconnects['conn-1']).toBeUndefined();
   });
 });
