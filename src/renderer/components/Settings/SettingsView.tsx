@@ -3,6 +3,7 @@ import { useSettingsStore } from '../../stores/settings.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
 import type { BsonDisplayMode } from '../../../shared/ejson/index.js';
 import { theme, type ThemePreference } from '../../theme.js';
+import { LATEST_RELEASE } from '../../release-notes.js';
 
 const options: Array<{
   id: ThemePreference;
@@ -109,7 +110,9 @@ export function SettingsView() {
     setAuditSettings,
   } = useSettingsStore();
   const openActivityLog = useWorkspaceStore((state) => state.openActivityLog);
+  const openReleaseNotes = useWorkspaceStore((state) => state.openReleaseNotes);
   const [auditMessage, setAuditMessage] = useState<string | null>(null);
+  const [installedVersion, setInstalledVersion] = useState<string>(LATEST_RELEASE.version);
   const [pageSizeDraft, setPageSizeDraft] = useState(String(settings.execution.pageSize));
   const [pageSizeError, setPageSizeError] = useState<string | null>(null);
 
@@ -117,6 +120,12 @@ export function SettingsView() {
     setPageSizeDraft(String(settings.execution.pageSize));
     setPageSizeError(null);
   }, [settings.execution.pageSize]);
+
+  useEffect(() => {
+    void window.mongog.system.info()
+      .then((info) => setInstalledVersion(info.appVersion))
+      .catch(() => undefined);
+  }, []);
 
   const savePageSize = () => {
     const value = Number(pageSizeDraft);
@@ -505,6 +514,30 @@ export function SettingsView() {
             </div>
           </div>
           {auditMessage && <div aria-live="polite" style={{ padding: '0 17px 14px', color: theme.colors.textMuted, fontSize: 10 }}>{auditMessage}</div>}
+        </section>
+
+        <section data-testid="about-updates-settings" style={{ marginTop: 18, border: `1px solid ${theme.colors.border}`, borderRadius: 7, background: theme.colors.panel, overflow: 'hidden' }}>
+          <div style={{ padding: '15px 17px', borderBottom: `1px solid ${theme.colors.border}` }}>
+            <h2 style={{ margin: 0, fontSize: 14 }}>About &amp; updates</h2>
+            <div style={{ marginTop: 5, color: theme.colors.textMuted, fontSize: 11, lineHeight: 1.45 }}>
+              Release history is bundled with MongoG and stays available without an internet connection.
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: '14px 24px', padding: 17 }}>
+            <div>
+              <strong style={{ display: 'block', fontSize: 12 }}>MongoG {installedVersion}</strong>
+              <span style={{ display: 'block', marginTop: 4, color: theme.colors.textMuted, fontSize: 10, lineHeight: 1.45 }}>
+                Read what was added, improved and fixed in this and earlier versions.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={openReleaseNotes}
+              style={{ minHeight: 30, border: `1px solid ${theme.colors.accentHover}`, borderRadius: 4, background: theme.colors.accent, color: '#fff', padding: '0 12px', cursor: 'pointer', fontSize: 11 }}
+            >
+              Open Release Notes
+            </button>
+          </div>
         </section>
 
         <div aria-live="polite" style={{ minHeight: 20, marginTop: 10, color: error ? theme.colors.danger : theme.colors.textMuted, fontSize: 11 }}>

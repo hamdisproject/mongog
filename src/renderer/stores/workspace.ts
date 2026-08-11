@@ -91,6 +91,7 @@ interface WorkspaceState {
   openWelcome: () => string;
   openConnections: (options?: { mode?: 'list' | 'create' | 'edit'; profileId?: string }) => string;
   openSettings: () => string;
+  openReleaseNotes: () => string;
   openActivityLog: () => string;
   openDataTransfer: () => string;
   setCollectionView: (tabId: string, view: CollectionViewMode) => void;
@@ -215,6 +216,8 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
               ? 'Connections'
               : kind === 'settings'
                 ? 'Settings'
+                : kind === 'release-notes'
+                  ? 'Release Notes'
                 : kind === 'history'
                   ? 'Activity Log'
               : kind,
@@ -431,6 +434,28 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
       return existing.id;
     }
     return get().createTab('settings', null);
+  },
+
+  openReleaseNotes: () => {
+    const current = get();
+    const releaseTabs = current.tabs.filter((tab) => tab.kind === 'release-notes');
+    const keep = releaseTabs[0];
+    if (keep) {
+      const duplicateIds = new Set(releaseTabs.slice(1).map((tab) => tab.id));
+      const results = { ...current.results };
+      for (const id of duplicateIds) delete results[id];
+      set({
+        tabs: current.tabs
+          .filter((tab) => !duplicateIds.has(tab.id))
+          .map((tab) => tab.id === keep.id
+            ? { ...tab, title: 'Release Notes', customTitle: false }
+            : tab),
+        activeTabId: keep.id,
+        results,
+      });
+      return keep.id;
+    }
+    return get().createTab('release-notes', null);
   },
 
   openActivityLog: () => {
@@ -856,6 +881,9 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
   restore: (state) => {
     const seenHistory = new Set<string>();
     const seenTransfer = new Set<string>();
+    const seenReleaseNotes = new Set<string>();
+    let retainedReleaseNotesId: string | null = null;
+    let activeReleaseNotesWasDuplicate = false;
     const normalizedTabs = state.tabs.filter((tab) => {
       if (tab.kind === 'history') {
         if (seenHistory.size) return false;
@@ -865,11 +893,20 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
         if (seenTransfer.size) return false;
         seenTransfer.add(tab.id);
       }
+      if (tab.kind === 'release-notes') {
+        if (seenReleaseNotes.size) {
+          if (tab.id === state.activeTabId) activeReleaseNotesWasDuplicate = true;
+          return false;
+        }
+        seenReleaseNotes.add(tab.id);
+        retainedReleaseNotesId = tab.id;
+      }
       return true;
     }).map((tab) => ({
       ...tab,
       ...(tab.kind === 'history' ? { title: 'Activity Log', customTitle: false } : {}),
       ...(tab.kind === 'data-transfer' ? { title: 'Data Transfer', customTitle: false } : {}),
+      ...(tab.kind === 'release-notes' ? { title: 'Release Notes', customTitle: false } : {}),
       pinned: tab.pinned ?? false,
       customTitle: tab.customTitle ?? false,
       ...(tab.kind === 'collection' && tab.collectionViewMode === undefined
@@ -888,8 +925,11 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
     for (const tab of tabs) {
       results[tab.id] = emptyExecution();
     }
-    const activeTabId = tabs.some((tab) => tab.id === state.activeTabId)
-      ? state.activeTabId
+    const requestedActiveTabId = activeReleaseNotesWasDuplicate
+      ? retainedReleaseNotesId
+      : state.activeTabId;
+    const activeTabId = tabs.some((tab) => tab.id === requestedActiveTabId)
+      ? requestedActiveTabId
       : tabs[0]?.id ?? null;
     set({
       tabs,

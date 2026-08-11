@@ -4,6 +4,7 @@ import { useConnectionStore } from '../../stores/connections.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
 import { theme } from '../../theme.js';
 import { MongoGBrand } from '../Brand/MongoGBrand.js';
+import { LATEST_RELEASE } from '../../release-notes.js';
 
 const c = theme.colors;
 const card: React.CSSProperties = {
@@ -34,6 +35,7 @@ export function WelcomeView() {
   const connected = useConnectionStore((state) => state.connected);
   const connect = useConnectionStore((state) => state.connect);
   const openConnections = useWorkspaceStore((state) => state.openConnections);
+  const openReleaseNotes = useWorkspaceStore((state) => state.openReleaseNotes);
   const createTab = useWorkspaceStore((state) => state.createTab);
   const updateTab = useWorkspaceStore((state) => state.updateTab);
   const [openingId, setOpeningId] = useState<string | null>(null);
@@ -75,9 +77,15 @@ export function WelcomeView() {
           </div>
         </section>
 
-        <section style={{ display: 'flex', gap: 10, marginBottom: 34 }}>
+        <section style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 34 }}>
           <button style={button} onClick={() => openConnections({ mode: 'create' })}>New Connection</button>
           <button style={{ ...button, background: c.panelRaised, border: `1px solid ${c.borderStrong}`, color: c.text }} onClick={() => openConnections({ mode: 'list' })}>Open Connections</button>
+          <button
+            style={{ ...button, background: 'transparent', border: `1px solid ${c.borderStrong}`, color: c.text }}
+            onClick={openReleaseNotes}
+          >
+            What’s New in {LATEST_RELEASE.version}
+          </button>
         </section>
 
         {error && <div style={{ ...card, borderColor: '#7a3535', color: c.danger, marginBottom: 18 }}>{error}</div>}

@@ -8,6 +8,7 @@ import { ChangeStreamView } from './components/Admin/ChangeStreamView.js';
 import { WelcomeView } from './components/Welcome/WelcomeView.js';
 import { ConnectionsView } from './components/Connections/ConnectionsView.js';
 import { SettingsView } from './components/Settings/SettingsView.js';
+import { ReleaseNotesView } from './components/ReleaseNotes/ReleaseNotesView.js';
 import { ActivityLogView } from './components/Activity/ActivityLogView.js';
 import { CommandPalette } from './components/CommandPalette/CommandPalette.js';
 import type { WorkspaceTab } from '../shared/domain/index.js';
@@ -266,6 +267,8 @@ function renderTabContent(activeTabId: string | null, tabs: WorkspaceTab[]) {
       return <ConnectionsView tab={activeTab} />;
     case 'settings':
       return <SettingsView />;
+    case 'release-notes':
+      return <ReleaseNotesView />;
     case 'history':
       return <ActivityLogView />;
     case 'data-transfer':

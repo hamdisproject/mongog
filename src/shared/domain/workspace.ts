@@ -10,6 +10,7 @@ export type WorkspaceTabKind =
   | 'history'
   | 'connection-settings'
   | 'settings'
+  | 'release-notes'
   | 'admin'
   | 'change-stream'
   | 'data-transfer';

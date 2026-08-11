@@ -73,6 +73,26 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByTestId('sidebar-mongog-brand').locator('img'))
     .toHaveAttribute('src', /mongog-icon.*\.png/);
   await expect(page.locator('[title^="welcome: Welcome"]')).toHaveCount(1);
+  await page.getByRole('button', { name: 'What’s New in 1.1.0' }).click();
+  const releaseNotesTab = page.locator('[data-tab-kind="release-notes"]');
+  await expect(page.getByTestId('release-notes-view')).toBeVisible();
+  await expect(page.getByTestId('release-notes-mongog-brand')).toHaveAccessibleName('MongoG');
+  await expect(page.getByText('Installed v1.1.0')).toBeVisible();
+  await expect(page.locator('[data-release-version="1.1.0"]')).toContainText('Latest');
+  await expect(page.locator('[data-release-version="1.0.0"]')).toBeVisible();
+  await expectViewportLocked(page);
+  await releaseNotesTab.click({ button: 'right' });
+  await expect(page.getByRole('menuitem', { name: 'Rename Tab…' })).toHaveCount(0);
+  await page.getByRole('menuitem', { name: 'Pin Tab' }).click();
+  await expect(releaseNotesTab).toHaveAttribute('data-tab-pinned', 'true');
+  await expect(releaseNotesTab.getByTestId('tab-pin-icon')).toBeVisible();
+  await releaseNotesTab.click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Unpin Tab' }).click();
+  await page.getByTitle('Close Release Notes').click();
+  await expect(releaseNotesTab).toHaveCount(0);
+  await page.locator('[title^="welcome: Welcome"]').click();
+  await page.getByRole('button', { name: 'What’s New in 1.1.0' }).click();
+  await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
   await expect(page.getByTitle('New query tab')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open global search' })).toBeVisible();
   await expect(page.getByTitle('Open administration')).toHaveCount(0);
@@ -124,6 +144,13 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByRole('switch', { name: 'Run default collection query automatically' }))
     .toBeDisabled();
   await expect(page.getByLabel('Global page size')).toHaveValue('50');
+  await expect(page.getByTestId('about-updates-settings')).toContainText('MongoG 1.1.0');
+  await page.getByRole('button', { name: 'Open Release Notes' }).click();
+  await expect(page.getByTestId('release-notes-view')).toBeVisible();
+  await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expectViewportLocked(page);
+  await page.locator('[data-tab-kind="settings"]').click();
   await page.getByRole('radio', { name: 'Canonical EJSON data display' }).click();
   await expect(page.getByRole('radio', { name: 'Canonical EJSON data display' }))
     .toHaveAttribute('aria-checked', 'true');
@@ -874,10 +901,16 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.keyboard.press('Enter');
   await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toHaveCount(0);
   await expect(page.locator(`[data-tab-id="${activeBeforeClosingPinnedQuery}"]`)).toHaveAttribute('data-tab-active', 'true');
+  await page.getByRole('button', { name: 'Open Welcome' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.1.0' }).click();
+  await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
 });
 
 test('global collection defaults persist and auto-run a new Query collection once', async () => {
   let page = await launch();
+  await expect(page.locator('[data-tab-kind="welcome"]')).toHaveAttribute('data-tab-active', 'true');
+  await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
+  await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveAttribute('data-tab-active', 'false');
   await page.getByRole('button', { name: 'Open application settings' }).click();
   await expect(page.getByTestId('collection-defaults-settings')).toBeVisible();
   const documentColumnOrder = page.getByRole('radio', {
@@ -914,6 +947,8 @@ test('global collection defaults persist and auto-run a new Query collection onc
   await application!.close();
   application = null;
   page = await launch();
+  await expect(page.locator('[data-tab-kind="welcome"]')).toHaveAttribute('data-tab-active', 'true');
+  await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
   await page.getByRole('button', { name: 'Open application settings' }).click();
   await expect(page.getByRole('radio', { name: 'Database document order table column order' }))
     .toHaveAttribute('aria-checked', 'true');

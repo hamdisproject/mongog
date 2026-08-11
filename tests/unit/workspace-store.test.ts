@@ -198,6 +198,31 @@ describe('workspace execution store', () => {
     expect(useWorkspaceStore.getState().activeTabId).toBe(first);
   });
 
+  it('reuses and restores one closeable, non-renamable Release Notes tab', () => {
+    const first = useWorkspaceStore.getState().openReleaseNotes();
+    const second = useWorkspaceStore.getState().openReleaseNotes();
+    expect(second).toBe(first);
+    expect(useWorkspaceStore.getState().renameTab(first, 'Changelog')).toBe(false);
+
+    useWorkspaceStore.getState().restore({
+      tabs: [
+        { id: 'query-1', kind: 'query', title: 'Query', connectionId: null },
+        { id: 'release-1', kind: 'release-notes', title: 'Old title', connectionId: null },
+        { id: 'release-2', kind: 'release-notes', title: 'Duplicate', connectionId: null },
+      ],
+      activeTabId: 'release-2',
+    });
+    const tabs = useWorkspaceStore.getState().tabs;
+    expect(tabs.filter((tab) => tab.kind === 'release-notes')).toHaveLength(1);
+    expect(tabs.find((tab) => tab.kind === 'release-notes')).toMatchObject({
+      id: 'release-1', title: 'Release Notes', customTitle: false,
+    });
+    expect(useWorkspaceStore.getState().activeTabId).toBe('release-1');
+
+    useWorkspaceStore.getState().closeTab('release-1');
+    expect(useWorkspaceStore.getState().tabs.some((tab) => tab.kind === 'release-notes')).toBe(false);
+  });
+
   it('reuses and restores one non-renamable Activity Log tab', () => {
     const first = useWorkspaceStore.getState().openActivityLog();
     const second = useWorkspaceStore.getState().openActivityLog();
@@ -252,9 +277,11 @@ describe('workspace execution store', () => {
       connectionId: 'conn-1', database: 'db', collection: 'items',
     });
     const settings = useWorkspaceStore.getState().openSettings();
+    const releaseNotes = useWorkspaceStore.getState().openReleaseNotes();
 
     expect(useWorkspaceStore.getState().renameTab(collection, '  My inventory  ')).toBe(true);
     expect(useWorkspaceStore.getState().renameTab(settings, 'Preferences')).toBe(false);
+    expect(useWorkspaceStore.getState().renameTab(releaseNotes, 'Changelog')).toBe(false);
     useWorkspaceStore.getState().renameCollectionContext('conn-1', 'db', 'items', 'products');
 
     expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === collection)).toMatchObject({
@@ -263,6 +290,7 @@ describe('workspace execution store', () => {
       customTitle: true,
     });
     expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === settings)?.title).toBe('Settings');
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === releaseNotes)?.title).toBe('Release Notes');
   });
 
   it('excludes pinned tabs from every bulk-close selection', () => {

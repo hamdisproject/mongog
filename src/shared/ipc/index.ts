@@ -293,7 +293,7 @@ export const workspaceSaveSchema = z.object({
     sidebarWidth: z.number().int().min(180).max(520),
     tabs: z.array(z.object({
       id: z.string(),
-      kind: z.enum(['welcome', 'query', 'collection', 'history', 'connection-settings', 'settings', 'admin', 'change-stream', 'data-transfer']),
+      kind: z.enum(['welcome', 'query', 'collection', 'history', 'connection-settings', 'settings', 'release-notes', 'admin', 'change-stream', 'data-transfer']),
       title: z.string(),
       connectionId: z.string().nullable(),
       database: z.string().optional(),

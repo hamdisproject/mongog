@@ -65,6 +65,7 @@ const kindIcon: Record<string, string> = {
   history: '◷',
   'connection-settings': 'C',
   settings: '⚙',
+  'release-notes': '✦',
   admin: 'A',
   'change-stream': '⇄',
   'data-transfer': '⇥',

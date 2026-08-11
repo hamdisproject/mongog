@@ -140,4 +140,20 @@ describe('collection workspace helpers', () => {
       },
     }).success).toBe(true);
   });
+
+  it('accepts a persisted Release Notes tab', () => {
+    expect(workspaceSaveSchema.safeParse({
+      state: {
+        sidebarWidth: 260,
+        tabs: [{
+          id: 'release-notes-1',
+          kind: 'release-notes',
+          title: 'Release Notes',
+          connectionId: null,
+          pinned: true,
+        }],
+        activeTabId: 'release-notes-1',
+      },
+    }).success).toBe(true);
+  });
 });
