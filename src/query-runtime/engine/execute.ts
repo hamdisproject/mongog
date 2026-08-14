@@ -51,31 +51,52 @@ export interface ExecuteOptions {
 
 export interface ExecutionHandle {
   executionId: string;
+  /** UI/event lifecycle: resolves after execution-finished and resource cleanup. */
   promise: Promise<void>;
-  cancel: () => void;
+  /** Actual script lifecycle: resolves only after the underlying script promise settles. */
+  settled: Promise<void>;
+  cancel: () => boolean;
 }
 
 const DEFAULT_PAGE_SIZE = 50;
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 export class ExecutionEngine {
-  private active = new Map<string, { scope: ExecutionScope }>();
+  private active = new Map<string, { scope: ExecutionScope; settled: Promise<void> }>();
 
   constructor(private readonly registry: CursorRegistry) {}
 
   execute(opts: ExecuteOptions, emit: (e: EngineEvent) => void): ExecutionHandle {
     const executionId = opts.executionId ?? randomUUID();
     const scope = new ExecutionScope(opts.signal);
-    this.active.set(executionId, { scope });
-
-    const promise = this.run(executionId, scope, opts, emit).finally(() => {
-      this.active.delete(executionId);
+    const promise = this.run(executionId, scope, opts, emit);
+    const settled = Promise.all([
+      promise.catch(() => undefined),
+      scope.whenUnderlyingSettled(),
+    ]).then(() => undefined);
+    const entry = { scope, settled };
+    this.active.set(executionId, entry);
+    void settled.finally(() => {
+      if (this.active.get(executionId) === entry) this.active.delete(executionId);
     });
-    return { executionId, promise, cancel: () => scope.cancel() };
+    return { executionId, promise, settled, cancel: () => scope.cancel() };
   }
 
   cancel(executionId: string): boolean {
     return this.active.get(executionId)?.scope.cancel() ?? false;
+  }
+
+  /**
+   * Cancel and wait for the real user-script promise to settle. The runtime
+   * protocol awaits this method, allowing main to distinguish an accepted
+   * cancellation flag from a driver operation that is still in flight.
+   */
+  async cancelAndWait(executionId: string): Promise<boolean> {
+    const entry = this.active.get(executionId);
+    if (!entry) return false;
+    const cancelled = entry.scope.cancel() || entry.scope.cancelled;
+    await entry.settled;
+    return cancelled;
   }
 
   private async run(
@@ -162,10 +183,11 @@ export class ExecutionEngine {
       try {
         value = await thunk();
       } catch (err) {
+        if (scope.cancelled || err instanceof MongoGCancellationError) {
+          throw new MongoGCancellationError();
+        }
         const durationMs = performance.now() - t0;
-        const error = scope.cancelled
-          ? appError('Cancellation', 'Statement cancelled.')
-          : classifyError(err, range);
+        const error = classifyError(err, range);
         scope.errorReported = true;
         emit({ type: 'statement-error', index, range, error, durationMs });
         throw err;
@@ -178,6 +200,9 @@ export class ExecutionEngine {
         const result = await this.classify(value, opts, scope, pageSize);
         if (result) emit({ type: 'result', index, range, result, durationMs });
       } catch (err) {
+        if (scope.cancelled || err instanceof MongoGCancellationError) {
+          throw new MongoGCancellationError();
+        }
         emit({
           type: 'statement-error',
           index,
@@ -231,8 +256,9 @@ export class ExecutionEngine {
 
     let completed = false;
     try {
-      const result = script.runInContext(sandbox.context) as Promise<unknown>;
-      await scope.raceCancellation(Promise.resolve(result));
+      const result = Promise.resolve(script.runInContext(sandbox.context) as Promise<unknown>);
+      scope.trackUnderlying(result);
+      await scope.raceCancellation(result);
       if (timer) clearTimeout(timer);
       completed = true;
       finish('completed');
@@ -359,6 +385,7 @@ class ExecutionScope {
   private cursors = new Set<string>();
   private streams = new Set<string>();
   private cancelPromise: Promise<never>;
+  private underlyingSettled: Promise<void> = Promise.resolve();
 
   constructor(externalSignal?: AbortSignal) {
     this.cancelPromise = new Promise<never>((_resolve, reject) => {
@@ -387,6 +414,17 @@ class ExecutionScope {
 
   raceCancellation<T>(p: Promise<T>): Promise<T> {
     return Promise.race([p, this.cancelPromise]);
+  }
+
+  trackUnderlying(promise: Promise<unknown>): void {
+    this.underlyingSettled = promise.then(
+      () => undefined,
+      () => undefined,
+    );
+  }
+
+  whenUnderlyingSettled(): Promise<void> {
+    return this.underlyingSettled;
   }
 
   trackCursor(id: string): void {

@@ -21,6 +21,17 @@ export interface RuntimeInfo {
   connectedAt: number;
 }
 
+export interface RuntimeRestartInfo {
+  reason: string;
+  executionId: string;
+  runId?: string;
+}
+
+export interface RuntimeExecutionContext {
+  tabId?: string;
+  runId?: string;
+}
+
 interface ManagedRuntime {
   client: RuntimeClient;
   lastUsedAt: number;
@@ -29,12 +40,14 @@ interface ManagedRuntime {
   uri: string;
   options: Record<string, unknown>;
   activeActivities: Set<string>;
+  executionContexts: Map<string, RuntimeExecutionContext>;
 }
 
 const DEFAULTS = { maxRuntimes: 10, idleTimeoutMS: DEFAULT_CONNECTION_IDLE_TIMEOUT_MS } as const;
 
 export class RuntimeSupervisor extends EventEmitter {
   private runtimes = new Map<string, ManagedRuntime>();
+  private restarts = new Map<string, Promise<RuntimeClient | null>>();
   private readonly maxRuntimes: number;
   private idleTimeoutMS: number;
   private readonly now: () => number;
@@ -62,6 +75,19 @@ export class RuntimeSupervisor extends EventEmitter {
     uri: string,
     options: Record<string, unknown> = {},
   ): Promise<RuntimeClient> {
+    const restarting = this.restarts.get(connectionId);
+    if (restarting) {
+      const client = await restarting;
+      if (client) return client;
+    }
+    return this.ensureDirect(connectionId, uri, options);
+  }
+
+  private async ensureDirect(
+    connectionId: string,
+    uri: string,
+    options: Record<string, unknown> = {},
+  ): Promise<RuntimeClient> {
     const existing = this.runtimes.get(connectionId);
     if (existing?.client.isAlive) {
       existing.lastUsedAt = this.now();
@@ -79,7 +105,7 @@ export class RuntimeSupervisor extends EventEmitter {
 
     const client = new RuntimeClient({ entryPath: resolveRuntimeEntry(), connectionId });
     client.onEngineEvent((executionId, event: EngineEvent, tabId?: string, runId?: string) => {
-      this.trackEngineActivity(connectionId, executionId, event);
+      this.trackEngineActivity(connectionId, executionId, event, tabId, runId);
       this.emit('engine-event', connectionId, executionId, event, tabId, runId);
     });
     client.onExportProgress((event: ExportProgressEvent) => {
@@ -123,6 +149,7 @@ export class RuntimeSupervisor extends EventEmitter {
       uri,
       options,
       activeActivities: new Set(),
+      executionContexts: new Map(),
     });
     this.emit('runtime-ready', connectionId, { ...init, connectedAt });
     return client;
@@ -152,6 +179,13 @@ export class RuntimeSupervisor extends EventEmitter {
     };
   }
 
+  getExecutionContext(
+    connectionId: string,
+    executionId: string,
+  ): RuntimeExecutionContext | null {
+    return this.runtimes.get(connectionId)?.executionContexts.get(executionId) ?? null;
+  }
+
   async dispose(connectionId: string): Promise<void> {
     const rt = this.runtimes.get(connectionId);
     this.runtimes.delete(connectionId);
@@ -164,6 +198,41 @@ export class RuntimeSupervisor extends EventEmitter {
     if (!runtime) return;
     await runtime.client.kill();
     this.emit('runtime-force-killed', connectionId, reason);
+  }
+
+  /**
+   * Hard-stop a stuck connection runtime and recreate it with the in-memory
+   * URI/options that were used for the current connection. Concurrent restart
+   * and ensure calls share one operation so only one utility process is born.
+   */
+  async restart(
+    connectionId: string,
+    info: RuntimeRestartInfo,
+  ): Promise<RuntimeClient | null> {
+    const existing = this.restarts.get(connectionId);
+    if (existing) return existing;
+
+    const operation = this.restartDirect(connectionId, info);
+    this.restarts.set(connectionId, operation);
+    try {
+      return await operation;
+    } finally {
+      if (this.restarts.get(connectionId) === operation) this.restarts.delete(connectionId);
+    }
+  }
+
+  private async restartDirect(
+    connectionId: string,
+    info: RuntimeRestartInfo,
+  ): Promise<RuntimeClient | null> {
+    const runtime = this.runtimes.get(connectionId);
+    if (!runtime) return null;
+    const uri = runtime.uri;
+    const options = { ...runtime.options };
+    this.runtimes.delete(connectionId);
+    await runtime.client.kill();
+    this.emit('runtime-restarting', connectionId, info);
+    return this.ensureDirect(connectionId, uri, options);
   }
 
   async disposeAll(): Promise<void> {
@@ -230,10 +299,25 @@ export class RuntimeSupervisor extends EventEmitter {
     runtime.lastUsedAt = this.now();
   }
 
-  private trackEngineActivity(connectionId: string, executionId: string, event: EngineEvent): void {
+  private trackEngineActivity(
+    connectionId: string,
+    executionId: string,
+    event: EngineEvent,
+    tabId?: string,
+    runId?: string,
+  ): void {
     const key = `execution:${executionId}`;
-    if (event.type === 'execution-started') this.beginActivity(connectionId, key);
-    else if (event.type === 'execution-finished') this.endActivity(connectionId, key);
+    const runtime = this.runtimes.get(connectionId);
+    if (event.type === 'execution-started') {
+      this.beginActivity(connectionId, key);
+      runtime?.executionContexts.set(executionId, {
+        ...(tabId ? { tabId } : {}),
+        ...(runId ? { runId } : {}),
+      });
+    } else if (event.type === 'execution-finished') {
+      this.endActivity(connectionId, key);
+      runtime?.executionContexts.delete(executionId);
+    }
     else this.touch(connectionId);
   }
 

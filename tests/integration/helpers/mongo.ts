@@ -10,7 +10,9 @@ let replSet: MongoMemoryReplSet | null = null;
 const clients = new Set<MongoClient>();
 
 export async function getStandaloneUri(): Promise<string> {
-  standalone ??= await MongoMemoryServer.create();
+  standalone ??= await MongoMemoryServer.create({
+    instance: { args: ['--setParameter', 'enableTestCommands=1'] },
+  });
   return standalone.getUri('mongog_test');
 }
 

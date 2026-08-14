@@ -7,6 +7,7 @@ import { useEditorContext } from '../../stores/editor-context.js';
 import { useSettingsStore } from '../../stores/settings.js';
 import { getMonacoTheme } from '../../theme.js';
 import { SavedActions } from '../Saved/SavedActions.js';
+import { cancelQueryExecution } from '../../query-cancellation.js';
 
 const s: Record<string, React.CSSProperties> = {
   container: {
@@ -51,7 +52,6 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
     updateTab,
     prepareExecution,
     setExecutionId,
-    requestCancellation,
     failExecution,
     clearResults,
   } = useWorkspaceStore();
@@ -124,6 +124,8 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
         pageSize: globalPageSize,
       });
       setExecutionId(tabId, runId, response.executionId);
+      const latest = useWorkspaceStore.getState().results[tabId];
+      if (latest?.status === 'cancelling') await cancelQueryExecution(tabId);
       if (!activeTab.customTitle && activeTab.title === 'Untitled') {
         updateTab(tabId, { title: `${database} query` });
       }
@@ -145,15 +147,8 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
 
   const handleCancel = useCallback(async () => {
     if (!activeTab) return;
-    const current = useWorkspaceStore.getState().results[activeTab.id];
-    if (!current?.executionId || !current.connectionId) return;
-    requestCancellation(activeTab.id);
-    try {
-      await window.mongog.query.cancel(current.connectionId, current.executionId);
-    } catch (err) {
-      failExecution(activeTab.id, current.runId ?? '', errorMessage(err));
-    }
-  }, [activeTab, requestCancellation, failExecution]);
+    await cancelQueryExecution(activeTab.id);
+  }, [activeTab]);
 
   runRef.current = handleRun;
   cancelRef.current = handleCancel;

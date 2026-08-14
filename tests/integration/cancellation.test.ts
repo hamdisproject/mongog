@@ -94,6 +94,44 @@ await new Promise(() => {}); // never resolves -> only cancellation unwinds
     expect(registry.size).toBe(0);
   });
 
+  it('does not acknowledge a real blocked MongoDB command before it settles', async () => {
+    const control = await newClient(await getStandaloneUri());
+    await control.db('admin').command({
+      configureFailPoint: 'failCommand',
+      mode: { times: 1 },
+      data: { failCommands: ['find'], blockConnection: true, blockTimeMS: 2_000 },
+    });
+
+    const events: EngineEvent[] = [];
+    const handle = engine.execute(
+      {
+        client,
+        database: 'mongog_test',
+        source: 'await db.collection("cancellable").findOne({ i: 1 });',
+        mode: 'query',
+        timeoutMS: 0,
+        registry,
+        owner: { connectionId: 'cancel', tabId: 'blocked-find' },
+        executionId: 'blocked-find-execution',
+      },
+      (event) => events.push(event),
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const cancellation = engine.cancelAndWait(handle.executionId);
+    await handle.promise;
+    await expect(Promise.race([
+      cancellation.then(() => 'settled' as const),
+      new Promise<'pending'>((resolve) => setTimeout(() => resolve('pending'), 300)),
+    ])).resolves.toBe('pending');
+
+    await control.db('admin').command({ configureFailPoint: 'failCommand', mode: 'off' });
+    await expect(cancellation).resolves.toBe(true);
+    await handle.settled;
+    await expect(client.db('admin').command({ ping: 1 })).resolves.toMatchObject({ ok: 1 });
+    expect(events.at(-1)).toMatchObject({ type: 'execution-finished', status: 'cancelled' });
+  }, 20_000);
+
   it('engine timeout cancels a long-running execution', async () => {
     const events: EngineEvent[] = [];
     const handle = engine.execute(

@@ -34,6 +34,7 @@ interface ConnectionState {
   groups: ConnectionGroup[];
   profiles: ConnectionProfile[];
   connected: Record<string, ConnectedInfo>;
+  runtimeEpochs: Record<string, number>;
   errors: Record<string, string>;
   idleDisconnects: Record<string, IdleDisconnectInfo>;
   selectedGroupId: string | null;
@@ -83,6 +84,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
   groups: [],
   profiles: [],
   connected: {},
+  runtimeEpochs: {},
   errors: {},
   idleDisconnects: {},
   selectedGroupId: null,
@@ -470,6 +472,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
     const { connectionId } = state;
     const connected = { ...get().connected };
     const idleDisconnects = { ...get().idleDisconnects };
+    const runtimeEpochs = { ...get().runtimeEpochs };
     if (state.status === 'connected') {
       connected[connectionId] = {
         pid: state.runtimePid,
@@ -487,9 +490,14 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
       return;
     }
 
+    if (state.status === 'restarting') {
+      runtimeEpochs[connectionId] = (runtimeEpochs[connectionId] ?? 0) + 1;
+    }
+
     delete connected[connectionId];
     const errors = { ...get().errors };
     if (state.status === 'error') errors[connectionId] = state.error.message;
+    if (state.status === 'restarting') delete errors[connectionId];
     if (state.status === 'disconnected' && state.reason === 'idle' && state.idleTimeoutMS !== undefined) {
       idleDisconnects[connectionId] = {
         since: state.since ?? Date.now(),
@@ -520,6 +528,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
       expandedDatabaseIds,
       errors,
       idleDisconnects,
+      runtimeEpochs,
     });
   },
 }));

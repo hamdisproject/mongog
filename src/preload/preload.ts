@@ -74,14 +74,16 @@ const api: MongoGDesktopApi = {
   },
   query: {
     execute: (req) => invoke(IpcChannels.connExecute, req),
-    cursorFetchNext: (connectionId, cursorId, pageSize) =>
-      invoke(IpcChannels.connCursorFetchNext, { connectionId, cursorId, pageSize }),
-    cursorFetchPrev: (connectionId, cursorId) =>
-      invoke(IpcChannels.connCursorFetchPrev, { connectionId, cursorId }),
+    cursorFetchNext: (connectionId, cursorId, pageSize, operationId) =>
+      invoke(IpcChannels.connCursorFetchNext, { connectionId, cursorId, pageSize, operationId }),
+    cursorFetchPrev: (connectionId, cursorId, operationId) =>
+      invoke(IpcChannels.connCursorFetchPrev, { connectionId, cursorId, operationId }),
     cursorFetchFull: (connectionId, cursorId, fullValueId) =>
       invoke(IpcChannels.connCursorFetchFull, { connectionId, cursorId, fullValueId }),
     cursorClose: (connectionId, cursorId) =>
       invoke(IpcChannels.connCursorClose, { connectionId, cursorId }),
+    cancelFetch: (connectionId, operationId) =>
+      invoke(IpcChannels.connFetchCancel, { connectionId, operationId }),
     closeOwner: (connectionId, tabId) =>
       invoke(IpcChannels.connOwnerClose, { connectionId, tabId }),
     cancel: (connectionId, executionId) =>

@@ -8,6 +8,7 @@
  *   -> { id, type: 'cancel', executionId }
  *   -> { id, type: 'cursor-next', cursorId, pageSize? }
  *   -> { id, type: 'cursor-prev', cursorId }
+ *   -> { id, type: 'fetch-cancel', operationId }
  *   -> { id, type: 'cursor-full', cursorId, fullValueId }
  *   -> { id, type: 'cursor-close', cursorId }
  *   -> { id, type: 'sample-schema', database, collection, sampleSize? }
@@ -23,6 +24,7 @@ import { randomUUID } from 'node:crypto';
 import { MongoClient, type MongoClientOptions } from 'mongodb';
 import { ExecutionEngine } from './engine/execute.js';
 import { CursorRegistry } from './registry/cursors.js';
+import { FetchOperationRegistry } from './registry/fetch-operations.js';
 import { sampleSchema } from './metadata/sample.js';
 import {
   countCollectionDocuments,
@@ -77,6 +79,7 @@ const parentPort = (process as unknown as { parentPort: ParentPortLike }).parent
 
 const registry = new CursorRegistry();
 registry.startSweeper();
+const fetchOperations = new FetchOperationRegistry();
 const engine = new ExecutionEngine(registry);
 const exportsManager = new ExportManager(registry, (event) => {
   parentPort.postMessage({ type: 'export-event', event });
@@ -171,19 +174,43 @@ async function handle(req: RuntimeRequest): Promise<void> {
       return;
     }
     case 'cancel': {
-      reply(req.id, { cancelled: engine.cancel(req.executionId as string) });
+      // Do not acknowledge until the actual user-script promise has settled.
+      // Main races this response against its hard-cancel grace period.
+      reply(req.id, {
+        cancelled: await engine.cancelAndWait(req.executionId as string),
+      });
       return;
     }
     case 'cursor-next': {
-      const page = await registry.fetchNext(
-        req.cursorId as string,
-        (req.pageSize as number | undefined) ?? 50,
-      );
-      reply(req.id, page);
+      const operationId = req.operationId as string;
+      const cursorId = req.cursorId as string;
+      fetchOperations.begin(operationId);
+      fetchOperations.attachResource(operationId, () => registry.close(cursorId));
+      try {
+        const page = await registry.fetchNext(
+          cursorId,
+          (req.pageSize as number | undefined) ?? 50,
+        );
+        reply(req.id, page);
+      } finally {
+        fetchOperations.finish(operationId);
+      }
       return;
     }
     case 'cursor-prev': {
-      reply(req.id, registry.fetchPrev(req.cursorId as string));
+      const operationId = req.operationId as string;
+      const cursorId = req.cursorId as string;
+      fetchOperations.begin(operationId);
+      fetchOperations.attachResource(operationId, () => registry.close(cursorId));
+      try {
+        reply(req.id, registry.fetchPrev(cursorId));
+      } finally {
+        fetchOperations.finish(operationId);
+      }
+      return;
+    }
+    case 'fetch-cancel': {
+      reply(req.id, { cancelled: await fetchOperations.cancel(req.operationId as string) });
       return;
     }
     case 'cursor-full': {
@@ -241,19 +268,29 @@ async function handle(req: RuntimeRequest): Promise<void> {
       return;
     }
     case 'collection-find': {
-      const result = await findCollectionDocuments(requireClient(), registry, {
-        database: req.database as string,
-        collection: req.collection as string,
-        owner: {
-          connectionId: req.connectionId as string,
-          tabId: req.tabId as string,
-        },
-        filterEjson: req.filterEjson as string,
-        ...(req.sortEjson ? { sortEjson: req.sortEjson as string } : {}),
-        ...(req.projectionEjson ? { projectionEjson: req.projectionEjson as string } : {}),
-        pageSize: req.pageSize as number,
-      });
-      reply(req.id, result);
+      const operationId = req.operationId as string;
+      const signal = fetchOperations.begin(operationId);
+      try {
+        const result = await findCollectionDocuments(requireClient(), registry, {
+          database: req.database as string,
+          collection: req.collection as string,
+          owner: {
+            connectionId: req.connectionId as string,
+            tabId: req.tabId as string,
+          },
+          filterEjson: req.filterEjson as string,
+          ...(req.sortEjson ? { sortEjson: req.sortEjson as string } : {}),
+          ...(req.projectionEjson ? { projectionEjson: req.projectionEjson as string } : {}),
+          pageSize: req.pageSize as number,
+          signal,
+          onCursorRegistered: (cursorId) => {
+            fetchOperations.attachResource(operationId, () => registry.close(cursorId));
+          },
+        });
+        reply(req.id, result);
+      } finally {
+        fetchOperations.finish(operationId);
+      }
       return;
     }
     case 'collection-count': {
@@ -586,6 +623,7 @@ async function shutdown(code: number): Promise<never> {
   await exportsManager.dispose().catch(() => undefined);
   await fileImportManager.dispose().catch(() => undefined);
   await copySourceManager.dispose().catch(() => undefined);
+  await fetchOperations.dispose().catch(() => undefined);
   await registry.dispose().catch(() => undefined);
   if (client) await client.close(true).catch(() => undefined);
   process.exit(code);

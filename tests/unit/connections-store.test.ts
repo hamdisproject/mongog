@@ -9,6 +9,7 @@ describe('renderer connections store collection loading', () => {
     vi.stubGlobal('window', { mongog: { query: { listCollections } } });
     useConnectionStore.setState({
       connected: {},
+      runtimeEpochs: {},
       errors: {},
       idleDisconnects: {},
       databases: {},
@@ -72,5 +73,26 @@ describe('renderer connections store collection loading', () => {
 
     useConnectionStore.getState().applyRuntimeState({ connectionId: 'conn-1', status: 'connecting' });
     expect(useConnectionStore.getState().idleDisconnects['conn-1']).toBeUndefined();
+  });
+
+  it('invalidates runtime-owned state once when a query cancel restarts the connection', () => {
+    useConnectionStore.setState({
+      connected: { 'conn-1': { pid: 123, serverVersion: '8.0.0' } },
+      databases: { 'conn-1': [{ name: 'app' }] },
+      collections: { 'conn-1:app': [{ name: 'items' }] },
+    });
+
+    useConnectionStore.getState().applyRuntimeState({
+      connectionId: 'conn-1',
+      status: 'restarting',
+      reason: 'query-cancel',
+      executionId: 'exec-1',
+      since: 123_456,
+    });
+
+    expect(useConnectionStore.getState().connected['conn-1']).toBeUndefined();
+    expect(useConnectionStore.getState().databases['conn-1']).toBeUndefined();
+    expect(useConnectionStore.getState().collections['conn-1:app']).toBeUndefined();
+    expect(useConnectionStore.getState().runtimeEpochs['conn-1']).toBe(1);
   });
 });

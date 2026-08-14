@@ -25,6 +25,7 @@ import {
   connCursorFetchPrevSchema,
   connCursorFetchFullSchema,
   connCursorCloseSchema,
+  connFetchCancelSchema,
   connOwnerCloseSchema,
   connExecutionCancelSchema,
   connListDatabasesSchema,
@@ -75,6 +76,7 @@ import {
   dataTransferSaveErrorReportSchema,
   type ExecuteResponse,
   type PingRuntimeResponse,
+  type QueryCancelResult,
   type SystemInfoResponse,
 } from '../../shared/ipc/index.js';
 import {
@@ -361,25 +363,25 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
     }
   }, validateSender);
 
-  registerChannel(IpcChannels.connCursorFetchNext, connCursorFetchNextSchema, async ({ connectionId, cursorId, pageSize }) => {
+  registerChannel(IpcChannels.connCursorFetchNext, connCursorFetchNextSchema, async ({ connectionId, cursorId, pageSize, operationId }) => {
     return ctx.audit.run(auditContext(connectionId, {
       category: 'cursor', action: 'cursor.next', origin: 'background', operationClass: 'background',
       summary: 'Fetch next cursor page',
     }), async () => {
       const client = supervisor.get(connectionId);
       if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
-      return client.request<DocumentsPage>('cursor-next', { cursorId, pageSize });
+      return client.request<DocumentsPage>('cursor-next', { cursorId, pageSize, operationId });
     }, (page) => ({ resultCount: page.documents.length }));
   }, validateSender);
 
-  registerChannel(IpcChannels.connCursorFetchPrev, connCursorFetchPrevSchema, async ({ connectionId, cursorId }) => {
+  registerChannel(IpcChannels.connCursorFetchPrev, connCursorFetchPrevSchema, async ({ connectionId, cursorId, operationId }) => {
     return ctx.audit.run(auditContext(connectionId, {
       category: 'cursor', action: 'cursor.previous', origin: 'background', operationClass: 'background',
       summary: 'Fetch previous cursor page',
     }), async () => {
       const client = supervisor.get(connectionId);
       if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
-      return client.request<DocumentsPage>('cursor-prev', { cursorId });
+      return client.request<DocumentsPage>('cursor-prev', { cursorId, operationId });
     }, (page) => ({ resultCount: page.documents.length }));
   }, validateSender);
 
@@ -410,6 +412,17 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
     });
   }, validateSender);
 
+  registerChannel(IpcChannels.connFetchCancel, connFetchCancelSchema, async ({ connectionId, operationId }) => {
+    return ctx.audit.run(auditContext(connectionId, {
+      category: 'cursor', action: 'cursor.fetch-cancel', origin: 'user', operationClass: 'background',
+      summary: 'Cancel cursor fetch',
+    }), async () => {
+      const client = supervisor.get(connectionId);
+      if (!client) return { cancelled: false };
+      return client.request<{ cancelled: boolean }>('fetch-cancel', { operationId });
+    });
+  }, validateSender);
+
   registerChannel(IpcChannels.connOwnerClose, connOwnerCloseSchema, async ({ connectionId, tabId }) => {
     await ctx.audit.run(auditContext(connectionId, {
       category: 'cursor', action: 'cursor.close-owner', origin: 'system', operationClass: 'background',
@@ -422,26 +435,50 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
   }, validateSender);
 
   registerChannel(IpcChannels.connExecutionCancel, connExecutionCancelSchema, async ({ connectionId, executionId }) => {
-    await ctx.audit.run(auditContext(connectionId, {
+    return ctx.audit.run(auditContext(connectionId, {
       correlationId: executionId,
       category: 'query', action: 'query.cancel', origin: 'user', operationClass: 'admin',
       summary: 'Cancel query execution',
-    }), async () => {
+    }), async (): Promise<QueryCancelResult> => {
       const client = supervisor.get(connectionId);
-      if (!client) return;
+      if (!client) return { cancelled: false, outcome: 'not-found' };
+      const executionContext = supervisor.getExecutionContext(connectionId, executionId);
       const cooperativeCancel = client.request('cancel', { executionId })
-        .then(() => true)
-        .catch(() => false);
-      const acknowledged = await Promise.race([
+        .then((value) => ({ kind: 'response' as const, value: value as { cancelled: boolean } }))
+        .catch(() => ({ kind: 'error' as const }));
+      let timer: NodeJS.Timeout | undefined;
+      const outcome = await Promise.race([
         cooperativeCancel,
-        new Promise<false>((resolve) => {
-          const timer = setTimeout(() => resolve(false), 750);
+        new Promise<{ kind: 'timeout' }>((resolve) => {
+          timer = setTimeout(() => resolve({ kind: 'timeout' }), 750);
           timer.unref?.();
         }),
       ]);
-      if (!acknowledged) {
-        await supervisor.terminate(connectionId, 'Execution did not respond to cooperative cancellation.');
+      if (timer) clearTimeout(timer);
+
+      if (outcome.kind === 'response') {
+        return outcome.value.cancelled
+          ? { cancelled: true, outcome: 'cooperative' }
+          : { cancelled: false, outcome: 'not-found' };
       }
+
+      // The runtime either stopped responding or could not prove that the
+      // underlying script settled. Kill its sockets, then reconnect from the
+      // supervisor's in-memory connection configuration.
+      try {
+        await supervisor.restart(connectionId, {
+          executionId,
+          ...(executionContext?.runId ? { runId: executionContext.runId } : {}),
+          reason: outcome.kind === 'timeout'
+            ? 'Execution remained active after cooperative cancellation.'
+            : 'Execution cancellation request failed.',
+        });
+      } catch {
+        // restart() already emitted the connection error state. Cancellation
+        // itself succeeded through the hard process stop and must not become a
+        // red query error if reconnecting fails.
+      }
+      return { cancelled: true, outcome: 'runtime-restarted' };
     });
   }, validateSender);
 

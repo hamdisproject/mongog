@@ -184,6 +184,19 @@ export class AuditService {
     });
   }
 
+  cancelQuery(correlationId: string, message = 'Query cancelled by user.'): void {
+    const active = this.activeQueries.get(correlationId);
+    if (!active) return;
+    this.dbFinishQuery(correlationId, {
+      status: 'cancelled',
+      operationClass: active.write ? 'write' : 'read',
+      resultCount: active.resultCount,
+      affectedCount: active.affectedCount,
+      errorCategory: 'Cancellation',
+      errorMessage: message,
+    });
+  }
+
   failQueriesForConnection(connectionId: string, message: string): void {
     for (const [correlationId, active] of [...this.activeQueries]) {
       if (active.connectionId !== connectionId) continue;

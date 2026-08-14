@@ -277,6 +277,7 @@ function SearchSection({ connectionId, database }: Omit<CollectionContextProps, 
 }
 
 function ChangesSection({ connectionId, database, collection, tabId }: CollectionContextProps & { tabId: string }) {
+  const runtimeEpoch = useConnectionStore((state) => state.runtimeEpochs[connectionId] ?? 0);
   const [pipeline, setPipeline] = useState('[]');
   const [databaseWide, setDatabaseWide] = useState(false);
   const [fullDocument, setFullDocument] = useState<'default' | 'updateLookup' | 'whenAvailable' | 'required'>('updateLookup');
@@ -284,6 +285,14 @@ function ChangesSection({ connectionId, database, collection, tabId }: Collectio
   const [events, setEvents] = useState<EjsonEnvelope[]>([]);
   const [error, setError] = useState<string | null>(null);
   const polling = useRef(false);
+  const observedRuntimeEpoch = useRef(runtimeEpoch);
+
+  useEffect(() => {
+    if (observedRuntimeEpoch.current === runtimeEpoch) return;
+    observedRuntimeEpoch.current = runtimeEpoch;
+    setStreamId(null);
+    setError('Connection restarted after query cancellation. Start a new change stream.');
+  }, [runtimeEpoch]);
 
   useEffect(() => {
     if (!streamId) return;

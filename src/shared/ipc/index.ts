@@ -95,6 +95,7 @@ export const IpcChannels = {
   connCursorFetchPrev: 'mongog:conn:cursor:fetch-prev',
   connCursorFetchFull: 'mongog:conn:cursor:fetch-full',
   connCursorClose: 'mongog:conn:cursor:close',
+  connFetchCancel: 'mongog:conn:fetch:cancel',
   connOwnerClose: 'mongog:conn:owner:close',
   connExecutionCancel: 'mongog:conn:execution:cancel',
   connListDatabases: 'mongog:conn:list-databases',
@@ -651,11 +652,13 @@ export const connCursorFetchNextSchema = z.object({
   connectionId: z.string().min(1),
   cursorId: z.string().min(1),
   pageSize: z.number().int().min(1).max(500).optional(),
+  operationId: z.string().uuid(),
 });
 
 export const connCursorFetchPrevSchema = z.object({
   connectionId: z.string().min(1),
   cursorId: z.string().min(1),
+  operationId: z.string().uuid(),
 });
 
 export const connCursorFetchFullSchema = z.object({
@@ -667,6 +670,11 @@ export const connCursorFetchFullSchema = z.object({
 export const connCursorCloseSchema = z.object({
   connectionId: z.string().min(1),
   cursorId: z.string().min(1),
+});
+
+export const connFetchCancelSchema = z.object({
+  connectionId: z.string().min(1),
+  operationId: z.string().uuid(),
 });
 
 export const connOwnerCloseSchema = z.object({
@@ -700,6 +708,7 @@ const ejsonSchema = z.string().min(1).max(17 * 1024 * 1024);
 export const connCollectionFindSchema = z.object({
   ...namespaceSchema,
   tabId: z.string().min(1),
+  operationId: z.string().uuid(),
   filterEjson: ejsonSchema,
   sortEjson: ejsonSchema.optional(),
   projectionEjson: ejsonSchema.optional(),
@@ -835,6 +844,11 @@ export interface ExecuteResponse {
   executionId: string;
 }
 
+export interface QueryCancelResult {
+  cancelled: boolean;
+  outcome: 'cooperative' | 'runtime-restarted' | 'not-found';
+}
+
 export interface SystemInfoResponse {
   appVersion: string;
   electron: string;
@@ -920,16 +934,17 @@ export interface MongoGDesktopApi {
   };
   query: {
     execute(req: ExecuteRequest): Promise<ExecuteResponse>;
-    cursorFetchNext(connectionId: string, cursorId: string, pageSize?: number): Promise<DocumentsPage>;
-    cursorFetchPrev(connectionId: string, cursorId: string): Promise<DocumentsPage>;
+    cursorFetchNext(connectionId: string, cursorId: string, pageSize: number | undefined, operationId: string): Promise<DocumentsPage>;
+    cursorFetchPrev(connectionId: string, cursorId: string, operationId: string): Promise<DocumentsPage>;
     cursorFetchFull(
       connectionId: string,
       cursorId: string,
       fullValueId: string,
     ): Promise<EjsonEnvelope>;
     cursorClose(connectionId: string, cursorId: string): Promise<void>;
+    cancelFetch(connectionId: string, operationId: string): Promise<{ cancelled: boolean }>;
     closeOwner(connectionId: string, tabId: string): Promise<void>;
-    cancel(connectionId: string, executionId: string): Promise<void>;
+    cancel(connectionId: string, executionId: string): Promise<QueryCancelResult>;
     listDatabases(connectionId: string): Promise<Array<{ name: string }>>;
     listCollections(connectionId: string, database: string): Promise<Array<{ name: string; type?: string }>>;
     collectionFind(input: {
@@ -937,6 +952,7 @@ export interface MongoGDesktopApi {
       database: string;
       collection: string;
       tabId: string;
+      operationId: string;
       filterEjson: string;
       sortEjson?: string;
       projectionEjson?: string;

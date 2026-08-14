@@ -19,6 +19,36 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
+    version: '1.2.0',
+    releasedAt: '2026-08-14',
+    title: 'Responsive, dependable cancellation',
+    summary: 'Documents and Query workflows now communicate progress clearly and stop long-running MongoDB work reliably.',
+    sections: [
+      {
+        kind: 'added',
+        items: [
+          'Documents and Query result areas now show an immediate loading overlay with operation context and a Cancel action.',
+          'Document refreshes and pagination can now be cancelled at the MongoDB driver level.',
+        ],
+      },
+      {
+        kind: 'improved',
+        items: [
+          'Cancelling a fetch preserves the visible page, ignores late responses and closes cursors that can no longer be resumed.',
+          'Query cancellation now waits for the real driver operation to settle and automatically reconnects only when a stuck runtime must be stopped.',
+          'Runtime restarts close stale cursors and Change Streams while keeping completed result pages visible for review.',
+        ],
+      },
+      {
+        kind: 'fixed',
+        items: [
+          'Fixed Query Cancel reporting success while the underlying MongoDB operation continued running in the background.',
+          'Cancellation outcomes no longer appear as red query errors, and stale pagination responses cannot replace the current view.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.1.0',
     releasedAt: '2026-08-12',
     title: 'A more adaptable workspace',

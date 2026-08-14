@@ -65,6 +65,7 @@ export interface SecretPayload {
 export type ConnectionRuntimeState =
   | { status: 'disconnected'; reason?: 'idle' | 'user'; since?: number; idleTimeoutMS?: number }
   | { status: 'connecting'; since: number }
+  | { status: 'restarting'; reason: 'query-cancel'; executionId: string; since: number }
   | {
       status: 'connected';
       runtimePid: number;

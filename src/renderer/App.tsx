@@ -104,6 +104,18 @@ export default function App() {
   useEffect(() => {
     return window.mongog.events.onConnectionState((state) => {
       useConnectionStore.getState().applyRuntimeState(state);
+      if (state.status === 'restarting') {
+        const message = 'Connection runtime restarted to cancel another query.';
+        useSchemaCache.getState().invalidateConnection(state.connectionId);
+        useWorkspaceStore.getState().handleRuntimeRestart(
+          state.connectionId,
+          state.executionId,
+          message,
+        );
+        useExportJobsStore.getState().failConnection(state.connectionId, message);
+        useDataTransferStore.getState().failConnection(state.connectionId, message);
+        return;
+      }
       if (
         state.status === 'disconnected' ||
         state.status === 'runtime-crashed' ||

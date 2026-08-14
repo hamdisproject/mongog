@@ -250680,14 +250680,32 @@ class ExecutionEngine {
   execute(opts, emit) {
     const executionId = opts.executionId ?? node_crypto.randomUUID();
     const scope = new ExecutionScope(opts.signal);
-    this.active.set(executionId, { scope });
-    const promise2 = this.run(executionId, scope, opts, emit).finally(() => {
-      this.active.delete(executionId);
+    const promise2 = this.run(executionId, scope, opts, emit);
+    const settled = Promise.all([
+      promise2.catch(() => void 0),
+      scope.whenUnderlyingSettled()
+    ]).then(() => void 0);
+    const entry = { scope, settled };
+    this.active.set(executionId, entry);
+    void settled.finally(() => {
+      if (this.active.get(executionId) === entry) this.active.delete(executionId);
     });
-    return { executionId, promise: promise2, cancel: () => scope.cancel() };
+    return { executionId, promise: promise2, settled, cancel: () => scope.cancel() };
   }
   cancel(executionId) {
     return this.active.get(executionId)?.scope.cancel() ?? false;
+  }
+  /**
+   * Cancel and wait for the real user-script promise to settle. The runtime
+   * protocol awaits this method, allowing main to distinguish an accepted
+   * cancellation flag from a driver operation that is still in flight.
+   */
+  async cancelAndWait(executionId) {
+    const entry = this.active.get(executionId);
+    if (!entry) return false;
+    const cancelled = entry.scope.cancel() || entry.scope.cancelled;
+    await entry.settled;
+    return cancelled;
   }
   async run(executionId, scope, opts, emit) {
     const startedAt = node_perf_hooks.performance.now();
@@ -250756,8 +250774,11 @@ class ExecutionEngine {
       try {
         value = await thunk();
       } catch (err) {
+        if (scope.cancelled || err instanceof MongoGCancellationError) {
+          throw new MongoGCancellationError();
+        }
         const durationMs2 = node_perf_hooks.performance.now() - t0;
-        const error2 = scope.cancelled ? appError("Cancellation", "Statement cancelled.") : classifyError(err, range2);
+        const error2 = classifyError(err, range2);
         scope.errorReported = true;
         emit({ type: "statement-error", index: index2, range: range2, error: error2, durationMs: durationMs2 });
         throw err;
@@ -250769,6 +250790,9 @@ class ExecutionEngine {
         const result = await this.classify(value, opts, scope, pageSize);
         if (result) emit({ type: "result", index: index2, range: range2, result, durationMs });
       } catch (err) {
+        if (scope.cancelled || err instanceof MongoGCancellationError) {
+          throw new MongoGCancellationError();
+        }
         emit({
           type: "statement-error",
           index: index2,
@@ -250816,8 +250840,9 @@ class ExecutionEngine {
     }
     let completed = false;
     try {
-      const result = script.runInContext(sandbox.context);
-      await scope.raceCancellation(Promise.resolve(result));
+      const result = Promise.resolve(script.runInContext(sandbox.context));
+      scope.trackUnderlying(result);
+      await scope.raceCancellation(result);
       if (timer) clearTimeout(timer);
       completed = true;
       finish("completed");
@@ -250913,6 +250938,7 @@ class ExecutionScope {
   cursors = /* @__PURE__ */ new Set();
   streams = /* @__PURE__ */ new Set();
   cancelPromise;
+  underlyingSettled = Promise.resolve();
   constructor(externalSignal) {
     this.cancelPromise = new Promise((_resolve, reject2) => {
       this.controller.signal.addEventListener("abort", () => {
@@ -250935,6 +250961,15 @@ class ExecutionScope {
   }
   raceCancellation(p) {
     return Promise.race([p, this.cancelPromise]);
+  }
+  trackUnderlying(promise2) {
+    this.underlyingSettled = promise2.then(
+      () => void 0,
+      () => void 0
+    );
+  }
+  whenUnderlyingSettled() {
+    return this.underlyingSettled;
   }
   trackCursor(id) {
     this.cursors.add(id);
@@ -251390,6 +251425,40 @@ function ownerMatches(owner, predicate) {
   if (predicate.resultId && owner.resultId !== predicate.resultId) return false;
   return true;
 }
+class FetchOperationRegistry {
+  operations = /* @__PURE__ */ new Map();
+  begin(operationId) {
+    if (this.operations.has(operationId)) {
+      throw appError("Validation", `Fetch operation ${operationId} is already active.`);
+    }
+    const controller = new AbortController();
+    this.operations.set(operationId, { controller, cancelled: false });
+    return controller.signal;
+  }
+  attachResource(operationId, cancelResource) {
+    const operation2 = this.operations.get(operationId);
+    if (!operation2) return;
+    operation2.cancelResource = cancelResource;
+    if (operation2.cancelled) void Promise.resolve(cancelResource()).catch(() => void 0);
+  }
+  async cancel(operationId) {
+    const operation2 = this.operations.get(operationId);
+    if (!operation2) return false;
+    if (!operation2.cancelled) {
+      operation2.cancelled = true;
+      operation2.controller.abort(new MongoGCancellationError("Fetch cancelled"));
+      await operation2.cancelResource?.();
+    }
+    return true;
+  }
+  finish(operationId) {
+    this.operations.delete(operationId);
+  }
+  async dispose() {
+    await Promise.all([...this.operations.keys()].map((operationId) => this.cancel(operationId)));
+    this.operations.clear();
+  }
+}
 async function sampleSchema(db2, collection2, options = {}) {
   const sampleSize = Math.min(options.sampleSize ?? 1e3, 5e3);
   const maxDepth = options.maxDepth ?? 8;
@@ -251490,7 +251559,8 @@ async function findCollectionDocuments(client2, registry2, options) {
   const collection2 = client2.db(options.database).collection(options.collection);
   let cursor = collection2.find(filter2, {
     ...projection ? { projection } : {},
-    maxTimeMS: 3e4
+    maxTimeMS: 3e4,
+    ...options.signal ? { signal: options.signal } : {}
   });
   if (sort2 && Object.keys(sort2).length > 0) cursor = cursor.sort(sort2);
   const cursorId = registry2.register(
@@ -251498,6 +251568,7 @@ async function findCollectionDocuments(client2, registry2, options) {
     options.owner,
     `${options.database}.${options.collection}`
   );
+  options.onCursorRegistered?.(cursorId);
   try {
     const page = await registry2.fetchNext(cursorId, options.pageSize);
     return { ...page, cursorId, pageSize: options.pageSize };
@@ -319662,6 +319733,7 @@ function canonical(value) {
 const parentPort = process.parentPort;
 const registry = new CursorRegistry();
 registry.startSweeper();
+const fetchOperations = new FetchOperationRegistry();
 const engine = new ExecutionEngine(registry);
 const exportsManager = new ExportManager(registry, (event) => {
   parentPort.postMessage({ type: "export-event", event });
@@ -319748,19 +319820,41 @@ async function handle(req) {
       return;
     }
     case "cancel": {
-      reply(req.id, { cancelled: engine.cancel(req.executionId) });
+      reply(req.id, {
+        cancelled: await engine.cancelAndWait(req.executionId)
+      });
       return;
     }
     case "cursor-next": {
-      const page = await registry.fetchNext(
-        req.cursorId,
-        req.pageSize ?? 50
-      );
-      reply(req.id, page);
+      const operationId = req.operationId;
+      const cursorId = req.cursorId;
+      fetchOperations.begin(operationId);
+      fetchOperations.attachResource(operationId, () => registry.close(cursorId));
+      try {
+        const page = await registry.fetchNext(
+          cursorId,
+          req.pageSize ?? 50
+        );
+        reply(req.id, page);
+      } finally {
+        fetchOperations.finish(operationId);
+      }
       return;
     }
     case "cursor-prev": {
-      reply(req.id, registry.fetchPrev(req.cursorId));
+      const operationId = req.operationId;
+      const cursorId = req.cursorId;
+      fetchOperations.begin(operationId);
+      fetchOperations.attachResource(operationId, () => registry.close(cursorId));
+      try {
+        reply(req.id, registry.fetchPrev(cursorId));
+      } finally {
+        fetchOperations.finish(operationId);
+      }
+      return;
+    }
+    case "fetch-cancel": {
+      reply(req.id, { cancelled: await fetchOperations.cancel(req.operationId) });
       return;
     }
     case "cursor-full": {
@@ -319818,19 +319912,29 @@ async function handle(req) {
       return;
     }
     case "collection-find": {
-      const result = await findCollectionDocuments(requireClient(), registry, {
-        database: req.database,
-        collection: req.collection,
-        owner: {
-          connectionId: req.connectionId,
-          tabId: req.tabId
-        },
-        filterEjson: req.filterEjson,
-        ...req.sortEjson ? { sortEjson: req.sortEjson } : {},
-        ...req.projectionEjson ? { projectionEjson: req.projectionEjson } : {},
-        pageSize: req.pageSize
-      });
-      reply(req.id, result);
+      const operationId = req.operationId;
+      const signal = fetchOperations.begin(operationId);
+      try {
+        const result = await findCollectionDocuments(requireClient(), registry, {
+          database: req.database,
+          collection: req.collection,
+          owner: {
+            connectionId: req.connectionId,
+            tabId: req.tabId
+          },
+          filterEjson: req.filterEjson,
+          ...req.sortEjson ? { sortEjson: req.sortEjson } : {},
+          ...req.projectionEjson ? { projectionEjson: req.projectionEjson } : {},
+          pageSize: req.pageSize,
+          signal,
+          onCursorRegistered: (cursorId) => {
+            fetchOperations.attachResource(operationId, () => registry.close(cursorId));
+          }
+        });
+        reply(req.id, result);
+      } finally {
+        fetchOperations.finish(operationId);
+      }
       return;
     }
     case "collection-count": {
@@ -320158,6 +320262,7 @@ async function shutdown(code) {
   await exportsManager.dispose().catch(() => void 0);
   await fileImportManager.dispose().catch(() => void 0);
   await copySourceManager.dispose().catch(() => void 0);
+  await fetchOperations.dispose().catch(() => void 0);
   await registry.dispose().catch(() => void 0);
   if (client) await client.close(true).catch(() => void 0);
   process.exit(code);

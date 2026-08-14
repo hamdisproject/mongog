@@ -157,6 +157,7 @@ export {
 export type ConnectionState =
   | { status: 'disconnected'; reason?: 'idle' | 'user'; since?: number; idleTimeoutMS?: number }
   | { status: 'connecting' }
+  | { status: 'restarting'; reason: 'query-cancel'; executionId: string; since: number }
   | { status: 'connected'; runtimePid: number; serverVersion: string; connectedAt: number }
   | { status: 'error'; error: AppError }
   | { status: 'runtime-crashed'; since: number };

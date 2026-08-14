@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
+import { _electron as electron, expect, test, type ElectronApplication, type Locator, type Page } from '@playwright/test';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { MongoClient } from 'mongodb';
 
@@ -14,6 +14,7 @@ let application: ElectronApplication | null = null;
 test.beforeAll(async () => {
   mongo = await MongoMemoryReplSet.create({
     replSet: { count: 1, storageEngine: 'wiredTiger' },
+    instanceOpts: [{ args: ['--setParameter', 'enableTestCommands=1'] }],
   });
   mongoUri = mongo.getUri('mongog_e2e');
   const client = new MongoClient(mongoUri);
@@ -73,12 +74,12 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByTestId('sidebar-mongog-brand').locator('img'))
     .toHaveAttribute('src', /mongog-icon.*\.png/);
   await expect(page.locator('[title^="welcome: Welcome"]')).toHaveCount(1);
-  await page.getByRole('button', { name: 'What’s New in 1.1.0' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.0' }).click();
   const releaseNotesTab = page.locator('[data-tab-kind="release-notes"]');
   await expect(page.getByTestId('release-notes-view')).toBeVisible();
   await expect(page.getByTestId('release-notes-mongog-brand')).toHaveAccessibleName('MongoG');
-  await expect(page.getByText('Installed v1.1.0')).toBeVisible();
-  await expect(page.locator('[data-release-version="1.1.0"]')).toContainText('Latest');
+  await expect(page.getByText('Installed v1.2.0')).toBeVisible();
+  await expect(page.locator('[data-release-version="1.2.0"]')).toContainText('Latest');
   await expect(page.locator('[data-release-version="1.0.0"]')).toBeVisible();
   await expectViewportLocked(page);
   await releaseNotesTab.click({ button: 'right' });
@@ -91,7 +92,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.getByTitle('Close Release Notes').click();
   await expect(releaseNotesTab).toHaveCount(0);
   await page.locator('[title^="welcome: Welcome"]').click();
-  await page.getByRole('button', { name: 'What’s New in 1.1.0' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.0' }).click();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
   await expect(page.getByTitle('New query tab')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open global search' })).toBeVisible();
@@ -144,7 +145,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByRole('switch', { name: 'Run default collection query automatically' }))
     .toBeDisabled();
   await expect(page.getByLabel('Global page size')).toHaveValue('50');
-  await expect(page.getByTestId('about-updates-settings')).toContainText('MongoG 1.1.0');
+  await expect(page.getByTestId('about-updates-settings')).toContainText('MongoG 1.2.0');
   await page.getByRole('button', { name: 'Open Release Notes' }).click();
   await expect(page.getByTestId('release-notes-view')).toBeVisible();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
@@ -902,7 +903,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toHaveCount(0);
   await expect(page.locator(`[data-tab-id="${activeBeforeClosingPinnedQuery}"]`)).toHaveAttribute('data-tab-active', 'true');
   await page.getByRole('button', { name: 'Open Welcome' }).click();
-  await page.getByRole('button', { name: 'What’s New in 1.1.0' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.0' }).click();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
 });
 
@@ -999,6 +1000,75 @@ test('global collection defaults persist and auto-run a new Query collection onc
   await expect(documentsPageSize).toBeEnabled();
   await documentsPageSize.selectOption('default');
   await expect(documentsPageSize).toHaveValue('default');
+
+  await page.getByRole('button', { name: 'Query', exact: true }).click();
+  const defaultsProfileId = await page.evaluate(async () => {
+    const profile = (await window.mongog.connections.listProfiles())
+      .find((candidate) => candidate.name === 'Defaults E2E');
+    if (!profile) throw new Error('Defaults E2E profile was not found');
+    return profile.id;
+  });
+  const runtimePidBeforeCancel = await page.evaluate(async (profileId) => (
+    await window.mongog.connections.getState(profileId)
+  ).pid, defaultsProfileId);
+  const queryFailPointClient = new MongoClient(mongoUri);
+  await queryFailPointClient.connect();
+  await queryFailPointClient.db('admin').command({
+    configureFailPoint: 'failCommand',
+    mode: { times: 1 },
+    data: { failCommands: ['find'], blockConnection: true, blockTimeMS: 10_000 },
+  });
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByLabel('Execution mode').selectOption('trusted');
+  await setQueryEditorValue(page, 'await db.collection("inventory").findOne({});');
+  await page.getByRole('button', { name: /^Run/ }).click();
+  const queryLoading = page.getByTestId('loading-overlay');
+  await expect(queryLoading).toBeVisible();
+  await expect(queryLoading).toHaveAttribute('aria-label', /query/i);
+  await expectCancelBelowSpinner(queryLoading);
+  await queryLoading.getByRole('button', { name: 'Cancel' }).click();
+  await expect(queryLoading).toHaveCount(0);
+  await expect(page.getByTestId('query-results-region').getByText('cancelled', { exact: true }).first())
+    .toBeVisible();
+  await expect.poll(async () => page.evaluate(async (profileId) => {
+    const state = await window.mongog.connections.getState(profileId);
+    return state.status === 'connected' ? state.pid : null;
+  }, defaultsProfileId), { timeout: 15_000 }).not.toBe(runtimePidBeforeCancel);
+  await queryFailPointClient.db('admin').command({
+    configureFailPoint: 'failCommand',
+    mode: 'off',
+  }).catch(() => undefined);
+  await queryFailPointClient.close();
+  await setQueryEditorValue(page, 'await db.command({ ping: 1 });');
+  await page.getByRole('button', { name: /^Run/ }).click();
+  await expect(page.getByTestId('query-results-region').getByText('completed', { exact: true }).first())
+    .toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole('button', { name: 'Documents', exact: true }).click();
+  const failPointClient = new MongoClient(mongoUri);
+  await failPointClient.connect();
+  try {
+    await failPointClient.db('admin').command({
+      configureFailPoint: 'failCommand',
+      mode: { times: 1 },
+      data: { failCommands: ['find'], blockConnection: true, blockTimeMS: 10_000 },
+    });
+    await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+    const documentsLoading = page.getByTestId('loading-overlay');
+    await expect(documentsLoading).toHaveAttribute('aria-label', 'Loading documents…');
+    await expectCancelBelowSpinner(documentsLoading);
+    await documentsLoading.getByRole('button', { name: 'Cancel' }).click();
+    await expect(documentsLoading).toHaveCount(0);
+    await expect(page.getByText('"alpha"', { exact: true })).toBeVisible();
+  } finally {
+    await failPointClient.db('admin').command({
+      configureFailPoint: 'failCommand',
+      mode: 'off',
+    }).catch(() => undefined);
+    await failPointClient.close();
+  }
+  await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await expect(page.getByText('"alpha"', { exact: true })).toBeVisible();
 });
 
 async function setMonacoValue(page: Page, label: string, value: string): Promise<void> {
@@ -1010,6 +1080,20 @@ async function setMonacoValue(page: Page, label: string, value: string): Promise
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
   await page.keyboard.press('Backspace');
   await page.keyboard.insertText(value);
+}
+
+async function setQueryEditorValue(page: Page, value: string): Promise<void> {
+  await page.getByTestId('query-editor-surface').click();
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+  await page.keyboard.press('Backspace');
+  await page.keyboard.insertText(value);
+}
+
+async function expectCancelBelowSpinner(overlay: Locator): Promise<void> {
+  const spinner = await overlay.locator('.loading-overlay-spinner').boundingBox();
+  const cancel = await overlay.getByRole('button', { name: 'Cancel' }).boundingBox();
+  if (!spinner || !cancel) throw new Error('Expected loading spinner and Cancel button bounds');
+  expect(cancel.y).toBeGreaterThan(spinner.y + spinner.height);
 }
 
 async function collectionColumnNames(page: Page): Promise<string[]> {

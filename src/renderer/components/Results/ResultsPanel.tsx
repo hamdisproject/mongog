@@ -28,6 +28,8 @@ import { BsonSyntaxText } from '../Common/BsonSyntaxText.js';
 import { ExportDialog } from '../Export/ExportDialog.js';
 import { useExportJobsStore } from '../../stores/exports.js';
 import { extractCollectionColumns } from '../../collection-workspace.js';
+import { LoadingOverlay } from '../Common/LoadingOverlay.js';
+import { cancelQueryExecution } from '../../query-cancellation.js';
 
 const s: Record<string, React.CSSProperties> = {
   panel: {
@@ -44,7 +46,7 @@ const s: Record<string, React.CSSProperties> = {
     background: 'var(--color-input-soft)', color: 'var(--color-text)', border: '1px solid var(--color-border-strong)',
     padding: '1px 5px', borderRadius: 2, fontSize: 11,
   },
-  content: { flex: 1, minWidth: 0, overflow: 'auto', padding: 6, fontSize: 12 },
+  content: { position: 'relative', flex: 1, minWidth: 0, overflow: 'auto', padding: 6, fontSize: 12 },
   card: {
     border: '1px solid #353535', borderRadius: 3, marginBottom: 6,
     background: 'var(--color-app)', overflow: 'hidden',
@@ -53,7 +55,7 @@ const s: Record<string, React.CSSProperties> = {
     padding: '4px 8px', background: 'var(--color-panel-raised)', color: 'var(--color-text-muted)',
     fontSize: 11, display: 'flex', alignItems: 'center', gap: 8,
   },
-  cardBody: { padding: 8 },
+  cardBody: { position: 'relative', padding: 8 },
   code: {
     margin: 0, fontFamily: 'monospace', fontSize: 12, lineHeight: 1.45,
     whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', color: 'var(--color-text)',
@@ -99,6 +101,12 @@ const s: Record<string, React.CSSProperties> = {
   },
 };
 
+interface ActiveResultFetch {
+  operationId: string;
+  direction: 'next' | 'prev';
+  cancelled: boolean;
+}
+
 export function ResultsPanel() {
   const { activeTabId, results, tabs } = useWorkspaceStore();
   const displayMode = useSettingsStore((state) => state.settings.ejson.defaultMode);
@@ -115,6 +123,13 @@ export function ResultsPanel() {
     execution.consoleEntries.length > 0 ||
     execution.skippedStatements.length > 0 ||
     execution.error !== null;
+  const executionBusy = execution.status === 'starting' ||
+    execution.status === 'running' || execution.status === 'cancelling';
+  const executionLoadingLabel = execution.status === 'starting'
+    ? 'Starting query…'
+    : execution.status === 'cancelling'
+      ? 'Cancelling query…'
+      : 'Running query…';
 
   return (
     <div style={s.panel}>
@@ -126,7 +141,7 @@ export function ResultsPanel() {
         <span title="Change in Settings">{displayMode === 'mongosh' ? 'MongoDB Shell' : displayMode === 'relaxed' ? 'Relaxed EJSON' : 'Canonical EJSON'}</span>
       </div>
 
-      <div style={s.content}>
+      <div style={s.content} aria-busy={executionBusy}>
         {!hasOutput && execution.status === 'idle' && (
           <div style={s.empty}>Run a query to see structured results</div>
         )}
@@ -169,6 +184,13 @@ export function ResultsPanel() {
             Statement {item.index + 1} skipped ({item.reason})
           </div>
         ))}
+        {executionBusy && (
+          <LoadingOverlay
+            label={executionLoadingLabel}
+            cancelling={execution.status === 'cancelling'}
+            onCancel={() => void cancelQueryExecution(activeTabId)}
+          />
+        )}
       </div>
 
       <div style={s.status}>
@@ -315,7 +337,13 @@ function DocumentsResult({
   tableColumnOrder: TableColumnOrder;
 }) {
   const { updateDocumentPage, markCursorClosed } = useWorkspaceStore();
-  const [loading, setLoading] = useState<'next' | 'prev' | 'close' | null>(null);
+  const [pageFetchState, setPageFetchState] = useState<{
+    operationId: string;
+    direction: 'next' | 'prev';
+    cancelling: boolean;
+  } | null>(null);
+  const activePageFetchRef = useRef<ActiveResultFetch | null>(null);
+  const [closing, setClosing] = useState(false);
   const [loadingFullValueId, setLoadingFullValueId] = useState<string | null>(null);
   const [fullValues, setFullValues] = useState<Record<string, EjsonEnvelope>>({});
   const [error, setError] = useState<string | null>(null);
@@ -366,25 +394,63 @@ function DocumentsResult({
 
   const fetchPage = async (direction: 'next' | 'prev') => {
     if (!connectionId || item.cursorClosed) return;
-    setLoading(direction);
+    const operation: ActiveResultFetch = {
+      operationId: crypto.randomUUID(),
+      direction,
+      cancelled: false,
+    };
+    activePageFetchRef.current = operation;
+    setPageFetchState({ operationId: operation.operationId, direction, cancelling: false });
     setError(null);
     try {
       const page = direction === 'next'
-        ? await window.mongog.query.cursorFetchNext(connectionId, result.cursorId, result.pageSize)
-        : await window.mongog.query.cursorFetchPrev(connectionId, result.cursorId);
+        ? await window.mongog.query.cursorFetchNext(
+            connectionId,
+            result.cursorId,
+            result.pageSize,
+            operation.operationId,
+          )
+        : await window.mongog.query.cursorFetchPrev(connectionId, result.cursorId, operation.operationId);
+      if (operation.cancelled || activePageFetchRef.current !== operation) {
+        await window.mongog.query.cursorClose(connectionId, result.cursorId).catch(() => undefined);
+        markCursorClosed(tabId, result.cursorId);
+        return;
+      }
       updateDocumentPage(tabId, result.cursorId, page);
       setSelectedRow(null);
       setFullValues({});
     } catch (err) {
-      setError(errorMessage(err));
+      if (!operation.cancelled && !isCancellationError(err)) setError(errorMessage(err));
     } finally {
-      setLoading(null);
+      if (activePageFetchRef.current === operation) {
+        activePageFetchRef.current = null;
+        setPageFetchState(null);
+      }
+    }
+  };
+
+  const cancelPageFetch = async () => {
+    const operation = activePageFetchRef.current;
+    if (!connectionId || !operation || operation.cancelled) return;
+    operation.cancelled = true;
+    setPageFetchState((current) => current?.operationId === operation.operationId
+      ? { ...current, cancelling: true }
+      : current);
+    try {
+      await window.mongog.query.cancelFetch(connectionId, operation.operationId);
+      await window.mongog.query.cursorClose(connectionId, result.cursorId).catch(() => undefined);
+      markCursorClosed(tabId, result.cursorId);
+    } finally {
+      if (activePageFetchRef.current === operation) {
+        activePageFetchRef.current = null;
+        setPageFetchState(null);
+      }
     }
   };
 
   const close = async () => {
     if (!connectionId || item.cursorClosed) return;
-    setLoading('close');
+    setClosing(true);
     setError(null);
     try {
       await window.mongog.query.cursorClose(connectionId, result.cursorId);
@@ -392,7 +458,7 @@ function DocumentsResult({
     } catch (err) {
       setError(errorMessage(err));
     } finally {
-      setLoading(null);
+      setClosing(false);
     }
   };
 
@@ -531,23 +597,23 @@ function DocumentsResult({
 
       <div style={s.controls}>
         <button
-          style={{ ...s.btn, ...((item.pageIndex <= 0 || loading !== null || item.cursorClosed) ? s.btnDisabled : {}) }}
-          disabled={item.pageIndex <= 0 || loading !== null || item.cursorClosed}
+          style={{ ...s.btn, ...((item.pageIndex <= 0 || pageFetchState !== null || closing || item.cursorClosed) ? s.btnDisabled : {}) }}
+          disabled={item.pageIndex <= 0 || pageFetchState !== null || closing || item.cursorClosed}
           onClick={() => void fetchPage('prev')}
         >
           Previous
         </button>
         <span>Page {item.pageIndex + 1}</span>
         <button
-          style={{ ...s.btn, ...((!result.hasMore || loading !== null || item.cursorClosed) ? s.btnDisabled : {}) }}
-          disabled={!result.hasMore || loading !== null || item.cursorClosed}
+          style={{ ...s.btn, ...((!result.hasMore || pageFetchState !== null || closing || item.cursorClosed) ? s.btnDisabled : {}) }}
+          disabled={!result.hasMore || pageFetchState !== null || closing || item.cursorClosed}
           onClick={() => void fetchPage('next')}
         >
           Next
         </button>
         <button
-          style={{ ...s.btn, ...((loading !== null || item.cursorClosed) ? s.btnDisabled : {}) }}
-          disabled={loading !== null || item.cursorClosed}
+          style={{ ...s.btn, ...((pageFetchState !== null || closing || item.cursorClosed) ? s.btnDisabled : {}) }}
+          disabled={pageFetchState !== null || closing || item.cursorClosed}
           onClick={() => void close()}
         >
           Close cursor
@@ -555,9 +621,20 @@ function DocumentsResult({
         <span>{result.documents.length} document(s)</span>
         <span>{formatBytes(item.retainedBytes)} retained</span>
         {item.cursorClosed && <span>cursor closed</span>}
-        {loading && <span>{loading}…</span>}
+        {closing && <span>close…</span>}
         {error && <span style={{ color: 'var(--color-danger)' }}>{error}</span>}
       </div>
+      {pageFetchState && (
+        <LoadingOverlay
+          label={pageFetchState.cancelling
+            ? 'Cancelling…'
+            : pageFetchState.direction === 'next'
+              ? 'Loading next page…'
+              : 'Loading previous page…'}
+          cancelling={pageFetchState.cancelling}
+          onCancel={() => void cancelPageFetch()}
+        />
+      )}
     </>
   );
 }
@@ -703,4 +780,9 @@ function errorMessage(error: unknown): string {
     return String((error as { message: unknown }).message);
   }
   return String(error);
+}
+
+function isCancellationError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null &&
+    'category' in error && error.category === 'Cancellation';
 }

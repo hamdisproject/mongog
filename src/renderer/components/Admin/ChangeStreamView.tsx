@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { WorkspaceTab } from '../../../shared/domain/index.js';
 import type { EjsonEnvelope } from '../../../shared/ejson/index.js';
 import { theme } from '../../theme.js';
+import { useConnectionStore } from '../../stores/connections.js';
 
 const PIPELINE_PRESETS = [
   { label: 'All events', value: '[]' },
@@ -34,6 +35,7 @@ const ui: Record<string, React.CSSProperties> = {
 
 export function ChangeStreamView({ tab }: { tab: WorkspaceTab }) {
   const connectionId = tab.connectionId ?? '';
+  const runtimeEpoch = useConnectionStore((state) => state.runtimeEpochs[connectionId] ?? 0);
   const database = tab.database ?? '';
   const collection = tab.collection;
   const namespace = collection ? `${database}.${collection}` : database;
@@ -43,6 +45,14 @@ export function ChangeStreamView({ tab }: { tab: WorkspaceTab }) {
   const [events, setEvents] = useState<EjsonEnvelope[]>([]);
   const [error, setError] = useState<string | null>(null);
   const polling = useRef(false);
+  const observedRuntimeEpoch = useRef(runtimeEpoch);
+
+  useEffect(() => {
+    if (observedRuntimeEpoch.current === runtimeEpoch) return;
+    observedRuntimeEpoch.current = runtimeEpoch;
+    setStreamId(null);
+    setError('Connection restarted after query cancellation. Start a new change stream.');
+  }, [runtimeEpoch]);
 
   useEffect(() => {
     if (!streamId || !connectionId) return;

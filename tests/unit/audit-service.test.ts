@@ -90,6 +90,35 @@ describe('AuditService', () => {
     });
   });
 
+  it('records the hard-cancel target as cancelled and other connection work as interrupted', () => {
+    const { db, service } = setup();
+    for (const correlationId of ['target-run', 'other-run']) {
+      service.beginQuery({
+        correlationId,
+        connectionId: 'conn-1',
+        connectionName: 'Local',
+        database: 'test',
+        category: 'query',
+        action: 'query.execute',
+        origin: 'user',
+        operationClass: 'read',
+        summary: 'Execute query',
+      });
+    }
+
+    service.cancelQuery('target-run');
+    service.failQueriesForConnection('conn-1', 'runtime restarted');
+
+    expect(db.audit.list({ status: 'cancelled' }, 10, 0).entries[0]).toMatchObject({
+      correlationId: 'target-run',
+      errorCategory: 'Cancellation',
+    });
+    expect(db.audit.list({ status: 'interrupted' }, 10, 0).entries[0]).toMatchObject({
+      correlationId: 'other-run',
+      errorMessage: 'runtime restarted',
+    });
+  });
+
   it('marks unfinished rows interrupted during initialization and exposes health in summaries', () => {
     const { db, service } = setup();
     service.begin({

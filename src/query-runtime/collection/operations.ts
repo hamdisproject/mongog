@@ -23,6 +23,8 @@ export interface CollectionFindOptions extends CollectionNamespace {
   sortEjson?: string;
   projectionEjson?: string;
   pageSize: number;
+  signal?: AbortSignal;
+  onCursorRegistered?: (cursorId: string) => void;
 }
 
 export interface CollectionInsertOptions extends CollectionNamespace {
@@ -67,6 +69,7 @@ export async function findCollectionDocuments(
   let cursor = collection.find(filter as Filter<Document>, {
     ...(projection ? { projection } : {}),
     maxTimeMS: 30_000,
+    ...(options.signal ? { signal: options.signal } : {}),
   });
   if (sort && Object.keys(sort).length > 0) cursor = cursor.sort(sort as Sort);
 
@@ -75,6 +78,7 @@ export async function findCollectionDocuments(
     options.owner,
     `${options.database}.${options.collection}`,
   );
+  options.onCursorRegistered?.(cursorId);
   try {
     const page = await registry.fetchNext(cursorId, options.pageSize);
     return { ...page, cursorId, pageSize: options.pageSize };

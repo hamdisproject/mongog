@@ -121,6 +121,7 @@ interface WorkspaceState {
   updateDocumentPage: (tabId: string, cursorId: string, page: DocumentsPage) => void;
   markCursorClosed: (tabId: string, cursorId: string) => void;
   failExecutionsForConnection: (connectionId: string, message: string) => void;
+  handleRuntimeRestart: (connectionId: string, executionId: string, message: string) => void;
   clearResults: (tabId: string) => void;
   restore: (state: { tabs: WorkspaceTab[]; activeTabId: string | null; sidebarWidth?: number }) => void;
 }
@@ -867,6 +868,41 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
           };
           changed = true;
         }
+      }
+      return changed ? { results } : state;
+    });
+  },
+
+  handleRuntimeRestart: (connectionId, executionId, message) => {
+    set((state) => {
+      const results = { ...state.results };
+      let changed = false;
+      for (const [tabId, execution] of Object.entries(results)) {
+        if (execution.connectionId !== connectionId) continue;
+        const statementResults = execution.statementResults.map((item) => (
+          item.result.kind === 'documents' && !item.cursorClosed
+            ? { ...item, cursorClosed: true }
+            : item
+        ));
+        const active = execution.status === 'starting' ||
+          execution.status === 'running' ||
+          execution.status === 'cancelling';
+        const target = execution.executionId === executionId;
+        results[tabId] = {
+          ...execution,
+          statementResults,
+          ...(active && target ? {
+            status: 'cancelled' as const,
+            runningStatementIndex: null,
+            error: null,
+          } : {}),
+          ...(active && !target ? {
+            status: 'error' as const,
+            runningStatementIndex: null,
+            error: message,
+          } : {}),
+        };
+        changed = true;
       }
       return changed ? { results } : state;
     });

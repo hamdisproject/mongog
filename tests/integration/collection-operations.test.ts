@@ -15,6 +15,7 @@ import { CursorRegistry } from '../../src/query-runtime/registry/cursors.js';
 import { buildColumnFilterExpression } from '../../src/renderer/collection-column-filter.js';
 import { cycleColumnSort } from '../../src/renderer/collection-column-sort.js';
 import { parseEjson, serializeToEjson } from '../../src/shared/ejson/index.js';
+import { MongoGCancellationError } from '../../src/shared/errors/index.js';
 import { getStandaloneUri, newClient, stopAll } from './helpers/mongo.js';
 
 const DATABASE = 'mongog_phase3';
@@ -60,6 +61,37 @@ describe('collection browser operations', () => {
     expect(count).toBe(125);
     expect(page.pageIndex).toBe(4);
   });
+
+  it('aborts a delayed find, closes its cursor, and keeps the client usable', async () => {
+    const collection = client!.db(DATABASE).collection('cancelled_find');
+    await collection.insertMany(Array.from({ length: 20 }, (_, n) => ({ n })));
+    await client!.db('admin').command({
+      configureFailPoint: 'failCommand',
+      mode: { times: 1 },
+      data: { failCommands: ['find'], blockConnection: true, blockTimeMS: 10_000 },
+    });
+
+    const controller = new AbortController();
+    let cursorId: string | null = null;
+    const pending = findCollectionDocuments(client!, registry!, {
+      database: DATABASE,
+      collection: 'cancelled_find',
+      owner: { connectionId: 'phase3', tabId: 'cancelled-find-tab' },
+      filterEjson: '{}',
+      pageSize: 10,
+      signal: controller.signal,
+      onCursorRegistered: (id) => { cursorId = id; },
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    controller.abort(new MongoGCancellationError('Fetch cancelled'));
+    await expect(pending).rejects.toMatchObject({ name: 'MongoGCancelled' });
+    expect(cursorId).not.toBeNull();
+    await expect(registry!.fetchNext(cursorId!, 10)).rejects.toMatchObject({
+      category: 'CursorNotFound',
+    });
+    await expect(client!.db('admin').command({ ping: 1 })).resolves.toMatchObject({ ok: 1 });
+  }, 20_000);
 
   it('applies safe object-literal filter, sort, and projection in the runtime', async () => {
     const collection = client!.db(DATABASE).collection('criteria');

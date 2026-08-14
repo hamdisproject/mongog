@@ -159,6 +159,48 @@ describe('workspace execution store', () => {
     expect(useWorkspaceStore.getState().results[second]?.status).toBe('starting');
   });
 
+  it('keeps the cancelled target non-error and closes all connection cursors on restart', () => {
+    const target = useWorkspaceStore.getState().createTab('query', 'conn-1');
+    const other = useWorkspaceStore.getState().createTab('query', 'conn-1');
+    useWorkspaceStore.getState().prepareExecution(target, 'conn-1', 'run-target');
+    useWorkspaceStore.getState().prepareExecution(other, 'conn-1', 'run-other');
+    useWorkspaceStore.getState().applyEngineEvent(target, 'conn-1', 'exec-target', 'run-target', {
+      type: 'execution-started', executionId: 'exec-target', statements: [],
+    });
+    useWorkspaceStore.getState().applyEngineEvent(other, 'conn-1', 'exec-other', 'run-other', {
+      type: 'execution-started', executionId: 'exec-other', statements: [],
+    });
+    useWorkspaceStore.getState().applyEngineEvent(target, 'conn-1', 'exec-target', 'run-target', {
+      type: 'result',
+      index: 0,
+      range,
+      durationMs: 1,
+      result: {
+        kind: 'documents',
+        cursorId: 'cursor-target',
+        documents: [{ ejson: '{"n":1}', byteSize: 7, truncated: false }],
+        pageSize: 50,
+        hasMore: true,
+      },
+    });
+
+    useWorkspaceStore.getState().handleRuntimeRestart(
+      'conn-1',
+      'exec-target',
+      'runtime restarted',
+    );
+
+    expect(useWorkspaceStore.getState().results[target]).toMatchObject({
+      status: 'cancelled',
+      error: null,
+      statementResults: [{ cursorClosed: true }],
+    });
+    expect(useWorkspaceStore.getState().results[other]).toMatchObject({
+      status: 'error',
+      error: 'runtime restarted',
+    });
+  });
+
   it('opens one active, closeable Welcome tab and deduplicates restored copies', () => {
     const store = useWorkspaceStore.getState();
     const first = store.openWelcome();

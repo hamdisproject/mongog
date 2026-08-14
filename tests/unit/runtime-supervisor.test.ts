@@ -18,10 +18,12 @@ vi.mock('../../src/main/runtime/runtime-client.js', async () => {
       isAlive = true;
       pendingCount = 0;
       pid = 42;
+      requests: Array<{ type: string; payload: Record<string, unknown> | undefined }> = [];
 
       async start(): Promise<void> {}
 
-      async request<T>(): Promise<T> {
+      async request<T>(type: string, payload?: Record<string, unknown>): Promise<T> {
+        this.requests.push({ type, payload });
         return { pid: this.pid, serverVersion: '8.0.0' } as T;
       }
 
@@ -138,6 +140,64 @@ describe('runtime supervisor idle lifecycle', () => {
     now = 500;
     await sweep(supervisor);
     expect(supervisor.size).toBe(0);
+  });
+
+  it('single-flights a hard restart and reuses only the in-memory connection config', async () => {
+    const supervisor = new RuntimeSupervisor();
+    const original = await supervisor.ensure('conn-1', 'mongodb://localhost/app', {
+      directConnection: true,
+    });
+    const restarting = vi.fn();
+    supervisor.on('runtime-restarting', restarting);
+
+    const [first, second] = await Promise.all([
+      supervisor.restart('conn-1', {
+        reason: 'stuck execution',
+        executionId: 'exec-1',
+        runId: 'run-1',
+      }),
+      supervisor.restart('conn-1', {
+        reason: 'duplicate request',
+        executionId: 'exec-1',
+        runId: 'run-1',
+      }),
+    ]);
+
+    expect(first).not.toBeNull();
+    expect(first).toBe(second);
+    expect(first).not.toBe(original);
+    expect(original.isAlive).toBe(false);
+    expect(restarting).toHaveBeenCalledTimes(1);
+    expect(restarting).toHaveBeenCalledWith('conn-1', {
+      reason: 'stuck execution',
+      executionId: 'exec-1',
+      runId: 'run-1',
+    });
+    expect((first as typeof original & { requests: Array<{ type: string; payload?: Record<string, unknown> }> })
+      .requests[0]).toMatchObject({
+        type: 'init',
+        payload: {
+          uri: 'mongodb://localhost/app',
+          options: { directConnection: true },
+        },
+      });
+  });
+
+  it('tracks the renderer context while an execution is active', async () => {
+    const supervisor = new RuntimeSupervisor();
+    const client = await supervisor.ensure('conn-1', 'mongodb://localhost');
+    const emitter = client as unknown as EventEmitter;
+    emitter.emit('engine-event', 'exec-1', {
+      type: 'execution-started', executionId: 'exec-1', statements: [],
+    } satisfies EngineEvent, 'tab-1', 'run-1');
+    expect(supervisor.getExecutionContext('conn-1', 'exec-1')).toEqual({
+      tabId: 'tab-1',
+      runId: 'run-1',
+    });
+    emitter.emit('engine-event', 'exec-1', {
+      type: 'execution-finished', status: 'cancelled', durationMs: 1,
+    } satisfies EngineEvent, 'tab-1', 'run-1');
+    expect(supervisor.getExecutionContext('conn-1', 'exec-1')).toBeNull();
   });
 });
 

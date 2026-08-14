@@ -44,6 +44,7 @@ import { BsonSyntaxText } from '../Common/BsonSyntaxText.js';
 import { ExportDialog } from '../Export/ExportDialog.js';
 import { useExportJobsStore } from '../../stores/exports.js';
 import { useDataTransferStore } from '../../stores/data-transfer.js';
+import { LoadingOverlay } from '../Common/LoadingOverlay.js';
 
 const s: Record<string, React.CSSProperties> = {
   workspace: { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' },
@@ -202,6 +203,18 @@ interface DocumentRow {
 
 type EditorMode = 'view' | 'edit' | 'new';
 
+interface ActiveDocumentFetch {
+  operationId: string;
+  cursorId: string | null;
+  cancelled: boolean;
+}
+
+interface DocumentFetchState {
+  operationId: string;
+  label: string;
+  cancelling: boolean;
+}
+
 export function CollectionView() {
   const { activeTabId, tabs, setCollectionView } = useWorkspaceStore();
   const tab = tabs.find((candidate) => candidate.id === activeTabId);
@@ -241,12 +254,14 @@ export function CollectionView() {
 function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const profiles = useConnectionStore((state) => state.profiles);
   const connected = useConnectionStore((state) => state.connected);
+  const runtimeEpochs = useConnectionStore((state) => state.runtimeEpochs);
   const connect = useConnectionStore((state) => state.connect);
   const updateTab = useWorkspaceStore((state) => state.updateTab);
   const displayMode = useSettingsStore((state) => state.settings.ejson.defaultMode);
   const configuredPageSize = useSettingsStore((state) => state.settings.execution.pageSize);
   const tableColumnOrder = useSettingsStore((state) => state.settings.table.columnOrder);
   const connectionId = tab.connectionId ?? '';
+  const runtimeEpoch = runtimeEpochs[connectionId] ?? 0;
   const database = tab.database ?? 'admin';
   const collection = tab.collection ?? '';
   const documentsOwnerId = collectionDocumentsOwnerId(tab.id);
@@ -289,7 +304,10 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const [editorMode, setEditorMode] = useState<EditorMode>('view');
   const [editorText, setEditorText] = useState('');
   const [editorValidationError, setEditorValidationError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [fetchState, setFetchState] = useState<DocumentFetchState | null>(null);
+  const activeFetchRef = useRef<ActiveDocumentFetch | null>(null);
+  const observedRuntimeEpoch = useRef(runtimeEpoch);
+  const suppressAutomaticReload = useRef(false);
   const [editorBusy, setEditorBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -299,6 +317,20 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   useEffect(() => {
     latestPageSize.current = effectivePageSize;
   }, [effectivePageSize]);
+
+  useEffect(() => {
+    if (observedRuntimeEpoch.current === runtimeEpoch) return;
+    observedRuntimeEpoch.current = runtimeEpoch;
+    suppressAutomaticReload.current = true;
+    const active = activeFetchRef.current;
+    if (active) active.cancelled = true;
+    activeFetchRef.current = null;
+    setFetchState(null);
+    setCursorId(null);
+    setHasMore(false);
+    setError(null);
+    setNotice('Connection restarted after query cancellation. Refresh to open a new cursor.');
+  }, [runtimeEpoch]);
 
   const discoveredColumns = useMemo(
     () => extractCollectionColumns(
@@ -329,6 +361,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const [countLoading, setCountLoading] = useState(false);
   const [countError, setCountError] = useState<string | null>(null);
   const countRequestGeneration = useRef(0);
+  const loading = fetchState !== null;
   const sortIndicators = useMemo(() => {
     try {
       return readColumnSortIndicators(criteria.sort);
@@ -430,12 +463,24 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   }, []);
 
   const loadInitial = useCallback(async (requestedPageSize?: number) => {
+    suppressAutomaticReload.current = false;
     if (!connectionId || !collection || !isConnected) {
-      setRows([]);
       setCursorId(null);
+      setHasMore(false);
       return;
     }
-    setLoading(true);
+    const operation: ActiveDocumentFetch = {
+      operationId: crypto.randomUUID(),
+      cursorId: null,
+      cancelled: false,
+    };
+    const previous = activeFetchRef.current;
+    if (previous) {
+      previous.cancelled = true;
+      void window.mongog.query.cancelFetch(connectionId, previous.operationId).catch(() => undefined);
+    }
+    activeFetchRef.current = operation;
+    setFetchState({ operationId: operation.operationId, label: 'Loading documents…', cancelling: false });
     setError(null);
     setNotice(null);
     try {
@@ -445,20 +490,30 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
         database,
         collection,
         tabId: documentsOwnerId,
+        operationId: operation.operationId,
         filterEjson: criteria.filter || EMPTY_FILTER,
         ...(criteria.sort ? { sortEjson: criteria.sort } : {}),
         ...(criteria.projection ? { projectionEjson: criteria.projection } : {}),
         pageSize,
       });
+      if (operation.cancelled || activeFetchRef.current !== operation) {
+        await window.mongog.query.cursorClose(connectionId, page.cursorId).catch(() => undefined);
+        return;
+      }
       setCursorId(page.cursorId);
       setCursorPageSize(page.pageSize);
       applyPage(page, page.pageSize);
     } catch (caught) {
-      setRows([]);
-      setCursorId(null);
-      setError(errorMessage(caught));
+      if (!operation.cancelled && !isCancellationError(caught)) {
+        setRows([]);
+        setCursorId(null);
+        setError(errorMessage(caught));
+      }
     } finally {
-      setLoading(false);
+      if (activeFetchRef.current === operation) {
+        activeFetchRef.current = null;
+        setFetchState(null);
+      }
     }
   }, [connectionId, database, collection, documentsOwnerId, criteria, applyPage, isConnected]);
 
@@ -476,8 +531,13 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   };
 
   useEffect(() => {
-    void loadInitial();
+    if (!suppressAutomaticReload.current) void loadInitial();
     return () => {
+      const active = activeFetchRef.current;
+      if (active) {
+        active.cancelled = true;
+        void window.mongog.query.cancelFetch(connectionId, active.operationId).catch(() => undefined);
+      }
       if (connectionId) void window.mongog.query.closeOwner(connectionId, documentsOwnerId);
     };
   }, [connectionId, documentsOwnerId, loadInitial]);
@@ -630,17 +690,53 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
 
   const fetchPage = async (direction: 'next' | 'previous') => {
     if (!cursorId) return;
-    setLoading(true);
+    const operation: ActiveDocumentFetch = {
+      operationId: crypto.randomUUID(),
+      cursorId,
+      cancelled: false,
+    };
+    activeFetchRef.current = operation;
+    setFetchState({
+      operationId: operation.operationId,
+      label: direction === 'next' ? 'Loading next page…' : 'Loading previous page…',
+      cancelling: false,
+    });
     setError(null);
     try {
       const page = direction === 'next'
-        ? await window.mongog.query.cursorFetchNext(connectionId, cursorId, cursorPageSize)
-        : await window.mongog.query.cursorFetchPrev(connectionId, cursorId);
+        ? await window.mongog.query.cursorFetchNext(connectionId, cursorId, cursorPageSize, operation.operationId)
+        : await window.mongog.query.cursorFetchPrev(connectionId, cursorId, operation.operationId);
+      if (operation.cancelled || activeFetchRef.current !== operation) return;
       applyPage(page, cursorPageSize);
     } catch (caught) {
-      setError(errorMessage(caught));
+      if (!operation.cancelled && !isCancellationError(caught)) setError(errorMessage(caught));
     } finally {
-      setLoading(false);
+      if (activeFetchRef.current === operation) {
+        activeFetchRef.current = null;
+        setFetchState(null);
+      }
+    }
+  };
+
+  const cancelFetch = async () => {
+    const operation = activeFetchRef.current;
+    if (!operation || operation.cancelled) return;
+    operation.cancelled = true;
+    setFetchState((current) => current?.operationId === operation.operationId
+      ? { ...current, label: 'Cancelling…', cancelling: true }
+      : current);
+    setCursorId(null);
+    setHasMore(false);
+    try {
+      await window.mongog.query.cancelFetch(connectionId, operation.operationId);
+      if (operation.cursorId) {
+        await window.mongog.query.cursorClose(connectionId, operation.cursorId).catch(() => undefined);
+      }
+    } finally {
+      if (activeFetchRef.current === operation) {
+        activeFetchRef.current = null;
+        setFetchState(null);
+      }
     }
   };
 
@@ -1023,10 +1119,18 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
       )}
       {readOnly && <div style={s.notice}>Read-only connection — document changes are disabled.</div>}
 
-      {rows.length === 0 && !loading && columns.length === 0 ? (
-        <div ref={documentsRegionRef} style={{ ...s.empty, minHeight: documentPanelOpen ? 120 : 0 }}>No documents found</div>
-      ) : (
-        <div ref={documentsRegionRef} style={{ ...s.tableWrap, minHeight: documentPanelOpen ? 120 : 0 }}>
+      <div
+        ref={documentsRegionRef}
+        aria-busy={loading}
+        style={{
+          position: 'relative', display: 'flex', flexDirection: 'column', flex: 1,
+          minHeight: documentPanelOpen ? 120 : 0, overflow: 'hidden',
+        }}
+      >
+        {rows.length === 0 && !loading && columns.length === 0 ? (
+          <div style={s.empty}>No documents found</div>
+        ) : (
+        <div style={s.tableWrap}>
           <table
             data-testid="collection-documents-table"
             style={{
@@ -1152,7 +1256,15 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
             </tbody>
           </table>
         </div>
-      )}
+        )}
+        {fetchState && (
+          <LoadingOverlay
+            label={fetchState.label}
+            cancelling={fetchState.cancelling}
+            onCancel={() => void cancelFetch()}
+          />
+        )}
+      </div>
 
       {documentPanelOpen && (
         <>
@@ -1436,4 +1548,9 @@ function errorMessage(error: unknown): string {
     return `${category}${String(error.message)}`;
   }
   return String(error);
+}
+
+function isCancellationError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null &&
+    'category' in error && error.category === 'Cancellation';
 }

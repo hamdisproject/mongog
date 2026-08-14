@@ -3,7 +3,7 @@ import { rmSync } from 'node:fs';
 import { app, BrowserWindow, nativeImage, type IpcMainInvokeEvent } from 'electron';
 import { createMainWindow, allowedRendererOrigins, applicationIconPath, installRendererProtocol } from './window.js';
 import { registerIpcHandlers } from './ipc/handlers.js';
-import { RuntimeSupervisor } from './runtime/supervisor.js';
+import { RuntimeSupervisor, type RuntimeRestartInfo } from './runtime/supervisor.js';
 import { Database } from './storage/database.js';
 import { secretVault } from './security/secret-vault.js';
 import { loadWindowState, startWindowStateSaver } from './window-state.js';
@@ -189,6 +189,30 @@ if (!isSquirrelStartup) void app.whenReady().then(async () => {
         reason: 'idle',
         since: Date.now(),
         idleTimeoutMS,
+      });
+    }
+  });
+  supervisor.on('runtime-restarting', (connectionId, info: RuntimeRestartInfo) => {
+    if (info.runId) audit?.cancelQuery(info.runId);
+    audit?.failQueriesForConnection(
+      connectionId,
+      'Connection runtime restarted to cancel another query.',
+    );
+    audit?.failExportsForConnection(
+      connectionId,
+      'Connection runtime restarted to cancel a query.',
+    );
+    audit?.failDataTransfersForConnection(
+      connectionId,
+      'Connection runtime restarted to cancel a query.',
+    );
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send(IpcEvents.connectionState, {
+        connectionId,
+        status: 'restarting',
+        reason: 'query-cancel',
+        executionId: info.executionId,
+        since: Date.now(),
       });
     }
   });
