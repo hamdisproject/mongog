@@ -80,13 +80,13 @@ For its DB path, start mongod externally and also set
 `MONGOG_SMOKE_MONGO_URI`; packaged builds never launch
 `mongodb-memory-server`.
 
-## GitHub releases
+## CircleCI and GitHub releases
 
 Kısa yayın kontrol listesi: [docs/RELEASE.md](docs/RELEASE.md)
 
-Pull requests and pushes to `main` run typecheck, lint, unit/integration tests,
-and unsigned packaged smoke checks on macOS arm64/x64, Windows x64, and Linux
-x64. Release builds are created only from a version tag matching
+CircleCI runs typecheck, lint, unit/integration tests, and unsigned packaged
+smoke checks for pull requests and pushes to `main` on macOS arm64/x64,
+Windows x64, and Linux x64. Release builds are created only from a version tag matching
 `package.json`, for example `v1.0.0`. The release workflow creates a draft
 GitHub Release containing nine normalized installers/portable archives plus
 `SHA256SUMS.txt`.
@@ -96,10 +96,11 @@ contain `UNSIGNED`, the draft title carries the same warning, and macOS/Windows
 security prompts are expected. Production Electron fuses remain hardened; only
 Apple signing/notarization and Windows Authenticode signing are disabled.
 
-Create a protected GitHub Environment named `release` and optionally add a
-required reviewer. No certificate, notarization, or Authenticode secrets are
-required in the current unsigned phase. The signing-capable Forge configuration
-is retained for a later phase and is enabled separately with
+Create a restricted CircleCI context named `release` and add a `GH_TOKEN` with
+permission to create releases in this repository. Restrict the context to the
+MongoG project and the team responsible for releases. No certificate,
+notarization, or Authenticode secrets are required in the current unsigned
+phase. The signing-capable Forge configuration is retained for a later phase and is enabled separately with
 `MONGOG_SIGN_RELEASE=1`; `MONGOG_RELEASE=1` now controls production hardening
 without implicitly requiring credentials.
 
@@ -114,10 +115,12 @@ git push origin main v1.0.0
 ```
 
 After every platform job succeeds, review the generated draft and its unsigned
-warning before publishing it in GitHub Releases. `workflow_dispatch` can rebuild
-an existing tag but refuses to overwrite a release that has already been
-published. Automatic application updates are intentionally outside this release
-phase.
+warning before publishing it in GitHub Releases. An existing tag can be rebuilt
+from CircleCI's **Trigger Pipeline** screen by setting `run_release=true` and
+`release_tag=vX.Y.Z`; the workflow refuses to overwrite a release that has
+already been published. Enable tag-push triggers in the CircleCI GitHub project
+settings and use the CircleCI job names for required branch-protection checks.
+Automatic application updates are intentionally outside this release phase.
 
 ## Layout
 

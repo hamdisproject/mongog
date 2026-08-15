@@ -25,25 +25,40 @@ afterEach(() => {
 });
 
 describe('release tooling', () => {
-  it('pins a supported Windows native toolchain and keeps the Linux sandbox enabled', () => {
-    const ciWorkflow = readFileSync(path.resolve(process.cwd(), '.github', 'workflows', 'ci.yml'), 'utf8');
-    const releaseWorkflow = readFileSync(path.resolve(process.cwd(), '.github', 'workflows', 'release.yml'), 'utf8');
+  it('keeps the complete CircleCI platform, release, and hardening contract', () => {
+    const workflow = readFileSync(path.resolve(process.cwd(), '.circleci', 'config.yml'), 'utf8');
 
-    expect(ciWorkflow).toContain('os: windows-2022');
-    expect(releaseWorkflow).toContain('runs-on: windows-2022');
-    expect(ciWorkflow).not.toContain('windows-latest');
-    expect(releaseWorkflow).not.toContain('windows-latest');
-    expect(releaseWorkflow).toContain('if [[ "$EXPECTED_MACHO_ARCH" == "x64" ]]; then EXPECTED_MACHO_ARCH="x86_64"; fi');
-    expect(releaseWorkflow).toContain('grep -Fxq "$EXPECTED_MACHO_ARCH"');
-    expect(releaseWorkflow).toContain('node scripts/make-macos-dmg.mjs --arch ${{ matrix.arch }}');
-    expect(releaseWorkflow).toContain('--targets=@electron-forge/maker-zip');
-    expect(releaseWorkflow).toContain('hdiutil verify "$DMG_PATH"');
-    for (const workflow of [ciWorkflow, releaseWorkflow]) {
-      expect(workflow).toContain("python-version: '3.12'");
-      expect(workflow).toContain('npm_config_msvs_version=2022');
-      expect(workflow).toContain('sudo chmod 4755 out/MongoG-linux-x64/chrome-sandbox');
-      expect(workflow).not.toContain('--no-sandbox');
-    }
+    expect(workflow).toContain('image: cimg/node:22.12.0');
+    expect(workflow).toContain("image: ubuntu-2404:current");
+    expect(workflow).toContain('executor: win/server-2022');
+    expect(workflow).toContain('choco install python312 -y');
+    expect(workflow).toContain("npm_config_msvs_version='2022'");
+    expect(workflow).toContain('resource_class: m4pro.medium');
+    expect(workflow).toContain('name: package-smoke-macos-arm64');
+    expect(workflow).toContain('name: package-smoke-macos-x64');
+    expect(workflow).toContain('name: package-smoke-windows-x64');
+    expect(workflow).toContain('name: package-smoke-linux-x64');
+    expect(workflow).toContain('if [[ "$EXPECTED_MACHO_ARCH" == "x64" ]]; then EXPECTED_MACHO_ARCH="x86_64"; fi');
+    expect(workflow).toContain('grep -Fxq "$EXPECTED_MACHO_ARCH"');
+    expect(workflow).toContain('node scripts/make-macos-dmg.mjs --arch << parameters.arch >>');
+    expect(workflow).toContain('--targets=@electron-forge/maker-zip');
+    expect(workflow).toContain('hdiutil verify "$DMG_PATH"');
+    expect(workflow).toContain('sudo chmod 4755 out/MongoG-linux-x64/chrome-sandbox');
+    expect(workflow).not.toContain('--no-sandbox');
+  });
+
+  it('aggregates release artifacts and publishes only version tags through the restricted context', () => {
+    const workflow = readFileSync(path.resolve(process.cwd(), '.circleci', 'config.yml'), 'utf8');
+
+    expect(workflow).toContain('run_release:');
+    expect(workflow).toContain('release_tag:');
+    expect(workflow).toContain('pipeline.git.tag matches /^v[0-9]+\\.[0-9]+\\.[0-9]+$/');
+    expect(workflow).toContain('persist_to_workspace:');
+    expect(workflow).toContain('attach_workspace: { at: /tmp/mongog-release }');
+    expect(workflow).toContain('node scripts/verify-release-assets.mjs --directory release-inputs --tag "$RELEASE_TAG" --unsigned');
+    expect(workflow).toContain('GH_TOKEN is required in the restricted release context.');
+    expect(workflow).toContain('Refusing to replace an already published release.');
+    expect(workflow).toContain('context: release');
   });
 
   it('retries only the known idempotent macOS DMG detach failure', () => {
@@ -98,6 +113,21 @@ describe('release tooling', () => {
     );
     expect(invalid.status).not.toBe(0);
     expect(invalid.stderr).toContain('Unexpected positional arguments');
+  });
+
+  it('accepts the CircleCI tag fallback', () => {
+    execFileSync(
+      process.execPath,
+      [script('validate-release-environment.mjs'), '--platform', 'linux'],
+      {
+        env: {
+          ...process.env,
+          MONGOG_RELEASE: '1',
+          RELEASE_TAG: '',
+          CIRCLE_TAG: `v${packageMetadata.version}`,
+        },
+      },
+    );
   });
 
   it('accepts an unsigned production release without signing material', () => {

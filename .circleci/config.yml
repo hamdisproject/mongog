@@ -1,31 +1,414 @@
-# Use the latest 2.1 version of CircleCI pipeline process engine.
-# See: https://circleci.com/docs/reference/configuration-reference/
 version: 2.1
 
-# Define a job to be invoked later in a workflow.
-# See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#jobs-overview & https://circleci.com/docs/reference/configuration-reference/#jobs
-jobs:
-  say-hello:
-    # Specify the execution environment. You can specify an image from Docker Hub or use one of our convenience images from CircleCI's Developer Hub.
-    # See: https://circleci.com/docs/guides/execution-managed/executor-intro/ & https://circleci.com/docs/reference/configuration-reference/#executor-job
+parameters:
+  run_release:
+    type: boolean
+    default: false
+  release_tag:
+    type: string
+    default: ""
+
+orbs:
+  win: circleci/windows@4.1.1
+
+executors:
+  linux_node:
     docker:
-      # Specify the version you desire here
-      # See: https://circleci.com/developer/images/image/cimg/base
-      - image: cimg/base:current
+      - image: cimg/node:22.12.0
+    resource_class: xlarge
+    environment:
+      NODE_OPTIONS: --max-old-space-size=8192
+  linux_machine:
+    machine:
+      image: ubuntu-2404:current
+    resource_class: xlarge
+    environment:
+      NODE_OPTIONS: --max-old-space-size=8192
+  macos_m4:
+    macos:
+      xcode: 26.6.0
+    resource_class: m4pro.medium
+    environment:
+      NODE_OPTIONS: --max-old-space-size=8192
 
-    # Add steps to the job
-    # See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#steps-overview & https://circleci.com/docs/reference/configuration-reference/#steps
+commands:
+  restore_npm_cache:
     steps:
-      # Checkout the code as the first step.
-      - checkout
+      - restore_cache:
+          keys:
+            - npm-v1-{{ arch }}-{{ checksum "package-lock.json" }}
+            - npm-v1-{{ arch }}-
+  save_npm_cache:
+    steps:
+      - save_cache:
+          key: npm-v1-{{ arch }}-{{ checksum "package-lock.json" }}
+          paths:
+            - ~/.npm
+  install_node_unix:
+    steps:
       - run:
-          name: "Say hello"
-          command: "echo Hello, World!"
+          name: Install Node.js 22.12.0
+          command: |
+            case "$(uname -s)-$(uname -m)" in
+              Darwin-arm64) NODE_DIST="darwin-arm64" ;;
+              Darwin-x86_64) NODE_DIST="darwin-x64" ;;
+              Linux-x86_64) NODE_DIST="linux-x64" ;;
+              *) echo "Unsupported Node host: $(uname -s)-$(uname -m)" >&2; exit 1 ;;
+            esac
+            NODE_ROOT="$HOME/.local/node-v22.12.0"
+            curl --fail --location --retry 3 "https://nodejs.org/dist/v22.12.0/node-v22.12.0-${NODE_DIST}.tar.gz" -o /tmp/node.tar.gz
+            mkdir -p "$NODE_ROOT"
+            tar -xzf /tmp/node.tar.gz --strip-components=1 -C "$NODE_ROOT"
+            echo "export PATH=$NODE_ROOT/bin:\$PATH" >> "$BASH_ENV"
+            export PATH="$NODE_ROOT/bin:$PATH"
+            node --version
+            npm --version
+  install_dependencies_unix:
+    steps:
+      - restore_npm_cache
+      - run:
+          name: Install npm dependencies
+          command: npm ci
+      - save_npm_cache
+  install_windows_toolchain:
+    steps:
+      - run:
+          name: Install Node.js and Python
+          shell: powershell.exe -ExecutionPolicy Bypass
+          command: |
+            choco install nodejs --version=22.12.0 --allow-downgrade -y
+            choco install python312 -y
+            $nodePath = 'C:\Program Files\nodejs'
+            $python = (Get-Command python.exe -ErrorAction SilentlyContinue).Source
+            if (-not $python) { $python = (Get-ChildItem 'C:\Python312\python.exe','C:\Program Files\Python312\python.exe' -ErrorAction SilentlyContinue | Select-Object -First 1).FullName }
+            if (-not $python) { throw 'Python 3.12 was not found after installation.' }
+            Add-Content $env:BASH_ENV 'export PATH="/c/Program Files/nodejs:$PATH"'
+            Add-Content $env:BASH_ENV "export PYTHON='$($python -replace '\\','/')'"
+            Add-Content $env:BASH_ENV "export npm_config_python='$($python -replace '\\','/')'"
+            Add-Content $env:BASH_ENV "export npm_config_msvs_version='2022'"
+            $env:PATH = "$nodePath;$env:PATH"
+            node --version
+            npm --version
+            & $python --version
+  install_dependencies_windows:
+    steps:
+      - restore_npm_cache
+      - run:
+          name: Install npm dependencies
+          shell: bash.exe
+          command: npm ci
+      - save_npm_cache
+  select_release_tag_unix:
+    steps:
+      - run:
+          name: Select and checkout release tag
+          command: |
+            RELEASE_TAG="${CIRCLE_TAG:-<< pipeline.parameters.release_tag >>}"
+            test -n "$RELEASE_TAG" || { echo "release_tag is required for a manual release." >&2; exit 1; }
+            git fetch --force origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+            git checkout --detach "$RELEASE_TAG"
+            echo "export RELEASE_TAG='$RELEASE_TAG'" >> "$BASH_ENV"
+  select_release_tag_windows:
+    steps:
+      - run:
+          name: Select and checkout release tag
+          shell: powershell.exe -ExecutionPolicy Bypass
+          command: |
+            $tag = if ($env:CIRCLE_TAG) { $env:CIRCLE_TAG } else { '<< pipeline.parameters.release_tag >>' }
+            if (-not $tag) { throw 'release_tag is required for a manual release.' }
+            git fetch --force origin "refs/tags/${tag}:refs/tags/${tag}"
+            git checkout --detach $tag
+            Add-Content $env:BASH_ENV "export RELEASE_TAG='$tag'"
+  store_diagnostics:
+    steps:
+      - store_artifacts:
+          path: test-results
+          destination: test-results
+      - store_artifacts:
+          path: logs
+          destination: logs
 
-# Orchestrate jobs using workflows
-# See: https://circleci.com/docs/guides/orchestrate/workflows/ & https://circleci.com/docs/reference/configuration-reference/#workflows
+jobs:
+  quality:
+    executor: linux_node
+    steps:
+      - checkout
+      - install_dependencies_unix
+      - run: { name: Typecheck, command: "npm run typecheck" }
+      - run: { name: Lint, command: "npm run lint" }
+      - run: { name: Unit tests, command: "npm test" }
+      - run: { name: Integration tests, command: "npm run test:integ" }
+
+  package_smoke_macos:
+    parameters:
+      arch: { type: enum, enum: [arm64, x64] }
+    executor: macos_m4
+    steps:
+      - checkout
+      - install_node_unix
+      - install_dependencies_unix
+      - run:
+          name: Build unsigned test package
+          command: npm run package -- --platform=darwin --arch=<< parameters.arch >>
+      - run:
+          name: Verify package contents and test fuses
+          command: npm run verify:package -- --platform darwin --arch << parameters.arch >>
+      - run:
+          name: Run packaged smoke
+          command: npm run smoke:packaged -- --platform darwin --arch << parameters.arch >>
+      - store_diagnostics
+
+  package_smoke_windows:
+    executor: win/server-2022
+    environment:
+      NODE_OPTIONS: --max-old-space-size=8192
+    steps:
+      - checkout
+      - install_windows_toolchain
+      - install_dependencies_windows
+      - run:
+          name: Build unsigned test package
+          shell: bash.exe
+          command: npm run package -- --platform=win32 --arch=x64
+      - run:
+          name: Verify package contents and test fuses
+          shell: bash.exe
+          command: npm run verify:package -- --platform win32 --arch x64
+      - run:
+          name: Run packaged smoke
+          shell: bash.exe
+          command: npm run smoke:packaged -- --platform win32 --arch x64
+      - store_diagnostics
+
+  package_smoke_linux:
+    executor: linux_machine
+    steps:
+      - checkout
+      - install_node_unix
+      - run:
+          name: Install packaging and display dependencies
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y fakeroot rpm xvfb
+      - install_dependencies_unix
+      - run: { name: Install Electron runtime libraries, command: "npx playwright install-deps" }
+      - run: { name: Build unsigned test package, command: "npm run package -- --platform=linux --arch=x64" }
+      - run: { name: Verify package contents and test fuses, command: "npm run verify:package -- --platform linux --arch x64" }
+      - run:
+          name: Configure packaged Electron SUID sandbox
+          command: |
+            sudo chown root:root out/MongoG-linux-x64/chrome-sandbox
+            sudo chmod 4755 out/MongoG-linux-x64/chrome-sandbox
+            stat -c '%U:%G %a %n' out/MongoG-linux-x64/chrome-sandbox
+      - run: { name: Run packaged smoke under Xvfb, command: "xvfb-run -a npm run smoke:packaged -- --platform linux --arch x64" }
+      - store_diagnostics
+
+  release_macos:
+    parameters:
+      arch: { type: enum, enum: [arm64, x64] }
+    executor: macos_m4
+    steps:
+      - checkout
+      - select_release_tag_unix
+      - install_node_unix
+      - install_dependencies_unix
+      - run:
+          name: Validate unsigned release tag
+          command: MONGOG_RELEASE=1 node scripts/validate-release-environment.mjs --platform darwin --tag "$RELEASE_TAG"
+      - run:
+          name: Build and verify unsigned E2E package
+          command: |
+            npm run package -- --platform=darwin --arch=<< parameters.arch >>
+            npm run verify:package -- --platform darwin --arch << parameters.arch >>
+            npm run test:e2e
+      - run:
+          name: Build hardened unsigned production package
+          command: MONGOG_RELEASE=1 npm run package -- --platform=darwin --arch=<< parameters.arch >>
+      - run:
+          name: Make macOS ZIP
+          command: MONGOG_RELEASE=1 npm run make -- --skip-package --platform=darwin --arch=<< parameters.arch >> --targets=@electron-forge/maker-zip
+      - run:
+          name: Make and verify macOS DMG
+          command: |
+            MONGOG_RELEASE=1 node scripts/make-macos-dmg.mjs --arch << parameters.arch >>
+            DMG_PATH="$(find out/make -type f -name '*.dmg' -print -quit)"
+            test -n "$DMG_PATH"
+            hdiutil verify "$DMG_PATH"
+      - run:
+          name: Verify production package and architecture
+          command: |
+            MONGOG_RELEASE=1 npm run verify:package -- --platform darwin --arch << parameters.arch >> --release
+            APP_PATH="out/MongoG-darwin-<< parameters.arch >>/MongoG.app"
+            EXPECTED_MACHO_ARCH="<< parameters.arch >>"
+            if [[ "$EXPECTED_MACHO_ARCH" == "x64" ]]; then EXPECTED_MACHO_ARCH="x86_64"; fi
+            lipo -archs "$APP_PATH/Contents/MacOS/MongoG" | tr ' ' '\n' | grep -Fxq "$EXPECTED_MACHO_ARCH"
+      - run:
+          name: Run production packaged smoke
+          command: npm run smoke:packaged -- --platform darwin --arch << parameters.arch >>
+      - run:
+          name: Normalize macOS artifacts
+          command: npm run collect:release -- --platform darwin --arch << parameters.arch >> --output "release-inputs/macos-<< parameters.arch >>" --clean --unsigned
+      - persist_to_workspace:
+          root: .
+          paths: [release-inputs/macos-<< parameters.arch >>]
+      - store_artifacts:
+          path: release-inputs/macos-<< parameters.arch >>
+          destination: release-macos-<< parameters.arch >>
+
+  release_windows:
+    executor: win/server-2022
+    environment:
+      NODE_OPTIONS: --max-old-space-size=8192
+    steps:
+      - checkout
+      - select_release_tag_windows
+      - install_windows_toolchain
+      - install_dependencies_windows
+      - run:
+          name: Validate unsigned release tag
+          shell: bash.exe
+          command: MONGOG_RELEASE=1 node scripts/validate-release-environment.mjs --platform win32 --tag "$RELEASE_TAG"
+      - run:
+          name: Build and verify unsigned E2E package
+          shell: bash.exe
+          command: |
+            npm run package -- --platform=win32 --arch=x64
+            npm run verify:package -- --platform win32 --arch x64
+            npm run test:e2e
+      - run:
+          name: Build hardened unsigned production artifacts
+          shell: bash.exe
+          command: MONGOG_RELEASE=1 npm run make -- --platform=win32 --arch=x64
+      - run:
+          name: Verify and smoke production package
+          shell: bash.exe
+          command: |
+            MONGOG_RELEASE=1 npm run verify:package -- --platform win32 --arch x64 --release
+            npm run smoke:packaged -- --platform win32 --arch x64
+      - run:
+          name: Normalize Windows artifacts
+          shell: bash.exe
+          command: npm run collect:release -- --platform win32 --arch x64 --output release-inputs/windows-x64 --clean --unsigned
+      - persist_to_workspace:
+          root: .
+          paths: [release-inputs/windows-x64]
+      - store_artifacts:
+          path: release-inputs/windows-x64
+          destination: release-windows-x64
+
+  release_linux:
+    executor: linux_machine
+    steps:
+      - checkout
+      - select_release_tag_unix
+      - install_node_unix
+      - run:
+          name: Install packaging and display dependencies
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y fakeroot rpm xvfb
+      - install_dependencies_unix
+      - run: { name: Install Electron runtime libraries, command: "npx playwright install-deps" }
+      - run:
+          name: Validate release tag
+          command: MONGOG_RELEASE=1 node scripts/validate-release-environment.mjs --platform linux --tag "$RELEASE_TAG"
+      - run:
+          name: Build and verify unsigned E2E package
+          command: |
+            npm run package -- --platform=linux --arch=x64
+            npm run verify:package -- --platform linux --arch x64
+            xvfb-run -a npm run test:e2e
+      - run: { name: Build production artifacts, command: "MONGOG_RELEASE=1 npm run make -- --platform=linux --arch=x64" }
+      - run: { name: Verify production package, command: "MONGOG_RELEASE=1 npm run verify:package -- --platform linux --arch x64 --release" }
+      - run:
+          name: Configure packaged Electron SUID sandbox
+          command: |
+            sudo chown root:root out/MongoG-linux-x64/chrome-sandbox
+            sudo chmod 4755 out/MongoG-linux-x64/chrome-sandbox
+            stat -c '%U:%G %a %n' out/MongoG-linux-x64/chrome-sandbox
+      - run: { name: Run production packaged smoke, command: "xvfb-run -a npm run smoke:packaged -- --platform linux --arch x64" }
+      - run:
+          name: Normalize and inspect Linux artifacts
+          command: |
+            npm run collect:release -- --platform linux --arch x64 --output release-inputs/linux-x64 --clean --unsigned
+            dpkg-deb --info release-inputs/linux-x64/mongog_*.deb
+            rpm -qip release-inputs/linux-x64/mongog-*.rpm
+      - run:
+          name: Install, smoke, and remove the DEB package
+          command: |
+            sudo apt-get install -y ./release-inputs/linux-x64/mongog_*.deb
+            test -x /usr/bin/mongog
+            MONGOG_PACKAGED_EXECUTABLE=/usr/bin/mongog xvfb-run -a npm run smoke:packaged -- --platform linux --arch x64
+            sudo apt-get remove -y mongog
+      - persist_to_workspace:
+          root: .
+          paths: [release-inputs/linux-x64]
+      - store_artifacts:
+          path: release-inputs/linux-x64
+          destination: release-linux-x64
+
+  publish_release:
+    executor: linux_node
+    steps:
+      - checkout
+      - select_release_tag_unix
+      - attach_workspace: { at: /tmp/mongog-release }
+      - run:
+          name: Assemble and verify the complete release set
+          command: |
+            mkdir -p release-inputs
+            find /tmp/mongog-release/release-inputs -mindepth 2 -maxdepth 2 -type f -exec cp {} release-inputs/ \;
+            node scripts/verify-release-assets.mjs --directory release-inputs --tag "$RELEASE_TAG" --unsigned
+      - run:
+          name: Create or update the draft GitHub release
+          command: |
+            test -n "$GH_TOKEN" || { echo "GH_TOKEN is required in the restricted release context." >&2; exit 1; }
+            UNSIGNED_NOTICE="⚠️ UNSIGNED PRE-RELEASE: artifacts are not signed with Apple Developer ID or Windows Authenticode, and macOS artifacts are not notarized. Operating-system security warnings are expected. Verify downloads with SHA256SUMS.txt."
+            if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+              IS_DRAFT="$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)"
+              test "$IS_DRAFT" = "true" || { echo "Refusing to replace an already published release." >&2; exit 1; }
+              gh release upload "$RELEASE_TAG" release-inputs/* --clobber
+              gh release edit "$RELEASE_TAG" --prerelease --title "MongoG $RELEASE_TAG [UNSIGNED]"
+            else
+              gh release create "$RELEASE_TAG" release-inputs/* --draft --prerelease --verify-tag --generate-notes --notes "$UNSIGNED_NOTICE" --title "MongoG $RELEASE_TAG [UNSIGNED]"
+            fi
+      - store_artifacts:
+          path: release-inputs
+          destination: complete-release
+
 workflows:
-  say-hello-workflow: # This is the name of the workflow, feel free to change it to better match your workflow.
-    # Inside the workflow, you define the jobs you want to run.
+  ci:
+    when: (not pipeline.git.tag) and (not pipeline.parameters.run_release)
     jobs:
-      - say-hello
+      - quality
+      - package_smoke_macos:
+          name: package-smoke-macos-arm64
+          arch: arm64
+      - package_smoke_macos:
+          name: package-smoke-macos-x64
+          arch: x64
+      - package_smoke_windows:
+          name: package-smoke-windows-x64
+      - package_smoke_linux:
+          name: package-smoke-linux-x64
+
+  release:
+    when: pipeline.parameters.run_release or (pipeline.git.tag matches /^v[0-9]+\.[0-9]+\.[0-9]+$/)
+    jobs:
+      - release_macos:
+          name: release-macos-arm64
+          arch: arm64
+      - release_macos:
+          name: release-macos-x64
+          arch: x64
+      - release_windows:
+          name: release-windows-x64
+      - release_linux:
+          name: release-linux-x64
+      - publish_release:
+          context: release
+          requires:
+            - release-macos-arm64
+            - release-macos-x64
+            - release-windows-x64
+            - release-linux-x64

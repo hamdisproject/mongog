@@ -1,7 +1,7 @@
 # MongoG Release Guide
 
-Bu dosya Windows, macOS ve Linux paketlerini GitHub üzerinden yayınlamak için
-kullanılacak kısa kontrol listesidir.
+Bu dosya Windows, macOS ve Linux paketlerini CircleCI üzerinden derleyip GitHub
+Releases'a göndermek için kullanılacak kısa kontrol listesidir.
 
 > **Geçici durum:** Bu yayınlar imzasız pre-release olarak oluşturulur. macOS
 > paketleri notarize edilmez ve Windows paketleri Authenticode ile imzalanmaz.
@@ -23,10 +23,11 @@ git push origin main v1.0.0
 `package.json` sürümü `1.0.0` ise tag `v1.0.0` olmalıdır. Aksi durumda release
 workflow güvenli biçimde durur.
 
-## GitHub'da kontrol
+## CircleCI ve GitHub'da kontrol
 
-1. GitHub Actions içindeki `Release` workflow'unun tamamlanmasını bekle.
-2. Gerekirse korumalı `release` environment onayını ver.
+1. CircleCI içindeki `release` workflow'unun tamamlanmasını bekle.
+2. `release` context erişiminin yalnız yetkili proje ve ekiplerle sınırlı
+   olduğunu doğrula.
 3. macOS arm64/x64, Windows x64 ve Linux x64 job'larının geçtiğini doğrula.
 4. GitHub Releases bölümünde oluşturulan draft release'i aç.
 5. Release'in `Pre-release` ve `[UNSIGNED]` olarak işaretlendiğini doğrula.
@@ -35,6 +36,11 @@ workflow güvenli biçimde durur.
 7. macOS ve Windows güvenlik uyarısı açıklamasının görünür olduğunu doğrula.
 8. Draft release'i manuel olarak yayınla.
 
-İlk GitHub kurulumu için `release` adında bir environment oluşturmak yeterlidir;
-şimdilik imzalama secret'ı gerekmez. Ayrıntılar için ana
-[README](../README.md#github-releases) belgesine bak.
+İlk kurulumda GitHub bağlantısında tag-push tetiklemesini etkinleştir. CircleCI'de
+`release` adında restricted context oluşturup bu repoda release yazabilen
+`GH_TOKEN` değişkenini ekle; şimdilik imzalama secret'ı gerekmez.
+
+Mevcut bir tag'i yeniden derlemek için CircleCI'de **Trigger Pipeline** açıp
+`run_release=true` ve `release_tag=vX.Y.Z` parametrelerini ver. Yayınlanmış bir
+release'in üzerine yazılmaz; yalnız draft release güncellenebilir. Ayrıntılar
+için ana [README](../README.md#circleci-and-github-releases) belgesine bak.

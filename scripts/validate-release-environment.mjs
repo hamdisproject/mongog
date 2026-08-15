@@ -3,7 +3,7 @@ import { packageMetadata, parseArguments, releaseTagVersion } from './release-ut
 
 const args = parseArguments(process.argv.slice(2));
 const platform = String(args.get('platform') ?? '');
-const tag = String(args.get('tag') ?? process.env.RELEASE_TAG ?? process.env.GITHUB_REF_NAME ?? '');
+const tag = String(args.get('tag') ?? (process.env.RELEASE_TAG?.trim() || process.env.CIRCLE_TAG?.trim() || ''));
 const version = releaseTagVersion(tag);
 
 if (version !== packageMetadata.version) {
