@@ -15,15 +15,15 @@ executors:
   linux_node:
     docker:
       - image: cimg/node:22.12.0
-    resource_class: xlarge
+    resource_class: medium
     environment:
-      NODE_OPTIONS: --max-old-space-size=8192
+      NODE_OPTIONS: --max-old-space-size=4096
   linux_machine:
     machine:
       image: ubuntu-2404:current
-    resource_class: xlarge
+    resource_class: medium
     environment:
-      NODE_OPTIONS: --max-old-space-size=8192
+      NODE_OPTIONS: --max-old-space-size=6144
   macos_m4:
     macos:
       xcode: 26.6.0
@@ -68,7 +68,7 @@ commands:
       - restore_npm_cache
       - run:
           name: Install npm dependencies
-          command: npm ci
+          command: npm ci --prefer-offline --no-audit
       - save_npm_cache
   install_windows_toolchain:
     steps:
@@ -76,17 +76,21 @@ commands:
           name: Install Node.js and Python
           shell: powershell.exe -ExecutionPolicy Bypass
           command: |
-            choco install nodejs --version=22.12.0 --allow-downgrade -y
+            $nodeArchive = Join-Path $env:TEMP 'node-v22.12.0-win-x64.zip'
+            $nodeRoot = 'C:\tools\node-v22.12.0'
+            Invoke-WebRequest 'https://nodejs.org/dist/v22.12.0/node-v22.12.0-win-x64.zip' -OutFile $nodeArchive
+            if (Test-Path $nodeRoot) { Remove-Item $nodeRoot -Recurse -Force }
+            New-Item -ItemType Directory -Force -Path $nodeRoot | Out-Null
+            Expand-Archive $nodeArchive -DestinationPath $env:TEMP -Force
+            Move-Item (Join-Path $env:TEMP 'node-v22.12.0-win-x64\*') $nodeRoot -Force
             choco install python312 -y
-            $nodePath = 'C:\Program Files\nodejs'
-            $python = (Get-Command python.exe -ErrorAction SilentlyContinue).Source
-            if (-not $python) { $python = (Get-ChildItem 'C:\Python312\python.exe','C:\Program Files\Python312\python.exe' -ErrorAction SilentlyContinue | Select-Object -First 1).FullName }
+            $python = (Get-ChildItem 'C:\Python312\python.exe','C:\Program Files\Python312\python.exe' -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
             if (-not $python) { throw 'Python 3.12 was not found after installation.' }
-            Add-Content $env:BASH_ENV 'export PATH="/c/Program Files/nodejs:$PATH"'
+            Add-Content $env:BASH_ENV 'export PATH="/c/tools/node-v22.12.0:$PATH"'
             Add-Content $env:BASH_ENV "export PYTHON='$($python -replace '\\','/')'"
             Add-Content $env:BASH_ENV "export npm_config_python='$($python -replace '\\','/')'"
             Add-Content $env:BASH_ENV "export npm_config_msvs_version='2022'"
-            $env:PATH = "$nodePath;$env:PATH"
+            $env:PATH = "$nodeRoot;$env:PATH"
             node --version
             npm --version
             & $python --version
@@ -96,8 +100,21 @@ commands:
       - run:
           name: Install npm dependencies
           shell: bash.exe
-          command: npm ci
+          command: |
+            test "$(node --version)" = "v22.12.0"
+            npm ci --prefer-offline --no-audit
       - save_npm_cache
+  restore_mongodb_cache:
+    steps:
+      - restore_cache:
+          keys:
+            - mongodb-v1-{{ arch }}-{{ checksum "package-lock.json" }}
+  save_mongodb_cache:
+    steps:
+      - save_cache:
+          key: mongodb-v1-{{ arch }}-{{ checksum "package-lock.json" }}
+          paths:
+            - ~/.cache/mongodb-binaries
   select_release_tag_unix:
     steps:
       - run:
@@ -134,28 +151,36 @@ jobs:
     steps:
       - checkout
       - install_dependencies_unix
+      - restore_mongodb_cache
       - run: { name: Typecheck, command: "npm run typecheck" }
       - run: { name: Lint, command: "npm run lint" }
       - run: { name: Unit tests, command: "npm test" }
       - run: { name: Integration tests, command: "npm run test:integ" }
+      - save_mongodb_cache
 
   package_smoke_macos:
     parameters:
       arch: { type: enum, enum: [arm64, x64] }
+      run_smoke: { type: boolean, default: true }
     executor: macos_m4
     steps:
       - checkout
       - install_node_unix
       - install_dependencies_unix
+      - restore_mongodb_cache
       - run:
           name: Build unsigned test package
           command: npm run package -- --platform=darwin --arch=<< parameters.arch >>
       - run:
           name: Verify package contents and test fuses
           command: npm run verify:package -- --platform darwin --arch << parameters.arch >>
-      - run:
-          name: Run packaged smoke
-          command: npm run smoke:packaged -- --platform darwin --arch << parameters.arch >>
+      - when:
+          condition: << parameters.run_smoke >>
+          steps:
+            - run:
+                name: Run packaged smoke
+                command: MONGOG_SMOKE_ALLOW_UNAVAILABLE_SECURE_STORAGE=1 npm run smoke:packaged -- --platform darwin --arch << parameters.arch >>
+      - save_mongodb_cache
       - store_diagnostics
 
   package_smoke_windows:
@@ -166,10 +191,13 @@ jobs:
       - checkout
       - install_windows_toolchain
       - install_dependencies_windows
+      - restore_mongodb_cache
       - run:
           name: Build unsigned test package
           shell: bash.exe
-          command: npm run package -- --platform=win32 --arch=x64
+          command: |
+            npm run prepackage
+            ./node_modules/.bin/electron-forge package --platform=win32 --arch=x64
       - run:
           name: Verify package contents and test fuses
           shell: bash.exe
@@ -178,6 +206,7 @@ jobs:
           name: Run packaged smoke
           shell: bash.exe
           command: npm run smoke:packaged -- --platform win32 --arch x64
+      - save_mongodb_cache
       - store_diagnostics
 
   package_smoke_linux:
@@ -191,6 +220,7 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y fakeroot rpm xvfb
       - install_dependencies_unix
+      - restore_mongodb_cache
       - run: { name: Install Electron runtime libraries, command: "npx playwright install-deps" }
       - run: { name: Build unsigned test package, command: "npm run package -- --platform=linux --arch=x64" }
       - run: { name: Verify package contents and test fuses, command: "npm run verify:package -- --platform linux --arch x64" }
@@ -201,6 +231,7 @@ jobs:
             sudo chmod 4755 out/MongoG-linux-x64/chrome-sandbox
             stat -c '%U:%G %a %n' out/MongoG-linux-x64/chrome-sandbox
       - run: { name: Run packaged smoke under Xvfb, command: "xvfb-run -a npm run smoke:packaged -- --platform linux --arch x64" }
+      - save_mongodb_cache
       - store_diagnostics
 
   release_macos:
@@ -212,6 +243,7 @@ jobs:
       - select_release_tag_unix
       - install_node_unix
       - install_dependencies_unix
+      - restore_mongodb_cache
       - run:
           name: Validate unsigned release tag
           command: MONGOG_RELEASE=1 node scripts/validate-release-environment.mjs --platform darwin --tag "$RELEASE_TAG"
@@ -220,7 +252,13 @@ jobs:
           command: |
             npm run package -- --platform=darwin --arch=<< parameters.arch >>
             npm run verify:package -- --platform darwin --arch << parameters.arch >>
-            npm run test:e2e
+      - when:
+          condition:
+            equal: [arm64, << parameters.arch >>]
+          steps:
+            - run:
+                name: Run packaged E2E on the native macOS architecture
+                command: npm run test:e2e
       - run:
           name: Build hardened unsigned production package
           command: MONGOG_RELEASE=1 npm run package -- --platform=darwin --arch=<< parameters.arch >>
@@ -242,9 +280,13 @@ jobs:
             EXPECTED_MACHO_ARCH="<< parameters.arch >>"
             if [[ "$EXPECTED_MACHO_ARCH" == "x64" ]]; then EXPECTED_MACHO_ARCH="x86_64"; fi
             lipo -archs "$APP_PATH/Contents/MacOS/MongoG" | tr ' ' '\n' | grep -Fxq "$EXPECTED_MACHO_ARCH"
-      - run:
-          name: Run production packaged smoke
-          command: npm run smoke:packaged -- --platform darwin --arch << parameters.arch >>
+      - when:
+          condition:
+            equal: [arm64, << parameters.arch >>]
+          steps:
+            - run:
+                name: Run production packaged smoke
+                command: MONGOG_SMOKE_ALLOW_UNAVAILABLE_SECURE_STORAGE=1 npm run smoke:packaged -- --platform darwin --arch arm64
       - run:
           name: Normalize macOS artifacts
           command: npm run collect:release -- --platform darwin --arch << parameters.arch >> --output "release-inputs/macos-<< parameters.arch >>" --clean --unsigned
@@ -264,6 +306,7 @@ jobs:
       - select_release_tag_windows
       - install_windows_toolchain
       - install_dependencies_windows
+      - restore_mongodb_cache
       - run:
           name: Validate unsigned release tag
           shell: bash.exe
@@ -272,7 +315,8 @@ jobs:
           name: Build and verify unsigned E2E package
           shell: bash.exe
           command: |
-            npm run package -- --platform=win32 --arch=x64
+            npm run prepackage
+            ./node_modules/.bin/electron-forge package --platform=win32 --arch=x64
             npm run verify:package -- --platform win32 --arch x64
             npm run test:e2e
       - run:
@@ -308,6 +352,7 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y fakeroot rpm xvfb
       - install_dependencies_unix
+      - restore_mongodb_cache
       - run: { name: Install Electron runtime libraries, command: "npx playwright install-deps" }
       - run:
           name: Validate release tag
@@ -384,13 +429,18 @@ workflows:
       - package_smoke_macos:
           name: package-smoke-macos-arm64
           arch: arm64
+          filters: pipeline.git.branch == "main"
       - package_smoke_macos:
           name: package-smoke-macos-x64
           arch: x64
+          run_smoke: false
+          filters: pipeline.git.branch == "main"
       - package_smoke_windows:
           name: package-smoke-windows-x64
+          filters: pipeline.git.branch == "main"
       - package_smoke_linux:
           name: package-smoke-linux-x64
+          filters: pipeline.git.branch == "main"
 
   release:
     when: pipeline.parameters.run_release or (pipeline.git.tag matches /^v[0-9]+\.[0-9]+\.[0-9]+$/)

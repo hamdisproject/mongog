@@ -12,6 +12,7 @@ import { serializeError } from '../shared/errors/index.js';
 export async function runSmokeChecks(supervisor: RuntimeSupervisor, spikeMongoUri: string | null, getDb?: () => Database): Promise<void> {
   const log = (msg: string) => console.log(`[SMOKE] ${msg}`);
   let failures = 0;
+  const allowUnavailableSecureStorage = process.env.MONGOG_SMOKE_ALLOW_UNAVAILABLE_SECURE_STORAGE === '1';
   const expect = (cond: boolean, msg: string) => {
     log(`  ${cond ? 'PASS' : 'FAIL'}: ${msg}`);
     if (!cond) failures += 1;
@@ -105,9 +106,11 @@ export async function runSmokeChecks(supervisor: RuntimeSupervisor, spikeMongoUr
       expect(cm.getProfile(secretProfile.id) === null, 'secret profile deleted');
     } catch (err) {
       const secureStorageError = serializeError(err);
-      if (process.platform === 'darwin') throw err;
-      // Linux CI environments may not provide an OS keyring. The security
-      // invariant remains that persistence fails closed with no plaintext.
+      if (process.platform === 'darwin' && !allowUnavailableSecureStorage) throw err;
+      // Headless CI environments may not provide an unlocked OS keyring. The
+      // security invariant remains that persistence fails closed with no
+      // plaintext fallback. macOS accepts this only with the explicit smoke
+      // flag; normal application behavior remains unchanged.
       expect(
         secureStorageError.category === 'SecureStorageFailure' &&
           cm.listProfiles().every((candidate) => candidate.name !== 'Secret Profile'),

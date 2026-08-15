@@ -30,12 +30,17 @@ describe('release tooling', () => {
 
     expect(workflow).toContain('image: cimg/node:22.12.0');
     expect(workflow).toContain("image: ubuntu-2404:current");
+    expect(workflow).toContain('resource_class: medium');
+    expect(workflow).not.toContain('resource_class: xlarge');
     expect(workflow).toContain('executor: win/server-2022');
+    expect(workflow).toContain("$nodeRoot = 'C:\\tools\\node-v22.12.0'");
+    expect(workflow).toContain('test "$(node --version)" = "v22.12.0"');
     expect(workflow).toContain('choco install python312 -y');
     expect(workflow).toContain("npm_config_msvs_version='2022'");
     expect(workflow).toContain('resource_class: m4pro.medium');
     expect(workflow).toContain('name: package-smoke-macos-arm64');
     expect(workflow).toContain('name: package-smoke-macos-x64');
+    expect(workflow).toContain('run_smoke: false');
     expect(workflow).toContain('name: package-smoke-windows-x64');
     expect(workflow).toContain('name: package-smoke-linux-x64');
     expect(workflow).toContain('if [[ "$EXPECTED_MACHO_ARCH" == "x64" ]]; then EXPECTED_MACHO_ARCH="x86_64"; fi');
@@ -44,6 +49,9 @@ describe('release tooling', () => {
     expect(workflow).toContain('--targets=@electron-forge/maker-zip');
     expect(workflow).toContain('hdiutil verify "$DMG_PATH"');
     expect(workflow).toContain('sudo chmod 4755 out/MongoG-linux-x64/chrome-sandbox');
+    expect(workflow).toContain('MONGOG_SMOKE_ALLOW_UNAVAILABLE_SECURE_STORAGE=1');
+    expect(workflow).toContain('filters: pipeline.git.branch == "main"');
+    expect(workflow).toContain('./node_modules/.bin/electron-forge package --platform=win32 --arch=x64');
     expect(workflow).not.toContain('--no-sandbox');
   });
 

@@ -84,9 +84,12 @@ For its DB path, start mongod externally and also set
 
 Kısa yayın kontrol listesi: [docs/RELEASE.md](docs/RELEASE.md)
 
-CircleCI runs typecheck, lint, unit/integration tests, and unsigned packaged
-smoke checks for pull requests and pushes to `main` on macOS arm64/x64,
-Windows x64, and Linux x64. Release builds are created only from a version tag matching
+CircleCI runs typecheck, lint, and unit/integration tests for every branch and
+pull request. Pushes to `main` additionally build and verify unsigned packages
+on macOS arm64/x64, Windows x64, and Linux x64. Native packaged smoke runs on
+macOS arm64, Windows x64, and Linux x64; the macOS x64 package is structurally
+and architecturally verified because CircleCI no longer provides Intel hosts.
+Release builds are created only from a version tag matching
 `package.json`, for example `v1.0.0`. The release workflow creates a draft
 GitHub Release containing nine normalized installers/portable archives plus
 `SHA256SUMS.txt`.
