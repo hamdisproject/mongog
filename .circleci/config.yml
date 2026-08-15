@@ -180,6 +180,17 @@ jobs:
             - run:
                 name: Run packaged smoke
                 command: MONGOG_SMOKE_ALLOW_UNAVAILABLE_SECURE_STORAGE=1 npm run smoke:packaged -- --platform darwin --arch << parameters.arch >>
+      - run:
+          name: Archive downloadable macOS package
+          command: |
+            VERSION="$(node -p "require('./package.json').version")"
+            mkdir -p ci-artifacts
+            ditto -c -k --sequesterRsrc --keepParent \
+              "out/MongoG-darwin-<< parameters.arch >>/MongoG.app" \
+              "ci-artifacts/MongoG-${VERSION}-macOS-<< parameters.arch >>.zip"
+      - store_artifacts:
+          path: ci-artifacts
+          destination: packages
       - save_mongodb_cache
       - store_diagnostics
 
@@ -206,6 +217,16 @@ jobs:
           name: Run packaged smoke
           shell: bash.exe
           command: npm run smoke:packaged -- --platform win32 --arch x64
+      - run:
+          name: Archive downloadable Windows package
+          shell: powershell.exe -ExecutionPolicy Bypass
+          command: |
+            $version = (Get-Content package.json | ConvertFrom-Json).version
+            New-Item -ItemType Directory -Force -Path ci-artifacts | Out-Null
+            Compress-Archive -Path out\MongoG-win32-x64 -DestinationPath "ci-artifacts\MongoG-${version}-win-x64.zip" -CompressionLevel Optimal
+      - store_artifacts:
+          path: ci-artifacts
+          destination: packages
       - save_mongodb_cache
       - store_diagnostics
 
@@ -231,6 +252,15 @@ jobs:
             sudo chmod 4755 out/MongoG-linux-x64/chrome-sandbox
             stat -c '%U:%G %a %n' out/MongoG-linux-x64/chrome-sandbox
       - run: { name: Run packaged smoke under Xvfb, command: "xvfb-run -a npm run smoke:packaged -- --platform linux --arch x64" }
+      - run:
+          name: Archive downloadable Linux package
+          command: |
+            VERSION="$(node -p "require('./package.json').version")"
+            mkdir -p ci-artifacts
+            tar -czf "ci-artifacts/MongoG-${VERSION}-linux-x64.tar.gz" -C out MongoG-linux-x64
+      - store_artifacts:
+          path: ci-artifacts
+          destination: packages
       - save_mongodb_cache
       - store_diagnostics
 

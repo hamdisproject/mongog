@@ -89,6 +89,8 @@ pull request. Pushes to `main` additionally build and verify unsigned packages
 on macOS arm64/x64, Windows x64, and Linux x64. Native packaged smoke runs on
 macOS arm64, Windows x64, and Linux x64; the macOS x64 package is structurally
 and architecturally verified because CircleCI no longer provides Intel hosts.
+Each successful `main` platform job exposes its packaged application archive
+under the job's **Artifacts → packages** section in CircleCI.
 Release builds are created only from a version tag matching
 `package.json`, for example `v1.0.0`. The release workflow creates a draft
 GitHub Release containing nine normalized installers/portable archives plus

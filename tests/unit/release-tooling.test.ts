@@ -52,6 +52,10 @@ describe('release tooling', () => {
     expect(workflow).toContain('MONGOG_SMOKE_ALLOW_UNAVAILABLE_SECURE_STORAGE=1');
     expect(workflow).toContain('filters: pipeline.git.branch == "main"');
     expect(workflow).toContain('./node_modules/.bin/electron-forge package --platform=win32 --arch=x64');
+    expect(workflow).toContain('ci-artifacts/MongoG-${VERSION}-macOS-<< parameters.arch >>.zip');
+    expect(workflow).toContain('ci-artifacts\\MongoG-${version}-win-x64.zip');
+    expect(workflow).toContain('ci-artifacts/MongoG-${VERSION}-linux-x64.tar.gz');
+    expect(workflow.match(/destination: packages/gu)).toHaveLength(3);
     expect(workflow).not.toContain('--no-sandbox');
   });
 
