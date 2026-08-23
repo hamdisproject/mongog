@@ -59,20 +59,18 @@ describe('release tooling', () => {
     expect(workflow).not.toContain('--no-sandbox');
   });
 
-  it('aggregates release artifacts and publishes only version tags through the restricted context', () => {
+  it('stores version-tag release artifacts directly in CircleCI', () => {
     const workflow = readFileSync(path.resolve(process.cwd(), '.circleci', 'config.yml'), 'utf8');
 
     expect(workflow).toContain('run_release:');
     expect(workflow).toContain('release_tag:');
     expect(workflow).toContain('pipeline.git.tag matches /^v[0-9]+\\.[0-9]+\\.[0-9]+$/');
-    expect(workflow).toContain('persist_to_workspace:');
-    expect(workflow).toContain('attach_workspace: { at: /tmp/mongog-release }');
-    expect(workflow).toContain('node scripts/verify-release-assets.mjs --directory release-inputs --tag "$RELEASE_TAG" --unsigned --signed-macos');
     expect(workflow).toContain('MONGOG_RELEASE=1 MONGOG_SIGN_RELEASE=1 npm run package -- --platform=darwin');
     expect(workflow).toContain('xcrun notarytool submit "$DMG_PATH"');
     expect(workflow).toContain('xcrun stapler validate "$APP_PATH"');
-    expect(workflow).toContain('GH_TOKEN is required in the restricted release context.');
-    expect(workflow).toContain('Refusing to replace an already published release.');
+    expect(workflow).toContain('destination: release-macos-<< parameters.arch >>');
+    expect(workflow).not.toContain('publish_release:');
+    expect(workflow).not.toContain('GH_TOKEN');
     expect(workflow).toContain('context: release');
   });
 

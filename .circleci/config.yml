@@ -348,9 +348,6 @@ jobs:
       - run:
           name: Normalize macOS artifacts
           command: npm run collect:release -- --platform darwin --arch << parameters.arch >> --output "release-inputs/macos-<< parameters.arch >>" --clean
-      - persist_to_workspace:
-          root: .
-          paths: [release-inputs/macos-<< parameters.arch >>]
       - store_artifacts:
           path: release-inputs/macos-<< parameters.arch >>
           destination: release-macos-<< parameters.arch >>
@@ -391,9 +388,6 @@ jobs:
           name: Normalize Windows artifacts
           shell: bash.exe
           command: npm run collect:release -- --platform win32 --arch x64 --output release-inputs/windows-x64 --clean --unsigned
-      - persist_to_workspace:
-          root: .
-          paths: [release-inputs/windows-x64]
       - store_artifacts:
           path: release-inputs/windows-x64
           destination: release-windows-x64
@@ -443,41 +437,9 @@ jobs:
             test -x /usr/bin/mongog
             MONGOG_PACKAGED_EXECUTABLE=/usr/bin/mongog xvfb-run -a npm run smoke:packaged -- --platform linux --arch x64
             sudo apt-get remove -y mongog
-      - persist_to_workspace:
-          root: .
-          paths: [release-inputs/linux-x64]
       - store_artifacts:
           path: release-inputs/linux-x64
           destination: release-linux-x64
-
-  publish_release:
-    executor: linux_node
-    steps:
-      - checkout
-      - select_release_tag_unix
-      - attach_workspace: { at: /tmp/mongog-release }
-      - run:
-          name: Assemble and verify the complete release set
-          command: |
-            mkdir -p release-inputs
-            find /tmp/mongog-release/release-inputs -mindepth 2 -maxdepth 2 -type f -exec cp {} release-inputs/ \;
-            node scripts/verify-release-assets.mjs --directory release-inputs --tag "$RELEASE_TAG" --unsigned --signed-macos
-      - run:
-          name: Create or update the draft GitHub release
-          command: |
-            test -n "$GH_TOKEN" || { echo "GH_TOKEN is required in the restricted release context." >&2; exit 1; }
-            RELEASE_NOTICE="macOS artifacts are signed with Apple Developer ID and notarized by Apple. Windows artifacts remain unsigned and can trigger Microsoft Defender SmartScreen. Verify downloads with SHA256SUMS.txt."
-            if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-              IS_DRAFT="$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)"
-              test "$IS_DRAFT" = "true" || { echo "Refusing to replace an already published release." >&2; exit 1; }
-              gh release upload "$RELEASE_TAG" release-inputs/* --clobber
-              gh release edit "$RELEASE_TAG" --prerelease --title "MongoG $RELEASE_TAG"
-            else
-              gh release create "$RELEASE_TAG" release-inputs/* --draft --prerelease --verify-tag --generate-notes --notes "$RELEASE_NOTICE" --title "MongoG $RELEASE_TAG"
-            fi
-      - store_artifacts:
-          path: release-inputs
-          destination: complete-release
 
 workflows:
   ci:
@@ -515,10 +477,3 @@ workflows:
           name: release-windows-x64
       - release_linux:
           name: release-linux-x64
-      - publish_release:
-          context: release
-          requires:
-            - release-macos-arm64
-            - release-macos-x64
-            - release-windows-x64
-            - release-linux-x64

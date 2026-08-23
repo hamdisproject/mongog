@@ -13,7 +13,6 @@ Releases'a göndermek için kullanılacak kısa kontrol listesidir.
 Context'i yalnız MongoG projesi ve yayın ekibiyle sınırla. Aşağıdaki değişkenler
 gereklidir; değerleri loglara veya repoya yazma:
 
-- `GH_TOKEN`: Bu repoda GitHub Release oluşturabilen token.
 - `MACOS_CERTIFICATE_P12_BASE64`: Developer ID Application `.p12` dosyasının
   Base64 içeriği.
 - `MACOS_CERTIFICATE_PASSWORD`: `.p12` dışa aktarma parolası.
@@ -42,25 +41,21 @@ git push origin main v1.0.0
 `package.json` sürümü `1.0.0` ise tag `v1.0.0` olmalıdır. Aksi durumda release
 workflow güvenli biçimde durur.
 
-## CircleCI ve GitHub'da kontrol
+## CircleCI'de kontrol ve indirme
 
 1. CircleCI içindeki `release` workflow'unun tamamlanmasını bekle.
 2. `release` context erişiminin yalnız yetkili proje ve ekiplerle sınırlı
    olduğunu doğrula.
 3. macOS arm64/x64, Windows x64 ve Linux x64 job'larının geçtiğini doğrula.
-4. GitHub Releases bölümünde oluşturulan draft release'i aç.
-5. Release'in `Pre-release` olduğunu ve platform imzalama notunu içerdiğini doğrula.
-6. İmzasız işareti taşımayan dört macOS paketi, `UNSIGNED` işaretli beş
-   Windows/Linux paketi ve `SHA256SUMS.txt` dosyasının bulunduğunu kontrol et.
-7. macOS'un imzalı/notarize, Windows'un imzasız olduğunu belirten açıklamanın
-   görünür olduğunu doğrula.
-8. Draft release'i manuel olarak yayınla.
+4. İstediğin job'u açıp **Artifacts** sekmesine gir.
+5. macOS için `release-macos-arm64` veya `release-macos-x64` altındaki imzalı
+   `.dmg` ve `.zip` dosyalarını indir.
+6. Windows ve Linux dosyalarının `UNSIGNED` işareti taşıdığını doğrula.
 
 İlk kurulumda GitHub bağlantısında tag-push tetiklemesini etkinleştir. CircleCI'de
-`release` adında restricted context oluşturup bu repoda release yazabilen
-`GH_TOKEN` ile yukarıdaki Apple imzalama değişkenlerini ekle.
+`release` adında restricted context oluşturup yukarıdaki Apple imzalama
+değişkenlerini ekle. GitHub token'ı gerekmez.
 
 Mevcut bir tag'i yeniden derlemek için CircleCI'de **Trigger Pipeline** açıp
-`run_release=true` ve `release_tag=vX.Y.Z` parametrelerini ver. Yayınlanmış bir
-release'in üzerine yazılmaz; yalnız draft release güncellenebilir. Ayrıntılar
-için ana [README](../README.md#circleci-and-github-releases) belgesine bak.
+`run_release=true` ve `release_tag=vX.Y.Z` parametrelerini ver. Ayrıntılar için
+ana [README](../README.md#circleci-and-github-releases) belgesine bak.

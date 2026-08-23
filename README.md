@@ -92,9 +92,8 @@ and architecturally verified because CircleCI no longer provides Intel hosts.
 Each successful `main` platform job exposes its packaged application archive
 under the job's **Artifacts → packages** section in CircleCI.
 Release builds are created only from a version tag matching
-`package.json`, for example `v1.0.0`. The release workflow creates a draft
-GitHub Release containing nine normalized installers/portable archives plus
-`SHA256SUMS.txt`.
+`package.json`, for example `v1.0.0`. Each release job stores its normalized
+installer/portable archives directly in CircleCI Artifacts.
 
 macOS release artifacts are signed with Apple Developer ID, notarized by Apple,
 and stapled before upload. Windows and Linux artifacts remain unsigned and keep
@@ -102,8 +101,8 @@ the `UNSIGNED` marker; Windows SmartScreen warnings are therefore still
 expected. Production Electron fuses remain hardened on every platform.
 
 Create a restricted CircleCI context named `release`, limit it to the MongoG
-project and release team, and add `GH_TOKEN` plus the Apple variables documented
-in [docs/RELEASE.md](docs/RELEASE.md). `MONGOG_SIGN_RELEASE=1` enables the
+project and release team, and add the Apple variables documented in
+[docs/RELEASE.md](docs/RELEASE.md). `MONGOG_SIGN_RELEASE=1` enables the
 fail-closed macOS signing/notarization path; `MONGOG_RELEASE=1` controls
 production hardening without implicitly requiring credentials on other
 platforms.
@@ -118,11 +117,10 @@ git tag v1.0.0
 git push origin main v1.0.0
 ```
 
-After every platform job succeeds, review the generated draft and its platform
-signing notice before publishing it in GitHub Releases. An existing tag can be rebuilt
-from CircleCI's **Trigger Pipeline** screen by setting `run_release=true` and
-`release_tag=vX.Y.Z`; the workflow refuses to overwrite a release that has
-already been published. Enable tag-push triggers in the CircleCI GitHub project
+After a platform job succeeds, download its packages from that job's
+**Artifacts** tab. An existing tag can be rebuilt from CircleCI's **Trigger
+Pipeline** screen by setting `run_release=true` and
+`release_tag=vX.Y.Z`. Enable tag-push triggers in the CircleCI GitHub project
 settings and use the CircleCI job names for required branch-protection checks.
 Automatic application updates are intentionally outside this release phase.
 

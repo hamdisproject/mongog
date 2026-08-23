@@ -19,6 +19,27 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
+    version: '1.2.1',
+    releasedAt: '2026-08-23',
+    title: 'Trusted macOS downloads',
+    summary: 'MongoG macOS release packages are now signed, notarized and delivered directly through CircleCI.',
+    sections: [
+      {
+        kind: 'improved',
+        items: [
+          'macOS release applications and installers are signed with Apple Developer ID and notarized by Apple.',
+          'CircleCI exposes signed arm64 and x64 ZIP and DMG packages directly from each release job.',
+        ],
+      },
+      {
+        kind: 'fixed',
+        items: [
+          'Downloaded macOS builds no longer appear as damaged because of an invalid ad-hoc signature.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.2.0',
     releasedAt: '2026-08-14',
     title: 'Responsive, dependable cancellation',
