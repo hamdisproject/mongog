@@ -106,9 +106,11 @@ export function releaseAssetNames(platform, arch, version = packageMetadata.vers
 }
 
 export function expectedReleaseAssetNames(version = packageMetadata.version, options = {}) {
+  const unsigned = options.unsigned === true;
+  const macosUnsigned = options.macosUnsigned ?? unsigned;
   return [
-    ...releaseAssetNames('darwin', 'arm64', version, options),
-    ...releaseAssetNames('darwin', 'x64', version, options),
+    ...releaseAssetNames('darwin', 'arm64', version, { unsigned: macosUnsigned }),
+    ...releaseAssetNames('darwin', 'x64', version, { unsigned: macosUnsigned }),
     ...releaseAssetNames('win32', 'x64', version, options),
     ...releaseAssetNames('linux', 'x64', version, options),
   ].sort((left, right) => left.localeCompare(right));

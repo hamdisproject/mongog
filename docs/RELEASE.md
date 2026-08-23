@@ -3,9 +3,28 @@
 Bu dosya Windows, macOS ve Linux paketlerini CircleCI üzerinden derleyip GitHub
 Releases'a göndermek için kullanılacak kısa kontrol listesidir.
 
-> **Geçici durum:** Bu yayınlar imzasız pre-release olarak oluşturulur. macOS
-> paketleri notarize edilmez ve Windows paketleri Authenticode ile imzalanmaz.
-> Kullanıcılarda işletim sistemi güvenlik uyarıları görülebilir.
+> **İmzalama durumu:** macOS paketleri Apple Developer ID ile imzalanır, Apple
+> tarafından notarize edilir ve biletleri pakete zımbalanır. Windows ve Linux
+> paketleri şimdilik imzasızdır; özellikle Windows'ta SmartScreen uyarısı
+> görülebilir.
+
+## CircleCI `release` context
+
+Context'i yalnız MongoG projesi ve yayın ekibiyle sınırla. Aşağıdaki değişkenler
+gereklidir; değerleri loglara veya repoya yazma:
+
+- `GH_TOKEN`: Bu repoda GitHub Release oluşturabilen token.
+- `MACOS_CERTIFICATE_P12_BASE64`: Developer ID Application `.p12` dosyasının
+  Base64 içeriği.
+- `MACOS_CERTIFICATE_PASSWORD`: `.p12` dışa aktarma parolası.
+- `MACOS_SIGN_IDENTITY`: Tam Developer ID Application kimliği.
+- `APPLE_API_KEY_P8_BASE64`: App Store Connect API `.p8` dosyasının Base64
+  içeriği.
+- `APPLE_API_KEY_ID`: App Store Connect API anahtar kimliği.
+- `APPLE_API_ISSUER_ID`: App Store Connect issuer kimliği.
+
+CI bu materyali geçici bir keychain/dizine açar, ham Base64 değişkenlerini alt
+süreçlerden kaldırır ve iş bitince geçici dosyaları siler.
 
 ## Yeni sürüm yayınlama
 
@@ -30,15 +49,16 @@ workflow güvenli biçimde durur.
    olduğunu doğrula.
 3. macOS arm64/x64, Windows x64 ve Linux x64 job'larının geçtiğini doğrula.
 4. GitHub Releases bölümünde oluşturulan draft release'i aç.
-5. Release'in `Pre-release` ve `[UNSIGNED]` olarak işaretlendiğini doğrula.
-6. Adında `UNSIGNED` bulunan dokuz paket ile `SHA256SUMS.txt` dosyasının
-   bulunduğunu kontrol et.
-7. macOS ve Windows güvenlik uyarısı açıklamasının görünür olduğunu doğrula.
+5. Release'in `Pre-release` olduğunu ve platform imzalama notunu içerdiğini doğrula.
+6. İmzasız işareti taşımayan dört macOS paketi, `UNSIGNED` işaretli beş
+   Windows/Linux paketi ve `SHA256SUMS.txt` dosyasının bulunduğunu kontrol et.
+7. macOS'un imzalı/notarize, Windows'un imzasız olduğunu belirten açıklamanın
+   görünür olduğunu doğrula.
 8. Draft release'i manuel olarak yayınla.
 
 İlk kurulumda GitHub bağlantısında tag-push tetiklemesini etkinleştir. CircleCI'de
 `release` adında restricted context oluşturup bu repoda release yazabilen
-`GH_TOKEN` değişkenini ekle; şimdilik imzalama secret'ı gerekmez.
+`GH_TOKEN` ile yukarıdaki Apple imzalama değişkenlerini ekle.
 
 Mevcut bir tag'i yeniden derlemek için CircleCI'de **Trigger Pipeline** açıp
 `run_release=true` ve `release_tag=vX.Y.Z` parametrelerini ver. Yayınlanmış bir

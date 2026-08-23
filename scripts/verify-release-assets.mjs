@@ -14,10 +14,14 @@ const directory = path.resolve(String(args.get('directory') ?? path.join(rootDir
 const tag = String(args.get('tag') ?? process.env.RELEASE_TAG ?? `v${packageMetadata.version}`);
 const version = releaseTagVersion(tag);
 const unsigned = args.get('unsigned') === true || args.get('unsigned') === 'true';
+const signedMacos = args.get('signed-macos') === true || args.get('signed-macos') === 'true';
 if (version !== packageMetadata.version) throw new Error(`${tag} does not match package.json ${packageMetadata.version}.`);
 if (!existsSync(directory)) throw new Error(`Release artifact directory does not exist: ${directory}`);
 
-const expected = expectedReleaseAssetNames(version, { unsigned });
+const expected = expectedReleaseAssetNames(version, {
+  unsigned,
+  ...(signedMacos ? { macosUnsigned: false } : {}),
+});
 const actual = readdirSync(directory)
   .filter((name) => name !== 'SHA256SUMS.txt')
   .sort((left, right) => left.localeCompare(right));

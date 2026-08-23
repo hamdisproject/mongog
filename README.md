@@ -96,18 +96,17 @@ Release builds are created only from a version tag matching
 GitHub Release containing nine normalized installers/portable archives plus
 `SHA256SUMS.txt`.
 
-Releases are temporarily produced as **unsigned pre-releases**. Artifact names
-contain `UNSIGNED`, the draft title carries the same warning, and macOS/Windows
-security prompts are expected. Production Electron fuses remain hardened; only
-Apple signing/notarization and Windows Authenticode signing are disabled.
+macOS release artifacts are signed with Apple Developer ID, notarized by Apple,
+and stapled before upload. Windows and Linux artifacts remain unsigned and keep
+the `UNSIGNED` marker; Windows SmartScreen warnings are therefore still
+expected. Production Electron fuses remain hardened on every platform.
 
-Create a restricted CircleCI context named `release` and add a `GH_TOKEN` with
-permission to create releases in this repository. Restrict the context to the
-MongoG project and the team responsible for releases. No certificate,
-notarization, or Authenticode secrets are required in the current unsigned
-phase. The signing-capable Forge configuration is retained for a later phase and is enabled separately with
-`MONGOG_SIGN_RELEASE=1`; `MONGOG_RELEASE=1` now controls production hardening
-without implicitly requiring credentials.
+Create a restricted CircleCI context named `release`, limit it to the MongoG
+project and release team, and add `GH_TOKEN` plus the Apple variables documented
+in [docs/RELEASE.md](docs/RELEASE.md). `MONGOG_SIGN_RELEASE=1` enables the
+fail-closed macOS signing/notarization path; `MONGOG_RELEASE=1` controls
+production hardening without implicitly requiring credentials on other
+platforms.
 
 Release sequence:
 
@@ -119,8 +118,8 @@ git tag v1.0.0
 git push origin main v1.0.0
 ```
 
-After every platform job succeeds, review the generated draft and its unsigned
-warning before publishing it in GitHub Releases. An existing tag can be rebuilt
+After every platform job succeeds, review the generated draft and its platform
+signing notice before publishing it in GitHub Releases. An existing tag can be rebuilt
 from CircleCI's **Trigger Pipeline** screen by setting `run_release=true` and
 `release_tag=vX.Y.Z`; the workflow refuses to overwrite a release that has
 already been published. Enable tag-push triggers in the CircleCI GitHub project

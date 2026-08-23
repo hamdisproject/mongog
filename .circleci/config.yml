@@ -275,8 +275,8 @@ jobs:
       - install_dependencies_unix
       - restore_mongodb_cache
       - run:
-          name: Validate unsigned release tag
-          command: MONGOG_RELEASE=1 node scripts/validate-release-environment.mjs --platform darwin --tag "$RELEASE_TAG"
+          name: Validate signed release tag
+          command: MONGOG_RELEASE=1 MONGOG_SIGN_RELEASE=1 node scripts/validate-release-environment.mjs --platform darwin --tag "$RELEASE_TAG"
       - run:
           name: Build and verify unsigned E2E package
           command: |
@@ -290,23 +290,51 @@ jobs:
                 name: Run packaged E2E on the native macOS architecture
                 command: npm run test:e2e
       - run:
-          name: Build hardened unsigned production package
-          command: MONGOG_RELEASE=1 npm run package -- --platform=darwin --arch=<< parameters.arch >>
+          name: Prepare ephemeral Apple signing keychain
+          command: |
+            SIGNING_DIRECTORY="$(mktemp -d /tmp/mongog-signing.XXXXXX)"
+            node scripts/materialize-signing-assets.mjs --platform darwin --directory "$SIGNING_DIRECTORY"
+            SIGNING_KEYCHAIN="$SIGNING_DIRECTORY/mongog-signing.keychain-db"
+            security create-keychain -p "$MACOS_CERTIFICATE_PASSWORD" "$SIGNING_KEYCHAIN"
+            security set-keychain-settings -lut 21600 "$SIGNING_KEYCHAIN"
+            security unlock-keychain -p "$MACOS_CERTIFICATE_PASSWORD" "$SIGNING_KEYCHAIN"
+            security import "$SIGNING_DIRECTORY/mongog-release-certificate.p12" \
+              -k "$SIGNING_KEYCHAIN" -P "$MACOS_CERTIFICATE_PASSWORD" \
+              -T /usr/bin/codesign -T /usr/bin/security
+            security set-key-partition-list -S apple-tool:,apple: -s \
+              -k "$MACOS_CERTIFICATE_PASSWORD" "$SIGNING_KEYCHAIN"
+            security list-keychains -d user -s "$SIGNING_KEYCHAIN"
+            security find-identity -v -p codesigning "$SIGNING_KEYCHAIN" | grep -Fq "$MACOS_SIGN_IDENTITY"
+            echo "export MACOS_KEYCHAIN='$SIGNING_KEYCHAIN'" >> "$BASH_ENV"
+            echo "export APPLE_API_KEY_PATH='$SIGNING_DIRECTORY/apple-api-key.p8'" >> "$BASH_ENV"
+            echo "unset MACOS_CERTIFICATE_P12_BASE64 APPLE_API_KEY_P8_BASE64" >> "$BASH_ENV"
+      - run:
+          name: Build, sign, and notarize production package
+          command: MONGOG_RELEASE=1 MONGOG_SIGN_RELEASE=1 npm run package -- --platform=darwin --arch=<< parameters.arch >>
       - run:
           name: Make macOS ZIP
-          command: MONGOG_RELEASE=1 npm run make -- --skip-package --platform=darwin --arch=<< parameters.arch >> --targets=@electron-forge/maker-zip
+          command: MONGOG_RELEASE=1 MONGOG_SIGN_RELEASE=1 npm run make -- --skip-package --platform=darwin --arch=<< parameters.arch >> --targets=@electron-forge/maker-zip
       - run:
-          name: Make and verify macOS DMG
+          name: Make, notarize, staple, and verify macOS DMG
           command: |
-            MONGOG_RELEASE=1 node scripts/make-macos-dmg.mjs --arch << parameters.arch >>
+            MONGOG_RELEASE=1 MONGOG_SIGN_RELEASE=1 node scripts/make-macos-dmg.mjs --arch << parameters.arch >>
             DMG_PATH="$(find out/make -type f -name '*.dmg' -print -quit)"
             test -n "$DMG_PATH"
+            xcrun notarytool submit "$DMG_PATH" \
+              --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY_ID" \
+              --issuer "$APPLE_API_ISSUER_ID" --wait
+            xcrun stapler staple "$DMG_PATH"
+            xcrun stapler validate "$DMG_PATH"
             hdiutil verify "$DMG_PATH"
       - run:
-          name: Verify production package and architecture
+          name: Verify signed production package and architecture
           command: |
-            MONGOG_RELEASE=1 npm run verify:package -- --platform darwin --arch << parameters.arch >> --release
+            MONGOG_RELEASE=1 MONGOG_SIGN_RELEASE=1 npm run verify:package -- --platform darwin --arch << parameters.arch >> --release
             APP_PATH="out/MongoG-darwin-<< parameters.arch >>/MongoG.app"
+            codesign --verify --deep --strict --verbose=4 "$APP_PATH"
+            codesign -dv --verbose=4 "$APP_PATH" 2>&1 | grep -Fq "Authority=$MACOS_SIGN_IDENTITY"
+            spctl --assess --type execute --verbose=4 "$APP_PATH"
+            xcrun stapler validate "$APP_PATH"
             EXPECTED_MACHO_ARCH="<< parameters.arch >>"
             if [[ "$EXPECTED_MACHO_ARCH" == "x64" ]]; then EXPECTED_MACHO_ARCH="x86_64"; fi
             lipo -archs "$APP_PATH/Contents/MacOS/MongoG" | tr ' ' '\n' | grep -Fxq "$EXPECTED_MACHO_ARCH"
@@ -316,10 +344,10 @@ jobs:
           steps:
             - run:
                 name: Run production packaged smoke
-                command: MONGOG_SMOKE_ALLOW_UNAVAILABLE_SECURE_STORAGE=1 npm run smoke:packaged -- --platform darwin --arch arm64
+                command: npm run smoke:packaged -- --platform darwin --arch arm64
       - run:
           name: Normalize macOS artifacts
-          command: npm run collect:release -- --platform darwin --arch << parameters.arch >> --output "release-inputs/macos-<< parameters.arch >>" --clean --unsigned
+          command: npm run collect:release -- --platform darwin --arch << parameters.arch >> --output "release-inputs/macos-<< parameters.arch >>" --clean
       - persist_to_workspace:
           root: .
           paths: [release-inputs/macos-<< parameters.arch >>]
@@ -433,19 +461,19 @@ jobs:
           command: |
             mkdir -p release-inputs
             find /tmp/mongog-release/release-inputs -mindepth 2 -maxdepth 2 -type f -exec cp {} release-inputs/ \;
-            node scripts/verify-release-assets.mjs --directory release-inputs --tag "$RELEASE_TAG" --unsigned
+            node scripts/verify-release-assets.mjs --directory release-inputs --tag "$RELEASE_TAG" --unsigned --signed-macos
       - run:
           name: Create or update the draft GitHub release
           command: |
             test -n "$GH_TOKEN" || { echo "GH_TOKEN is required in the restricted release context." >&2; exit 1; }
-            UNSIGNED_NOTICE="⚠️ UNSIGNED PRE-RELEASE: artifacts are not signed with Apple Developer ID or Windows Authenticode, and macOS artifacts are not notarized. Operating-system security warnings are expected. Verify downloads with SHA256SUMS.txt."
+            RELEASE_NOTICE="macOS artifacts are signed with Apple Developer ID and notarized by Apple. Windows artifacts remain unsigned and can trigger Microsoft Defender SmartScreen. Verify downloads with SHA256SUMS.txt."
             if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
               IS_DRAFT="$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)"
               test "$IS_DRAFT" = "true" || { echo "Refusing to replace an already published release." >&2; exit 1; }
               gh release upload "$RELEASE_TAG" release-inputs/* --clobber
-              gh release edit "$RELEASE_TAG" --prerelease --title "MongoG $RELEASE_TAG [UNSIGNED]"
+              gh release edit "$RELEASE_TAG" --prerelease --title "MongoG $RELEASE_TAG"
             else
-              gh release create "$RELEASE_TAG" release-inputs/* --draft --prerelease --verify-tag --generate-notes --notes "$UNSIGNED_NOTICE" --title "MongoG $RELEASE_TAG [UNSIGNED]"
+              gh release create "$RELEASE_TAG" release-inputs/* --draft --prerelease --verify-tag --generate-notes --notes "$RELEASE_NOTICE" --title "MongoG $RELEASE_TAG"
             fi
       - store_artifacts:
           path: release-inputs
@@ -478,9 +506,11 @@ workflows:
       - release_macos:
           name: release-macos-arm64
           arch: arm64
+          context: release
       - release_macos:
           name: release-macos-x64
           arch: x64
+          context: release
       - release_windows:
           name: release-windows-x64
       - release_linux:

@@ -67,7 +67,10 @@ describe('release tooling', () => {
     expect(workflow).toContain('pipeline.git.tag matches /^v[0-9]+\\.[0-9]+\\.[0-9]+$/');
     expect(workflow).toContain('persist_to_workspace:');
     expect(workflow).toContain('attach_workspace: { at: /tmp/mongog-release }');
-    expect(workflow).toContain('node scripts/verify-release-assets.mjs --directory release-inputs --tag "$RELEASE_TAG" --unsigned');
+    expect(workflow).toContain('node scripts/verify-release-assets.mjs --directory release-inputs --tag "$RELEASE_TAG" --unsigned --signed-macos');
+    expect(workflow).toContain('MONGOG_RELEASE=1 MONGOG_SIGN_RELEASE=1 npm run package -- --platform=darwin');
+    expect(workflow).toContain('xcrun notarytool submit "$DMG_PATH"');
+    expect(workflow).toContain('xcrun stapler validate "$APP_PATH"');
     expect(workflow).toContain('GH_TOKEN is required in the restricted release context.');
     expect(workflow).toContain('Refusing to replace an already published release.');
     expect(workflow).toContain('context: release');
@@ -219,5 +222,33 @@ describe('release tooling', () => {
     const checksums = readFileSync(path.join(directory, 'SHA256SUMS.txt'), 'utf8');
     expect(checksums.trim().split('\n')).toHaveLength(9);
     expect(checksums).toContain(`MongoG-${packageMetadata.version}-UNSIGNED-macOS-arm64.dmg`);
+  });
+
+  it('accepts signed macOS artifacts alongside unsigned Windows and Linux artifacts', () => {
+    const directory = scratch();
+    const names = [
+      `MongoG-${packageMetadata.version}-macOS-arm64.dmg`,
+      `MongoG-${packageMetadata.version}-macOS-arm64.zip`,
+      `MongoG-${packageMetadata.version}-macOS-x64.dmg`,
+      `MongoG-${packageMetadata.version}-macOS-x64.zip`,
+      `MongoG-${packageMetadata.version}-UNSIGNED-win-x64.zip`,
+      `MongoG-${packageMetadata.version}-UNSIGNED-linux-x64.zip`,
+      `MongoG-Setup-${packageMetadata.version}-UNSIGNED-win-x64.exe`,
+      `mongog-${packageMetadata.version}-UNSIGNED-1.x86_64.rpm`,
+      `mongog_${packageMetadata.version}-UNSIGNED_amd64.deb`,
+    ];
+    for (const name of names) writeFileSync(path.join(directory, name), name);
+
+    execFileSync(process.execPath, [
+      script('verify-release-assets.mjs'),
+      '--directory', directory,
+      '--tag', `v${packageMetadata.version}`,
+      '--unsigned',
+      '--signed-macos',
+    ]);
+
+    const checksums = readFileSync(path.join(directory, 'SHA256SUMS.txt'), 'utf8');
+    expect(checksums.trim().split('\n')).toHaveLength(9);
+    expect(checksums).toContain(`MongoG-${packageMetadata.version}-macOS-arm64.dmg`);
   });
 });
