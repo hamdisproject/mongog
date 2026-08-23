@@ -187,7 +187,7 @@ jobs:
             mkdir -p ci-artifacts
             ditto -c -k --sequesterRsrc --keepParent \
               "out/MongoG-darwin-<< parameters.arch >>/MongoG.app" \
-              "ci-artifacts/MongoG-${VERSION}-macOS-<< parameters.arch >>.zip"
+              "ci-artifacts/MongoG-${VERSION}-UNSIGNED-macOS-<< parameters.arch >>.zip"
       - store_artifacts:
           path: ci-artifacts
           destination: packages
@@ -469,11 +469,15 @@ workflows:
           name: release-macos-arm64
           arch: arm64
           context: release
+          filters: pipeline.parameters.run_release or (pipeline.git.tag matches /^v[0-9]+\.[0-9]+\.[0-9]+$/)
       - release_macos:
           name: release-macos-x64
           arch: x64
           context: release
+          filters: pipeline.parameters.run_release or (pipeline.git.tag matches /^v[0-9]+\.[0-9]+\.[0-9]+$/)
       - release_windows:
           name: release-windows-x64
+          filters: pipeline.parameters.run_release or (pipeline.git.tag matches /^v[0-9]+\.[0-9]+\.[0-9]+$/)
       - release_linux:
           name: release-linux-x64
+          filters: pipeline.parameters.run_release or (pipeline.git.tag matches /^v[0-9]+\.[0-9]+\.[0-9]+$/)
