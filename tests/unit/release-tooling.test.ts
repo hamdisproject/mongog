@@ -44,7 +44,9 @@ describe('release tooling', () => {
     expect(workflow).toContain('name: package-smoke-windows-x64');
     expect(workflow).toContain('name: package-smoke-linux-x64');
     expect(workflow).toContain('if [[ "$EXPECTED_MACHO_ARCH" == "x64" ]]; then EXPECTED_MACHO_ARCH="x86_64"; fi');
-    expect(workflow).toContain('grep -Fxq "$EXPECTED_MACHO_ARCH"');
+    expect(workflow).toContain('[[ " $MACHO_ARCHS " == *" $EXPECTED_MACHO_ARCH "* ]]');
+    expect(workflow).toContain('[[ "$SIGNING_IDENTITIES" == *"$MACOS_SIGN_IDENTITY"* ]]');
+    expect(workflow).not.toMatch(/\| grep -[^\n]*q/u);
     expect(workflow).toContain('node scripts/make-macos-dmg.mjs --arch << parameters.arch >>');
     expect(workflow).toContain('--targets=@electron-forge/maker-zip');
     expect(workflow).toContain('hdiutil verify "$DMG_PATH"');

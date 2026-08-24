@@ -304,7 +304,8 @@ jobs:
             security set-key-partition-list -S apple-tool:,apple: -s \
               -k "$MACOS_CERTIFICATE_PASSWORD" "$SIGNING_KEYCHAIN"
             security list-keychains -d user -s "$SIGNING_KEYCHAIN"
-            security find-identity -v -p codesigning "$SIGNING_KEYCHAIN" | grep -Fq "$MACOS_SIGN_IDENTITY"
+            SIGNING_IDENTITIES="$(security find-identity -v -p codesigning "$SIGNING_KEYCHAIN")"
+            [[ "$SIGNING_IDENTITIES" == *"$MACOS_SIGN_IDENTITY"* ]]
             echo "export MACOS_KEYCHAIN='$SIGNING_KEYCHAIN'" >> "$BASH_ENV"
             echo "export APPLE_API_KEY_PATH='$SIGNING_DIRECTORY/apple-api-key.p8'" >> "$BASH_ENV"
             echo "unset MACOS_CERTIFICATE_P12_BASE64 APPLE_API_KEY_P8_BASE64" >> "$BASH_ENV"
@@ -332,12 +333,14 @@ jobs:
             MONGOG_RELEASE=1 MONGOG_SIGN_RELEASE=1 npm run verify:package -- --platform darwin --arch << parameters.arch >> --release
             APP_PATH="out/MongoG-darwin-<< parameters.arch >>/MongoG.app"
             codesign --verify --deep --strict --verbose=4 "$APP_PATH"
-            codesign -dv --verbose=4 "$APP_PATH" 2>&1 | grep -Fq "Authority=$MACOS_SIGN_IDENTITY"
+            CODESIGN_DETAILS="$(codesign -dv --verbose=4 "$APP_PATH" 2>&1)"
+            [[ "$CODESIGN_DETAILS" == *"Authority=$MACOS_SIGN_IDENTITY"* ]]
             spctl --assess --type execute --verbose=4 "$APP_PATH"
             xcrun stapler validate "$APP_PATH"
             EXPECTED_MACHO_ARCH="<< parameters.arch >>"
             if [[ "$EXPECTED_MACHO_ARCH" == "x64" ]]; then EXPECTED_MACHO_ARCH="x86_64"; fi
-            lipo -archs "$APP_PATH/Contents/MacOS/MongoG" | tr ' ' '\n' | grep -Fxq "$EXPECTED_MACHO_ARCH"
+            MACHO_ARCHS="$(lipo -archs "$APP_PATH/Contents/MacOS/MongoG")"
+            [[ " $MACHO_ARCHS " == *" $EXPECTED_MACHO_ARCH "* ]]
       - when:
           condition:
             equal: [arm64, << parameters.arch >>]

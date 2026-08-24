@@ -19,8 +19,8 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
-    version: '1.2.2',
-    releasedAt: '2026-08-23',
+    version: '1.2.3',
+    releasedAt: '2026-08-24',
     title: 'Trusted macOS downloads',
     summary: 'MongoG macOS release packages are now signed, notarized and delivered directly through CircleCI.',
     sections: [
