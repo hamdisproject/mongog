@@ -1,6 +1,11 @@
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 import type { ForgeConfig } from '@electron-forge/shared-types';
+import type { OsxSignOptions } from '@electron/packager';
 import path from 'node:path';
+
+// Electron Packager 18.4.4 implements this compatibility switch in
+// signAppIfSpecified/createSignOpts, but omits it from its exported option type.
+type PackagerOsxSignOptions = OsxSignOptions & { continueOnError?: boolean };
 
 const isProductionRelease = process.env.MONGOG_RELEASE === '1';
 const isSignedRelease = isProductionRelease && process.env.MONGOG_SIGN_RELEASE === '1';
@@ -20,6 +25,18 @@ const macRelease = isSignedRelease && process.platform === 'darwin'
       apiKeyPath: requiredEnvironment('APPLE_API_KEY_PATH'),
       apiKeyId: requiredEnvironment('APPLE_API_KEY_ID'),
       apiIssuer: requiredEnvironment('APPLE_API_ISSUER_ID'),
+    }
+  : null;
+
+const macSignOptions: PackagerOsxSignOptions | null = macRelease
+  ? {
+      identity: macRelease.identity,
+      keychain: macRelease.keychain,
+      // Electron Packager otherwise continues to notarization after a
+      // codesign failure and hides the actionable signing error.
+      continueOnError: false,
+      // @electron/osx-sign enables hardened runtime by default and supplies
+      // its Electron-compatible built-in entitlements.
     }
   : null;
 
@@ -59,12 +76,7 @@ const config: ForgeConfig = {
     },
     ...(macRelease
       ? {
-          osxSign: {
-            identity: macRelease.identity,
-            keychain: macRelease.keychain,
-            // @electron/osx-sign enables hardened runtime by default and
-            // supplies its Electron-compatible built-in entitlements.
-          },
+          osxSign: macSignOptions!,
           osxNotarize: {
             appleApiKey: macRelease.apiKeyPath,
             appleApiKeyId: macRelease.apiKeyId,
@@ -199,6 +211,10 @@ const config: ForgeConfig = {
       name: '@electron-forge/plugin-fuses',
       config: {
         version: FuseVersion.V1,
+        // Flipping fuses mutates Electron's existing ad-hoc signature. Reset
+        // the bundle signature before Packager applies the Developer ID
+        // signature, otherwise codesign sees stale CodeResources metadata.
+        resetAdHocDarwinSignature: true,
         // utilityProcess is the recommended replacement; child_process.fork
         // is intentionally not used anywhere in this codebase.
         [FuseV1Options.RunAsNode]: false,

@@ -304,7 +304,9 @@ jobs:
             security set-key-partition-list -S apple-tool:,apple: -s \
               -k "$MACOS_CERTIFICATE_PASSWORD" "$SIGNING_KEYCHAIN"
             security list-keychains -d user -s "$SIGNING_KEYCHAIN"
-            SIGNING_IDENTITIES="$(security find-identity -v -p codesigning "$SIGNING_KEYCHAIN")"
+            # Match @electron/osx-sign's identity lookup exactly so a missing
+            # intermediate certificate cannot pass this guard.
+            SIGNING_IDENTITIES="$(security find-identity -v "$SIGNING_KEYCHAIN")"
             [[ "$SIGNING_IDENTITIES" == *"$MACOS_SIGN_IDENTITY"* ]]
             echo "export MACOS_KEYCHAIN='$SIGNING_KEYCHAIN'" >> "$BASH_ENV"
             echo "export APPLE_API_KEY_PATH='$SIGNING_DIRECTORY/apple-api-key.p8'" >> "$BASH_ENV"

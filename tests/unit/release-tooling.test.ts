@@ -59,6 +59,10 @@ describe('release tooling', () => {
     expect(workflow).toContain('ci-artifacts/MongoG-${VERSION}-linux-x64.tar.gz');
     expect(workflow.match(/destination: packages/gu)).toHaveLength(3);
     expect(workflow).not.toContain('--no-sandbox');
+
+    const forgeConfig = readFileSync(path.resolve(process.cwd(), 'forge.config.mts'), 'utf8');
+    expect(forgeConfig).toContain('continueOnError: false');
+    expect(forgeConfig).toContain('resetAdHocDarwinSignature: true');
   });
 
   it('stores version-tag release artifacts directly in CircleCI', () => {
