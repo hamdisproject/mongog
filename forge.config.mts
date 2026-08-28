@@ -1,11 +1,19 @@
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 import type { OsxSignOptions } from '@electron/packager';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 // Electron Packager 18.4.4 implements this compatibility switch in
 // signAppIfSpecified/createSignOpts, but omits it from its exported option type.
 type PackagerOsxSignOptions = OsxSignOptions & { continueOnError?: boolean };
+
+// Homebrew may place a just-released Python ahead of macOS's system Python.
+// Native dependencies can lag behind that release, so prefer the Xcode-backed
+// system interpreter for node-gyp unless the caller selected one explicitly.
+if (process.platform === 'darwin' && !process.env.PYTHON && existsSync('/usr/bin/python3')) {
+  process.env.PYTHON = '/usr/bin/python3';
+}
 
 const isProductionRelease = process.env.MONGOG_RELEASE === '1';
 const isSignedRelease = isProductionRelease && process.env.MONGOG_SIGN_RELEASE === '1';
