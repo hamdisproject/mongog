@@ -1189,6 +1189,123 @@ test('global collection defaults persist and auto-run a new Query collection onc
   }
 });
 
+test('Explorer collection opening preference creates independent tabs or reuses the first match', async () => {
+  test.setTimeout(120_000);
+  let page = await launch();
+  await page.getByRole('button', { name: 'Open application settings' }).click();
+
+  const documentsDefault = page.getByRole('radio', { name: 'Documents default collection view' });
+  if (await documentsDefault.getAttribute('aria-checked') !== 'true') await documentsDefault.click();
+  await expect(documentsDefault).toHaveAttribute('aria-checked', 'true');
+
+  const reuseExisting = page.getByRole('radio', {
+    name: 'Reuse existing tab for Explorer collections',
+  });
+  if (await reuseExisting.getAttribute('aria-checked') !== 'true') await reuseExisting.click();
+  await expect(reuseExisting).toHaveAttribute('aria-checked', 'true');
+
+  await page.getByRole('button', { name: 'Open Welcome' }).click();
+  await page.getByRole('button', { name: 'New Connection', exact: true }).click();
+  await page.getByLabel('Connection name').fill('Explorer Tabs E2E');
+  await page.getByLabel('Connection URI').fill(mongoUri);
+  await page.getByLabel('Default database').fill('mongog_e2e');
+  await page.getByRole('button', { name: 'Test, Save & Connect' }).click();
+  await expect(page.getByText('Connection tested, saved, and connected.'))
+    .toBeVisible({ timeout: 30_000 });
+
+  const explorer = page.getByRole('navigation', { name: 'Connection explorer' });
+  const profile = explorer.getByRole('treeitem', { name: 'Connection Explorer Tabs E2E' });
+  await profile.focus();
+  await profile.press('ArrowRight');
+  const database = explorer.getByRole('treeitem', { name: 'Database mongog_e2e' });
+  await expect(database).toBeVisible({ timeout: 15_000 });
+  await database.focus();
+  await database.press('ArrowRight');
+  const collection = page.getByTitle('Open mongog_e2e.inventory');
+  await expect(collection).toBeVisible({ timeout: 15_000 });
+
+  const collectionTabs = page.locator('[data-tab-kind="collection"]');
+  const initialCollectionTabCount = await collectionTabs.count();
+  await collection.click();
+  await expect(collectionTabs).toHaveCount(initialCollectionTabCount + 1);
+  const firstTabId = await page.locator('[data-tab-kind="collection"][data-tab-active="true"]')
+    .getAttribute('data-tab-id');
+  if (!firstTabId) throw new Error('Expected the first Explorer collection tab');
+
+  await collection.click();
+  await expect(collectionTabs).toHaveCount(initialCollectionTabCount + 1);
+  await expect(page.locator(`[data-tab-id="${firstTabId}"]`)).toHaveAttribute('data-tab-active', 'true');
+
+  await page.getByRole('button', { name: 'Open application settings' }).click();
+  const alwaysNew = page.getByRole('radio', {
+    name: 'Always open a new tab for Explorer collections',
+  });
+  await alwaysNew.click();
+  await expect(alwaysNew).toHaveAttribute('aria-checked', 'true');
+
+  await collection.click();
+  await expect(collectionTabs).toHaveCount(initialCollectionTabCount + 2);
+  const secondTabId = await page.locator('[data-tab-kind="collection"][data-tab-active="true"]')
+    .getAttribute('data-tab-id');
+  if (!secondTabId) throw new Error('Expected a second Explorer collection tab');
+  await expect(page.locator(`[data-collection-surface="${secondTabId}"]`).getByText('"alpha"', { exact: true }))
+    .toBeVisible({ timeout: 15_000 });
+
+  await collection.click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Open Documents' }).click();
+  await expect(collectionTabs).toHaveCount(initialCollectionTabCount + 3);
+  const thirdTabId = await page.locator('[data-tab-kind="collection"][data-tab-active="true"]')
+    .getAttribute('data-tab-id');
+  if (!thirdTabId) throw new Error('Expected a third Explorer collection tab');
+  const thirdSurface = page.locator(`[data-collection-surface="${thirdTabId}"]`);
+  await expect(thirdSurface.getByText('"alpha"', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await thirdSurface.getByLabel('Documents page size').selectOption('25');
+  await expect(thirdSurface.getByLabel('Documents page size')).toHaveValue('25');
+
+  const secondTab = page.locator(`[data-tab-id="${secondTabId}"]`);
+  const secondSurface = page.locator(`[data-collection-surface="${secondTabId}"]`);
+  await secondTab.click();
+  await expect(secondSurface.getByLabel('Documents page size')).toHaveValue('default');
+
+  const client = new MongoClient(mongoUri);
+  await client.connect();
+  try {
+    await client.db('mongog_e2e').collection('inventory').updateOne(
+      { sku: 'alpha' },
+      { $set: { explorerTabProbe: 'refresh-only' } },
+    );
+    await page.locator(`[data-tab-id="${thirdTabId}"]`).click();
+    await expect(thirdSurface.getByText('"refresh-only"', { exact: true })).toHaveCount(0);
+    await thirdSurface.getByRole('button', { name: 'Refresh', exact: true }).click();
+    await expect(thirdSurface.getByText('"refresh-only"', { exact: true })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Open application settings' }).click();
+    await reuseExisting.click();
+    await expect(reuseExisting).toHaveAttribute('aria-checked', 'true');
+    await collection.click();
+    await expect(collectionTabs).toHaveCount(initialCollectionTabCount + 3);
+    await expect(page.locator(`[data-tab-id="${firstTabId}"]`))
+      .toHaveAttribute('data-tab-active', 'true');
+
+    await page.getByRole('button', { name: 'Open application settings' }).click();
+    await alwaysNew.click();
+    await expect(alwaysNew).toHaveAttribute('aria-checked', 'true');
+    await application!.close();
+    application = null;
+    page = await launch();
+    await page.getByRole('button', { name: 'Open application settings' }).click();
+    await expect(page.getByRole('radio', {
+      name: 'Always open a new tab for Explorer collections',
+    })).toHaveAttribute('aria-checked', 'true');
+  } finally {
+    await client.db('mongog_e2e').collection('inventory').updateOne(
+      { sku: 'alpha' },
+      { $unset: { explorerTabProbe: '' } },
+    ).catch(() => undefined);
+    await client.close();
+  }
+});
+
 async function setMonacoValue(page: Page, label: string, value: string): Promise<void> {
   const kind = label.replace('Collection ', '');
   await page.getByTestId(`criteria-editor-${kind}`).evaluate((element) => {

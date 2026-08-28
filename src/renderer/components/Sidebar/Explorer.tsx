@@ -585,7 +585,12 @@ function ProfileNode({
     }
   };
   const handleCollectionClick = (database: string, collection: string) => {
-    openCollection({ connectionId: profile.id, database, collection });
+    openCollection({
+      connectionId: profile.id,
+      database,
+      collection,
+      disposition: useSettingsStore.getState().settings.collection.explorerOpenBehavior,
+    });
   };
 
   const showConnectionMenu = (event: React.MouseEvent) => {
@@ -673,6 +678,7 @@ function ProfileNode({
             database,
             collection,
             viewMode: 'documents',
+            disposition: useSettingsStore.getState().settings.collection.explorerOpenBehavior,
           }),
         },
         {

@@ -70,6 +70,19 @@ const collectionViewOptions = [
   },
 ];
 
+const explorerCollectionOpenOptions = [
+  {
+    id: 'reuse-existing' as const,
+    label: 'Reuse existing tab',
+    description: 'Focus the first open tab for the same connection, database, and collection.',
+  },
+  {
+    id: 'new-tab' as const,
+    label: 'Always open a new tab',
+    description: 'Create an independent collection tab for every Explorer open action.',
+  },
+];
+
 const tableColumnOrderOptions = [
   {
     id: 'alphabetical' as const,
@@ -104,6 +117,7 @@ export function SettingsView() {
     setTheme,
     setBsonDisplayMode,
     setCollectionDefaults,
+    setExplorerCollectionOpenBehavior,
     setTableColumnOrder,
     setConnectionIdleTimeout,
     setPageSize,
@@ -320,6 +334,50 @@ export function SettingsView() {
                       ? settings.collection.autoExecuteDefaultQuery
                       : false,
                   })}
+                  style={{
+                    minHeight: 70,
+                    border: `1px solid ${selected ? theme.colors.accentHover : theme.colors.borderStrong}`,
+                    borderRadius: 6,
+                    background: selected ? theme.colors.selected : theme.colors.input,
+                    color: theme.colors.text,
+                    padding: '12px 13px',
+                    textAlign: 'left',
+                    cursor: !loaded || saving ? 'default' : 'pointer',
+                    boxShadow: selected ? `0 0 0 1px ${theme.colors.accentHover}` : 'none',
+                  }}
+                >
+                  <strong style={{ display: 'block', fontSize: 12 }}>{option.label}</strong>
+                  <span style={{ display: 'block', marginTop: 5, color: theme.colors.textMuted, fontSize: 10, lineHeight: 1.45 }}>
+                    {option.description}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ padding: '16px 17px 0' }}>
+            <strong style={{ display: 'block', fontSize: 12 }}>Opening collections from Explorer</strong>
+            <span style={{ display: 'block', marginTop: 4, color: theme.colors.textMuted, fontSize: 10, lineHeight: 1.45 }}>
+              Choose whether collection clicks and Open Documents reuse an open namespace tab or create a separate workspace.
+            </span>
+          </div>
+          <div
+            data-testid="explorer-collection-open-settings"
+            role="radiogroup"
+            aria-label="Explorer collection tab behavior"
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, padding: '12px 16px 0' }}
+          >
+            {explorerCollectionOpenOptions.map((option) => {
+              const selected = settings.collection.explorerOpenBehavior === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  aria-label={`${option.label} for Explorer collections`}
+                  disabled={!loaded || saving}
+                  onClick={() => void setExplorerCollectionOpenBehavior(option.id)}
                   style={{
                     minHeight: 70,
                     border: `1px solid ${selected ? theme.colors.accentHover : theme.colors.borderStrong}`,

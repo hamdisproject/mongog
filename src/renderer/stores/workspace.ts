@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type {
   ConsoleEntry,
+  CollectionOpenDisposition,
   DocumentsPage,
   EngineEvent,
   QueryResult,
@@ -84,6 +85,7 @@ interface WorkspaceState {
     database: string;
     collection: string;
     viewMode?: CollectionViewMode;
+    disposition?: CollectionOpenDisposition;
   }) => string;
   openSavedItem: (item: SavedItem) => string;
   openAdmin: (options: { connectionId: string; database: string; collection?: string; section: NonNullable<WorkspaceTab['adminSection']> }) => string;
@@ -250,15 +252,17 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
   },
 
   openCollection: (options) => {
-    const existing = get().tabs.find((tab) => (
-      tab.kind === 'collection' &&
-      tab.connectionId === options.connectionId &&
-      tab.database === options.database &&
-      tab.collection === options.collection
-    ));
-    if (existing) {
-      set({ activeTabId: existing.id });
-      return existing.id;
+    if ((options.disposition ?? 'reuse-existing') === 'reuse-existing') {
+      const existing = get().tabs.find((tab) => (
+        tab.kind === 'collection' &&
+        tab.connectionId === options.connectionId &&
+        tab.database === options.database &&
+        tab.collection === options.collection
+      ));
+      if (existing) {
+        set({ activeTabId: existing.id });
+        return existing.id;
+      }
     }
     const settings = useSettingsStore.getState().settings;
     const viewMode = options.viewMode ?? settings.collection.defaultView;

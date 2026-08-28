@@ -353,6 +353,7 @@ export const applicationSettingsSchema = z.object({
   collection: z.object({
     defaultView: z.enum(['documents', 'query']),
     autoExecuteDefaultQuery: z.boolean(),
+    explorerOpenBehavior: z.enum(['reuse-existing', 'new-tab']),
   }),
   table: z.object({
     columnOrder: z.enum(['alphabetical', 'document']),
