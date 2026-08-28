@@ -350,6 +350,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toHaveAttribute('data-tab-pinned', 'true');
   await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toHaveAttribute('title', /^query: Pinned query/);
   await expect(page.locator(`[data-tab-id="${collectionTabId}"]`)).toHaveAttribute('title', /^collection: Inventory work/);
+  await expect(page.locator(`[data-collection-surface="${collectionTabId}"]`)).toHaveCount(0);
   explorer = page.getByRole('navigation', { name: 'Connection explorer' });
   await expect(explorer.getByRole('button', { name: 'Connect', exact: true })).toBeVisible();
   await expect(
@@ -493,6 +494,9 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByLabel('Collection projection')).toBeVisible();
   await expectViewportLocked(page);
   const documentsTable = page.getByTestId('collection-documents-table');
+  await expect.poll(() => collectionColumnNames(page))
+    .toEqual(['_id', 'sku', 'quantity', 'amenities', 'catalog']);
+  await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   await expect.poll(() => collectionColumnNames(page))
     .toEqual(['_id', 'sku', 'quantity', 'amenities', 'catalog', 'status']);
   const firstDocumentRow = documentsTable.locator('tbody tr').first();
@@ -1082,6 +1086,107 @@ test('global collection defaults persist and auto-run a new Query collection onc
   }
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   await expect(page.getByText('"alpha"', { exact: true })).toBeVisible();
+
+  const retainedCollectionTabId = await page
+    .locator('[data-tab-kind="collection"][data-tab-active="true"]')
+    .getAttribute('data-tab-id');
+  if (!retainedCollectionTabId) throw new Error('Expected an active collection tab');
+  const retainedCollectionTab = page.locator(`[data-tab-id="${retainedCollectionTabId}"]`);
+  const retainedCollectionSurface = page.locator(
+    `[data-collection-surface="${retainedCollectionTabId}"]`,
+  );
+  const lifecycleClient = new MongoClient(mongoUri);
+  await lifecycleClient.connect();
+  try {
+    await page.locator('[data-tab-kind="settings"]').click();
+    await lifecycleClient.db('mongog_e2e').collection('inventory').updateOne(
+      { sku: 'alpha' },
+      { $set: { tabSwitchProbe: 'visible-after-refresh' } },
+    );
+    await lifecycleClient.db('admin').command({
+      configureFailPoint: 'failCommand',
+      mode: { times: 1 },
+      data: { failCommands: ['find'], blockConnection: true, blockTimeMS: 1_000 },
+    });
+
+    await retainedCollectionTab.click();
+    await page.evaluate(() => new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    }));
+    await expect(retainedCollectionSurface.getByTestId('loading-overlay')).toHaveCount(0);
+    await expect(retainedCollectionSurface.getByText('"visible-after-refresh"', { exact: true }))
+      .toHaveCount(0);
+
+    await retainedCollectionSurface.getByRole('button', { name: 'Refresh', exact: true }).click();
+    await expect(retainedCollectionSurface.getByTestId('loading-overlay')).toBeVisible();
+    await expect(retainedCollectionSurface.getByText('"visible-after-refresh"', { exact: true }))
+      .toBeVisible({ timeout: 10_000 });
+
+    await lifecycleClient.db('mongog_e2e').collection('inventory').updateOne(
+      { sku: 'alpha' },
+      { $set: { tabSwitchProbe: 'completed-while-hidden' } },
+    );
+    await lifecycleClient.db('admin').command({
+      configureFailPoint: 'failCommand',
+      mode: { times: 1 },
+      data: { failCommands: ['find'], blockConnection: true, blockTimeMS: 1_000 },
+    });
+    await retainedCollectionSurface.getByRole('button', { name: 'Refresh', exact: true }).click();
+    await expect(retainedCollectionSurface.getByTestId('loading-overlay')).toBeVisible();
+    await page.locator('[data-tab-kind="settings"]').click();
+    await expect(retainedCollectionSurface.getByTestId('loading-overlay'))
+      .toHaveCount(0, { timeout: 10_000 });
+    await retainedCollectionTab.click();
+    await expect(retainedCollectionSurface.getByText('"completed-while-hidden"', { exact: true }))
+      .toBeVisible();
+
+    await lifecycleClient.db('mongog_e2e').collection('inventory_secondary').insertOne({
+      sku: 'secondary',
+      quantity: 1,
+    });
+    const defaultsExplorer = page.getByRole('navigation', { name: 'Connection explorer' });
+    const defaultsProfile = defaultsExplorer.getByRole('treeitem', { name: 'Connection Defaults E2E' });
+    await defaultsProfile.focus();
+    await defaultsProfile.press('ArrowRight');
+    const defaultsDatabase = defaultsExplorer.getByRole('treeitem', { name: 'Database mongog_e2e' });
+    await expect(defaultsDatabase).toBeVisible();
+    await defaultsDatabase.click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Refresh Collections' }).click();
+    await defaultsDatabase.focus();
+    await defaultsDatabase.press('ArrowRight');
+    const secondaryCollection = page.getByTitle('Open mongog_e2e.inventory_secondary');
+    await expect(secondaryCollection).toBeVisible();
+    await secondaryCollection.click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Open Documents' }).click();
+    const secondaryTab = page.locator('[data-tab-kind="collection"][data-tab-active="true"]');
+    const secondaryTabId = await secondaryTab.getAttribute('data-tab-id');
+    if (!secondaryTabId) throw new Error('Expected the secondary collection tab');
+    const secondarySurface = page.locator(`[data-collection-surface="${secondaryTabId}"]`);
+    await expect(secondarySurface.getByText('"secondary"', { exact: true })).toBeVisible();
+    await secondarySurface.getByLabel('Documents page size').selectOption('25');
+    await expect(secondarySurface.getByLabel('Documents page size')).toHaveValue('25');
+
+    await retainedCollectionTab.click();
+    await expect(retainedCollectionSurface.getByText('"completed-while-hidden"', { exact: true }))
+      .toBeVisible();
+    await expect(retainedCollectionSurface.getByLabel('Documents page size')).toHaveValue('default');
+    await page.locator(`[data-tab-id="${secondaryTabId}"]`).click();
+    await expect(secondarySurface.getByLabel('Documents page size')).toHaveValue('25');
+    await page.getByTitle('Close mongog_e2e.inventory_secondary').click();
+    await expect(page.locator(`[data-collection-surface="${secondaryTabId}"]`)).toHaveCount(0);
+  } finally {
+    await lifecycleClient.db('admin').command({
+      configureFailPoint: 'failCommand',
+      mode: 'off',
+    }).catch(() => undefined);
+    await lifecycleClient.db('mongog_e2e').collection('inventory').updateOne(
+      { sku: 'alpha' },
+      { $unset: { tabSwitchProbe: '' } },
+    ).catch(() => undefined);
+    await lifecycleClient.db('mongog_e2e').collection('inventory_secondary').drop()
+      .catch(() => undefined);
+    await lifecycleClient.close();
+  }
 });
 
 async function setMonacoValue(page: Page, label: string, value: string): Promise<void> {
