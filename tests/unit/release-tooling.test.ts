@@ -63,6 +63,7 @@ describe('release tooling', () => {
     const forgeConfig = readFileSync(path.resolve(process.cwd(), 'forge.config.mts'), 'utf8');
     expect(forgeConfig).toContain('continueOnError: false');
     expect(forgeConfig).toContain('resetAdHocDarwinSignature: true');
+    expect(forgeConfig).toContain('rebuildConfig: { force: true }');
   });
 
   it('stores version-tag release artifacts directly in CircleCI', () => {

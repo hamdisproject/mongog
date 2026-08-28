@@ -120,7 +120,10 @@ const config: ForgeConfig = {
       );
     },
   },
-  rebuildConfig: {},
+  // npm rebuild (used to restore the host Node ABI for Vitest) leaves
+  // electron-rebuild's .forge-meta marker behind. Without force, Forge trusts
+  // that stale marker and can launch Electron with a Node-ABI native binary.
+  rebuildConfig: { force: true },
   makers: [
     { name: '@electron-forge/maker-zip', platforms: ['darwin', 'linux', 'win32'], config: {} },
     {
