@@ -1,7 +1,7 @@
 {
   "name": "mongog",
   "productName": "MongoG",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "MongoG - production-grade MongoDB desktop IDE",
   "author": {
     "name": "Hamdis Project",
@@ -19,23 +19,25 @@
   "packageManager": "npm@10.8.2",
   "main": ".vite/build/main.js",
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=22.13.0"
   },
   "scripts": {
     "prestart": "npm run extract:types && npm run build:runtime",
-    "start": "electron-forge start",
+    "start": "node --max-old-space-size=8192 node_modules/@electron-forge/cli/dist/electron-forge.js start",
     "build:runtime": "vite build -c vite.runtime.config.mts",
     "build:icons": "node scripts/build-macos-icns.mjs",
     "extract:types": "node scripts/extract-mongo-types.mjs",
     "pretypecheck": "npm run extract:types",
     "prepackage": "npm run extract:types && npm run build:runtime && npm run build:icons && npm run verify:icons",
-    "package": "electron-forge package",
+    "package": "node --max-old-space-size=8192 node_modules/@electron-forge/cli/dist/electron-forge.js package",
     "package:mac:legacy": "npm run package -- --platform=darwin",
-    "make": "electron-forge make",
+    "make": "node --max-old-space-size=8192 node_modules/@electron-forge/cli/dist/electron-forge.js make",
+    "make:windows:nsis": "node scripts/make-windows-nsis.mjs",
     "smoke:packaged": "node scripts/run-packaged-smoke.mjs",
     "verify:package": "node scripts/verify-packaged-app.mjs",
     "collect:release": "node scripts/collect-release-artifacts.mjs",
     "verify:release": "node scripts/verify-release-assets.mjs",
+    "generate:update-manifests": "node scripts/generate-update-manifests.mjs",
     "spike:safestorage": "electron scripts/spike-safestorage.cjs",
     "spike:monaco-types": "node scripts/spike-monaco-types.mjs",
     "test": "vitest run tests/unit",
@@ -53,7 +55,7 @@
     "better-sqlite3": "^12.10.1",
     "bson": "^7.2.0",
     "csv-parse": "^7.0.2",
-    "electron-squirrel-startup": "^1.0.1",
+    "electron-updater": "^6.8.9",
     "exceljs": "^4.4.0",
     "monaco-editor": "^0.56.0",
     "mongodb": "^7.5.0",
@@ -64,10 +66,8 @@
   },
   "devDependencies": {
     "@electron-forge/cli": "7.11.2",
-    "@electron-forge/maker-deb": "7.11.2",
     "@electron-forge/maker-dmg": "7.11.2",
     "@electron-forge/maker-rpm": "7.11.2",
-    "@electron-forge/maker-squirrel": "7.11.2",
     "@electron-forge/maker-zip": "7.11.2",
     "@electron-forge/plugin-auto-unpack-natives": "7.11.2",
     "@electron-forge/plugin-fuses": "7.11.2",
@@ -79,11 +79,20 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.2.0",
     "electron": "43.2.0",
+    "electron-builder": "26.15.3",
     "eslint": "^9.39.5",
     "mongodb-memory-server": "^11.2.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.66.0",
     "vite": "^7.0.0",
     "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "11.1.1"
+    },
+    "monaco-editor": {
+      "dompurify": "3.4.14"
+    }
   }
 }

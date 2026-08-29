@@ -17,13 +17,8 @@ function writeSecret(filename, environmentName) {
   return destination;
 }
 
-if (platform === 'darwin') {
-  writeSecret('mongog-release-certificate.p12', 'MACOS_CERTIFICATE_P12_BASE64');
-  writeSecret('apple-api-key.p8', 'APPLE_API_KEY_P8_BASE64');
-} else if (platform === 'win32') {
-  writeSecret('mongog-release-certificate.pfx', 'WINDOWS_CERTIFICATE_PFX_BASE64');
-} else {
-  throw new Error(`Signing assets are not defined for ${platform}.`);
-}
+if (platform !== 'darwin') throw new Error(`Signing assets are not defined for ${platform}.`);
+writeSecret('mongog-release-certificate.p12', 'MACOS_CERTIFICATE_P12_BASE64');
+writeSecret('apple-api-key.p8', 'APPLE_API_KEY_P8_BASE64');
 
 console.log(`Signing files materialized in the ephemeral runner directory for ${platform}.`);

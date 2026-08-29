@@ -94,6 +94,7 @@ interface WorkspaceState {
   openConnections: (options?: { mode?: 'list' | 'create' | 'edit'; profileId?: string }) => string;
   openSettings: () => string;
   openReleaseNotes: () => string;
+  openUpdates: () => string;
   openActivityLog: () => string;
   openDataTransfer: () => string;
   setCollectionView: (tabId: string, view: CollectionViewMode) => void;
@@ -221,6 +222,8 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
                 ? 'Settings'
                 : kind === 'release-notes'
                   ? 'Release Notes'
+                : kind === 'updates'
+                  ? 'Updates'
                 : kind === 'history'
                   ? 'Activity Log'
               : kind,
@@ -461,6 +464,28 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
       return keep.id;
     }
     return get().createTab('release-notes', null);
+  },
+
+  openUpdates: () => {
+    const current = get();
+    const updateTabs = current.tabs.filter((tab) => tab.kind === 'updates');
+    const keep = updateTabs[0];
+    if (keep) {
+      const duplicateIds = new Set(updateTabs.slice(1).map((tab) => tab.id));
+      const results = { ...current.results };
+      for (const id of duplicateIds) delete results[id];
+      set({
+        tabs: current.tabs
+          .filter((tab) => !duplicateIds.has(tab.id))
+          .map((tab) => tab.id === keep.id
+            ? { ...tab, title: 'Updates', customTitle: false }
+            : tab),
+        activeTabId: keep.id,
+        results,
+      });
+      return keep.id;
+    }
+    return get().createTab('updates', null);
   },
 
   openActivityLog: () => {

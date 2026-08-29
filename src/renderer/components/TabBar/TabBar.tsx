@@ -69,6 +69,7 @@ const kindIcon: Record<string, string> = {
   admin: 'A',
   'change-stream': '⇄',
   'data-transfer': '⇥',
+  updates: '⬆',
 };
 
 interface DropTarget {

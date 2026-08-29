@@ -29,13 +29,14 @@ const sourceFiles = platform === 'darwin'
     ]
   : platform === 'win32'
     ? [
-        findSingleFile(files, (file) => /setup\.exe$/iu.test(file), 'Windows Setup executable'),
-        findSingleFile(files, (file) => file.endsWith('.zip'), 'Windows ZIP'),
+        findSingleFile(
+          files,
+          (file) => /^MongoG-Setup-.*-win-x64\.exe$/iu.test(path.basename(file)),
+          'Windows Setup executable',
+        ),
       ]
     : [
-        findSingleFile(files, (file) => file.endsWith('.deb'), 'Debian package'),
         findSingleFile(files, (file) => file.endsWith('.rpm'), 'RPM package'),
-        findSingleFile(files, (file) => file.endsWith('.zip'), 'Linux ZIP'),
       ];
 
 for (let index = 0; index < sourceFiles.length; index += 1) {

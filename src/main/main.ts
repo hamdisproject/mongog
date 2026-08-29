@@ -11,15 +11,13 @@ import { IpcEvents } from '../shared/ipc/index.js';
 import { serializeError } from '../shared/errors/index.js';
 import { AuditService } from './services/audit-service.js';
 import { DataTransferCoordinator } from './data-transfer/coordinator.js';
+import { createUpdateService, type UpdateService } from './services/update-service.js';
 import { normalizeApplicationSettings } from '../shared/domain/workspace.js';
-import squirrelStartup from 'electron-squirrel-startup';
 
 const supervisor = new RuntimeSupervisor({ maxRuntimes: 10 });
 const dataTransfer = new DataTransferCoordinator(supervisor);
 app.setName('MongoG');
-if (process.platform === 'win32') app.setAppUserModelId('com.squirrel.MongoG.MongoG');
-const isSquirrelStartup = process.platform === 'win32' && squirrelStartup;
-if (isSquirrelStartup) app.quit();
+if (process.platform === 'win32') app.setAppUserModelId('com.mongog.desktop');
 const smokeUserDataPath = process.env.MONGOG_SMOKE === '1'
   ? join(app.getPath('temp'), `mongog-smoke-${process.pid}`)
   : null;
@@ -32,6 +30,11 @@ if (smokeUserDataPath || e2eUserDataPath) {
 let spikeMongoUri: string | null = null;
 let db: Database | null = null;
 let audit: AuditService | null = null;
+let updateService: UpdateService | null = null;
+
+function updateFeedUrl(): string {
+  return process.env.MONGOG_UPDATE_FEED_URL?.trim() || 'https://mongog.com/update';
+}
 
 function getDb(): Database {
   if (!db) throw new Error('Database not initialized');
@@ -64,7 +67,7 @@ async function getSpikeMongoUri(): Promise<string | null> {
   return spikeMongoUri;
 }
 
-if (!isSquirrelStartup) void app.whenReady().then(async () => {
+void app.whenReady().then(async () => {
   // Packaged macOS builds resolve the standard compact ICNS from the bundle.
   // Development uses the matching padded master so both modes have equal sizing.
   if (process.platform === 'darwin' && app.dock && !app.isPackaged) {
@@ -92,6 +95,27 @@ if (!isSquirrelStartup) void app.whenReady().then(async () => {
   installRendererProtocol();
   supervisor.startSweeper();
 
+  updateService = await createUpdateService(
+    (payload) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send(IpcEvents.updateStatus, payload);
+      }
+    },
+    updateFeedUrl(),
+    {
+      // Only an explicitly isolated E2E run may replace the real updater. A
+      // production launch cannot be switched to the fake with the version
+      // variable alone.
+      e2eVersion: e2eUserDataPath
+        ? process.env.MONGOG_UPDATE_E2E_VERSION?.trim() || undefined
+        : undefined,
+      getCurrentVersion: () => app.getVersion(),
+      isPackaged: app.isPackaged,
+      platform: process.platform,
+      resourcesPath: process.resourcesPath,
+    },
+  );
+
   registerIpcHandlers(
     {
       supervisor,
@@ -101,6 +125,7 @@ if (!isSquirrelStartup) void app.whenReady().then(async () => {
       secretStore: secretVault,
       audit,
       dataTransfer,
+      updates: updateService,
     },
     validateSender,
   );
@@ -255,6 +280,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  updateService?.dispose();
   if (spikeMongoUri) {
     void import('./spike-mongo.js').then((m) => m.stopSpikeMongo());
   }

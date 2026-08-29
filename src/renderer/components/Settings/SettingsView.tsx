@@ -125,6 +125,7 @@ export function SettingsView() {
   } = useSettingsStore();
   const openActivityLog = useWorkspaceStore((state) => state.openActivityLog);
   const openReleaseNotes = useWorkspaceStore((state) => state.openReleaseNotes);
+  const openUpdates = useWorkspaceStore((state) => state.openUpdates);
   const [auditMessage, setAuditMessage] = useState<string | null>(null);
   const [installedVersion, setInstalledVersion] = useState<string>(LATEST_RELEASE.version);
   const [pageSizeDraft, setPageSizeDraft] = useState(String(settings.execution.pageSize));
@@ -588,13 +589,22 @@ export function SettingsView() {
                 Read what was added, improved and fixed in this and earlier versions.
               </span>
             </div>
-            <button
-              type="button"
-              onClick={openReleaseNotes}
-              style={{ minHeight: 30, border: `1px solid ${theme.colors.accentHover}`, borderRadius: 4, background: theme.colors.accent, color: '#fff', padding: '0 12px', cursor: 'pointer', fontSize: 11 }}
-            >
-              Open Release Notes
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={openUpdates}
+                style={{ minHeight: 30, border: `1px solid ${theme.colors.borderStrong}`, borderRadius: 4, background: 'transparent', color: theme.colors.text, padding: '0 12px', cursor: 'pointer', fontSize: 11 }}
+              >
+                Updates
+              </button>
+              <button
+                type="button"
+                onClick={openReleaseNotes}
+                style={{ minHeight: 30, border: `1px solid ${theme.colors.accentHover}`, borderRadius: 4, background: theme.colors.accent, color: '#fff', padding: '0 12px', cursor: 'pointer', fontSize: 11 }}
+              >
+                Open Release Notes
+              </button>
+            </div>
           </div>
         </section>
 

@@ -13,7 +13,8 @@ export type WorkspaceTabKind =
   | 'release-notes'
   | 'admin'
   | 'change-stream'
-  | 'data-transfer';
+  | 'data-transfer'
+  | 'updates';
 
 export type AdminSection = 'indexes' | 'explain' | 'search' | 'changes' | 'gridfs';
 

@@ -47,12 +47,18 @@ const api: MongoGDesktopApi = {
   system: {
     info: () => invoke(IpcChannels.systemInfo),
   },
+  updates: {
+    check: () => invoke(IpcChannels.updatesCheck),
+    install: () => invoke(IpcChannels.updatesInstall),
+    dismiss: () => invoke(IpcChannels.updatesDismiss),
+  },
   events: {
     onEngineEvent: (cb) => subscribe(IpcEvents.engine, cb),
     onConnectionState: (cb) => subscribe(IpcEvents.connectionState, cb),
     onAuditChanged: (cb) => subscribe(IpcEvents.auditChanged, cb),
     onExportProgress: (cb) => subscribe(IpcEvents.exportProgress, cb),
     onDataJobProgress: (cb) => subscribe(IpcEvents.dataJobProgress, cb),
+    onUpdateStatus: (cb) => subscribe(IpcEvents.updateStatus, cb),
   },
   connections: {
     listGroups: () => invoke(IpcChannels.connListGroups),

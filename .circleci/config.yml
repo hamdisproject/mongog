@@ -14,7 +14,7 @@ orbs:
 executors:
   linux_node:
     docker:
-      - image: cimg/node:22.12.0
+      - image: cimg/node:22.13.0
     resource_class: medium
     environment:
       NODE_OPTIONS: --max-old-space-size=4096
@@ -47,7 +47,7 @@ commands:
   install_node_unix:
     steps:
       - run:
-          name: Install Node.js 22.12.0
+          name: Install Node.js 22.13.0
           command: |
             case "$(uname -s)-$(uname -m)" in
               Darwin-arm64) NODE_DIST="darwin-arm64" ;;
@@ -55,8 +55,8 @@ commands:
               Linux-x86_64) NODE_DIST="linux-x64" ;;
               *) echo "Unsupported Node host: $(uname -s)-$(uname -m)" >&2; exit 1 ;;
             esac
-            NODE_ROOT="$HOME/.local/node-v22.12.0"
-            curl --fail --location --retry 3 "https://nodejs.org/dist/v22.12.0/node-v22.12.0-${NODE_DIST}.tar.gz" -o /tmp/node.tar.gz
+            NODE_ROOT="$HOME/.local/node-v22.13.0"
+            curl --fail --location --retry 3 "https://nodejs.org/dist/v22.13.0/node-v22.13.0-${NODE_DIST}.tar.gz" -o /tmp/node.tar.gz
             mkdir -p "$NODE_ROOT"
             tar -xzf /tmp/node.tar.gz --strip-components=1 -C "$NODE_ROOT"
             echo "export PATH=$NODE_ROOT/bin:\$PATH" >> "$BASH_ENV"
@@ -76,17 +76,17 @@ commands:
           name: Install Node.js and Python
           shell: powershell.exe -ExecutionPolicy Bypass
           command: |
-            $nodeArchive = Join-Path $env:TEMP 'node-v22.12.0-win-x64.zip'
-            $nodeRoot = 'C:\tools\node-v22.12.0'
-            Invoke-WebRequest 'https://nodejs.org/dist/v22.12.0/node-v22.12.0-win-x64.zip' -OutFile $nodeArchive
+            $nodeArchive = Join-Path $env:TEMP 'node-v22.13.0-win-x64.zip'
+            $nodeRoot = 'C:\tools\node-v22.13.0'
+            Invoke-WebRequest 'https://nodejs.org/dist/v22.13.0/node-v22.13.0-win-x64.zip' -OutFile $nodeArchive
             if (Test-Path $nodeRoot) { Remove-Item $nodeRoot -Recurse -Force }
             New-Item -ItemType Directory -Force -Path $nodeRoot | Out-Null
             Expand-Archive $nodeArchive -DestinationPath $env:TEMP -Force
-            Move-Item (Join-Path $env:TEMP 'node-v22.12.0-win-x64\*') $nodeRoot -Force
+            Move-Item (Join-Path $env:TEMP 'node-v22.13.0-win-x64\*') $nodeRoot -Force
             choco install python312 -y
             $python = (Get-ChildItem 'C:\Python312\python.exe','C:\Program Files\Python312\python.exe' -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
             if (-not $python) { throw 'Python 3.12 was not found after installation.' }
-            Add-Content $env:BASH_ENV 'export PATH="/c/tools/node-v22.12.0:$PATH"'
+            Add-Content $env:BASH_ENV 'export PATH="/c/tools/node-v22.13.0:$PATH"'
             Add-Content $env:BASH_ENV "export PYTHON='$($python -replace '\\','/')'"
             Add-Content $env:BASH_ENV "export npm_config_python='$($python -replace '\\','/')'"
             Add-Content $env:BASH_ENV "export npm_config_msvs_version='2022'"
@@ -101,7 +101,7 @@ commands:
           name: Install npm dependencies
           shell: bash.exe
           command: |
-            test "$(node --version)" = "v22.12.0"
+            test "$(node --version)" = "v22.13.0"
             npm ci --prefer-offline --no-audit
       - save_npm_cache
   restore_mongodb_cache:
@@ -353,6 +353,10 @@ jobs:
       - run:
           name: Normalize macOS artifacts
           command: npm run collect:release -- --platform darwin --arch << parameters.arch >> --output "release-inputs/macos-<< parameters.arch >>" --clean
+      - persist_to_workspace:
+          root: .
+          paths:
+            - release-inputs/macos-<< parameters.arch >>
       - store_artifacts:
           path: release-inputs/macos-<< parameters.arch >>
           destination: release-macos-<< parameters.arch >>
@@ -380,9 +384,25 @@ jobs:
             npm run verify:package -- --platform win32 --arch x64
             npm run test:e2e
       - run:
-          name: Build hardened unsigned production artifacts
+          name: Build unsigned production app and NSIS installer
           shell: bash.exe
-          command: MONGOG_RELEASE=1 npm run make -- --platform=win32 --arch=x64
+          command: |
+            MONGOG_RELEASE=1 npm run package -- --platform=win32 --arch=x64
+            MONGOG_RELEASE=1 npm run make:windows:nsis -- --platform win32 --arch x64
+      - run:
+          name: Verify Windows artifacts are unsigned
+          shell: powershell.exe -ExecutionPolicy Bypass
+          command: |
+            $targets = @('out\MongoG-win32-x64\MongoG.exe')
+            $installers = @(Get-ChildItem 'out\make\nsis\MongoG-Setup-*-win-x64.exe')
+            if ($installers.Count -ne 1) { throw "Expected one NSIS installer, found $($installers.Count)." }
+            $targets += $installers[0].FullName
+            foreach ($target in $targets) {
+              $signature = Get-AuthenticodeSignature -LiteralPath $target
+              if ($signature.Status -ne 'NotSigned') {
+                throw "Expected an unsigned Windows artifact: $target ($($signature.Status))"
+              }
+            }
       - run:
           name: Verify and smoke production package
           shell: bash.exe
@@ -393,6 +413,10 @@ jobs:
           name: Normalize Windows artifacts
           shell: bash.exe
           command: npm run collect:release -- --platform win32 --arch x64 --output release-inputs/windows-x64 --clean --unsigned
+      - persist_to_workspace:
+          root: .
+          paths:
+            - release-inputs/windows-x64
       - store_artifacts:
           path: release-inputs/windows-x64
           destination: release-windows-x64
@@ -420,7 +444,7 @@ jobs:
             npm run package -- --platform=linux --arch=x64
             npm run verify:package -- --platform linux --arch x64
             xvfb-run -a npm run test:e2e
-      - run: { name: Build production artifacts, command: "MONGOG_RELEASE=1 npm run make -- --platform=linux --arch=x64" }
+      - run: { name: Build production RPM, command: "MONGOG_RELEASE=1 npm run make -- --platform=linux --arch=x64 --targets=@electron-forge/maker-rpm" }
       - run: { name: Verify production package, command: "MONGOG_RELEASE=1 npm run verify:package -- --platform linux --arch x64 --release" }
       - run:
           name: Configure packaged Electron SUID sandbox
@@ -432,19 +456,38 @@ jobs:
       - run:
           name: Normalize and inspect Linux artifacts
           command: |
-            npm run collect:release -- --platform linux --arch x64 --output release-inputs/linux-x64 --clean --unsigned
-            dpkg-deb --info release-inputs/linux-x64/mongog_*.deb
-            rpm -qip release-inputs/linux-x64/mongog-*.rpm
-      - run:
-          name: Install, smoke, and remove the DEB package
-          command: |
-            sudo apt-get install -y ./release-inputs/linux-x64/mongog_*.deb
-            test -x /usr/bin/mongog
-            MONGOG_PACKAGED_EXECUTABLE=/usr/bin/mongog xvfb-run -a npm run smoke:packaged -- --platform linux --arch x64
-            sudo apt-get remove -y mongog
+            PACKAGE_TYPE_PATH="out/MongoG-linux-x64/resources/package-type"
+            test "$(cat "$PACKAGE_TYPE_PATH")" = "rpm"
+            npm run collect:release -- --platform linux --arch x64 --output release-inputs/linux-x64 --clean
+            RPM_PATH="$(compgen -G 'release-inputs/linux-x64/mongog-*.rpm')"
+            rpm -qip "$RPM_PATH"
+            RPM_CONTENTS="$(rpm -qlp "$RPM_PATH")"
+            [[ "$RPM_CONTENTS" == *"/resources/package-type"* ]]
+      - persist_to_workspace:
+          root: .
+          paths:
+            - release-inputs/linux-x64
       - store_artifacts:
           path: release-inputs/linux-x64
           destination: release-linux-x64
+
+  release_metadata:
+    executor: linux_node
+    steps:
+      - checkout
+      - select_release_tag_unix
+      - attach_workspace:
+          at: .
+      - run:
+          name: Verify release set and generate updater manifests
+          command: |
+            mkdir -p release-artifacts
+            find release-inputs -type f -exec cp {} release-artifacts/ \;
+            npm run verify:release -- --directory release-artifacts --tag "$RELEASE_TAG" --unsigned-windows
+            npm run generate:update-manifests -- --directory release-artifacts --tag "$RELEASE_TAG"
+      - store_artifacts:
+          path: release-artifacts
+          destination: release
 
 workflows:
   ci:
@@ -485,4 +528,12 @@ workflows:
           filters: pipeline.parameters.run_release or (pipeline.git.tag matches /^v[0-9]+\.[0-9]+\.[0-9]+$/)
       - release_linux:
           name: release-linux-x64
+          filters: pipeline.parameters.run_release or (pipeline.git.tag matches /^v[0-9]+\.[0-9]+\.[0-9]+$/)
+      - release_metadata:
+          name: release-metadata
+          requires:
+            - release-macos-arm64
+            - release-macos-x64
+            - release-windows-x64
+            - release-linux-x64
           filters: pipeline.parameters.run_release or (pipeline.git.tag matches /^v[0-9]+\.[0-9]+\.[0-9]+$/)

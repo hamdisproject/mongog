@@ -155,6 +155,10 @@ export const IpcChannels = {
   dataTransferStartConnectionCopy: 'mongog:data-transfer:start-connection-copy',
   dataTransferCancel: 'mongog:data-transfer:cancel',
   dataTransferSaveErrorReport: 'mongog:data-transfer:save-error-report',
+  // ── Application updates ──
+  updatesCheck: 'mongog:updates:check',
+  updatesInstall: 'mongog:updates:install',
+  updatesDismiss: 'mongog:updates:dismiss',
 } as const;
 
 export const IpcEvents = {
@@ -163,6 +167,7 @@ export const IpcEvents = {
   auditChanged: 'mongog:event:audit-changed',
   exportProgress: 'mongog:event:export-progress',
   dataJobProgress: 'mongog:event:data-job-progress',
+  updateStatus: 'mongog:event:update-status',
 } as const;
 
 // ── Existing schemas ──
@@ -294,7 +299,7 @@ export const workspaceSaveSchema = z.object({
     sidebarWidth: z.number().int().min(180).max(520),
     tabs: z.array(z.object({
       id: z.string(),
-      kind: z.enum(['welcome', 'query', 'collection', 'history', 'connection-settings', 'settings', 'release-notes', 'admin', 'change-stream', 'data-transfer']),
+      kind: z.enum(['welcome', 'query', 'collection', 'history', 'connection-settings', 'settings', 'release-notes', 'admin', 'change-stream', 'data-transfer', 'updates']),
       title: z.string(),
       connectionId: z.string().nullable(),
       database: z.string().optional(),
@@ -370,6 +375,31 @@ export const applicationSettingsSchema = z.object({
 }) satisfies z.ZodType<ApplicationSettings>;
 
 export const settingsSaveSchema = z.object({ settings: applicationSettingsSchema });
+
+// ── Application updates ──
+
+export type UpdatePhase =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'up-to-date'
+  | 'not-supported'
+  | 'downloading'
+  | 'downloaded'
+  | 'error';
+
+export interface UpdateStatusPayload {
+  phase: UpdatePhase;
+  version?: string;
+  progress?: number;
+  error?: string;
+}
+
+export type UpdateCheckResult = UpdateStatusPayload & { currentVersion: string };
+
+export const updatesCheckSchema = z.object({}).strict();
+export const updatesInstallSchema = z.object({}).strict();
+export const updatesDismissSchema = z.object({}).strict();
 
 // ── Hierarchical saved library ──
 
@@ -876,6 +906,11 @@ export interface MongoGDesktopApi {
   system: {
     info(): Promise<SystemInfoResponse>;
   };
+  updates: {
+    check(): Promise<UpdateCheckResult>;
+    install(): Promise<void>;
+    dismiss(): Promise<void>;
+  };
   events: {
     onEngineEvent(cb: (e: {
       connectionId: string;
@@ -888,6 +923,7 @@ export interface MongoGDesktopApi {
     onAuditChanged(cb: (event: import('../domain/index.js').AuditChangedEvent) => void): () => void;
     onExportProgress(cb: (event: ExportProgressEvent) => void): () => void;
     onDataJobProgress(cb: (event: DataJobProgressEvent) => void): () => void;
+    onUpdateStatus(cb: (payload: UpdateStatusPayload) => void): () => void;
   };
   connections: {
     listGroups(): Promise<ConnectionGroup[]>;

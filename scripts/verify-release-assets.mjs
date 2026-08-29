@@ -15,15 +15,22 @@ const tag = String(args.get('tag') ?? process.env.RELEASE_TAG ?? `v${packageMeta
 const version = releaseTagVersion(tag);
 const unsigned = args.get('unsigned') === true || args.get('unsigned') === 'true';
 const signedMacos = args.get('signed-macos') === true || args.get('signed-macos') === 'true';
+const unsignedWindows = args.get('unsigned-windows') === true || args.get('unsigned-windows') === 'true';
+const generatedMetadata = new Set([
+  'SHA256SUMS.txt',
+  'latest-mac.yml',
+  'latest-linux.yml',
+]);
 if (version !== packageMetadata.version) throw new Error(`${tag} does not match package.json ${packageMetadata.version}.`);
 if (!existsSync(directory)) throw new Error(`Release artifact directory does not exist: ${directory}`);
 
 const expected = expectedReleaseAssetNames(version, {
   unsigned,
   ...(signedMacos ? { macosUnsigned: false } : {}),
+  ...(unsignedWindows ? { windowsUnsigned: true } : {}),
 });
 const actual = readdirSync(directory)
-  .filter((name) => name !== 'SHA256SUMS.txt')
+  .filter((name) => !generatedMetadata.has(name))
   .sort((left, right) => left.localeCompare(right));
 if (JSON.stringify(actual) !== JSON.stringify(expected)) {
   throw new Error(`Release artifact set is incomplete.\nExpected:\n${expected.join('\n')}\nActual:\n${actual.join('\n')}`);

@@ -48,19 +48,16 @@ const macSignOptions: PackagerOsxSignOptions | null = macRelease
     }
   : null;
 
-const windowsRelease = isSignedRelease && process.platform === 'win32'
-  ? {
-      certificateFile: requiredEnvironment('WINDOWS_CERTIFICATE_FILE'),
-      certificatePassword: requiredEnvironment('WINDOWS_CERTIFICATE_PASSWORD'),
-    }
-  : null;
-
 // Electron Packager probes sibling .icon and .icns files for the same basename.
 // Use the isolated ICNS copy on macOS so the archived Icon Composer source is
 // never compiled into Assets.car for the compact default package.
 const packagerIcon = process.platform === 'darwin'
   ? 'assets/legacy/mongog-icon'
   : 'assets/mongog-icon';
+const extraResources = [
+  'assets/mongog-icon.png',
+  ...(process.platform === 'linux' ? ['build/package-type'] : []),
+];
 
 const config: ForgeConfig = {
   packagerConfig: {
@@ -70,7 +67,7 @@ const config: ForgeConfig = {
     appCategoryType: 'public.app-category.developer-tools',
     appCopyright: `Copyright © ${new Date().getFullYear()} Hamdis Project`,
     icon: packagerIcon,
-    extraResource: ['assets/mongog-icon.png'],
+    extraResource: extraResources,
     extendInfo: {
       LSMinimumSystemVersion: '12.0',
     },
@@ -89,16 +86,6 @@ const config: ForgeConfig = {
             appleApiKey: macRelease.apiKeyPath,
             appleApiKeyId: macRelease.apiKeyId,
             appleApiIssuer: macRelease.apiIssuer,
-          },
-        }
-      : {}),
-    ...(windowsRelease
-      ? {
-          windowsSign: {
-            certificateFile: windowsRelease.certificateFile,
-            certificatePassword: windowsRelease.certificatePassword,
-            description: 'MongoG MongoDB desktop IDE',
-            website: homepage,
           },
         }
       : {}),
@@ -125,7 +112,7 @@ const config: ForgeConfig = {
   // that stale marker and can launch Electron with a Node-ABI native binary.
   rebuildConfig: { force: true },
   makers: [
-    { name: '@electron-forge/maker-zip', platforms: ['darwin', 'linux', 'win32'], config: {} },
+    { name: '@electron-forge/maker-zip', platforms: ['darwin'], config: {} },
     {
       name: '@electron-forge/maker-dmg',
       platforms: ['darwin'],
@@ -144,46 +131,6 @@ const config: ForgeConfig = {
               },
             }
           : {}),
-      },
-    },
-    {
-      name: '@electron-forge/maker-squirrel',
-      platforms: ['win32'],
-      config: {
-        name: 'MongoG',
-        authors: 'Hamdis Project',
-        description: 'MongoG - production-grade MongoDB desktop IDE',
-        setupIcon: path.resolve('assets/mongog-icon.ico'),
-        ...(windowsRelease
-          ? {
-              windowsSign: {
-                certificateFile: windowsRelease.certificateFile,
-                certificatePassword: windowsRelease.certificatePassword,
-                description: 'MongoG MongoDB desktop IDE',
-                website: homepage,
-              },
-            }
-          : {}),
-      },
-    },
-    {
-      name: '@electron-forge/maker-deb',
-      platforms: ['linux'],
-      config: {
-        options: {
-          name: 'mongog',
-          productName: 'MongoG',
-          genericName: 'MongoDB IDE',
-          description: 'Production-grade MongoDB desktop IDE',
-          productDescription: 'MongoG is a desktop IDE for querying, browsing, and administering MongoDB.',
-          section: 'database',
-          priority: 'optional',
-          maintainer: 'Hamdis Project <hamditugmobil@gmail.com>',
-          homepage,
-          bin: 'MongoG',
-          icon: path.resolve('assets/mongog-icon.png'),
-          categories: ['Development'],
-        },
       },
     },
     {

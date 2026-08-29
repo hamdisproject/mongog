@@ -9,6 +9,7 @@ import { WelcomeView } from './components/Welcome/WelcomeView.js';
 import { ConnectionsView } from './components/Connections/ConnectionsView.js';
 import { SettingsView } from './components/Settings/SettingsView.js';
 import { ReleaseNotesView } from './components/ReleaseNotes/ReleaseNotesView.js';
+import { UpdatesView } from './components/Updates/UpdatesView.js';
 import { ActivityLogView } from './components/Activity/ActivityLogView.js';
 import { CommandPalette } from './components/CommandPalette/CommandPalette.js';
 import type { WorkspaceTab } from '../shared/domain/index.js';
@@ -24,6 +25,7 @@ import { useExportJobsStore } from './stores/exports.js';
 import { DataTransferView } from './components/DataTransfer/DataTransferView.js';
 import { DataTransferProgressOverlay } from './components/DataTransfer/DataTransferProgressOverlay.js';
 import { useDataTransferStore } from './stores/data-transfer.js';
+import { useUpdatesStore } from './stores/updates.js';
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -63,6 +65,7 @@ export default function App() {
     initializedRef.current = true;
     void load();
     void loadSettings();
+    void useUpdatesStore.getState().check();
     void window.mongog.workspace.load().then((saved) => {
       if (saved && saved.tabs.length > 0) {
         restore(saved);
@@ -134,6 +137,31 @@ export default function App() {
         useDataTransferStore.getState().failConnection(state.connectionId, message);
       }
     });
+  }, []);
+
+  useEffect(() => window.mongog.events.onUpdateStatus((payload) => {
+    useUpdatesStore.getState().applyPayload(payload);
+  }), []);
+
+  // Startup consent: when an update becomes available for the first time, ask the
+  // user whether to install it now. Declining just silences the prompt and leaves
+  // the sidebar badge + Updates tab available for later (phase stays 'available').
+  const consentPromptedRef = useRef(false);
+  const maybePrompt = () => {
+    const state = useUpdatesStore.getState();
+    if (state.phase === 'available' && state.availableVersion && !consentPromptedRef.current) {
+      consentPromptedRef.current = true;
+      if (window.confirm(`A new MongoG version (v${state.availableVersion}) is available. Download it now? You can choose when to restart.`)) {
+        void useUpdatesStore.getState().install();
+      }
+    }
+  };
+  useEffect(() => {
+    maybePrompt();
+    const unsub = useUpdatesStore.subscribe(maybePrompt);
+    return () => {
+      unsub();
+    };
   }, []);
 
   useEffect(() => window.mongog.events.onExportProgress((event) => {
@@ -330,6 +358,8 @@ function renderTabContent(activeTabId: string | null, tabs: WorkspaceTab[]) {
       return <SettingsView />;
     case 'release-notes':
       return <ReleaseNotesView />;
+    case 'updates':
+      return <UpdatesView />;
     case 'history':
       return <ActivityLogView />;
     case 'data-transfer':
