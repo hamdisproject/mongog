@@ -31,7 +31,10 @@ if (!['darwin', 'win32', 'linux'].includes(platform)) {
   throw new Error(`Unsupported release platform: ${platform}`);
 }
 
-const signed = process.env.MONGOG_SIGN_RELEASE === '1' && platform !== 'linux';
+const signed = platform === 'darwin';
+if (signed && process.env.MONGOG_SIGN_RELEASE !== '1') {
+  throw new Error(`MONGOG_SIGN_RELEASE=1 is required for production ${platform} releases.`);
+}
 if (signed && platform === 'darwin') {
   requiredBase64('MACOS_CERTIFICATE_P12_BASE64');
   required('MACOS_CERTIFICATE_PASSWORD');
@@ -39,9 +42,6 @@ if (signed && platform === 'darwin') {
   requiredBase64('APPLE_API_KEY_P8_BASE64');
   required('APPLE_API_KEY_ID');
   required('APPLE_API_ISSUER_ID');
-} else if (signed && platform === 'win32') {
-  requiredBase64('WINDOWS_CERTIFICATE_PFX_BASE64');
-  required('WINDOWS_CERTIFICATE_PASSWORD');
 }
 
 console.log(`${signed ? 'Signed' : 'Unsigned'} release environment validated for ${platform} ${tag}.`);

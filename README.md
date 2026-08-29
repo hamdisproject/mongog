@@ -41,7 +41,7 @@ npm run spike:monaco-types                      # S6: completions latency check
 npm run spike:safestorage                       # S10: safeStorage async check
 ```
 
-Prereqs: Node ≥ 20.19 (≥ 22.12 recommended — Electron 43 tooling), macOS/
+Prereqs: Node ≥ 22.13 (Electron 43 tooling), macOS/
 Windows/Linux. If `electron-forge start` fails with `Could not check npm
 version "undefined"` (known Forge env quirk), run once:
 `touch ~/.skip-forge-system-check` (Forge's own escape hatch).
@@ -60,7 +60,8 @@ npm run typecheck
 
 ```bash
 npm run package     # → out/MongoG-<platform>-<arch>/ (asar + fuses + unpacked runtime)
-npm run make        # host installers: macOS DMG/ZIP, Windows Setup/ZIP, Linux DEB/RPM/ZIP
+npm run make        # host installers: macOS DMG/ZIP and Linux RPM
+npm run make:windows:nsis # unsigned Windows x64 NSIS release (Windows; manual updates)
 npm run verify:package -- --platform darwin --arch arm64
 npm run smoke:packaged -- --platform darwin --arch arm64
 npm run build:icons        # builds compact ICNS from the standard ten-image iconset
@@ -96,16 +97,16 @@ Release builds are created only from a version tag matching
 installer/portable archives directly in CircleCI Artifacts.
 
 macOS release artifacts are signed with Apple Developer ID, notarized by Apple,
-and stapled before upload. Windows and Linux artifacts remain unsigned and keep
-the `UNSIGNED` marker; Windows SmartScreen warnings are therefore still
-expected. Production Electron fuses remain hardened on every platform.
+and stapled before upload. Windows publishes an explicitly `UNSIGNED` x64 NSIS
+installer; Windows may show a SmartScreen warning, and automatic updates stay
+disabled for that build. Linux publishes only the x64 RPM. Production Electron
+fuses remain hardened on every platform.
 
 Create a restricted CircleCI context named `release`, limit it to the MongoG
 project and release team, and add the Apple variables documented in
 [docs/RELEASE.md](docs/RELEASE.md). `MONGOG_SIGN_RELEASE=1` enables the
 fail-closed macOS signing/notarization path; `MONGOG_RELEASE=1` controls
-production hardening without implicitly requiring credentials on other
-platforms.
+production hardening on every platform.
 
 Release sequence:
 
@@ -122,7 +123,21 @@ After a platform job succeeds, download its packages from that job's
 Pipeline** screen by setting `run_release=true` and
 `release_tag=vX.Y.Z`. Enable tag-push triggers in the CircleCI GitHub project
 settings and use the CircleCI job names for required branch-protection checks.
-Automatic application updates are intentionally outside this release phase.
+The dependent `release-metadata` job assembles the six official packages,
+verifies the complete set, writes `SHA256SUMS.txt`, and generates
+`latest-mac.yml` and `latest-linux.yml` from the packages' actual SHA-512
+hashes. No Windows updater manifest is published for the unsigned build.
+
+On macOS and RPM-based Linux builds, the app uses `electron-updater` with a
+generic provider pointed at `MONGOG_UPDATE_FEED_URL` (default
+`https://mongog.com/update`). It reads `/update/latest-mac.yml` or
+`/update/latest-linux.yml`, prompts before downloading, verifies the artifact,
+then waits for a separate restart choice. Unsigned Windows builds report
+automatic updates as unsupported and use the website's manual-download flow.
+`/api/latest-version` remains reserved for that website UI. A release is
+publishable only after the six official artifacts and both generated manifests
+from `release-metadata` are deployed together: two macOS DMGs, two macOS ZIPs,
+one explicitly unsigned Windows NSIS EXE and one Linux RPM.
 
 ## Layout
 

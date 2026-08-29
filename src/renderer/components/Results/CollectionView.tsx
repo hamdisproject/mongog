@@ -215,10 +215,8 @@ interface DocumentFetchState {
   cancelling: boolean;
 }
 
-export function CollectionView() {
-  const { activeTabId, tabs, setCollectionView } = useWorkspaceStore();
-  const tab = tabs.find((candidate) => candidate.id === activeTabId);
-  if (!tab || tab.kind !== 'collection') return null;
+export function CollectionView({ tab, active }: { tab: WorkspaceTab; active: boolean }) {
+  const setCollectionView = useWorkspaceStore((state) => state.setCollectionView);
   const view = tab.collectionViewMode ?? 'documents';
   const namespace = `${tab.database ?? 'admin'}.${tab.collection ?? ''}`;
 
@@ -242,7 +240,7 @@ export function CollectionView() {
         <CollectionBrowser key={tab.id} tab={tab} />
       </div>
 
-      {view === 'query' && (
+      {active && view === 'query' && (
         <div style={{ ...s.surface, display: 'flex', flexDirection: 'column' }}>
           <QueryWorkspace contextLocked />
         </div>
@@ -307,7 +305,6 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const [fetchState, setFetchState] = useState<DocumentFetchState | null>(null);
   const activeFetchRef = useRef<ActiveDocumentFetch | null>(null);
   const observedRuntimeEpoch = useRef(runtimeEpoch);
-  const suppressAutomaticReload = useRef(false);
   const [editorBusy, setEditorBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -321,7 +318,6 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   useEffect(() => {
     if (observedRuntimeEpoch.current === runtimeEpoch) return;
     observedRuntimeEpoch.current = runtimeEpoch;
-    suppressAutomaticReload.current = true;
     const active = activeFetchRef.current;
     if (active) active.cancelled = true;
     activeFetchRef.current = null;
@@ -463,7 +459,6 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   }, []);
 
   const loadInitial = useCallback(async (requestedPageSize?: number) => {
-    suppressAutomaticReload.current = false;
     if (!connectionId || !collection || !isConnected) {
       setCursorId(null);
       setHasMore(false);
@@ -517,6 +512,11 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     }
   }, [connectionId, database, collection, documentsOwnerId, criteria, applyPage, isConnected]);
 
+  const loadInitialRef = useRef(loadInitial);
+  useEffect(() => {
+    loadInitialRef.current = loadInitial;
+  }, [loadInitial]);
+
   const changePageSize = async (value: string) => {
     const nextOverride = value === 'default' ? undefined : Number(value);
     const nextPageSize = nextOverride ?? configuredPageSize;
@@ -531,7 +531,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   };
 
   useEffect(() => {
-    if (!suppressAutomaticReload.current) void loadInitial();
+    void loadInitialRef.current();
     return () => {
       const active = activeFetchRef.current;
       if (active) {
@@ -540,7 +540,15 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
       }
       if (connectionId) void window.mongog.query.closeOwner(connectionId, documentsOwnerId);
     };
-  }, [connectionId, documentsOwnerId, loadInitial]);
+  }, [
+    connectionId,
+    database,
+    collection,
+    documentsOwnerId,
+    criteria.filter,
+    criteria.sort,
+    criteria.projection,
+  ]);
 
   const applyCriteria = () => {
     const compiledColumns = compileColumnFilters(columnFilters);

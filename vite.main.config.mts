@@ -36,6 +36,7 @@ export default defineConfig({
     rollupOptions: {
       external: [
         'electron',
+        'electron-updater',
         'better-sqlite3',
         'mongodb-memory-server',
         ...optionalDriverDeps,

@@ -1,7 +1,14 @@
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { extractFile } from '@electron/asar';
 import { FuseV1Options, getCurrentFuseWire } from '@electron/fuses';
-import { packagedApplication, parseArguments, requireTarget, walkFiles } from './release-utils.mjs';
+import {
+  packageMetadata,
+  packagedApplication,
+  parseArguments,
+  requireTarget,
+  walkFiles,
+} from './release-utils.mjs';
 
 const args = parseArguments(process.argv.slice(2));
 const platform = String(args.get('platform') ?? process.platform);
@@ -19,7 +26,14 @@ function requiredFile(file, description) {
 }
 
 requiredFile(application.executable, 'Packaged executable');
-requiredFile(path.join(application.resources, 'app.asar'), 'Application ASAR');
+const asarPath = path.join(application.resources, 'app.asar');
+requiredFile(asarPath, 'Application ASAR');
+const packagedMetadata = JSON.parse(extractFile(asarPath, 'package.json').toString('utf8'));
+if (packagedMetadata.version !== packageMetadata.version) {
+  throw new Error(
+    `Packaged version ${String(packagedMetadata.version)} does not match package.json ${packageMetadata.version}.`,
+  );
+}
 requiredFile(
   path.join(application.resources, 'app.asar.unpacked', 'runtime-dist', 'query-runtime.cjs'),
   'Unpacked query runtime',
@@ -27,6 +41,20 @@ requiredFile(
 const unpackedFiles = walkFiles(path.join(application.resources, 'app.asar.unpacked'));
 if (!unpackedFiles.some((file) => /better[-_]sqlite3\.node$/u.test(file))) {
   throw new Error('Packaged better-sqlite3 native binary was not found in app.asar.unpacked.');
+}
+
+if (release && platform === 'win32') {
+  const updateConfig = path.join(application.resources, 'app-update.yml');
+  if (existsSync(updateConfig)) {
+    throw new Error('Unsigned Windows releases must not contain app-update.yml.');
+  }
+}
+if (release && platform === 'linux') {
+  const packageType = path.join(application.resources, 'package-type');
+  requiredFile(packageType, 'Linux updater package marker');
+  if (readFileSync(packageType, 'utf8').trim() !== 'rpm') {
+    throw new Error('Official Linux releases must use the RPM updater package marker.');
+  }
 }
 
 const fuses = await getCurrentFuseWire(application.executable);

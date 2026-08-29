@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EngineEvent } from '../../src/shared/domain/index.js';
 import { DEFAULT_SETTINGS, SIDEBAR_DEFAULT_WIDTH } from '../../src/shared/domain/workspace.js';
 import {
@@ -382,6 +382,9 @@ describe('workspace execution store', () => {
       connectionId: 'conn-1', database: 'db', collection: 'items',
     });
     expect(secondCollection).toBe(firstCollection);
+    expect(useWorkspaceStore.getState().openCollection({
+      connectionId: 'conn-1', database: 'db', collection: 'items', disposition: 'reuse-existing',
+    })).toBe(firstCollection);
 
     const changes = useWorkspaceStore.getState().openChangeStream({
       connectionId: 'conn-1', database: 'db', collection: 'items',
@@ -390,6 +393,54 @@ describe('workspace execution store', () => {
       kind: 'change-stream',
       title: 'Changes · db.items',
     });
+  });
+
+  it('opens independent collection tabs when the disposition requests a new tab', () => {
+    const first = useWorkspaceStore.getState().openCollection({
+      connectionId: 'conn-1', database: 'db', collection: 'items', disposition: 'new-tab',
+    });
+    useWorkspaceStore.getState().updateTab(first, {
+      documentsState: {
+        draft: { filter: '{ active: true }', sort: '{}', projection: '{}' },
+        applied: { filter: '{ active: true }', sort: '{}', projection: '{}' },
+      },
+    });
+    const second = useWorkspaceStore.getState().openCollection({
+      connectionId: 'conn-1', database: 'db', collection: 'items', disposition: 'new-tab',
+    });
+
+    expect(second).not.toBe(first);
+    expect(useWorkspaceStore.getState().tabs.filter((tab) => (
+      tab.kind === 'collection' && tab.database === 'db' && tab.collection === 'items'
+    ))).toHaveLength(2);
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === first)?.documentsState?.applied.filter)
+      .toBe('{ active: true }');
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === second)?.documentsState?.applied.filter)
+      .toBe('{}');
+    expect(useWorkspaceStore.getState().results[first]).not.toBe(useWorkspaceStore.getState().results[second]);
+  });
+
+  it('cleans only the closed duplicate collection tab owners', () => {
+    const closeOwner = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('window', { mongog: { query: { closeOwner, cancel: vi.fn() } } });
+    try {
+      const first = useWorkspaceStore.getState().openCollection({
+        connectionId: 'conn-1', database: 'db', collection: 'items', disposition: 'new-tab',
+      });
+      const second = useWorkspaceStore.getState().openCollection({
+        connectionId: 'conn-1', database: 'db', collection: 'items', disposition: 'new-tab',
+      });
+
+      useWorkspaceStore.getState().closeTab(first);
+
+      expect(closeOwner).toHaveBeenCalledWith('conn-1', first);
+      expect(closeOwner).toHaveBeenCalledWith('conn-1', `${first}:documents`);
+      expect(closeOwner).not.toHaveBeenCalledWith('conn-1', second);
+      expect(closeOwner).not.toHaveBeenCalledWith('conn-1', `${second}:documents`);
+      expect(useWorkspaceStore.getState().tabs.some((tab) => tab.id === second)).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('closes multiple tabs together and activates the nearest surviving tab', () => {
@@ -493,7 +544,11 @@ describe('workspace execution store', () => {
     useSettingsStore.setState((state) => ({
       settings: {
         ...state.settings,
-        collection: { defaultView: 'query', autoExecuteDefaultQuery: true },
+        collection: {
+          ...state.settings.collection,
+          defaultView: 'query',
+          autoExecuteDefaultQuery: true,
+        },
         execution: { ...state.settings.execution, pageSize: 125 },
       },
     }));
@@ -527,7 +582,11 @@ describe('workspace execution store', () => {
     useSettingsStore.setState((state) => ({
       settings: {
         ...state.settings,
-        collection: { defaultView: 'query', autoExecuteDefaultQuery: true },
+        collection: {
+          ...state.settings.collection,
+          defaultView: 'query',
+          autoExecuteDefaultQuery: true,
+        },
       },
     }));
     const tabId = useWorkspaceStore.getState().openCollection({

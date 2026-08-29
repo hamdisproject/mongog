@@ -13,7 +13,8 @@ export type WorkspaceTabKind =
   | 'release-notes'
   | 'admin'
   | 'change-stream'
-  | 'data-transfer';
+  | 'data-transfer'
+  | 'updates';
 
 export type AdminSection = 'indexes' | 'explain' | 'search' | 'changes' | 'gridfs';
 
@@ -146,11 +147,14 @@ export interface ApplicationSettings {
   collection: {
     defaultView: 'documents' | 'query';
     autoExecuteDefaultQuery: boolean;
+    explorerOpenBehavior: CollectionOpenDisposition;
   };
   table: { columnOrder: TableColumnOrder };
   ejson: { defaultMode: BsonDisplayMode };
   window?: { bounds?: { x: number; y: number; width: number; height: number } };
 }
+
+export type CollectionOpenDisposition = 'reuse-existing' | 'new-tab';
 
 export type TableColumnOrder = 'alphabetical' | 'document';
 
@@ -182,7 +186,11 @@ export const DEFAULT_SETTINGS: ApplicationSettings = {
   },
   history: { retentionDays: 90, maxEntries: 10_000 },
   audit: { retentionDays: 90, maxEntries: 50_000 },
-  collection: { defaultView: 'documents', autoExecuteDefaultQuery: false },
+  collection: {
+    defaultView: 'documents',
+    autoExecuteDefaultQuery: false,
+    explorerOpenBehavior: 'reuse-existing',
+  },
   table: { columnOrder: 'alphabetical' },
   ejson: { defaultMode: 'mongosh' },
 };
@@ -241,6 +249,10 @@ export function normalizeApplicationSettings(value: unknown): ApplicationSetting
             DEFAULT_SETTINGS.collection.autoExecuteDefaultQuery,
           )
         : false,
+      explorerOpenBehavior: collection.explorerOpenBehavior === 'new-tab' ||
+        collection.explorerOpenBehavior === 'reuse-existing'
+        ? collection.explorerOpenBehavior
+        : DEFAULT_SETTINGS.collection.explorerOpenBehavior,
     },
     table: {
       columnOrder: table.columnOrder === 'document' || table.columnOrder === 'alphabetical'

@@ -1,0 +1,17 @@
+appId: com.mongog.desktop
+productName: MongoG
+directories:
+  buildResources: assets
+  output: out/make/nsis
+artifactName: MongoG-Setup-${version}-win-${arch}.${ext}
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: assets/mongog-icon.ico
+nsis:
+  oneClick: true
+  perMachine: false
+  include: build/installer.nsh
+  deleteAppDataOnUninstall: false

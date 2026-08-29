@@ -20,6 +20,7 @@ describe('sidebar layout', () => {
   it('reserves workspace width while respecting the sidebar bounds', () => {
     expect(sidebarMaximumForViewport(700)).toBe(180);
     expect(sidebarMaximumForViewport(900)).toBe(280);
+    expect(sidebarMaximumForViewport(984)).toBe(364);
     expect(sidebarMaximumForViewport(1_000)).toBe(380);
     expect(sidebarMaximumForViewport(1_440)).toBe(520);
     expect(effectiveSidebarWidth(500, 900)).toBe(280);

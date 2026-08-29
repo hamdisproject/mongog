@@ -15,6 +15,7 @@ describe('application settings normalization', () => {
     expect(DEFAULT_SETTINGS.collection).toEqual({
       defaultView: 'documents',
       autoExecuteDefaultQuery: false,
+      explorerOpenBehavior: 'reuse-existing',
     });
     expect(DEFAULT_SETTINGS.execution.pageSize).toBe(50);
     expect(DEFAULT_SETTINGS.table).toEqual({ columnOrder: 'alphabetical' });
@@ -67,11 +68,40 @@ describe('application settings normalization', () => {
   it('preserves valid collection defaults and disables auto-run for Documents', () => {
     expect(normalizeApplicationSettings({
       collection: { defaultView: 'query', autoExecuteDefaultQuery: true },
-    }).collection).toEqual({ defaultView: 'query', autoExecuteDefaultQuery: true });
+    }).collection).toEqual({
+      defaultView: 'query',
+      autoExecuteDefaultQuery: true,
+      explorerOpenBehavior: 'reuse-existing',
+    });
 
     expect(normalizeApplicationSettings({
       collection: { defaultView: 'documents', autoExecuteDefaultQuery: true },
-    }).collection).toEqual({ defaultView: 'documents', autoExecuteDefaultQuery: false });
+    }).collection).toEqual({
+      defaultView: 'documents',
+      autoExecuteDefaultQuery: false,
+      explorerOpenBehavior: 'reuse-existing',
+    });
+  });
+
+  it.each(['reuse-existing', 'new-tab'] as const)(
+    'preserves the valid %s Explorer collection behavior',
+    (explorerOpenBehavior) => {
+      expect(normalizeApplicationSettings({ collection: { explorerOpenBehavior } }).collection.explorerOpenBehavior)
+        .toBe(explorerOpenBehavior);
+    },
+  );
+
+  it('defaults and rejects an unsupported Explorer collection behavior', () => {
+    expect(normalizeApplicationSettings({
+      collection: { explorerOpenBehavior: 'replace-active' },
+    }).collection.explorerOpenBehavior).toBe('reuse-existing');
+    expect(applicationSettingsSchema.safeParse({
+      ...structuredClone(DEFAULT_SETTINGS),
+      collection: {
+        ...DEFAULT_SETTINGS.collection,
+        explorerOpenBehavior: 'replace-active',
+      },
+    }).success).toBe(false);
   });
 
   it('accepts only page sizes from 1 through 500', () => {

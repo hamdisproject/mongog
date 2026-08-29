@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { Explorer } from './components/Sidebar/Explorer.js';
 import { TabBar } from './components/TabBar/TabBar.js';
 import { QueryWorkspace } from './components/Editor/QueryWorkspace.js';
@@ -9,6 +9,7 @@ import { WelcomeView } from './components/Welcome/WelcomeView.js';
 import { ConnectionsView } from './components/Connections/ConnectionsView.js';
 import { SettingsView } from './components/Settings/SettingsView.js';
 import { ReleaseNotesView } from './components/ReleaseNotes/ReleaseNotesView.js';
+import { UpdatesView } from './components/Updates/UpdatesView.js';
 import { ActivityLogView } from './components/Activity/ActivityLogView.js';
 import { CommandPalette } from './components/CommandPalette/CommandPalette.js';
 import type { WorkspaceTab } from '../shared/domain/index.js';
@@ -24,6 +25,7 @@ import { useExportJobsStore } from './stores/exports.js';
 import { DataTransferView } from './components/DataTransfer/DataTransferView.js';
 import { DataTransferProgressOverlay } from './components/DataTransfer/DataTransferProgressOverlay.js';
 import { useDataTransferStore } from './stores/data-transfer.js';
+import { useUpdatesStore } from './stores/updates.js';
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -63,6 +65,7 @@ export default function App() {
     initializedRef.current = true;
     void load();
     void loadSettings();
+    void useUpdatesStore.getState().check();
     void window.mongog.workspace.load().then((saved) => {
       if (saved && saved.tabs.length > 0) {
         restore(saved);
@@ -136,6 +139,31 @@ export default function App() {
     });
   }, []);
 
+  useEffect(() => window.mongog.events.onUpdateStatus((payload) => {
+    useUpdatesStore.getState().applyPayload(payload);
+  }), []);
+
+  // Startup consent: when an update becomes available for the first time, ask the
+  // user whether to install it now. Declining just silences the prompt and leaves
+  // the sidebar badge + Updates tab available for later (phase stays 'available').
+  const consentPromptedRef = useRef(false);
+  const maybePrompt = () => {
+    const state = useUpdatesStore.getState();
+    if (state.phase === 'available' && state.availableVersion && !consentPromptedRef.current) {
+      consentPromptedRef.current = true;
+      if (window.confirm(`A new MongoG version (v${state.availableVersion}) is available. Download it now? You can choose when to restart.`)) {
+        void useUpdatesStore.getState().install();
+      }
+    }
+  };
+  useEffect(() => {
+    maybePrompt();
+    const unsub = useUpdatesStore.subscribe(maybePrompt);
+    return () => {
+      unsub();
+    };
+  }, []);
+
   useEffect(() => window.mongog.events.onExportProgress((event) => {
     useExportJobsStore.getState().apply(event);
   }), []);
@@ -186,7 +214,7 @@ export default function App() {
         flexDirection: 'column', overflow: 'hidden',
       }}>
         <TabBar />
-        {renderWorkspaceContent(activeTabId, tabs)}
+        <WorkspaceContent activeTabId={activeTabId} tabs={tabs} />
       </div>
     </div>
   );
@@ -201,17 +229,66 @@ function formatIdleDuration(idleTimeoutMS?: number): string {
 }
 
 /**
- * Change streams keep polling while another tab is active. Keeping those
- * surfaces mounted also means their existing unmount cleanup remains the
- * single owner of closing a stream when its tab is actually removed.
+ * Change streams keep polling while another tab is active. Collection browsers
+ * are mounted lazily and then retained so their page/cursor state survives tab
+ * switches without mounting every restored collection at startup.
  */
-function renderWorkspaceContent(activeTabId: string | null, tabs: WorkspaceTab[]) {
+function WorkspaceContent({
+  activeTabId,
+  tabs,
+}: {
+  activeTabId: string | null;
+  tabs: WorkspaceTab[];
+}) {
+  const [activatedCollectionTabIds, setActivatedCollectionTabIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
+  const collectionTabs = tabs.filter((tab) => (
+    tab.kind === 'collection' && (
+      tab.id === activeTabId || activatedCollectionTabIds.has(tab.id)
+    )
+  ));
   const changeStreamTabs = tabs.filter((tab) => tab.kind === 'change-stream');
+
+  useEffect(() => {
+    setActivatedCollectionTabIds((current) => {
+      const openCollectionTabIds = new Set(
+        tabs.filter((tab) => tab.kind === 'collection').map((tab) => tab.id),
+      );
+      const next = new Set(
+        Array.from(current).filter((tabId) => openCollectionTabIds.has(tabId)),
+      );
+      if (activeTab?.kind === 'collection') next.add(activeTab.id);
+      if (setsEqual(current, next)) return current;
+      return next;
+    });
+  }, [activeTab?.id, activeTab?.kind, tabs]);
 
   return (
     <>
-      {activeTab?.kind !== 'change-stream' && renderTabContent(activeTabId, tabs)}
+      {activeTab?.kind !== 'change-stream' && activeTab?.kind !== 'collection' &&
+        renderTabContent(activeTabId, tabs)}
+      {collectionTabs.map((tab) => {
+        const active = tab.id === activeTabId;
+        return (
+          <div
+            key={tab.id}
+            data-collection-surface={tab.id}
+            aria-hidden={!active}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              minHeight: 0,
+              display: active ? 'flex' : 'none',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+          >
+            <CollectionView tab={tab} active={active} />
+          </div>
+        );
+      })}
       {changeStreamTabs.map((tab) => {
         const active = tab.id === activeTabId;
         return (
@@ -234,6 +311,10 @@ function renderWorkspaceContent(activeTabId: string | null, tabs: WorkspaceTab[]
       })}
     </>
   );
+}
+
+function setsEqual(left: Set<string>, right: Set<string>): boolean {
+  return left.size === right.size && Array.from(left).every((value) => right.has(value));
 }
 
 function workspaceMetadataFingerprint(tabs: WorkspaceTab[], activeTabId: string | null): string {
@@ -266,11 +347,7 @@ function renderTabContent(activeTabId: string | null, tabs: WorkspaceTab[]) {
     case 'query':
       return <QueryWorkspace />;
     case 'collection':
-      return (
-        <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <CollectionView />
-        </div>
-      );
+      return null;
     case 'admin':
       return <AdminView tab={activeTab} />;
     case 'change-stream':
@@ -281,6 +358,8 @@ function renderTabContent(activeTabId: string | null, tabs: WorkspaceTab[]) {
       return <SettingsView />;
     case 'release-notes':
       return <ReleaseNotesView />;
+    case 'updates':
+      return <UpdatesView />;
     case 'history':
       return <ActivityLogView />;
     case 'data-transfer':

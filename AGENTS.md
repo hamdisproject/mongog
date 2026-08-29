@@ -37,7 +37,7 @@ externally started mongod through `MONGOG_SMOKE_MONGO_URI`; never start
 `mongodb-memory-server` from a packaged Electron binary because its killer
 helper forks `process.execPath` while production RunAsNode is fused off.
 
-Env: Node ≥ 20.19 (≥22.12 recommended). If Forge complains `Could not check npm
+Env: Node ≥ 22.13. If Forge complains `Could not check npm
 version "undefined"`: `touch ~/.skip-forge-system-check` (Forge's own skip flag).
 
 ## Architecture map (where things live)
@@ -50,6 +50,7 @@ version "undefined"`: `touch ~/.skip-forge-system-check` (Forge's own skip flag)
 | IPC | `src/main/ipc/` | `registry.ts` allowlist+zod; connection/query/cursor handlers |
 | Runtime supervisor | `src/main/runtime/` | 1 utilityProcess per connection; idle GC; crash events |
 | Services | `src/main/services/connection-manager.ts` | profiles/groups CRUD + connect/disconnect + URI resolution |
+| Update service | `src/main/services/update-service.ts` | `electron-updater` wrapper (generic feed); consent-driven check/download/install; mirrors status via `IpcEvents.updateStatus` |
 | Database | `src/main/storage/database.ts` | better-sqlite3 WAL; migration runner; backup; integrity |
 | Migrations | `src/main/storage/migrations.ts` | v1: 7 tables + indexes |
 | Repositories | `src/main/storage/repositories/` | groups, profiles, secrets (blob), history, workspace, settings, scripts |

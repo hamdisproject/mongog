@@ -39,6 +39,7 @@ describe('renderer settings store', () => {
     expect(useSettingsStore.getState().settings.collection).toEqual({
       defaultView: 'query',
       autoExecuteDefaultQuery: true,
+      explorerOpenBehavior: 'reuse-existing',
     });
     expect(useSettingsStore.getState().settings.execution.pageSize).toBe(125);
     expect(save).toHaveBeenCalledTimes(2);
@@ -69,7 +70,11 @@ describe('renderer settings store', () => {
     useSettingsStore.setState((state) => ({
       settings: {
         ...state.settings,
-        collection: { defaultView: 'query', autoExecuteDefaultQuery: true },
+        collection: {
+          ...state.settings.collection,
+          defaultView: 'query',
+          autoExecuteDefaultQuery: true,
+        },
       },
     }));
     await useSettingsStore.getState().setCollectionDefaults({
@@ -80,8 +85,37 @@ describe('renderer settings store', () => {
     expect(useSettingsStore.getState().settings.collection).toEqual({
       defaultView: 'documents',
       autoExecuteDefaultQuery: false,
+      explorerOpenBehavior: 'reuse-existing',
     });
     expect(save).toHaveBeenCalledOnce();
+  });
+
+  it('persists the Explorer collection behavior without replacing other collection defaults', async () => {
+    save.mockResolvedValue(undefined);
+
+    await useSettingsStore.getState().setExplorerCollectionOpenBehavior('new-tab');
+
+    expect(useSettingsStore.getState().settings.collection).toEqual({
+      defaultView: 'documents',
+      autoExecuteDefaultQuery: false,
+      explorerOpenBehavior: 'new-tab',
+    });
+    expect(save).toHaveBeenCalledOnce();
+    expect(save.mock.calls[0]?.[0].collection).toEqual({
+      defaultView: 'documents',
+      autoExecuteDefaultQuery: false,
+      explorerOpenBehavior: 'new-tab',
+    });
+  });
+
+  it('rolls back an optimistic Explorer collection behavior when persistence fails', async () => {
+    save.mockRejectedValue(new Error('settings unavailable'));
+
+    await useSettingsStore.getState().setExplorerCollectionOpenBehavior('new-tab');
+
+    expect(useSettingsStore.getState().settings.collection.explorerOpenBehavior).toBe('reuse-existing');
+    expect(useSettingsStore.getState().saving).toBe(false);
+    expect(useSettingsStore.getState().error).toBe('settings unavailable');
   });
 
   it('rolls back an optimistic page-size change when persistence fails', async () => {

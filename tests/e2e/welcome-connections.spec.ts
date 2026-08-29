@@ -1,5 +1,7 @@
 import { existsSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { _electron as electron, expect, test, type ElectronApplication, type Locator, type Page } from '@playwright/test';
@@ -74,12 +76,12 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByTestId('sidebar-mongog-brand').locator('img'))
     .toHaveAttribute('src', /mongog-icon.*\.png/);
   await expect(page.locator('[title^="welcome: Welcome"]')).toHaveCount(1);
-  await page.getByRole('button', { name: 'What’s New in 1.2.1' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.6' }).click();
   const releaseNotesTab = page.locator('[data-tab-kind="release-notes"]');
   await expect(page.getByTestId('release-notes-view')).toBeVisible();
   await expect(page.getByTestId('release-notes-mongog-brand')).toHaveAccessibleName('MongoG');
-  await expect(page.getByText('Installed v1.2.1')).toBeVisible();
-  await expect(page.locator('[data-release-version="1.2.1"]')).toContainText('Latest');
+  await expect(page.getByText('Installed v1.2.6')).toBeVisible();
+  await expect(page.locator('[data-release-version="1.2.6"]')).toContainText('Latest');
   await expect(page.locator('[data-release-version="1.0.0"]')).toBeVisible();
   await expectViewportLocked(page);
   await releaseNotesTab.click({ button: 'right' });
@@ -92,7 +94,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.getByTitle('Close Release Notes').click();
   await expect(releaseNotesTab).toHaveCount(0);
   await page.locator('[title^="welcome: Welcome"]').click();
-  await page.getByRole('button', { name: 'What’s New in 1.2.1' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.6' }).click();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
   await expect(page.getByTitle('New query tab')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open global search' })).toBeVisible();
@@ -102,12 +104,17 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   const sidebar = page.getByTestId('connection-explorer');
   const sidebarResizer = page.getByTestId('sidebar-resizer');
   await expect(sidebarResizer).toHaveAttribute('aria-valuenow', '260');
+  const sidebarMaximum = Number(await sidebarResizer.getAttribute('aria-valuemax'));
+  expect(sidebarMaximum).toBeGreaterThanOrEqual(180);
   await sidebarResizer.focus();
   await sidebarResizer.press('Home');
   await expect(sidebar).toHaveJSProperty('clientWidth', 180);
   await expect(sidebar.locator('[data-sidebar-compact-header="true"]')).toBeVisible();
   await sidebarResizer.press('End');
-  await expect(sidebar).toHaveJSProperty('clientWidth', 380);
+  // BrowserWindow.setSize() controls the outer window. Windows reserves a
+  // frame border, so its 1000px outer width has a 984px content viewport and
+  // therefore a 364px accessible sidebar maximum instead of macOS's 380px.
+  await expect(sidebar).toHaveJSProperty('clientWidth', sidebarMaximum);
   await sidebarResizer.dblclick();
   await expect(sidebar).toHaveJSProperty('clientWidth', 260);
   await dragHorizontalSeparator(page, sidebarResizer, 80);
@@ -145,7 +152,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByRole('switch', { name: 'Run default collection query automatically' }))
     .toBeDisabled();
   await expect(page.getByLabel('Global page size')).toHaveValue('50');
-  await expect(page.getByTestId('about-updates-settings')).toContainText('MongoG 1.2.1');
+  await expect(page.getByTestId('about-updates-settings')).toContainText('MongoG 1.2.6');
   await page.getByRole('button', { name: 'Open Release Notes' }).click();
   await expect(page.getByTestId('release-notes-view')).toBeVisible();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
@@ -345,6 +352,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toHaveAttribute('data-tab-pinned', 'true');
   await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toHaveAttribute('title', /^query: Pinned query/);
   await expect(page.locator(`[data-tab-id="${collectionTabId}"]`)).toHaveAttribute('title', /^collection: Inventory work/);
+  await expect(page.locator(`[data-collection-surface="${collectionTabId}"]`)).toHaveCount(0);
   explorer = page.getByRole('navigation', { name: 'Connection explorer' });
   await expect(explorer.getByRole('button', { name: 'Connect', exact: true })).toBeVisible();
   await expect(
@@ -488,6 +496,9 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByLabel('Collection projection')).toBeVisible();
   await expectViewportLocked(page);
   const documentsTable = page.getByTestId('collection-documents-table');
+  await expect.poll(() => collectionColumnNames(page))
+    .toEqual(['_id', 'sku', 'quantity', 'amenities', 'catalog']);
+  await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   await expect.poll(() => collectionColumnNames(page))
     .toEqual(['_id', 'sku', 'quantity', 'amenities', 'catalog', 'status']);
   const firstDocumentRow = documentsTable.locator('tbody tr').first();
@@ -903,15 +914,23 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toHaveCount(0);
   await expect(page.locator(`[data-tab-id="${activeBeforeClosingPinnedQuery}"]`)).toHaveAttribute('data-tab-active', 'true');
   await page.getByRole('button', { name: 'Open Welcome' }).click();
-  await page.getByRole('button', { name: 'What’s New in 1.2.1' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.6' }).click();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
 });
 
 test('global collection defaults persist and auto-run a new Query collection once', async () => {
   let page = await launch();
   await expect(page.locator('[data-tab-kind="welcome"]')).toHaveAttribute('data-tab-active', 'true');
-  await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
-  await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveAttribute('data-tab-active', 'false');
+  const releaseNotesTab = page.locator('[data-tab-kind="release-notes"]');
+  // Keep this persistence test independent from the preceding lifecycle test:
+  // if that test is interrupted before its final save, establish the same
+  // starting workspace explicitly instead of reporting a cascading failure.
+  if (await releaseNotesTab.count() === 0) {
+    await page.getByRole('button', { name: 'What’s New in 1.2.6' }).click();
+    await expect(releaseNotesTab).toHaveCount(1);
+    await page.getByRole('button', { name: 'Open Welcome' }).click();
+  }
+  await expect(releaseNotesTab).toHaveAttribute('data-tab-active', 'false');
   await page.getByRole('button', { name: 'Open application settings' }).click();
   await expect(page.getByTestId('collection-defaults-settings')).toBeVisible();
   const documentColumnOrder = page.getByRole('radio', {
@@ -1069,6 +1088,300 @@ test('global collection defaults persist and auto-run a new Query collection onc
   }
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   await expect(page.getByText('"alpha"', { exact: true })).toBeVisible();
+
+  const retainedCollectionTabId = await page
+    .locator('[data-tab-kind="collection"][data-tab-active="true"]')
+    .getAttribute('data-tab-id');
+  if (!retainedCollectionTabId) throw new Error('Expected an active collection tab');
+  const retainedCollectionTab = page.locator(`[data-tab-id="${retainedCollectionTabId}"]`);
+  const retainedCollectionSurface = page.locator(
+    `[data-collection-surface="${retainedCollectionTabId}"]`,
+  );
+  const lifecycleClient = new MongoClient(mongoUri);
+  await lifecycleClient.connect();
+  try {
+    await page.locator('[data-tab-kind="settings"]').click();
+    await lifecycleClient.db('mongog_e2e').collection('inventory').updateOne(
+      { sku: 'alpha' },
+      { $set: { tabSwitchProbe: 'visible-after-refresh' } },
+    );
+    await lifecycleClient.db('admin').command({
+      configureFailPoint: 'failCommand',
+      mode: { times: 1 },
+      data: { failCommands: ['find'], blockConnection: true, blockTimeMS: 1_000 },
+    });
+
+    await retainedCollectionTab.click();
+    await page.evaluate(() => new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    }));
+    await expect(retainedCollectionSurface.getByTestId('loading-overlay')).toHaveCount(0);
+    await expect(retainedCollectionSurface.getByText('"visible-after-refresh"', { exact: true }))
+      .toHaveCount(0);
+
+    await retainedCollectionSurface.getByRole('button', { name: 'Refresh', exact: true }).click();
+    await expect(retainedCollectionSurface.getByTestId('loading-overlay')).toBeVisible();
+    await expect(retainedCollectionSurface.getByText('"visible-after-refresh"', { exact: true }))
+      .toBeVisible({ timeout: 10_000 });
+
+    await lifecycleClient.db('mongog_e2e').collection('inventory').updateOne(
+      { sku: 'alpha' },
+      { $set: { tabSwitchProbe: 'completed-while-hidden' } },
+    );
+    await lifecycleClient.db('admin').command({
+      configureFailPoint: 'failCommand',
+      mode: { times: 1 },
+      data: { failCommands: ['find'], blockConnection: true, blockTimeMS: 1_000 },
+    });
+    await retainedCollectionSurface.getByRole('button', { name: 'Refresh', exact: true }).click();
+    await expect(retainedCollectionSurface.getByTestId('loading-overlay')).toBeVisible();
+    await page.locator('[data-tab-kind="settings"]').click();
+    await expect(retainedCollectionSurface.getByTestId('loading-overlay'))
+      .toHaveCount(0, { timeout: 10_000 });
+    await retainedCollectionTab.click();
+    await expect(retainedCollectionSurface.getByText('"completed-while-hidden"', { exact: true }))
+      .toBeVisible();
+
+    await lifecycleClient.db('mongog_e2e').collection('inventory_secondary').insertOne({
+      sku: 'secondary',
+      quantity: 1,
+    });
+    const defaultsExplorer = page.getByRole('navigation', { name: 'Connection explorer' });
+    const defaultsProfile = defaultsExplorer.getByRole('treeitem', { name: 'Connection Defaults E2E' });
+    await defaultsProfile.focus();
+    await defaultsProfile.press('ArrowRight');
+    const defaultsDatabase = defaultsExplorer.getByRole('treeitem', { name: 'Database mongog_e2e' });
+    await expect(defaultsDatabase).toBeVisible();
+    await defaultsDatabase.click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Refresh Collections' }).click();
+    await defaultsDatabase.focus();
+    await defaultsDatabase.press('ArrowRight');
+    const secondaryCollection = page.getByTitle('Open mongog_e2e.inventory_secondary');
+    await expect(secondaryCollection).toBeVisible();
+    await secondaryCollection.click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Open Documents' }).click();
+    const secondaryTab = page.locator('[data-tab-kind="collection"][data-tab-active="true"]');
+    const secondaryTabId = await secondaryTab.getAttribute('data-tab-id');
+    if (!secondaryTabId) throw new Error('Expected the secondary collection tab');
+    const secondarySurface = page.locator(`[data-collection-surface="${secondaryTabId}"]`);
+    await expect(secondarySurface.getByText('"secondary"', { exact: true })).toBeVisible();
+    await secondarySurface.getByLabel('Documents page size').selectOption('25');
+    await expect(secondarySurface.getByLabel('Documents page size')).toHaveValue('25');
+
+    await retainedCollectionTab.click();
+    await expect(retainedCollectionSurface.getByText('"completed-while-hidden"', { exact: true }))
+      .toBeVisible();
+    await expect(retainedCollectionSurface.getByLabel('Documents page size')).toHaveValue('default');
+    await page.locator(`[data-tab-id="${secondaryTabId}"]`).click();
+    await expect(secondarySurface.getByLabel('Documents page size')).toHaveValue('25');
+    await page.getByTitle('Close mongog_e2e.inventory_secondary').click();
+    await expect(page.locator(`[data-collection-surface="${secondaryTabId}"]`)).toHaveCount(0);
+  } finally {
+    await lifecycleClient.db('admin').command({
+      configureFailPoint: 'failCommand',
+      mode: 'off',
+    }).catch(() => undefined);
+    await lifecycleClient.db('mongog_e2e').collection('inventory').updateOne(
+      { sku: 'alpha' },
+      { $unset: { tabSwitchProbe: '' } },
+    ).catch(() => undefined);
+    await lifecycleClient.db('mongog_e2e').collection('inventory_secondary').drop()
+      .catch(() => undefined);
+    await lifecycleClient.close();
+  }
+});
+
+test('Explorer collection opening preference creates independent tabs or reuses the first match', async () => {
+  test.setTimeout(120_000);
+  let page = await launch();
+  await page.getByRole('button', { name: 'Open application settings' }).click();
+
+  const documentsDefault = page.getByRole('radio', { name: 'Documents default collection view' });
+  if (await documentsDefault.getAttribute('aria-checked') !== 'true') await documentsDefault.click();
+  await expect(documentsDefault).toHaveAttribute('aria-checked', 'true');
+
+  const reuseExisting = page.getByRole('radio', {
+    name: 'Reuse existing tab for Explorer collections',
+  });
+  if (await reuseExisting.getAttribute('aria-checked') !== 'true') await reuseExisting.click();
+  await expect(reuseExisting).toHaveAttribute('aria-checked', 'true');
+
+  await page.getByRole('button', { name: 'Open Welcome' }).click();
+  await page.getByRole('button', { name: 'New Connection', exact: true }).click();
+  await page.getByLabel('Connection name').fill('Explorer Tabs E2E');
+  await page.getByLabel('Connection URI').fill(mongoUri);
+  await page.getByLabel('Default database').fill('mongog_e2e');
+  await page.getByRole('button', { name: 'Test, Save & Connect' }).click();
+  await expect(page.getByText('Connection tested, saved, and connected.'))
+    .toBeVisible({ timeout: 30_000 });
+
+  const explorer = page.getByRole('navigation', { name: 'Connection explorer' });
+  const profile = explorer.getByRole('treeitem', { name: 'Connection Explorer Tabs E2E' });
+  await profile.focus();
+  await profile.press('ArrowRight');
+  const database = explorer.getByRole('treeitem', { name: 'Database mongog_e2e' });
+  await expect(database).toBeVisible({ timeout: 15_000 });
+  await database.focus();
+  await database.press('ArrowRight');
+  const collection = page.getByTitle('Open mongog_e2e.inventory');
+  await expect(collection).toBeVisible({ timeout: 15_000 });
+
+  const collectionTabs = page.locator('[data-tab-kind="collection"]');
+  const initialCollectionTabCount = await collectionTabs.count();
+  await collection.click();
+  await expect(collectionTabs).toHaveCount(initialCollectionTabCount + 1);
+  const firstTabId = await page.locator('[data-tab-kind="collection"][data-tab-active="true"]')
+    .getAttribute('data-tab-id');
+  if (!firstTabId) throw new Error('Expected the first Explorer collection tab');
+
+  await collection.click();
+  await expect(collectionTabs).toHaveCount(initialCollectionTabCount + 1);
+  await expect(page.locator(`[data-tab-id="${firstTabId}"]`)).toHaveAttribute('data-tab-active', 'true');
+
+  await page.getByRole('button', { name: 'Open application settings' }).click();
+  const alwaysNew = page.getByRole('radio', {
+    name: 'Always open a new tab for Explorer collections',
+  });
+  await alwaysNew.click();
+  await expect(alwaysNew).toHaveAttribute('aria-checked', 'true');
+
+  await collection.click();
+  await expect(collectionTabs).toHaveCount(initialCollectionTabCount + 2);
+  const secondTabId = await page.locator('[data-tab-kind="collection"][data-tab-active="true"]')
+    .getAttribute('data-tab-id');
+  if (!secondTabId) throw new Error('Expected a second Explorer collection tab');
+  await expect(page.locator(`[data-collection-surface="${secondTabId}"]`).getByText('"alpha"', { exact: true }))
+    .toBeVisible({ timeout: 15_000 });
+
+  await collection.click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Open Documents' }).click();
+  await expect(collectionTabs).toHaveCount(initialCollectionTabCount + 3);
+  const thirdTabId = await page.locator('[data-tab-kind="collection"][data-tab-active="true"]')
+    .getAttribute('data-tab-id');
+  if (!thirdTabId) throw new Error('Expected a third Explorer collection tab');
+  const thirdSurface = page.locator(`[data-collection-surface="${thirdTabId}"]`);
+  await expect(thirdSurface.getByText('"alpha"', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await thirdSurface.getByLabel('Documents page size').selectOption('25');
+  await expect(thirdSurface.getByLabel('Documents page size')).toHaveValue('25');
+
+  const secondTab = page.locator(`[data-tab-id="${secondTabId}"]`);
+  const secondSurface = page.locator(`[data-collection-surface="${secondTabId}"]`);
+  await secondTab.click();
+  await expect(secondSurface.getByLabel('Documents page size')).toHaveValue('default');
+
+  const client = new MongoClient(mongoUri);
+  await client.connect();
+  try {
+    await client.db('mongog_e2e').collection('inventory').updateOne(
+      { sku: 'alpha' },
+      { $set: { explorerTabProbe: 'refresh-only' } },
+    );
+    await page.locator(`[data-tab-id="${thirdTabId}"]`).click();
+    await expect(thirdSurface.getByText('"refresh-only"', { exact: true })).toHaveCount(0);
+    await thirdSurface.getByRole('button', { name: 'Refresh', exact: true }).click();
+    await expect(thirdSurface.getByText('"refresh-only"', { exact: true })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Open application settings' }).click();
+    await reuseExisting.click();
+    await expect(reuseExisting).toHaveAttribute('aria-checked', 'true');
+    await collection.click();
+    await expect(collectionTabs).toHaveCount(initialCollectionTabCount + 3);
+    await expect(page.locator(`[data-tab-id="${firstTabId}"]`))
+      .toHaveAttribute('data-tab-active', 'true');
+
+    await page.getByRole('button', { name: 'Open application settings' }).click();
+    await alwaysNew.click();
+    await expect(alwaysNew).toHaveAttribute('aria-checked', 'true');
+    await application!.close();
+    application = null;
+    page = await launch();
+    await page.getByRole('button', { name: 'Open application settings' }).click();
+    await expect(page.getByRole('radio', {
+      name: 'Always open a new tab for Explorer collections',
+    })).toHaveAttribute('aria-checked', 'true');
+  } finally {
+    await client.db('mongog_e2e').collection('inventory').updateOne(
+      { sku: 'alpha' },
+      { $unset: { explorerTabProbe: '' } },
+    ).catch(() => undefined);
+    await client.close();
+  }
+});
+
+test('update available is surfaced in the sidebar after consent is declined', async () => {
+  let page = await launch({ MONGOG_UPDATE_E2E_VERSION: '9.9.9' });
+  // Decline the startup consent prompt; the update stays 'available' and the
+  // sidebar badge + Updates tab remain reachable.
+  page.once('dialog', (dialog) => dialog.dismiss());
+
+  const updateButton = page.getByRole('button', { name: 'Update 9.9.9 available' });
+  await expect(updateButton).toBeVisible();
+  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.6');
+
+  await updateButton.click();
+  await expect(page.getByTestId('updates-view')).toBeVisible();
+  await expect(page.locator('[data-tab-kind="updates"]')).toHaveCount(1);
+  await expect(page.getByText('A new version (v9.9.9) is available.', { exact: true })).toBeVisible();
+  const downloadButton = page.getByRole('button', { name: 'Download now' });
+  await expect(downloadButton).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Remind me later' })).toBeVisible();
+  await expect(page.getByText("What's new in v9.9.9", { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Remind me later' }).click();
+  await expect(updateButton).toHaveCount(0);
+});
+
+test('update available can be installed from the Updates tab and reach the Restart & Install state', async () => {
+  let page = await launch({ MONGOG_UPDATE_E2E_VERSION: '9.9.9' });
+  // If the startup consent prompt appears before we attach this handler,
+  // Playwright auto-dismisses it (declare intent explicitly for clarity): that
+  // keeps the phase 'available' so we can drive the install manually below.
+  page.once('dialog', (dialog) => dialog.dismiss());
+
+  const sidebarBadge = page.getByRole('button', { name: 'Update 9.9.9 available' });
+  await expect(sidebarBadge).toBeVisible();
+  await sidebarBadge.click();
+  await expect(page.getByTestId('updates-view')).toBeVisible();
+  await expect(page.locator('[data-tab-kind="updates"]')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Download now' })).toBeVisible();
+  await page.getByRole('button', { name: 'Download now' }).click();
+  const restartButton = page.getByRole('button', { name: 'Restart & Install' });
+  await expect(restartButton).toBeVisible();
+  await expect(page.getByText('Download finished. Restart the app to install.', { exact: true }))
+    .toBeVisible();
+});
+
+test('packaged updater reads the real platform manifest from a generic feed', async () => {
+  test.skip(process.platform === 'win32', 'Unsigned Windows packages intentionally use manual updates and have no updater config.');
+  const feed = await startUpdateFeed('9.9.9');
+  try {
+    const page = await launch({
+      MONGOG_UPDATE_FEED_URL: feed.url,
+      MONGOG_UPDATE_E2E_VERSION: '',
+    });
+    page.once('dialog', (dialog) => dialog.dismiss());
+
+    await expect.poll(() => feed.requests).toContain(`/update/${feed.manifest}`);
+    await expect(page.getByRole('button', { name: 'Update 9.9.9 available' })).toBeVisible();
+  } finally {
+    await feed.close();
+  }
+});
+
+test('Updates tab is reachable from Settings and shows the neutral state without a badge', async () => {
+  let page = await launch();
+  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.6');
+  await expect(page.getByRole('button', { name: /^Update .* available$/ })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Open application settings' }).click();
+  await expect(page.getByTestId('settings-view')).toBeVisible();
+  await page.getByRole('button', { name: 'Updates', exact: true }).click();
+  await expect(page.getByTestId('updates-view')).toBeVisible();
+  await expect(page.locator('[data-tab-kind="updates"]')).toHaveCount(1);
+  // The neutral launch points at an unreachable feed, so the check errors rather
+  // than reporting an update — no success/"available" text should be shown.
+  await expect(page.getByText('You are up to date.', { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/A new version/)).toHaveCount(0);
 });
 
 async function setMonacoValue(page: Page, label: string, value: string): Promise<void> {
@@ -1293,11 +1606,20 @@ async function expectQueryColumnsFillWidth(page: Page): Promise<void> {
   })).toBeLessThanOrEqual(2);
 }
 
-async function launch(): Promise<Page> {
+async function launch(extraEnv: Record<string, string> = {}): Promise<Page> {
   const executablePath = packagedExecutable();
   application = await electron.launch({
     executablePath,
-    env: { ...process.env, MONGOG_E2E_USER_DATA: userDataPath },
+    env: {
+      ...process.env,
+      MONGOG_E2E_USER_DATA: userDataPath,
+      // Keep the update check hermetic: an unreachable local feed fails fast into
+      // the 'error' phase (no sidebar badge, no consent dialog) so the neutral e2e
+      // paths never touch the network. Update tests override this with the
+      // deterministic MONGOG_UPDATE_E2E_VERSION seam instead.
+      MONGOG_UPDATE_FEED_URL: 'http://127.0.0.1:1/update',
+      ...extraEnv,
+    },
   });
   const page = await application.firstWindow();
   await application.evaluate(({ BrowserWindow }) => {
@@ -1308,6 +1630,55 @@ async function launch(): Promise<Page> {
   await expect.poll(() => page.evaluate(() => ({ width: window.outerWidth, height: window.outerHeight })))
     .toEqual({ width: 1000, height: 700 });
   return page;
+}
+
+async function startUpdateFeed(version: string): Promise<{
+  url: string;
+  manifest: string;
+  requests: string[];
+  close: () => Promise<void>;
+}> {
+  const manifest = process.platform === 'darwin' ? 'latest-mac.yml' : 'latest-linux.yml';
+  const artifact = process.platform === 'darwin'
+    ? `MongoG-${version}-macOS-${process.arch}.zip`
+    : `mongog-${version}-1.x86_64.rpm`;
+  const sha512 = Buffer.alloc(64, 7).toString('base64');
+  const body = [
+    `version: "${version}"`,
+    'files:',
+    `  - url: "${artifact}"`,
+    `    sha512: "${sha512}"`,
+    '    size: 1024',
+    `path: "${artifact}"`,
+    `sha512: "${sha512}"`,
+    '',
+  ].join('\n');
+  const requests: string[] = [];
+  const server = createServer((request, response) => {
+    const requestUrl = request.url ?? '/';
+    const pathname = requestUrl.split('?', 1)[0] ?? '/';
+    requests.push(pathname);
+    if (pathname === `/update/${manifest}`) {
+      response.writeHead(200, { 'Content-Type': 'text/yaml', 'Cache-Control': 'no-store' });
+      response.end(body);
+      return;
+    }
+    response.writeHead(404);
+    response.end();
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  const address = server.address() as AddressInfo;
+  return {
+    url: `http://127.0.0.1:${address.port}/update`,
+    manifest,
+    requests,
+    close: () => new Promise<void>((resolve, reject) => {
+      server.close((error) => error ? reject(error) : resolve());
+    }),
+  };
 }
 
 async function redirectSaveDialogs(app: ElectronApplication, directory: string): Promise<void> {

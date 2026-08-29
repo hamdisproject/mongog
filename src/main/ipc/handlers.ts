@@ -74,10 +74,14 @@ import {
   dataTransferStartConnectionCopySchema,
   dataTransferCancelSchema,
   dataTransferSaveErrorReportSchema,
+  updatesCheckSchema,
+  updatesInstallSchema,
+  updatesDismissSchema,
   type ExecuteResponse,
   type PingRuntimeResponse,
   type QueryCancelResult,
   type SystemInfoResponse,
+  type UpdateCheckResult,
 } from '../../shared/ipc/index.js';
 import {
   DEFAULT_SETTINGS,
@@ -117,6 +121,7 @@ import { AuditService, type AuditContext } from '../services/audit-service.js';
 import type { Database } from '../storage/database.js';
 import { buildExportFilename, exportDialogFilters } from '../export/filename.js';
 import type { DataTransferCoordinator } from '../data-transfer/coordinator.js';
+import type { UpdateService } from '../services/update-service.js';
 
 export interface HandlerContext {
   supervisor: RuntimeSupervisor;
@@ -126,6 +131,7 @@ export interface HandlerContext {
   secretStore: ConnectionSecretStore;
   audit: AuditService;
   dataTransfer: DataTransferCoordinator;
+  updates: UpdateService;
 }
 
 const emptySchema = z.object({}).strict();
@@ -1051,6 +1057,19 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
   registerChannel(IpcChannels.settingsLoad, emptySchema, async () => (
     normalizeApplicationSettings(ctx.getDb().settings.get() ?? structuredClone(DEFAULT_SETTINGS))
   ), validateSender);
+
+  // ── Application updates ──
+  registerChannel(IpcChannels.updatesCheck, updatesCheckSchema, async (): Promise<UpdateCheckResult> => (
+    ctx.updates.check()
+  ), validateSender);
+
+  registerChannel(IpcChannels.updatesInstall, updatesInstallSchema, async () => {
+    await ctx.updates.install();
+  }, validateSender);
+
+  registerChannel(IpcChannels.updatesDismiss, updatesDismissSchema, async () => {
+    ctx.updates.dismiss();
+  }, validateSender);
 
   // ── Hierarchical saved library ──
   registerChannel(IpcChannels.savedList, emptySchema, async (): Promise<SavedLibrarySnapshot> => (

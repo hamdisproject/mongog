@@ -19,8 +19,37 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
-    version: '1.2.1',
-    releasedAt: '2026-08-23',
+    version: '1.2.6',
+    releasedAt: '2026-08-29',
+    title: 'Verified native updates',
+    summary: 'MongoG uses verified automatic updates where packages can be authenticated and a safe manual flow elsewhere.',
+    sections: [
+      {
+        kind: 'added',
+        items: [
+          'Automatic update feeds now publish signed macOS packages and an RPM package with SHA-512 verification.',
+          'Windows ships as an explicitly unsigned NSIS installer with manual updates, avoiding an unauthenticated automatic-update path.',
+          'Update downloads require explicit consent, and restart remains a separate choice after verification finishes.',
+        ],
+      },
+      {
+        kind: 'improved',
+        items: [
+          'macOS updates select the correct arm64 or x64 ZIP while Linux uses its supported RPM package.',
+          'Development, portable and unsigned Windows packages report automatic updates as unsupported instead of attempting an invalid update.',
+        ],
+      },
+      {
+        kind: 'fixed',
+        items: [
+          'Fixed update feed paths, missing checksums, duplicate checks and stale event listeners that could break production updates.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '1.2.5',
+    releasedAt: '2026-08-24',
     title: 'Trusted macOS downloads',
     summary: 'MongoG macOS release packages are now signed, notarized and delivered directly through CircleCI.',
     sections: [

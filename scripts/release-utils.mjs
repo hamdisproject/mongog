@@ -96,22 +96,19 @@ export function releaseAssetNames(platform, arch, version = packageMetadata.vers
     return [`MongoG-${version}${marker}-macOS-${arch}.dmg`, `MongoG-${version}${marker}-macOS-${arch}.zip`];
   }
   if (platform === 'win32') {
-    return [`MongoG-Setup-${version}${marker}-win-${arch}.exe`, `MongoG-${version}${marker}-win-${arch}.zip`];
+    return [`MongoG-Setup-${version}${marker}-win-${arch}.exe`];
   }
-  return [
-    `mongog_${version}${marker}_amd64.deb`,
-    `mongog-${version}${marker}-1.x86_64.rpm`,
-    `MongoG-${version}${marker}-linux-${arch}.zip`,
-  ];
+  return [`mongog-${version}${marker}-1.x86_64.rpm`];
 }
 
 export function expectedReleaseAssetNames(version = packageMetadata.version, options = {}) {
   const unsigned = options.unsigned === true;
   const macosUnsigned = options.macosUnsigned ?? unsigned;
+  const windowsUnsigned = options.windowsUnsigned ?? unsigned;
   return [
     ...releaseAssetNames('darwin', 'arm64', version, { unsigned: macosUnsigned }),
     ...releaseAssetNames('darwin', 'x64', version, { unsigned: macosUnsigned }),
-    ...releaseAssetNames('win32', 'x64', version, options),
+    ...releaseAssetNames('win32', 'x64', version, { unsigned: windowsUnsigned }),
     ...releaseAssetNames('linux', 'x64', version, options),
   ].sort((left, right) => left.localeCompare(right));
 }

@@ -10,6 +10,7 @@ import { useSavedLibraryStore } from '../../stores/saved.js';
 import { SavedTree } from './SavedTree.js';
 import { useDataTransferStore } from '../../stores/data-transfer.js';
 import { MongoGBrand } from '../Brand/MongoGBrand.js';
+import { useUpdatesStore } from '../../stores/updates.js';
 import {
   SIDEBAR_DEFAULT_WIDTH,
   SIDEBAR_MIN_WIDTH,
@@ -93,7 +94,9 @@ function ExplorerTree({ compactHeader = false }: { compactHeader?: boolean }) {
     updateGroup, deleteGroup, connect, disconnect, loadDatabases, loadCollections,
     createGroup, moveProfileToGroup,
   } = useConnectionStore();
-  const { openWelcome, openConnections, openSettings } = useWorkspaceStore();
+  const { openWelcome, openConnections, openSettings, openUpdates } = useWorkspaceStore();
+  const updatePhase = useUpdatesStore((state) => state.phase);
+  const updateVersion = useUpdatesStore((state) => state.availableVersion);
   const savedFolders = useSavedLibraryStore((state) => state.folders);
   const savedItems = useSavedLibraryStore((state) => state.items);
 
@@ -504,6 +507,33 @@ function ExplorerTree({ compactHeader = false }: { compactHeader?: boolean }) {
         </button>
         <span title={`MongoG version ${appVersion}`} style={{ color: 'var(--color-text-faint)', fontSize: 10, whiteSpace: 'nowrap' }}>
           v{appVersion}
+          {updatePhase === 'available' && (
+            <button
+              type="button"
+              aria-label={`Update ${updateVersion ?? ''} available`}
+              title={updateVersion ? `MongoG v${updateVersion} is available. Open Updates.` : 'An update is available. Open Updates.'}
+              onClick={() => openUpdates()}
+              onMouseEnter={(event) => { event.currentTarget.style.background = 'var(--color-panel-raised)'; }}
+              onMouseLeave={(event) => { event.currentTarget.style.background = 'transparent'; }}
+              style={{
+                marginLeft: 7,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 18,
+                height: 18,
+                border: 'none',
+                borderRadius: 3,
+                background: 'transparent',
+                color: 'var(--color-accent)',
+                cursor: 'pointer',
+                fontSize: 12,
+                verticalAlign: 'middle',
+              }}
+            >
+              ⬆
+            </button>
+          )}
         </span>
       </div>
     </div>
@@ -585,7 +615,12 @@ function ProfileNode({
     }
   };
   const handleCollectionClick = (database: string, collection: string) => {
-    openCollection({ connectionId: profile.id, database, collection });
+    openCollection({
+      connectionId: profile.id,
+      database,
+      collection,
+      disposition: useSettingsStore.getState().settings.collection.explorerOpenBehavior,
+    });
   };
 
   const showConnectionMenu = (event: React.MouseEvent) => {
@@ -673,6 +708,7 @@ function ProfileNode({
             database,
             collection,
             viewMode: 'documents',
+            disposition: useSettingsStore.getState().settings.collection.explorerOpenBehavior,
           }),
         },
         {

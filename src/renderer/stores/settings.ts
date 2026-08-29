@@ -12,7 +12,10 @@ interface SettingsState {
   load: () => Promise<void>;
   setTheme: (theme: ThemePreference) => Promise<void>;
   setBsonDisplayMode: (mode: BsonDisplayMode) => Promise<void>;
-  setCollectionDefaults: (collection: ApplicationSettings['collection']) => Promise<void>;
+  setCollectionDefaults: (collection: Pick<ApplicationSettings['collection'], 'defaultView' | 'autoExecuteDefaultQuery'>) => Promise<void>;
+  setExplorerCollectionOpenBehavior: (
+    behavior: ApplicationSettings['collection']['explorerOpenBehavior'],
+  ) => Promise<void>;
   setTableColumnOrder: (columnOrder: ApplicationSettings['table']['columnOrder']) => Promise<void>;
   setConnectionIdleTimeout: (idleTimeoutMS: number) => Promise<void>;
   setPageSize: (pageSize: number) => Promise<void>;
@@ -71,6 +74,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     if (get().saving) return;
     const previous = get().settings;
     const normalized: ApplicationSettings['collection'] = {
+      ...previous.collection,
       defaultView: collection.defaultView,
       autoExecuteDefaultQuery: collection.defaultView === 'query'
         ? collection.autoExecuteDefaultQuery
@@ -81,6 +85,25 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       previous.collection.autoExecuteDefaultQuery === normalized.autoExecuteDefaultQuery
     ) return;
     const settings = { ...previous, collection: normalized };
+    set({ settings, saving: true, error: null });
+    try {
+      await window.mongog.settings.save(settings);
+      set({ saving: false });
+    } catch (error) {
+      set({ settings: previous, saving: false, error: errorMessage(error) });
+    }
+  },
+
+  setExplorerCollectionOpenBehavior: async (explorerOpenBehavior) => {
+    if (
+      get().saving ||
+      get().settings.collection.explorerOpenBehavior === explorerOpenBehavior
+    ) return;
+    const previous = get().settings;
+    const settings = {
+      ...previous,
+      collection: { ...previous.collection, explorerOpenBehavior },
+    };
     set({ settings, saving: true, error: null });
     try {
       await window.mongog.settings.save(settings);

@@ -1,9 +1,11 @@
 import { execFileSync, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import packageMetadata from '../../package.json';
+import { generateUpdateManifests } from '../../scripts/generate-update-manifests.mjs';
 import { isRecoverableDmgDetachFailure } from '../../scripts/release-utils.mjs';
 
 const scratchDirectories: string[] = [];
@@ -28,13 +30,13 @@ describe('release tooling', () => {
   it('keeps the complete CircleCI platform, release, and hardening contract', () => {
     const workflow = readFileSync(path.resolve(process.cwd(), '.circleci', 'config.yml'), 'utf8');
 
-    expect(workflow).toContain('image: cimg/node:22.12.0');
+    expect(workflow).toContain('image: cimg/node:22.13.0');
     expect(workflow).toContain("image: ubuntu-2404:current");
     expect(workflow).toContain('resource_class: medium');
     expect(workflow).not.toContain('resource_class: xlarge');
     expect(workflow).toContain('executor: win/server-2022');
-    expect(workflow).toContain("$nodeRoot = 'C:\\tools\\node-v22.12.0'");
-    expect(workflow).toContain('test "$(node --version)" = "v22.12.0"');
+    expect(workflow).toContain("$nodeRoot = 'C:\\tools\\node-v22.13.0'");
+    expect(workflow).toContain('test "$(node --version)" = "v22.13.0"');
     expect(workflow).toContain('choco install python312 -y');
     expect(workflow).toContain("npm_config_msvs_version='2022'");
     expect(workflow).toContain('resource_class: m4pro.medium');
@@ -44,7 +46,9 @@ describe('release tooling', () => {
     expect(workflow).toContain('name: package-smoke-windows-x64');
     expect(workflow).toContain('name: package-smoke-linux-x64');
     expect(workflow).toContain('if [[ "$EXPECTED_MACHO_ARCH" == "x64" ]]; then EXPECTED_MACHO_ARCH="x86_64"; fi');
-    expect(workflow).toContain('grep -Fxq "$EXPECTED_MACHO_ARCH"');
+    expect(workflow).toContain('[[ " $MACHO_ARCHS " == *" $EXPECTED_MACHO_ARCH "* ]]');
+    expect(workflow).toContain('[[ "$SIGNING_IDENTITIES" == *"$MACOS_SIGN_IDENTITY"* ]]');
+    expect(workflow).not.toMatch(/\| grep -[^\n]*q/u);
     expect(workflow).toContain('node scripts/make-macos-dmg.mjs --arch << parameters.arch >>');
     expect(workflow).toContain('--targets=@electron-forge/maker-zip');
     expect(workflow).toContain('hdiutil verify "$DMG_PATH"');
@@ -52,11 +56,25 @@ describe('release tooling', () => {
     expect(workflow).toContain('MONGOG_SMOKE_ALLOW_UNAVAILABLE_SECURE_STORAGE=1');
     expect(workflow).toContain('filters: pipeline.git.branch == "main"');
     expect(workflow).toContain('./node_modules/.bin/electron-forge package --platform=win32 --arch=x64');
-    expect(workflow).toContain('ci-artifacts/MongoG-${VERSION}-macOS-<< parameters.arch >>.zip');
+    expect(workflow).toContain('ci-artifacts/MongoG-${VERSION}-UNSIGNED-macOS-<< parameters.arch >>.zip');
     expect(workflow).toContain('ci-artifacts\\MongoG-${version}-win-x64.zip');
     expect(workflow).toContain('ci-artifacts/MongoG-${VERSION}-linux-x64.tar.gz');
     expect(workflow.match(/destination: packages/gu)).toHaveLength(3);
     expect(workflow).not.toContain('--no-sandbox');
+
+    const forgeConfig = readFileSync(path.resolve(process.cwd(), 'forge.config.mts'), 'utf8');
+    expect(forgeConfig).toContain('continueOnError: false');
+    expect(forgeConfig).toContain('resetAdHocDarwinSignature: true');
+    expect(forgeConfig).toContain('rebuildConfig: { force: true }');
+
+    const windowsMaker = readFileSync(script('make-windows-nsis.mjs'), 'utf8');
+    expect(windowsMaker).toContain("CSC_IDENTITY_AUTO_DISCOVERY: 'false'");
+    expect(windowsMaker).toContain("app-update.yml");
+    expect(windowsMaker).not.toContain('prepareWindowsUpdateRuntime');
+
+    const builderConfig = readFileSync(path.resolve(process.cwd(), 'electron-builder.yml'), 'utf8');
+    expect(builderConfig).not.toContain('publish:');
+    expect(builderConfig).not.toContain('verifyUpdateCodeSignature');
   });
 
   it('stores version-tag release artifacts directly in CircleCI', () => {
@@ -66,9 +84,21 @@ describe('release tooling', () => {
     expect(workflow).toContain('release_tag:');
     expect(workflow).toContain('pipeline.git.tag matches /^v[0-9]+\\.[0-9]+\\.[0-9]+$/');
     expect(workflow).toContain('MONGOG_RELEASE=1 MONGOG_SIGN_RELEASE=1 npm run package -- --platform=darwin');
+    expect(workflow).toContain('MONGOG_RELEASE=1 npm run package -- --platform=win32');
+    expect(workflow).toContain('MONGOG_RELEASE=1 npm run make:windows:nsis');
+    expect(workflow).not.toContain('WINDOWS_CERTIFICATE_PFX_BASE64');
+    expect(workflow).not.toContain('WINDOWS_CERTIFICATE_PASSWORD');
+    expect(workflow).toContain("Get-AuthenticodeSignature");
+    expect(workflow).toContain("$signature.Status -ne 'NotSigned'");
+    expect(workflow).toContain('--unsigned-windows');
+    expect(workflow).toContain("cat \"$PACKAGE_TYPE_PATH\"");
     expect(workflow).toContain('xcrun notarytool submit "$DMG_PATH"');
     expect(workflow).toContain('xcrun stapler validate "$APP_PATH"');
     expect(workflow).toContain('destination: release-macos-<< parameters.arch >>');
+    expect(workflow).toContain('name: release-metadata');
+    expect(workflow).toContain('npm run generate:update-manifests');
+    expect(workflow.match(/persist_to_workspace:/gu)).toHaveLength(3);
+    expect(workflow.match(/filters: pipeline\.parameters\.run_release or \(pipeline\.git\.tag matches/g)).toHaveLength(5);
     expect(workflow).not.toContain('publish_release:');
     expect(workflow).not.toContain('GH_TOKEN');
     expect(workflow).toContain('context: release');
@@ -143,14 +173,14 @@ describe('release tooling', () => {
     );
   });
 
-  it('accepts an unsigned production release without signing material', () => {
-    for (const platform of ['darwin', 'win32']) {
-      execFileSync(
-        process.execPath,
-        [script('validate-release-environment.mjs'), '--platform', platform, '--tag', `v${packageMetadata.version}`],
-        { env: { ...process.env, MONGOG_RELEASE: '1' } },
-      );
-    }
+  it('accepts unsigned production Windows releases without certificate material', () => {
+    const result = spawnSync(
+      process.execPath,
+      [script('validate-release-environment.mjs'), '--platform', 'win32', '--tag', `v${packageMetadata.version}`],
+      { env: { ...process.env, MONGOG_RELEASE: '1', MONGOG_SIGN_RELEASE: '' }, encoding: 'utf8' },
+    );
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('Unsigned release environment validated');
   });
 
   it('fails closed when signed production material is requested but missing', () => {
@@ -195,45 +225,15 @@ describe('release tooling', () => {
     ]);
   });
 
-  it('accepts only the complete nine-file release set and writes checksums', () => {
-    const directory = scratch();
-    const names = [
-      `MongoG-${packageMetadata.version}-UNSIGNED-macOS-arm64.dmg`,
-      `MongoG-${packageMetadata.version}-UNSIGNED-macOS-arm64.zip`,
-      `MongoG-${packageMetadata.version}-UNSIGNED-macOS-x64.dmg`,
-      `MongoG-${packageMetadata.version}-UNSIGNED-macOS-x64.zip`,
-      `MongoG-${packageMetadata.version}-UNSIGNED-win-x64.zip`,
-      `MongoG-${packageMetadata.version}-UNSIGNED-linux-x64.zip`,
-      `MongoG-Setup-${packageMetadata.version}-UNSIGNED-win-x64.exe`,
-      `mongog-${packageMetadata.version}-UNSIGNED-1.x86_64.rpm`,
-      `mongog_${packageMetadata.version}-UNSIGNED_amd64.deb`,
-    ];
-    for (const name of names) writeFileSync(path.join(directory, name), name);
-
-    execFileSync(process.execPath, [
-      script('verify-release-assets.mjs'),
-      '--directory', directory,
-      '--tag', `v${packageMetadata.version}`,
-      '--unsigned',
-    ]);
-
-    const checksums = readFileSync(path.join(directory, 'SHA256SUMS.txt'), 'utf8');
-    expect(checksums.trim().split('\n')).toHaveLength(9);
-    expect(checksums).toContain(`MongoG-${packageMetadata.version}-UNSIGNED-macOS-arm64.dmg`);
-  });
-
-  it('accepts signed macOS artifacts alongside unsigned Windows and Linux artifacts', () => {
+  it('accepts the complete release set and generates updater manifests from the exact artifacts', async () => {
     const directory = scratch();
     const names = [
       `MongoG-${packageMetadata.version}-macOS-arm64.dmg`,
       `MongoG-${packageMetadata.version}-macOS-arm64.zip`,
       `MongoG-${packageMetadata.version}-macOS-x64.dmg`,
       `MongoG-${packageMetadata.version}-macOS-x64.zip`,
-      `MongoG-${packageMetadata.version}-UNSIGNED-win-x64.zip`,
-      `MongoG-${packageMetadata.version}-UNSIGNED-linux-x64.zip`,
       `MongoG-Setup-${packageMetadata.version}-UNSIGNED-win-x64.exe`,
-      `mongog-${packageMetadata.version}-UNSIGNED-1.x86_64.rpm`,
-      `mongog_${packageMetadata.version}-UNSIGNED_amd64.deb`,
+      `mongog-${packageMetadata.version}-1.x86_64.rpm`,
     ];
     for (const name of names) writeFileSync(path.join(directory, name), name);
 
@@ -241,12 +241,78 @@ describe('release tooling', () => {
       script('verify-release-assets.mjs'),
       '--directory', directory,
       '--tag', `v${packageMetadata.version}`,
-      '--unsigned',
-      '--signed-macos',
+      '--unsigned-windows',
     ]);
 
     const checksums = readFileSync(path.join(directory, 'SHA256SUMS.txt'), 'utf8');
-    expect(checksums.trim().split('\n')).toHaveLength(9);
+    expect(checksums.trim().split('\n')).toHaveLength(6);
     expect(checksums).toContain(`MongoG-${packageMetadata.version}-macOS-arm64.dmg`);
+
+    await expect(generateUpdateManifests(directory)).resolves.toEqual([
+      'latest-mac.yml',
+      'latest-linux.yml',
+    ]);
+    const macManifest = readFileSync(path.join(directory, 'latest-mac.yml'), 'utf8');
+    const linuxManifest = readFileSync(path.join(directory, 'latest-linux.yml'), 'utf8');
+    expect(macManifest).toContain(`version: "${packageMetadata.version}"`);
+    expect(macManifest).toContain(`MongoG-${packageMetadata.version}-macOS-arm64.zip`);
+    expect(macManifest).toContain(`MongoG-${packageMetadata.version}-macOS-x64.zip`);
+    expect(macManifest).not.toContain('.dmg');
+    expect(linuxManifest).toContain(`mongog-${packageMetadata.version}-1.x86_64.rpm`);
+    expect(readdirSync(directory)).not.toContain('latest.yml');
+    const expectedHash = createHash('sha512')
+      .update(`mongog-${packageMetadata.version}-1.x86_64.rpm`)
+      .digest('base64');
+    expect(linuxManifest).toContain(expectedHash);
+
+    execFileSync(process.execPath, [
+      script('verify-release-assets.mjs'),
+      '--directory', directory,
+      '--tag', `v${packageMetadata.version}`,
+      '--unsigned-windows',
+    ]);
+  });
+
+  it('rejects obsolete portable and DEB files in the official release set', () => {
+    const directory = scratch();
+    const names = [
+      `MongoG-${packageMetadata.version}-macOS-arm64.dmg`,
+      `MongoG-${packageMetadata.version}-macOS-arm64.zip`,
+      `MongoG-${packageMetadata.version}-macOS-x64.dmg`,
+      `MongoG-${packageMetadata.version}-macOS-x64.zip`,
+      `MongoG-Setup-${packageMetadata.version}-UNSIGNED-win-x64.exe`,
+      `mongog-${packageMetadata.version}-1.x86_64.rpm`,
+      `mongog_${packageMetadata.version}_amd64.deb`,
+    ];
+    for (const name of names) writeFileSync(path.join(directory, name), name);
+
+    const result = spawnSync(process.execPath, [
+      script('verify-release-assets.mjs'), '--directory', directory, '--tag', `v${packageMetadata.version}`, '--unsigned-windows',
+    ], { encoding: 'utf8' });
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('Release artifact set is incomplete');
+  });
+
+  it('normalizes the Windows NSIS artifact with an explicit unsigned marker', () => {
+    const directory = scratch();
+    const source = path.join(directory, 'make');
+    const output = path.join(directory, 'release');
+    mkdirSync(source, { recursive: true });
+    writeFileSync(path.join(source, `MongoG-Setup-${packageMetadata.version}-win-x64.exe`), 'exe');
+
+    execFileSync(process.execPath, [
+      script('collect-release-artifacts.mjs'),
+      '--platform', 'win32',
+      '--arch', 'x64',
+      '--source', source,
+      '--output', output,
+      '--clean',
+      '--unsigned',
+    ]);
+
+    expect(readdirSync(output)).toEqual([
+      `MongoG-Setup-${packageMetadata.version}-UNSIGNED-win-x64.exe`,
+    ]);
   });
 });

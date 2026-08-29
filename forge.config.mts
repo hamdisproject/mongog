@@ -1,6 +1,19 @@
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 import type { ForgeConfig } from '@electron-forge/shared-types';
+import type { OsxSignOptions } from '@electron/packager';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
+
+// Electron Packager 18.4.4 implements this compatibility switch in
+// signAppIfSpecified/createSignOpts, but omits it from its exported option type.
+type PackagerOsxSignOptions = OsxSignOptions & { continueOnError?: boolean };
+
+// Homebrew may place a just-released Python ahead of macOS's system Python.
+// Native dependencies can lag behind that release, so prefer the Xcode-backed
+// system interpreter for node-gyp unless the caller selected one explicitly.
+if (process.platform === 'darwin' && !process.env.PYTHON && existsSync('/usr/bin/python3')) {
+  process.env.PYTHON = '/usr/bin/python3';
+}
 
 const isProductionRelease = process.env.MONGOG_RELEASE === '1';
 const isSignedRelease = isProductionRelease && process.env.MONGOG_SIGN_RELEASE === '1';
@@ -23,10 +36,15 @@ const macRelease = isSignedRelease && process.platform === 'darwin'
     }
   : null;
 
-const windowsRelease = isSignedRelease && process.platform === 'win32'
+const macSignOptions: PackagerOsxSignOptions | null = macRelease
   ? {
-      certificateFile: requiredEnvironment('WINDOWS_CERTIFICATE_FILE'),
-      certificatePassword: requiredEnvironment('WINDOWS_CERTIFICATE_PASSWORD'),
+      identity: macRelease.identity,
+      keychain: macRelease.keychain,
+      // Electron Packager otherwise continues to notarization after a
+      // codesign failure and hides the actionable signing error.
+      continueOnError: false,
+      // @electron/osx-sign enables hardened runtime by default and supplies
+      // its Electron-compatible built-in entitlements.
     }
   : null;
 
@@ -36,6 +54,10 @@ const windowsRelease = isSignedRelease && process.platform === 'win32'
 const packagerIcon = process.platform === 'darwin'
   ? 'assets/legacy/mongog-icon'
   : 'assets/mongog-icon';
+const extraResources = [
+  'assets/mongog-icon.png',
+  ...(process.platform === 'linux' ? ['build/package-type'] : []),
+];
 
 const config: ForgeConfig = {
   packagerConfig: {
@@ -45,7 +67,7 @@ const config: ForgeConfig = {
     appCategoryType: 'public.app-category.developer-tools',
     appCopyright: `Copyright © ${new Date().getFullYear()} Hamdis Project`,
     icon: packagerIcon,
-    extraResource: ['assets/mongog-icon.png'],
+    extraResource: extraResources,
     extendInfo: {
       LSMinimumSystemVersion: '12.0',
     },
@@ -59,26 +81,11 @@ const config: ForgeConfig = {
     },
     ...(macRelease
       ? {
-          osxSign: {
-            identity: macRelease.identity,
-            keychain: macRelease.keychain,
-            // @electron/osx-sign enables hardened runtime by default and
-            // supplies its Electron-compatible built-in entitlements.
-          },
+          osxSign: macSignOptions!,
           osxNotarize: {
             appleApiKey: macRelease.apiKeyPath,
             appleApiKeyId: macRelease.apiKeyId,
             appleApiIssuer: macRelease.apiIssuer,
-          },
-        }
-      : {}),
-    ...(windowsRelease
-      ? {
-          windowsSign: {
-            certificateFile: windowsRelease.certificateFile,
-            certificatePassword: windowsRelease.certificatePassword,
-            description: 'MongoG MongoDB desktop IDE',
-            website: homepage,
           },
         }
       : {}),
@@ -100,9 +107,12 @@ const config: ForgeConfig = {
       );
     },
   },
-  rebuildConfig: {},
+  // npm rebuild (used to restore the host Node ABI for Vitest) leaves
+  // electron-rebuild's .forge-meta marker behind. Without force, Forge trusts
+  // that stale marker and can launch Electron with a Node-ABI native binary.
+  rebuildConfig: { force: true },
   makers: [
-    { name: '@electron-forge/maker-zip', platforms: ['darwin', 'linux', 'win32'], config: {} },
+    { name: '@electron-forge/maker-zip', platforms: ['darwin'], config: {} },
     {
       name: '@electron-forge/maker-dmg',
       platforms: ['darwin'],
@@ -121,46 +131,6 @@ const config: ForgeConfig = {
               },
             }
           : {}),
-      },
-    },
-    {
-      name: '@electron-forge/maker-squirrel',
-      platforms: ['win32'],
-      config: {
-        name: 'MongoG',
-        authors: 'Hamdis Project',
-        description: 'MongoG - production-grade MongoDB desktop IDE',
-        setupIcon: path.resolve('assets/mongog-icon.ico'),
-        ...(windowsRelease
-          ? {
-              windowsSign: {
-                certificateFile: windowsRelease.certificateFile,
-                certificatePassword: windowsRelease.certificatePassword,
-                description: 'MongoG MongoDB desktop IDE',
-                website: homepage,
-              },
-            }
-          : {}),
-      },
-    },
-    {
-      name: '@electron-forge/maker-deb',
-      platforms: ['linux'],
-      config: {
-        options: {
-          name: 'mongog',
-          productName: 'MongoG',
-          genericName: 'MongoDB IDE',
-          description: 'Production-grade MongoDB desktop IDE',
-          productDescription: 'MongoG is a desktop IDE for querying, browsing, and administering MongoDB.',
-          section: 'database',
-          priority: 'optional',
-          maintainer: 'Hamdis Project <hamditugmobil@gmail.com>',
-          homepage,
-          bin: 'MongoG',
-          icon: path.resolve('assets/mongog-icon.png'),
-          categories: ['Development'],
-        },
       },
     },
     {
@@ -199,6 +169,10 @@ const config: ForgeConfig = {
       name: '@electron-forge/plugin-fuses',
       config: {
         version: FuseVersion.V1,
+        // Flipping fuses mutates Electron's existing ad-hoc signature. Reset
+        // the bundle signature before Packager applies the Developer ID
+        // signature, otherwise codesign sees stale CodeResources metadata.
+        resetAdHocDarwinSignature: true,
         // utilityProcess is the recommended replacement; child_process.fork
         // is intentionally not used anywhere in this codebase.
         [FuseV1Options.RunAsNode]: false,
