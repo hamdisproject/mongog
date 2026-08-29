@@ -219,6 +219,7 @@ describe('createUpdateService factory', () => {
     const service = await createUpdateService(() => undefined, 'https://x/update', {
       createRealUpdater,
       getCurrentVersion: () => '1.2.6',
+      platform: 'darwin',
     });
     expect(createRealUpdater).toHaveBeenCalledWith('https://x/update');
     const result = service.check();
@@ -232,6 +233,7 @@ describe('createUpdateService factory', () => {
         throw new Error('https://alice:secret@x/update?token=abc is unavailable');
       },
       getCurrentVersion: () => '1.2.6',
+      platform: 'darwin',
     });
     await expect(service.check()).resolves.toMatchObject({
       phase: 'error',
