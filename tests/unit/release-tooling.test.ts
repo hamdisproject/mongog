@@ -70,6 +70,10 @@ describe('release tooling', () => {
     const windowsMaker = readFileSync(script('make-windows-nsis.mjs'), 'utf8');
     expect(windowsMaker).toContain("CSC_IDENTITY_AUTO_DISCOVERY: 'false'");
     expect(windowsMaker).toContain("app-update.yml");
+    expect(windowsMaker).toContain("'electron-builder', 'cli.js'");
+    expect(windowsMaker).toContain('spawnSync(process.execPath, builderArguments');
+    expect(windowsMaker).not.toContain("'node_modules', '.bin', 'electron-builder.cmd'");
+    expect(windowsMaker).not.toContain("process.env.ComSpec || 'cmd.exe'");
     expect(windowsMaker).not.toContain('prepareWindowsUpdateRuntime');
 
     const builderConfig = readFileSync(path.resolve(process.cwd(), 'electron-builder.yml'), 'utf8');
