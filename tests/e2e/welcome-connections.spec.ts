@@ -84,12 +84,12 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByTestId('sidebar-mongog-brand').locator('img'))
     .toHaveAttribute('src', /mongog-icon.*\.png/);
   await expect(page.locator('[title^="welcome: Welcome"]')).toHaveCount(1);
-  await page.getByRole('button', { name: 'What’s New in 1.2.8' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.9' }).click();
   const releaseNotesTab = page.locator('[data-tab-kind="release-notes"]');
   await expect(page.getByTestId('release-notes-view')).toBeVisible();
   await expect(page.getByTestId('release-notes-mongog-brand')).toHaveAccessibleName('MongoG');
-  await expect(page.getByText('Installed v1.2.8')).toBeVisible();
-  await expect(page.locator('[data-release-version="1.2.8"]')).toContainText('Latest');
+  await expect(page.getByText('Installed v1.2.9')).toBeVisible();
+  await expect(page.locator('[data-release-version="1.2.9"]')).toContainText('Latest');
   await expect(page.locator('[data-release-version="1.0.0"]')).toBeVisible();
   await expectViewportLocked(page);
   await releaseNotesTab.click({ button: 'right' });
@@ -102,7 +102,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.getByTitle('Close Release Notes').click();
   await expect(releaseNotesTab).toHaveCount(0);
   await page.locator('[title^="welcome: Welcome"]').click();
-  await page.getByRole('button', { name: 'What’s New in 1.2.8' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.9' }).click();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
   await expect(page.getByTitle('New query tab')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open global search' })).toBeVisible();
@@ -160,7 +160,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByRole('switch', { name: 'Run default collection query automatically' }))
     .toBeDisabled();
   await expect(page.getByLabel('Global page size')).toHaveValue('50');
-  await expect(page.getByTestId('about-updates-settings')).toContainText('MongoG 1.2.8');
+  await expect(page.getByTestId('about-updates-settings')).toContainText('MongoG 1.2.9');
   await page.getByRole('button', { name: 'Open Release Notes' }).click();
   await expect(page.getByTestId('release-notes-view')).toBeVisible();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
@@ -921,7 +921,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toHaveCount(0);
   await expect(page.locator(`[data-tab-id="${activeBeforeClosingPinnedQuery}"]`)).toHaveAttribute('data-tab-active', 'true');
   await page.getByRole('button', { name: 'Open Welcome' }).click();
-  await page.getByRole('button', { name: 'What’s New in 1.2.8' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.9' }).click();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
 });
 
@@ -933,7 +933,7 @@ test('global collection defaults persist and auto-run a new Query collection onc
   // if that test is interrupted before its final save, establish the same
   // starting workspace explicitly instead of reporting a cascading failure.
   if (await releaseNotesTab.count() === 0) {
-    await page.getByRole('button', { name: 'What’s New in 1.2.8' }).click();
+    await page.getByRole('button', { name: 'What’s New in 1.2.9' }).click();
     await expect(releaseNotesTab).toHaveCount(1);
     await page.getByRole('button', { name: 'Open Welcome' }).click();
   }
@@ -1321,7 +1321,7 @@ test('update available is surfaced in the sidebar after consent is declined', as
 
   const updateButton = page.getByRole('button', { name: 'Update 9.9.9 available' });
   await expect(updateButton).toBeVisible();
-  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.8');
+  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.9');
 
   await updateButton.click();
   await expect(page.getByTestId('updates-view')).toBeVisible();
@@ -1419,7 +1419,7 @@ for (const failure of ['checksum', 'http'] as const) {
 
 test('Updates tab is reachable from Settings and shows the neutral state without a badge', async () => {
   let page = await launch();
-  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.8');
+  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.9');
   await expect(page.getByRole('button', { name: /^Update .* available$/ })).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Open application settings' }).click();
@@ -1655,6 +1655,146 @@ item?.sku.toUpperCase();`;
     await page.screenshot({path:testInfo.outputPath('automatic-await.png')});
     expect(errors).toEqual([]);
   } finally {
+    try { await closeApplication(); } finally { await removeElectronUserData(isolated); }
+  }
+});
+
+test('Documents column filters complete syntax and nested fields with native editing', async ({}, testInfo) => {
+  test.setTimeout(120_000);
+  const isolated = await mkdtemp(join(tmpdir(), 'mongog-filter-language-'));
+  const client = new MongoClient(mongoUri);
+  await client.connect();
+  try {
+    await client.db('mongog_e2e').collection('filter_language').insertMany([
+      { sku: 'alpha', quantity: 3, tags: ['wifi', 'balcony'], catalog: { city: 'Istanbul', products: [{ name: 'Computer Pro', price: 150, tags: ['wifi'] }] } },
+      { sku: 'beta', quantity: 7, tags: ['pool'], catalog: { city: 'Ankara', products: [{ name: 'Phone', price: 300 }] } },
+    ]);
+    const page = await launch({ MONGOG_E2E_USER_DATA: isolated });
+    const pageErrors: string[] = [];
+    page.on('pageerror', (error) => pageErrors.push(error.message));
+    await page.getByRole('button', { name: 'New Connection', exact: true }).click();
+    await page.getByLabel('Connection name').fill('Filter Language E2E');
+    await page.getByLabel('Connection URI').fill(mongoUri);
+    await page.getByLabel('Default database').fill('mongog_e2e');
+    await page.getByRole('button', { name: 'Test, Save & Connect' }).click();
+    await expect(page.getByText('Connection tested, saved, and connected.')).toBeVisible({ timeout: 30_000 });
+    const explorer = page.getByRole('navigation', { name: 'Connection explorer' });
+    await explorer.getByRole('treeitem', { name: 'Connection Filter Language E2E' }).press('ArrowRight');
+    await explorer.getByRole('treeitem', { name: 'Database mongog_e2e' }).press('ArrowRight');
+    await page.getByTitle('Open mongog_e2e.filter_language').click();
+    const collectionTab = page.locator('[data-tab-kind="collection"][data-tab-active="true"]');
+    const collectionTabId = await collectionTab.getAttribute('data-tab-id');
+    const table = page.getByTestId('collection-documents-table');
+    const rows = table.locator('tbody tr');
+    await expect(rows).toHaveCount(2);
+    const tags = page.getByLabel('Filter tags column');
+    const catalog = page.getByLabel('Filter catalog column');
+    const quantity = page.getByLabel('Filter quantity column');
+
+    // A failed schema sample must not disable operator completion or editing.
+    const failPoint = await client.db('admin').command({
+      configureFailPoint: 'failCommand', mode: { times: 1 }, data: { failCommands: ['aggregate'], errorCode: 13 },
+    });
+    await tags.fill('h wifi');
+    await client.db('admin').command({ waitForFailPoint: 'failCommand', timesEntered: Number(failPoint.count) + 1, maxTimeMS: 10_000 });
+    await tags.evaluate((input: HTMLInputElement) => input.setSelectionRange(1, 1));
+    await tags.press('Control+Space');
+    await expect(page.getByRole('option', { name: 'has Array contains a value or wildcard' })).toBeVisible();
+    await tags.press('Enter');
+    await expect(tags).toHaveValue('has wifi');
+    await expect(page.getByRole('listbox', { name: 'Suggestions for tags' })).toHaveCount(0);
+    await expect(rows).toHaveCount(2); // Choosing a valid completion must not apply it.
+    const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await tags.press(`${modifier}+z`);
+    await expect(tags).toHaveValue('h wifi');
+    await tags.press(process.platform === 'darwin' ? 'Meta+Shift+z' : 'Control+y');
+    await expect(tags).toHaveValue('has wifi');
+    await tags.press('Escape');
+    await tags.press('Enter');
+    await expect(rows).toHaveCount(1);
+    await expect(rows).toContainText('alpha');
+    await tags.fill('');
+    await tags.press('Enter');
+    await expect(rows).toHaveCount(2);
+
+    // Retry sampling on another focus and follow the selected nested array path.
+    await catalog.fill('{products}[{na');
+    const catalogList = page.getByRole('listbox', { name: 'Suggestions for catalog' });
+    await expect(catalogList.getByRole('option', { name: /^name / })).toBeVisible({ timeout: 15_000 });
+    await expect(catalogList).not.toContainText('Computer Pro');
+    await catalog.press('Tab');
+    await expect(catalog).toHaveValue('{products}[{name}]');
+    await expect(catalog).toBeFocused();
+    await catalog.pressSequentially(': *Com*');
+    await expect(catalogList).toHaveCount(0);
+    await catalog.press('Enter');
+    await expect(rows).toHaveCount(1);
+    await expect(rows).toContainText('alpha');
+    await catalog.fill('{products}[{');
+    await expect(catalogList.getByRole('option')).toHaveCount(3);
+    await catalog.press('ArrowDown');
+    await expect(catalogList.getByRole('option', { name: /^price / })).toHaveAttribute('aria-selected', 'true');
+    await catalog.press('Escape');
+    await expect(catalogList).toHaveCount(0);
+    await catalog.press('Control+Space');
+    await catalogList.getByRole('option', { name: /^tags / }).click();
+    await expect(catalog).toHaveValue('{products}[{tags}]');
+    await expect(catalog).toBeFocused();
+    await catalog.pressSequentially(': len >= 1');
+    await expect(catalogList).toHaveCount(0);
+
+    // Long native input and paint layer scroll together, without changing font metrics.
+    const catalogShell = page.locator('[data-column-filter="catalog"]');
+    await expect(catalogShell.locator('[data-filter-token="property"]').first()).toHaveCSS('color', 'rgb(156, 220, 254)');
+    await catalog.press('End');
+    await expect.poll(() => catalogShell.evaluate((shell) => {
+      const input = shell.querySelector('input')!;
+      const paint = shell.querySelector('.column-filter-paint')!;
+      const text = shell.querySelector('.column-filter-text')!;
+      return input.scrollLeft > 0 && Math.abs(input.scrollLeft - paint.scrollLeft) <= 1 &&
+        getComputedStyle(input).font === getComputedStyle(text).font &&
+        getComputedStyle(input).padding === getComputedStyle(text).padding;
+    })).toBe(true);
+    await quantity.fill('<> 10');
+    await page.screenshot({ path: testInfo.outputPath('column-filters-dark.png') });
+    await page.getByRole('button', { name: 'Open application settings' }).click();
+    await page.getByRole('radio', { name: 'Light theme', exact: true }).click();
+    await page.locator(`[data-tab-id="${collectionTabId}"]`).click();
+    await expect(catalogShell.locator('[data-filter-token="property"]').first()).toHaveCSS('color', 'rgb(0, 16, 128)');
+    await page.screenshot({ path: testInfo.outputPath('column-filters-light.png') });
+    await catalog.fill('{products}[{');
+    await expect(catalogList).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('column-filter-suggestions.png') });
+    const popupBounds = await catalogList.boundingBox();
+    expect(popupBounds?.width).toBeGreaterThanOrEqual(280);
+    expect((popupBounds?.x ?? -1) + (popupBounds?.width ?? 0)).toBeLessThanOrEqual(await page.evaluate(() => innerWidth));
+    await dragHorizontalSeparator(page, page.getByRole('separator', { name: 'Resize catalog column' }), -70);
+    await expect(catalogList).toBeVisible();
+    expect((await catalog.boundingBox())!.width).toBeLessThan(110);
+    await table.evaluate((element) => { element.parentElement!.scrollLeft += 20; });
+    await expect.poll(async () => Math.abs((await catalogList.boundingBox())!.x - (await catalog.boundingBox())!.x)).toBeLessThan(1);
+    await catalog.press('Escape');
+    await catalog.fill('{bad.name}: value');
+    await expect(catalog).toHaveAttribute('aria-invalid', 'true');
+    await expect(page.getByRole('button', { name: 'Apply', exact: true })).toBeDisabled();
+    await catalog.fill('"<img src=x onerror=alert(1)>"');
+    await expect(catalogShell.locator('img')).toHaveCount(0);
+    await expect(catalogShell.locator('.column-filter-text')).toHaveText('"<img src=x onerror=alert(1)>"');
+    await quantity.fill('> 999');
+    await quantity.dispatchEvent('compositionstart');
+    await quantity.press('Enter');
+    await expect(rows).toContainText('alpha');
+    await quantity.dispatchEvent('compositionend');
+    await catalog.fill('');
+    await quantity.fill('');
+    await quantity.press('Enter');
+    await expect(rows).toHaveCount(2);
+    await expectViewportLocked(page);
+    expect(pageErrors).toEqual([]);
+  } finally {
+    await client.db('admin').command({ configureFailPoint: 'failCommand', mode: 'off' }).catch(() => undefined);
+    await client.db('mongog_e2e').collection('filter_language').drop();
+    await client.close();
     try { await closeApplication(); } finally { await removeElectronUserData(isolated); }
   }
 });

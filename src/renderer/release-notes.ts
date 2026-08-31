@@ -19,6 +19,28 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
+    version: '1.2.9',
+    releasedAt: '2026-08-31',
+    title: 'Smarter Documents column filters',
+    summary: 'Write column filters with syntax highlighting and suggestions for operators and nested field names.',
+    sections: [
+      {
+        kind: 'added',
+        items: [
+          'Documents column filters now highlight operators, nested selectors, strings, numbers and BSON values in light and dark themes.',
+          'Autocomplete suggests filter operators and schema field names inside object and array selectors without suggesting document values.',
+        ],
+      },
+      {
+        kind: 'improved',
+        items: [
+          'Use Ctrl+Space to open suggestions, Up/Down to navigate, Enter or Tab to select, and Escape to dismiss. Enter applies the filter when suggestions are closed.',
+          'Compact column inputs preserve native selection, undo and IME input, with operator suggestions available even when schema sampling fails.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.2.8',
     releasedAt: '2026-08-31',
     title: 'Reliable update downloads',

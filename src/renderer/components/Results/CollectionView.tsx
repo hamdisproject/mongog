@@ -37,6 +37,7 @@ import {
 import { theme } from '../../theme.js';
 import { QueryWorkspace } from '../Editor/QueryWorkspace.js';
 import { CollectionCriteriaEditor } from './CollectionCriteriaEditor.js';
+import { ColumnFilterInput } from './ColumnFilterInput.js';
 import type { CriteriaKind } from '../../monaco/object-expression.js';
 import { SavedActions } from '../Saved/SavedActions.js';
 import { DocumentBsonEditor } from './DocumentBsonEditor.js';
@@ -116,11 +117,6 @@ const s: Record<string, React.CSSProperties> = {
     color: 'var(--color-accent-hover)', fontWeight: 700,
   },
   sortPriority: { fontSize: 9, lineHeight: 1, fontVariantNumeric: 'tabular-nums' },
-  columnFilter: {
-    boxSizing: 'border-box', display: 'block', width: 'calc(100% - 10px)', margin: '1px 5px 5px',
-    border: '1px solid var(--color-border)', borderRadius: 2, background: 'var(--color-input)', color: 'var(--color-text)',
-    padding: '3px 5px', fontSize: 10, outline: 0, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-  },
   filterHelp: {
     padding: '8px 10px', color: 'var(--color-text-muted)', background: 'var(--color-panel)',
     borderBottom: '1px solid var(--color-border)', fontSize: 11, flexShrink: 0,
@@ -1217,24 +1213,15 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
                         onPointerDown={(event) => beginColumnResize(event, column)}
                       />
                     </div>
-                    <input
-                      aria-label={`Filter ${column} column`}
-                      draggable={false}
-                      style={{
-                        ...s.columnFilter,
-                        ...(columnFilterErrors[column] ? { borderColor: theme.colors.danger } : {}),
-                      }}
+                    <ColumnFilterInput
+                      connectionId={connectionId}
+                      database={database}
+                      collection={collection}
+                      column={column}
                       value={columnFilters[column] ?? ''}
-                      placeholder="exact, {field}: value, [{field}]: value"
-                      aria-invalid={columnFilterErrors[column] ? 'true' : undefined}
-                      title={columnFilterErrors[column] ?? columnFilterHelpText()}
-                      onDragStart={(event) => event.stopPropagation()}
-                      onPointerDown={(event) => event.stopPropagation()}
-                      onChange={(event) => updateColumnFilter(column, event.target.value)}
-                      onKeyDown={(event) => {
-                        event.stopPropagation();
-                        if (event.key === 'Enter') applyCriteria();
-                      }}
+                      error={columnFilterErrors[column]}
+                      onChange={(value) => updateColumnFilter(column, value)}
+                      onApply={applyCriteria}
                     />
                   </th>
                 ))}
