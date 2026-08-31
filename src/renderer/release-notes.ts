@@ -19,6 +19,28 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
+    version: '1.2.8',
+    releasedAt: '2026-08-31',
+    title: 'Reliable update downloads',
+    summary: 'Fixes missing update configuration in macOS and Linux packages so available updates can be downloaded.',
+    sections: [
+      {
+        kind: 'fixed',
+        items: [
+          'Fixed the missing app-update.yml error when clicking Download now on macOS and Linux.',
+          'Incomplete update configuration now reports clear reinstall instructions before a download is attempted.',
+        ],
+      },
+      {
+        kind: 'improved',
+        items: [
+          'Release packages are checked for update configuration before distribution, and automated tests exercise real downloads and checksum failures.',
+          'Existing installations affected by the missing-file error need a one-time manual reinstall; saved connections and workspace data are preserved.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.2.7',
     releasedAt: '2026-08-31',
     title: 'Automatic await and Query preferences',

@@ -1,7 +1,7 @@
 {
   "name": "mongog",
   "productName": "MongoG",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "description": "MongoG - production-grade MongoDB desktop IDE",
   "author": {
     "name": "Hamdis Project",
@@ -57,6 +57,7 @@
     "csv-parse": "^7.0.2",
     "electron-updater": "^6.8.9",
     "exceljs": "^4.4.0",
+    "js-yaml": "4.3.1",
     "monaco-editor": "^0.56.0",
     "mongodb": "^7.5.0",
     "react": "^19.2.8",

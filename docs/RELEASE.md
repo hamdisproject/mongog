@@ -44,6 +44,17 @@ git push origin main v1.0.0
 `package.json` sürümü `1.0.0` ise tag `v1.0.0` olmalıdır. Aksi durumda release
 workflow güvenli biçimde durur.
 
+macOS ve Linux paketleri `build/app-update.yml` dosyasını imzalamadan önce
+`Resources` dizinine alır. Bu dosya generic feed adresini ve `mongog-updater`
+önbellek dizinini tanımlar; `setFeedURL()` kullanılması dosya gereksinimini
+ortadan kaldırmaz. `verify:package` eksik veya bozuk yapılandırmayı reddeder.
+İmzasız Windows paketleri bu dosyayı içermez.
+
+1.2.8 öncesi kurulumda `app-update.yml` eksikse uygulama içinden indirme
+başlatılamaz. Kullanıcı imzalı 1.2.8 DMG'sini indirip uygulamayı bir kez manuel
+değiştirmelidir; kullanıcı veri dizini silinmez. Kurulu `.app` içine dosya
+ekleme: bu işlem imzayı geçersiz kılar. Mevcut `v1.2.7` etiketi korunur.
+
 ## CircleCI'de kontrol ve indirme
 
 1. CircleCI içindeki `release` workflow'unun tamamlanmasını bekle.

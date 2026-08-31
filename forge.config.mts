@@ -56,6 +56,9 @@ const packagerIcon = process.platform === 'darwin'
   : 'assets/mongog-icon';
 const extraResources = [
   'assets/mongog-icon.png',
+  // Packager copies extraResource before applying the app signature. The
+  // updater reads this file during download even when setFeedURL is used.
+  ...(['darwin', 'linux'].includes(process.platform) ? ['build/app-update.yml'] : []),
   ...(process.platform === 'linux' ? ['build/package-type'] : []),
 ];
 

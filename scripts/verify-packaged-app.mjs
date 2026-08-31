@@ -2,6 +2,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { extractFile } from '@electron/asar';
 import { FuseV1Options, getCurrentFuseWire } from '@electron/fuses';
+import { parseUpdateConfig } from '../src/shared/update-config.mjs';
 import {
   packageMetadata,
   packagedApplication,
@@ -43,8 +44,12 @@ if (!unpackedFiles.some((file) => /better[-_]sqlite3\.node$/u.test(file))) {
   throw new Error('Packaged better-sqlite3 native binary was not found in app.asar.unpacked.');
 }
 
-if (release && platform === 'win32') {
-  const updateConfig = path.join(application.resources, 'app-update.yml');
+const updateConfig = path.join(application.resources, 'app-update.yml');
+if (platform === 'darwin' || platform === 'linux') {
+  requiredFile(updateConfig, 'Packaged updater configuration');
+  parseUpdateConfig(readFileSync(updateConfig, 'utf8'));
+}
+if (platform === 'win32') {
   if (existsSync(updateConfig)) {
     throw new Error('Unsigned Windows releases must not contain app-update.yml.');
   }

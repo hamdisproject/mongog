@@ -1,4 +1,5 @@
 import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 import { mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import type { AddressInfo } from 'node:net';
@@ -83,12 +84,12 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByTestId('sidebar-mongog-brand').locator('img'))
     .toHaveAttribute('src', /mongog-icon.*\.png/);
   await expect(page.locator('[title^="welcome: Welcome"]')).toHaveCount(1);
-  await page.getByRole('button', { name: 'What’s New in 1.2.7' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.8' }).click();
   const releaseNotesTab = page.locator('[data-tab-kind="release-notes"]');
   await expect(page.getByTestId('release-notes-view')).toBeVisible();
   await expect(page.getByTestId('release-notes-mongog-brand')).toHaveAccessibleName('MongoG');
-  await expect(page.getByText('Installed v1.2.7')).toBeVisible();
-  await expect(page.locator('[data-release-version="1.2.7"]')).toContainText('Latest');
+  await expect(page.getByText('Installed v1.2.8')).toBeVisible();
+  await expect(page.locator('[data-release-version="1.2.8"]')).toContainText('Latest');
   await expect(page.locator('[data-release-version="1.0.0"]')).toBeVisible();
   await expectViewportLocked(page);
   await releaseNotesTab.click({ button: 'right' });
@@ -101,7 +102,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.getByTitle('Close Release Notes').click();
   await expect(releaseNotesTab).toHaveCount(0);
   await page.locator('[title^="welcome: Welcome"]').click();
-  await page.getByRole('button', { name: 'What’s New in 1.2.7' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.8' }).click();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
   await expect(page.getByTitle('New query tab')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open global search' })).toBeVisible();
@@ -159,7 +160,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByRole('switch', { name: 'Run default collection query automatically' }))
     .toBeDisabled();
   await expect(page.getByLabel('Global page size')).toHaveValue('50');
-  await expect(page.getByTestId('about-updates-settings')).toContainText('MongoG 1.2.7');
+  await expect(page.getByTestId('about-updates-settings')).toContainText('MongoG 1.2.8');
   await page.getByRole('button', { name: 'Open Release Notes' }).click();
   await expect(page.getByTestId('release-notes-view')).toBeVisible();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
@@ -920,7 +921,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toHaveCount(0);
   await expect(page.locator(`[data-tab-id="${activeBeforeClosingPinnedQuery}"]`)).toHaveAttribute('data-tab-active', 'true');
   await page.getByRole('button', { name: 'Open Welcome' }).click();
-  await page.getByRole('button', { name: 'What’s New in 1.2.7' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.8' }).click();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
 });
 
@@ -932,7 +933,7 @@ test('global collection defaults persist and auto-run a new Query collection onc
   // if that test is interrupted before its final save, establish the same
   // starting workspace explicitly instead of reporting a cascading failure.
   if (await releaseNotesTab.count() === 0) {
-    await page.getByRole('button', { name: 'What’s New in 1.2.7' }).click();
+    await page.getByRole('button', { name: 'What’s New in 1.2.8' }).click();
     await expect(releaseNotesTab).toHaveCount(1);
     await page.getByRole('button', { name: 'Open Welcome' }).click();
   }
@@ -1320,7 +1321,7 @@ test('update available is surfaced in the sidebar after consent is declined', as
 
   const updateButton = page.getByRole('button', { name: 'Update 9.9.9 available' });
   await expect(updateButton).toBeVisible();
-  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.7');
+  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.8');
 
   await updateButton.click();
   await expect(page.getByTestId('updates-view')).toBeVisible();
@@ -1355,8 +1356,9 @@ test('update available can be installed from the Updates tab and reach the Resta
     .toBeVisible();
 });
 
-test('packaged updater reads the real platform manifest from a generic feed', async () => {
+test('packaged updater downloads from a real generic feed only after consent', async () => {
   test.skip(process.platform === 'win32', 'Unsigned Windows packages intentionally use manual updates and have no updater config.');
+  const cachePath = await mkdtemp(join(tmpdir(), 'mongog-update-cache-e2e-'));
   const feed = await startUpdateFeed('9.9.9');
   try {
     const page = await launch({
@@ -1364,17 +1366,60 @@ test('packaged updater reads the real platform manifest from a generic feed', as
       MONGOG_UPDATE_E2E_VERSION: '',
     });
     page.once('dialog', (dialog) => dialog.dismiss());
+    await isolateUpdateCache(application!, cachePath);
 
     await expect.poll(() => feed.requests).toContain(`/update/${feed.manifest}`);
-    await expect(page.getByRole('button', { name: 'Update 9.9.9 available' })).toBeVisible();
+    const badge = page.getByRole('button', { name: 'Update 9.9.9 available' });
+    await expect(badge).toBeVisible();
+    await badge.click();
+    await expect(page.getByRole('button', { name: 'Download now' })).toBeVisible();
+    expect(feed.requests).not.toContain(`/update/${feed.artifact}`);
+
+    await page.getByRole('button', { name: 'Download now' }).click();
+    await expect.poll(() => feed.requests).toContain(`/update/${feed.artifact}`);
+    await expect(page.getByRole('button', { name: 'Restart & Install' })).toBeVisible();
+    await expect(page.getByText('Download finished. Restart the app to install.', { exact: true })).toBeVisible();
+    const downloaded = await readFile(join(cachePath, 'mongog-updater', 'pending', feed.artifact));
+    expect(createHash('sha512').update(downloaded).digest('base64')).toBe(feed.sha512);
+    // Deliberately do not install the fixture. Real Squirrel/RPM installation
+    // remains protected by the separate user restart action.
   } finally {
-    await feed.close();
+    try { await closeApplication(); } finally {
+      await feed.close();
+      await removeElectronUserData(cachePath);
+    }
   }
 });
 
+for (const failure of ['checksum', 'http'] as const) {
+  test(`packaged updater rejects a real ${failure} download failure`, async () => {
+    test.skip(process.platform === 'win32', 'Unsigned Windows packages use manual updates.');
+    const cachePath = await mkdtemp(join(tmpdir(), 'mongog-update-failure-e2e-'));
+    const feed = await startUpdateFeed('9.9.9', failure);
+    try {
+      const page = await launch({ MONGOG_UPDATE_FEED_URL: feed.url, MONGOG_UPDATE_E2E_VERSION: '' });
+      page.once('dialog', (dialog) => dialog.dismiss());
+      await isolateUpdateCache(application!, cachePath);
+      await page.getByRole('button', { name: 'Update 9.9.9 available' }).click();
+      expect(feed.requests).not.toContain(`/update/${feed.artifact}`);
+      await page.getByRole('button', { name: 'Download now' }).click();
+      await expect.poll(() => feed.requests).toContain(`/update/${feed.artifact}`);
+      await expect(page.getByTestId('updates-view')).toContainText(failure === 'checksum' ? /checksum mismatch/i : /503/);
+      await expect(page.getByRole('button', { name: 'Restart & Install' })).toHaveCount(0);
+      await expect(page.getByText('Download finished. Restart the app to install.', { exact: true })).toHaveCount(0);
+      expect(existsSync(join(cachePath, 'mongog-updater', 'pending', feed.artifact))).toBe(false);
+    } finally {
+      try { await closeApplication(); } finally {
+        await feed.close();
+        await removeElectronUserData(cachePath);
+      }
+    }
+  });
+}
+
 test('Updates tab is reachable from Settings and shows the neutral state without a badge', async () => {
   let page = await launch();
-  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.7');
+  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.8');
   await expect(page.getByRole('button', { name: /^Update .* available$/ })).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Open application settings' }).click();
@@ -1919,9 +1964,34 @@ async function launch(extraEnv: Record<string, string> = {}): Promise<Page> {
   return page;
 }
 
-async function startUpdateFeed(version: string): Promise<{
+async function isolateUpdateCache(application: ElectronApplication, directory: string): Promise<void> {
+  const configuration = await application.evaluate(({ app }, cachePath) => {
+    const require = process.getBuiltinModule('module').createRequire(`${app.getAppPath()}/package.json`);
+    const { autoUpdater } = require('electron-updater');
+    // Override only the cache root on the real adapter, before the first
+    // download. Do not override configOnDisk or downloadedUpdateHelper: those
+    // must read the actual bundled app-update.yml to catch packaging regressions.
+    Object.defineProperty(autoUpdater.app, 'baseCachePath', { get: () => cachePath });
+    return {
+      type: autoUpdater.constructor.name,
+      autoDownload: autoUpdater.autoDownload,
+      autoInstallOnAppQuit: autoUpdater.autoInstallOnAppQuit,
+      cachePath: autoUpdater.app.baseCachePath,
+    };
+  }, directory);
+  expect(configuration).toEqual({
+    type: process.platform === 'darwin' ? 'MacUpdater' : 'RpmUpdater',
+    autoDownload: false,
+    autoInstallOnAppQuit: false,
+    cachePath: directory,
+  });
+}
+
+async function startUpdateFeed(version: string, failure?: 'checksum' | 'http'): Promise<{
   url: string;
   manifest: string;
+  artifact: string;
+  sha512: string;
   requests: string[];
   close: () => Promise<void>;
 }> {
@@ -1929,13 +1999,20 @@ async function startUpdateFeed(version: string): Promise<{
   const artifact = process.platform === 'darwin'
     ? `MongoG-${version}-macOS-${process.arch}.zip`
     : `mongog-${version}-1.x86_64.rpm`;
-  const sha512 = Buffer.alloc(64, 7).toString('base64');
+  // Small download-only fixture (an empty ZIP on macOS). The tests never invoke
+  // the native installer, but exercise actual HTTP, cache writes and SHA-512.
+  const payload = process.platform === 'darwin'
+    ? Buffer.from('504b0506000000000000000000000000000000000000', 'hex')
+    : Buffer.from('MongoG RPM download-only test fixture\n');
+  const sha512 = failure === 'checksum'
+    ? Buffer.alloc(64, 7).toString('base64')
+    : createHash('sha512').update(payload).digest('base64');
   const body = [
     `version: "${version}"`,
     'files:',
     `  - url: "${artifact}"`,
     `    sha512: "${sha512}"`,
-    '    size: 1024',
+    `    size: ${payload.length}`,
     `path: "${artifact}"`,
     `sha512: "${sha512}"`,
     '',
@@ -1950,6 +2027,16 @@ async function startUpdateFeed(version: string): Promise<{
       response.end(body);
       return;
     }
+    if (pathname === `/update/${artifact}`) {
+      if (failure === 'http') {
+        response.writeHead(503);
+        response.end('Update fixture unavailable');
+      } else {
+        response.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': payload.length });
+        response.end(payload);
+      }
+      return;
+    }
     response.writeHead(404);
     response.end();
   });
@@ -1961,6 +2048,8 @@ async function startUpdateFeed(version: string): Promise<{
   return {
     url: `http://127.0.0.1:${address.port}/update`,
     manifest,
+    artifact,
+    sha512,
     requests,
     close: () => new Promise<void>((resolve, reject) => {
       server.close((error) => error ? reject(error) : resolve());

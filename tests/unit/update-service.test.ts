@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -15,6 +15,12 @@ const scratchDirectories: string[] = [];
 function scratch(): string {
   const directory = mkdtempSync(path.join(tmpdir(), 'mongog-update-test-'));
   scratchDirectories.push(directory);
+  return directory;
+}
+
+function configuredResources(): string {
+  const directory = scratch();
+  writeFileSync(path.join(directory, 'app-update.yml'), readFileSync('build/app-update.yml', 'utf8'));
   return directory;
 }
 
@@ -220,6 +226,7 @@ describe('createUpdateService factory', () => {
       createRealUpdater,
       getCurrentVersion: () => '1.2.6',
       platform: 'darwin',
+      resourcesPath: configuredResources(),
     });
     expect(createRealUpdater).toHaveBeenCalledWith('https://x/update');
     const result = service.check();
@@ -234,6 +241,7 @@ describe('createUpdateService factory', () => {
       },
       getCurrentVersion: () => '1.2.6',
       platform: 'darwin',
+      resourcesPath: configuredResources(),
     });
     await expect(service.check()).resolves.toMatchObject({
       phase: 'error',
@@ -268,7 +276,7 @@ describe('createUpdateService factory', () => {
   });
 
   it('initializes the Linux updater only for an RPM package marker', async () => {
-    const resourcesPath = scratch();
+    const resourcesPath = configuredResources();
     writeFileSync(path.join(resourcesPath, 'package-type'), 'rpm\n');
     const createRealUpdater = vi.fn(async () => createFakeUpdater());
     const service = await createUpdateService(() => undefined, 'https://x/update', {
@@ -281,6 +289,31 @@ describe('createUpdateService factory', () => {
 
     expect(service.isSupported).toBe(true);
     expect(createRealUpdater).toHaveBeenCalledOnce();
+  });
+
+  describe.each(['darwin', 'linux'] as const)('%s packaged configuration', (platform) => {
+    it.each([
+      ['missing', undefined],
+      ['empty', ''],
+      ['invalid YAML', 'provider: ['],
+      ['missing cache directory', 'provider: generic\nurl: https://mongog.com/update\n'],
+      ['wrong types', 'provider: [generic]\nurl: https://mongog.com/update\nupdaterCacheDirName: mongog-updater\n'],
+    ])('reports actionable reinstall guidance for %s configuration', async (_name, config) => {
+      const resourcesPath = scratch();
+      if (config !== undefined) writeFileSync(path.join(resourcesPath, 'app-update.yml'), config);
+      if (platform === 'linux') writeFileSync(path.join(resourcesPath, 'package-type'), 'rpm\n');
+      const createRealUpdater = vi.fn(async () => createFakeUpdater());
+      const service = await createUpdateService(() => undefined, 'https://x/update', {
+        platform, resourcesPath, createRealUpdater, isPackaged: true, getCurrentVersion: () => '1.2.8',
+      });
+      await expect(service.check()).resolves.toMatchObject({
+        phase: 'error',
+        error: expect.stringContaining('Download and reinstall MongoG from https://mongog.com'),
+      });
+      expect(service.isSupported).toBe(false);
+      expect(createRealUpdater).not.toHaveBeenCalled();
+      service.dispose();
+    });
   });
 
   it('does not initialize the Windows updater for an unsigned package', async () => {

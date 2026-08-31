@@ -3,6 +3,7 @@ import { serializeError } from '../../shared/errors/index.js';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
+import { parseUpdateConfig } from '../../shared/update-config.mjs';
 
 /**
  * Minimal structural surface of electron-updater's autoUpdater that this service
@@ -236,13 +237,21 @@ export async function createUpdateService(
     if (platform === 'win32' && !isNsisPackage(options.resourcesPath ?? process.resourcesPath)) {
       return new UpdateService(undefined, broadcast, getCurrentVersion);
     }
+    if (platform === 'darwin' || platform === 'linux') {
+      try {
+        parseUpdateConfig(readFileSync(path.join(options.resourcesPath ?? process.resourcesPath, 'app-update.yml'), 'utf8'));
+      } catch {
+        throw new Error(
+          'Update configuration is missing or invalid in this installation. Download and reinstall MongoG from https://mongog.com. Your saved connections and workspace will be preserved.',
+        );
+      }
+    }
     const createReal = options.createRealUpdater ?? importRealUpdater;
     const updater = await createReal(feedUrl);
     return new UpdateService(updater, broadcast, getCurrentVersion);
   } catch (error) {
-    // electron-updater can be unavailable in unusual build/runtime combinations
-    // (e.g. a dev shell). Never let update wiring take the app down: fall back to
-    // a build that reports "not supported" without touching the network.
+    // Keep initialization failures actionable through the existing error phase;
+    // they must not take down the app or masquerade as unsupported builds.
     return new UpdateService(
       undefined,
       broadcast,
