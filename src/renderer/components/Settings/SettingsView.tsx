@@ -115,6 +115,9 @@ export function SettingsView() {
     saving,
     error,
     setTheme,
+    setEditorFontSize,
+    setEditorMouseWheelZoom,
+    setCriteriaOpenByDefault,
     setBsonDisplayMode,
     setCollectionDefaults,
     setExplorerCollectionOpenBehavior,
@@ -130,6 +133,13 @@ export function SettingsView() {
   const [installedVersion, setInstalledVersion] = useState<string>(LATEST_RELEASE.version);
   const [pageSizeDraft, setPageSizeDraft] = useState(String(settings.execution.pageSize));
   const [pageSizeError, setPageSizeError] = useState<string | null>(null);
+  const [fontSizeDraft, setFontSizeDraft] = useState(String(settings.editor.fontSize));
+  const [fontSizeError, setFontSizeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFontSizeDraft(String(settings.editor.fontSize));
+    setFontSizeError(null);
+  }, [settings.editor.fontSize]);
 
   useEffect(() => {
     setPageSizeDraft(String(settings.execution.pageSize));
@@ -160,6 +170,16 @@ export function SettingsView() {
     } catch (reason) {
       setAuditMessage(reason && typeof reason === 'object' && 'message' in reason ? String(reason.message) : String(reason));
     }
+  };
+
+  const saveFontSize = () => {
+    const value = Number(fontSizeDraft);
+    if (!Number.isInteger(value) || value < 8 || value > 72) {
+      setFontSizeError('Font size must be a whole number between 8 and 72 pixels.');
+      return;
+    }
+    setFontSizeError(null);
+    void setEditorFontSize(value);
   };
 
   return (
@@ -310,6 +330,54 @@ export function SettingsView() {
           </div>
         </section>
 
+        <section data-testid="query-editor-settings" style={{ marginTop: 18, border: `1px solid ${theme.colors.border}`, borderRadius: 7, background: theme.colors.panel, overflow: 'hidden' }}>
+          <div style={{ padding: '15px 17px', borderBottom: `1px solid ${theme.colors.border}` }}>
+            <h2 style={{ margin: 0, fontSize: 14 }}>Query editor</h2>
+            <div style={{ marginTop: 5, color: theme.colors.textMuted, fontSize: 11, lineHeight: 1.45 }}>
+              Shared by Query tabs and collection Query views. Changes are saved automatically.
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: '16px 24px', padding: 16 }}>
+            <div>
+              <strong style={{ display: 'block', fontSize: 12 }}>Font size</strong>
+              <span style={{ display: 'block', marginTop: 4, color: theme.colors.textMuted, fontSize: 10, lineHeight: 1.45 }}>
+                Query text size in pixels, from 8 to 72. Default: 13.
+              </span>
+              {fontSizeError && <span id="query-font-size-error" role="alert" style={{ display: 'block', marginTop: 5, color: theme.colors.danger, fontSize: 10 }}>{fontSizeError}</span>}
+            </div>
+            <label style={{ display: 'grid', gap: 4, color: theme.colors.textMuted, fontSize: 9 }}>
+              FONT SIZE (PX)
+              <input
+                aria-label="Query font size"
+                aria-invalid={fontSizeError !== null}
+                aria-describedby={fontSizeError ? 'query-font-size-error' : undefined}
+                type="number"
+                min={8}
+                max={72}
+                step={1}
+                value={fontSizeDraft}
+                disabled={!loaded || saving}
+                onChange={(event) => {
+                  setFontSizeDraft(event.target.value);
+                  setFontSizeError(null);
+                }}
+                onBlur={saveFontSize}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') event.currentTarget.blur();
+                }}
+                style={{ width: 112, height: 29, boxSizing: 'border-box', border: `1px solid ${fontSizeError ? theme.colors.danger : theme.colors.borderStrong}`, borderRadius: 4, background: theme.colors.input, color: theme.colors.text, padding: '0 8px' }}
+              />
+            </label>
+            <div>
+              <strong style={{ display: 'block', fontSize: 12 }}>Mouse wheel zoom</strong>
+              <span style={{ display: 'block', marginTop: 4, color: theme.colors.textMuted, fontSize: 10, lineHeight: 1.45 }}>
+                Hold Cmd on macOS or Ctrl on Windows/Linux while scrolling over Query text. The new font size is saved for all Query editors.
+              </span>
+            </div>
+            <PreferenceSwitch label="Query mouse wheel zoom" checked={settings.editor.mouseWheelZoom} disabled={!loaded || saving} onChange={() => void setEditorMouseWheelZoom(!settings.editor.mouseWheelZoom)} />
+          </div>
+        </section>
+
         <section data-testid="collection-defaults-settings" style={{ marginTop: 18, border: `1px solid ${theme.colors.border}`, borderRadius: 7, background: theme.colors.panel, overflow: 'hidden' }}>
           <div style={{ padding: '15px 17px', borderBottom: `1px solid ${theme.colors.border}` }}>
             <h2 style={{ margin: 0, fontSize: 14 }}>Collection &amp; query defaults</h2>
@@ -430,6 +498,14 @@ export function SettingsView() {
                 width: 13, height: 13, borderRadius: '50%', background: '#fff', transition: 'left 120ms ease',
               }} />
             </button>
+
+            <div>
+              <strong style={{ display: 'block', fontSize: 12 }}>Open Documents criteria by default</strong>
+              <span style={{ display: 'block', marginTop: 4, color: theme.colors.textMuted, fontSize: 10, lineHeight: 1.45 }}>
+                Applies to newly opened collections and tabs restored at startup. Existing tabs keep their current Criteria visibility.
+              </span>
+            </div>
+            <PreferenceSwitch label="Open Documents criteria by default" checked={settings.collection.criteriaOpenByDefault} disabled={!loaded || saving} onChange={() => void setCriteriaOpenByDefault(!settings.collection.criteriaOpenByDefault)} />
 
             <div>
               <strong style={{ display: 'block', fontSize: 12 }}>Global page size</strong>
@@ -613,6 +689,27 @@ export function SettingsView() {
         </div>
       </div>
     </main>
+  );
+}
+
+function PreferenceSwitch({ label, checked, disabled, onChange }: {
+  label: string;
+  checked: boolean;
+  disabled: boolean;
+  onChange: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-label={label}
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={onChange}
+      style={{ position: 'relative', width: 38, height: 21, border: `1px solid ${theme.colors.borderStrong}`, borderRadius: 12, padding: 0, background: checked ? theme.colors.accent : theme.colors.input, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1 }}
+    >
+      <span aria-hidden="true" style={{ position: 'absolute', top: 3, left: checked ? 20 : 3, width: 13, height: 13, borderRadius: '50%', background: '#fff', transition: 'left 120ms ease' }} />
+    </button>
   );
 }
 

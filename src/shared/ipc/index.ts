@@ -328,6 +328,7 @@ export const applicationSettingsSchema = z.object({
   theme: z.enum(['dark', 'light', 'system']),
   editor: z.object({
     fontSize: z.number().int().min(8).max(72),
+    mouseWheelZoom: z.boolean(),
     tabSize: z.number().int().min(1).max(16),
     wordWrap: z.boolean(),
     minimap: z.boolean(),
@@ -359,6 +360,7 @@ export const applicationSettingsSchema = z.object({
     defaultView: z.enum(['documents', 'query']),
     autoExecuteDefaultQuery: z.boolean(),
     explorerOpenBehavior: z.enum(['reuse-existing', 'new-tab']),
+    criteriaOpenByDefault: z.boolean(),
   }),
   table: z.object({
     columnOrder: z.enum(['alphabetical', 'document']),

@@ -74,5 +74,12 @@ describe('saved library contracts', () => {
       { id: 'child', name: 'Daily', parentId: 'root' },
     ])).toBe('Saved / Reports / Daily');
   });
-});
 
+  it('omits transient Criteria visibility from saved tab templates', () => {
+    const input = savedInputForTab({
+      id: 'tab-1', kind: 'collection', title: 'db.items', connectionId: 'conn-1',
+      database: 'db', collection: 'items', documentsCriteriaOpen: false,
+    }, 'tab');
+    expect(JSON.stringify(input)).not.toContain('documentsCriteriaOpen');
+  });
+});

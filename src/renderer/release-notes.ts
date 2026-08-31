@@ -19,6 +19,31 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
+    version: '1.2.7',
+    releasedAt: '2026-08-31',
+    title: 'Automatic await and Query preferences',
+    summary: 'Write queries without await, personalize the Query editor and choose how the Documents criteria panel opens.',
+    sections: [
+      {
+        kind: 'added',
+        items: [
+          'Query and Trusted Script modes now wait for database results automatically, including helper functions, conditions and sequential array callbacks.',
+          'Query editor settings now include an 8–72 px font size and optional Cmd/Ctrl + mouse wheel zoom, saved across restarts.',
+          'Choose whether the Documents criteria panel opens by default in new and restored tabs; existing tabs keep your manual choice.',
+        ],
+      },
+      {
+        kind: 'improved',
+        items: [
+          'Explicit await and Promise combinators remain supported, while for...of can iterate cursors without changing interactive result paging.',
+          'Query completions and error markers understand automatically resolved results without changing editor text, saved scripts or history.',
+          'Font changes update open Query editors without resetting content, selection or undo history, and leave Documents editors and results unchanged.',
+          'Cancellation tracks outstanding parallel operations until they settle, and contexts that cannot wait report explanatory errors.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.2.6',
     releasedAt: '2026-08-29',
     title: 'Verified native updates',

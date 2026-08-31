@@ -76,12 +76,12 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByTestId('sidebar-mongog-brand').locator('img'))
     .toHaveAttribute('src', /mongog-icon.*\.png/);
   await expect(page.locator('[title^="welcome: Welcome"]')).toHaveCount(1);
-  await page.getByRole('button', { name: 'What’s New in 1.2.6' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.7' }).click();
   const releaseNotesTab = page.locator('[data-tab-kind="release-notes"]');
   await expect(page.getByTestId('release-notes-view')).toBeVisible();
   await expect(page.getByTestId('release-notes-mongog-brand')).toHaveAccessibleName('MongoG');
-  await expect(page.getByText('Installed v1.2.6')).toBeVisible();
-  await expect(page.locator('[data-release-version="1.2.6"]')).toContainText('Latest');
+  await expect(page.getByText('Installed v1.2.7')).toBeVisible();
+  await expect(page.locator('[data-release-version="1.2.7"]')).toContainText('Latest');
   await expect(page.locator('[data-release-version="1.0.0"]')).toBeVisible();
   await expectViewportLocked(page);
   await releaseNotesTab.click({ button: 'right' });
@@ -94,7 +94,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.getByTitle('Close Release Notes').click();
   await expect(releaseNotesTab).toHaveCount(0);
   await page.locator('[title^="welcome: Welcome"]').click();
-  await page.getByRole('button', { name: 'What’s New in 1.2.6' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.7' }).click();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
   await expect(page.getByTitle('New query tab')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open global search' })).toBeVisible();
@@ -152,7 +152,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByRole('switch', { name: 'Run default collection query automatically' }))
     .toBeDisabled();
   await expect(page.getByLabel('Global page size')).toHaveValue('50');
-  await expect(page.getByTestId('about-updates-settings')).toContainText('MongoG 1.2.6');
+  await expect(page.getByTestId('about-updates-settings')).toContainText('MongoG 1.2.7');
   await page.getByRole('button', { name: 'Open Release Notes' }).click();
   await expect(page.getByTestId('release-notes-view')).toBeVisible();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
@@ -914,7 +914,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toHaveCount(0);
   await expect(page.locator(`[data-tab-id="${activeBeforeClosingPinnedQuery}"]`)).toHaveAttribute('data-tab-active', 'true');
   await page.getByRole('button', { name: 'Open Welcome' }).click();
-  await page.getByRole('button', { name: 'What’s New in 1.2.6' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.7' }).click();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
 });
 
@@ -926,7 +926,7 @@ test('global collection defaults persist and auto-run a new Query collection onc
   // if that test is interrupted before its final save, establish the same
   // starting workspace explicitly instead of reporting a cascading failure.
   if (await releaseNotesTab.count() === 0) {
-    await page.getByRole('button', { name: 'What’s New in 1.2.6' }).click();
+    await page.getByRole('button', { name: 'What’s New in 1.2.7' }).click();
     await expect(releaseNotesTab).toHaveCount(1);
     await page.getByRole('button', { name: 'Open Welcome' }).click();
   }
@@ -1316,7 +1316,7 @@ test('update available is surfaced in the sidebar after consent is declined', as
 
   const updateButton = page.getByRole('button', { name: 'Update 9.9.9 available' });
   await expect(updateButton).toBeVisible();
-  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.6');
+  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.7');
 
   await updateButton.click();
   await expect(page.getByTestId('updates-view')).toBeVisible();
@@ -1370,7 +1370,7 @@ test('packaged updater reads the real platform manifest from a generic feed', as
 
 test('Updates tab is reachable from Settings and shows the neutral state without a badge', async () => {
   let page = await launch();
-  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.6');
+  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.7');
   await expect(page.getByRole('button', { name: /^Update .* available$/ })).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Open application settings' }).click();
@@ -1383,6 +1383,248 @@ test('Updates tab is reachable from Settings and shows the neutral state without
   await expect(page.getByText('You are up to date.', { exact: true })).toHaveCount(0);
   await expect(page.getByText(/A new version/)).toHaveCount(0);
 });
+
+test('Query font zoom and Documents Criteria defaults are scoped and persistent', async ({}, testInfo) => {
+  const isolatedUserData = await mkdtemp(join(tmpdir(), 'mongog-zoom-e2e-'));
+  const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+  let page: Page;
+  const openSettings = async () => {
+    await page.getByRole('button', { name: 'Open application settings' }).click();
+    await expect(page.getByText('Preferences are saved automatically.')).toBeVisible();
+  };
+  const waitForSave = async () => {
+    await expect(page.getByText('Preferences are saved automatically.')).toBeVisible();
+  };
+  const queryLines = () => page.getByTestId('query-editor-surface').locator('.view-lines');
+  const zoom = async (deltaY: number) => {
+    await page.getByTestId('query-editor-surface').hover();
+    await page.keyboard.down(modifier);
+    await page.mouse.wheel(0, deltaY);
+    await page.keyboard.up(modifier);
+  };
+  try {
+    page = await launch({ MONGOG_E2E_USER_DATA: isolatedUserData });
+    await openSettings();
+    const fontSize = page.getByLabel('Query font size');
+    await expect(fontSize).toHaveValue('13');
+    await expect(page.getByRole('switch', { name: 'Query mouse wheel zoom' })).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByRole('switch', { name: 'Open Documents criteria by default' })).toHaveAttribute('aria-checked', 'true');
+    for (const invalid of ['7', '73', '13.5']) {
+      await fontSize.fill(invalid);
+      await fontSize.press('Enter');
+      await expect(fontSize).toHaveAttribute('aria-invalid', 'true');
+      expect(await page.evaluate(async () => (await window.mongog.settings.load()).editor.fontSize)).toBe(13);
+    }
+    await fontSize.fill('18');
+    await fontSize.press('Enter');
+    await waitForSave();
+
+    await page.getByTitle('New query tab').click();
+    const queryTabId = await page.locator('[data-tab-kind="query"][data-tab-active="true"]').getAttribute('data-tab-id');
+    await expect(queryLines()).toHaveCSS('font-size', '18px');
+    await setQueryEditorValue(page, 'const zoomMarker = 1;');
+    await page.getByTestId('query-editor-surface').locator('.monaco-editor').evaluate((editor) => {
+      editor.setAttribute('data-zoom-instance', 'original');
+    });
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Shift+End');
+    await zoom(-120);
+    await expect(queryLines()).toHaveCSS('font-size', '19px');
+    await expect(page.locator('[data-zoom-instance="original"]')).toHaveCount(1);
+    await page.keyboard.insertText('X');
+    await expect(queryLines()).toContainText('X');
+    await expect(queryLines()).not.toContainText('zoomMarker');
+    await page.keyboard.press(`${modifier}+z`);
+    await expect(queryLines()).toContainText('const zoomMarker = 1;');
+
+    await setQueryEditorValue(page, Array.from({ length: 120 }, (_, index) => `// scroll line ${index}`).join('\n'));
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowUp' : 'Control+Home');
+    await expect(queryLines()).toContainText('scroll line 0');
+    await page.getByTestId('query-editor-surface').hover();
+    await page.mouse.wheel(0, 600);
+    await expect(queryLines()).not.toContainText('scroll line 0');
+    await expect(queryLines()).toHaveCSS('font-size', '19px');
+    expect(await application!.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.webContents.getZoomFactor())).toBe(1);
+    await openSettings();
+    await expect(fontSize).toHaveValue('19');
+
+    await page.getByRole('button', { name: 'Open Welcome' }).click();
+    await page.getByRole('button', { name: 'New Connection', exact: true }).click();
+    await page.getByLabel('Connection name').fill('Zoom E2E');
+    await page.getByLabel('Connection URI').fill(mongoUri);
+    await page.getByLabel('Default database').fill('mongog_e2e');
+    await page.getByRole('button', { name: 'Test, Save & Connect' }).click();
+    await expect(page.getByText('Connection tested, saved, and connected.')).toBeVisible({ timeout: 30_000 });
+    const explorer = page.getByRole('navigation', { name: 'Connection explorer' });
+    const profile = explorer.getByRole('treeitem', { name: 'Connection Zoom E2E' });
+    await profile.focus();
+    await profile.press('ArrowRight');
+    const database = explorer.getByRole('treeitem', { name: 'Database mongog_e2e' });
+    await expect(database).toBeVisible({ timeout: 15_000 });
+    await database.focus();
+    await database.press('ArrowRight');
+    const collection = page.getByTitle('Open mongog_e2e.inventory');
+    await collection.click();
+    const firstTabId = await page.locator('[data-tab-kind="collection"][data-tab-active="true"]').getAttribute('data-tab-id');
+    const firstCriteria = page.locator(`button[aria-controls="criteria-${firstTabId}"]`);
+    await expect(firstCriteria).toHaveAttribute('aria-expanded', 'true');
+    await setMonacoValue(page, 'Collection filter', '{ sku: "alpha" }');
+    await page.getByRole('button', { name: 'Apply', exact: true }).click();
+    await expect(page.getByRole('row', { name: /alpha/ })).toBeVisible();
+
+    await openSettings();
+    await page.getByRole('switch', { name: 'Open Documents criteria by default' }).click();
+    await waitForSave();
+    await page.getByRole('radio', { name: 'Always open a new tab for Explorer collections' }).click();
+    await waitForSave();
+    await page.locator(`[data-tab-id="${firstTabId}"]`).click();
+    await expect(firstCriteria).toHaveAttribute('aria-expanded', 'true');
+    await firstCriteria.click();
+    await page.getByRole('button', { name: 'Query', exact: true }).click();
+    await expect(queryLines()).toHaveCSS('font-size', '19px');
+    await zoom(-120);
+    await expect(queryLines()).toHaveCSS('font-size', '20px');
+    await page.getByRole('button', { name: 'Documents', exact: true }).click();
+    await expect(firstCriteria).toHaveAttribute('aria-expanded', 'false');
+    await firstCriteria.click();
+    await expect(page.getByTestId('criteria-editor-filter').locator('.view-lines')).toHaveCSS('font-size', '12px');
+    await expect(page.getByTestId('criteria-editor-filter')).toContainText('alpha');
+    await expect(page.getByRole('row', { name: /alpha/ })).toBeVisible();
+
+    await collection.click();
+    const secondTabId = await page.locator('[data-tab-kind="collection"][data-tab-active="true"]').getAttribute('data-tab-id');
+    expect(secondTabId).not.toBe(firstTabId);
+    await expect(page.locator(`button[aria-controls="criteria-${secondTabId}"]`)).toHaveAttribute('aria-expanded', 'false');
+    await page.locator(`[data-tab-id="${firstTabId}"]`).click();
+    await expect(firstCriteria).toHaveAttribute('aria-expanded', 'true');
+    await page.locator(`[data-tab-id="${queryTabId}"]`).click();
+    await expect(queryLines()).toHaveCSS('font-size', '20px');
+
+    await openSettings();
+    await page.getByRole('switch', { name: 'Query mouse wheel zoom' }).click();
+    await waitForSave();
+    await page.getByTestId('query-editor-settings').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath('query-settings.png') });
+    const persistedWorkspace = await page.evaluate(() => window.mongog.workspace.load());
+    expect(persistedWorkspace?.tabs.every((tab) => !('documentsCriteriaOpen' in tab))).toBe(true);
+    await application!.close();
+    application = null;
+
+    page = await launch({ MONGOG_E2E_USER_DATA: isolatedUserData });
+    await openSettings();
+    await expect(page.getByLabel('Query font size')).toHaveValue('20');
+    await expect(page.getByRole('switch', { name: 'Query mouse wheel zoom' })).toHaveAttribute('aria-checked', 'false');
+    await expect(page.getByRole('switch', { name: 'Open Documents criteria by default' })).toHaveAttribute('aria-checked', 'false');
+    // Restored tabs capture the startup preference even before their first activation.
+    await page.getByRole('switch', { name: 'Open Documents criteria by default' }).click();
+    await waitForSave();
+    await page.locator(`[data-tab-id="${firstTabId}"]`).click();
+    const restoredCriteria = page.locator(`button[aria-controls="criteria-${firstTabId}"]`);
+    await expect(restoredCriteria).toHaveAttribute('aria-expanded', 'false');
+    await restoredCriteria.click();
+    await expect(page.getByTestId('criteria-editor-filter')).toContainText('alpha');
+    await page.locator(`[data-tab-id="${queryTabId}"]`).click();
+    await expect(queryLines()).toHaveCSS('font-size', '20px');
+    await zoom(-120);
+    await expect(queryLines()).toHaveCSS('font-size', '20px');
+    expect(await application!.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.webContents.getZoomFactor())).toBe(1);
+    await openSettings();
+    await page.getByRole('switch', { name: 'Query mouse wheel zoom' }).click();
+    await waitForSave();
+    await page.locator(`[data-tab-id="${queryTabId}"]`).click();
+    await zoom(120);
+    await expect(queryLines()).toHaveCSS('font-size', '19px');
+  } finally {
+    await application?.close().catch(() => undefined);
+    application = null;
+    await rm(isolatedUserData, { recursive: true, force: true });
+  }
+});
+
+test('Automatic await works in Query and Trusted modes with mapped Monaco diagnostics', async ({}, testInfo) => {
+  const isolated = await mkdtemp(join(tmpdir(), 'mongog-await-e2e-'));
+  const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+  try {
+    const page = await launch({MONGOG_E2E_USER_DATA:isolated});
+    const errors: string[] = [];
+    page.on('pageerror', error=>errors.push(error.stack ?? error.message));
+    await page.getByRole('button', {name:'New Connection',exact:true}).click();
+    await page.getByLabel('Connection name').fill('Auto Await E2E');
+    await page.getByLabel('Connection URI').fill(mongoUri);
+    await page.getByLabel('Default database').fill('mongog_e2e');
+    await page.getByRole('button', {name:'Test, Save & Connect'}).click();
+    await expect(page.getByText('Connection tested, saved, and connected.')).toBeVisible({timeout:30000});
+    await page.getByRole('button', {name:'Open global search'}).click();
+    await page.getByLabel('Search databases and collections').fill('inventory');
+    await page.getByRole('option', {name:/inventory Auto Await E2E/}).click();
+    await page.getByRole('button', {name:'Query',exact:true}).click();
+    const surface = page.getByTestId('query-editor-surface');
+    const results = page.getByTestId('query-results-region');
+    const source = `const items=db.collection<{sku:string, quantity:number}>("inventory");
+const item=items.findOne({sku:"alpha"});
+if(items.countDocuments({})>0) print(item?.sku);
+item?.sku.toUpperCase();`;
+    await setQueryEditorValue(page, source);
+    await page.getByRole('button', {name:/^Run /}).click();
+    await expect(results).toContainText('ALPHA');
+    // Force the language worker to answer a real document-field completion.
+    await setQueryEditorValue(page, source+'\nitem?.qu');
+    await page.keyboard.press('Control+Space');
+    await expect(page.locator('.suggest-widget.visible')).toContainText('quantity', {timeout:15000});
+    await page.keyboard.press('Escape');
+    await setQueryEditorValue(page, source+'\nitem?.fieldThatDoesNotExist;');
+    await expect(surface.locator('.squiggly-error')).not.toHaveCount(0, {timeout:15000});
+    await expectQueryErrorOnLine(page, 'fieldThatDoesNotExist');
+    await setQueryEditorValue(page, source);
+    await expect(surface.locator('.squiggly-error')).toHaveCount(0, {timeout:15000});
+    await expect.poll(() => page.evaluate(async () => (await window.mongog.workspace.load())?.tabs.find(tab=>tab.kind==='collection')?.editorContent)).toBe(source);
+
+    page.once('dialog', dialog=>dialog.accept());
+    await page.getByLabel('Execution mode').selectOption('trusted');
+    await setQueryEditorValue(page, source.replace('toUpperCase()', 'toLowerCase()'));
+    await page.getByRole('button', {name:/^Run /}).click();
+    await expect(results.locator('pre').last()).toContainText('alpha');
+
+    // Existing explicit awaits and promise continuations remain valid.
+    await setQueryEditorValue(page, 'await db.collection("inventory").findOne({sku:"beta"}).then(item=>item.sku.toUpperCase());');
+    await page.getByRole('button', {name:/^Run /}).click();
+    await expect(results).toContainText('BETA');
+
+    // Select only line 2: the first line must not execute, and failure markers
+    // must be on the original selection line instead of generated helper code.
+    const selectedSource='throw new Error("must not run");\nconst item=db.collection("inventory").findOne({sku:"alpha"}); item.sku;';
+    await setQueryEditorValue(page, selectedSource);
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Shift+End');
+    await page.keyboard.press(`${modifier}+Enter`);
+    await expect(results).toContainText('alpha');
+    await expect(results).not.toContainText('must not run');
+    await setQueryEditorValue(page, 'throw new Error("must not run");\nconst missing=db.collection("inventory").findOne({sku:"absent"}); missing.sku;');
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Shift+End');
+    await page.keyboard.press(`${modifier}+Enter`);
+    await expect(results).toContainText('Statement 2');
+    await expect(results).not.toContainText('must not run');
+    await expectQueryErrorOnLine(page, 'missing.sku');
+    await page.screenshot({path:testInfo.outputPath('automatic-await.png')});
+    expect(errors).toEqual([]);
+  } finally {
+    await application?.close().catch(()=>undefined); application=null;
+    await rm(isolated,{recursive:true,force:true});
+  }
+});
+
+async function expectQueryErrorOnLine(page: Page, text: string): Promise<void> {
+  await expect.poll(() => page.getByTestId('query-editor-surface').evaluate((surface, text) => {
+    const line = [...surface.querySelectorAll('.view-line')].find(line=>line.textContent?.includes(text));
+    if (!line) return false;
+    const bounds=line.getBoundingClientRect();
+    return [...surface.querySelectorAll('.squiggly-error')].some(marker=> {
+      const rect=marker.getBoundingClientRect();
+      return rect.top >= bounds.top && rect.top < bounds.bottom;
+    });
+  }, text), {timeout:15000}).toBe(true);
+}
 
 async function setMonacoValue(page: Page, label: string, value: string): Promise<void> {
   const kind = label.replace('Collection ', '');

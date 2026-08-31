@@ -286,7 +286,8 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
       ...(tab.savedItemId ? { dirty: true } : {}),
     });
   };
-  const [criteriaOpen, setCriteriaOpen] = useState(true);
+  const criteriaOpen = tab.documentsCriteriaOpen ?? true;
+  const setCriteriaOpen = (open: boolean) => updateTab(tab.id, { documentsCriteriaOpen: open });
   const [criteriaErrors, setCriteriaErrors] = useState<Record<CriteriaKind, string | null>>({
     filter: null,
     sort: null,
@@ -927,7 +928,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
           style={{ ...s.secondaryButton, ...(criteriaOpen ? { borderColor: theme.colors.accentHover } : {}) }}
           aria-expanded={criteriaOpen}
           aria-controls={`criteria-${tab.id}`}
-          onClick={() => setCriteriaOpen((open) => !open)}
+          onClick={() => setCriteriaOpen(!criteriaOpen)}
         >
           {criteriaSummary}
         </button>

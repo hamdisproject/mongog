@@ -38,6 +38,35 @@ describe('workspace execution store', () => {
     expect(useWorkspaceStore.getState().sidebarWidth).toBe(260);
   });
 
+  it('captures Criteria visibility per new/restored tab without changing existing tabs or filters', () => {
+    const namespace = { connectionId: 'conn-1', database: 'db', collection: 'items' };
+    const first = useWorkspaceStore.getState().openCollection(namespace);
+    expect(useWorkspaceStore.getState().tabs[0]?.documentsCriteriaOpen).toBe(true);
+    const documentsState = {
+      draft: { filter: '{ active: true }', sort: '{ name: 1 }', projection: '{ name: 1 }' },
+      applied: { filter: '{ active: true }', sort: '{ name: 1 }', projection: '{ name: 1 }' },
+    };
+    useWorkspaceStore.getState().updateTab(first, { documentsCriteriaOpen: false, documentsState });
+    useWorkspaceStore.getState().setCollectionView(first, 'query');
+    useWorkspaceStore.getState().setCollectionView(first, 'documents');
+    expect(useWorkspaceStore.getState().tabs[0]).toMatchObject({ documentsCriteriaOpen: false, documentsState });
+
+    useSettingsStore.setState((state) => ({ settings: {
+      ...state.settings, collection: { ...state.settings.collection, criteriaOpenByDefault: false },
+    } }));
+    useWorkspaceStore.getState().updateTab(first, { documentsCriteriaOpen: true });
+    expect(useWorkspaceStore.getState().openCollection(namespace)).toBe(first);
+    const second = useWorkspaceStore.getState().openCollection({ ...namespace, disposition: 'new-tab' });
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === first)?.documentsCriteriaOpen).toBe(true);
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === second)?.documentsCriteriaOpen).toBe(false);
+
+    // Restore initializes even inactive tabs before they have mounted a browser.
+    const tabs = useWorkspaceStore.getState().tabs;
+    useWorkspaceStore.getState().restore({ tabs, activeTabId: second });
+    expect(useWorkspaceStore.getState().tabs.every((tab) => tab.documentsCriteriaOpen === false)).toBe(true);
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === first)?.documentsState).toEqual(documentsState);
+  });
+
   it('routes early engine events by run token before execute IPC resolves', () => {
     const store = useWorkspaceStore.getState();
     const tabId = store.createTab('query', 'conn-1');

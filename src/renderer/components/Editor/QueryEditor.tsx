@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type * as Monaco from 'monaco-editor';
 import { bootMonaco } from '../../monaco/setup.js';
+import { attachQueryWheelZoom } from '../../monaco/query-wheel-zoom.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
 import { useConnectionStore } from '../../stores/connections.js';
 import { useEditorContext } from '../../stores/editor-context.js';
@@ -35,6 +36,7 @@ const s: Record<string, React.CSSProperties> = {
 
 const DEFAULT_CODE = `// Select a connection, then run with Cmd/Ctrl+Enter.
 // If text is selected, only the selection is executed.
+// Database calls wait automatically; await is optional.
 const coll = db.collection("mycollection");
 coll.find({}).limit(5);
 `;
@@ -57,6 +59,7 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
   } = useWorkspaceStore();
   const { connected, databases, profiles, loadDatabases, connect } = useConnectionStore();
   const globalPageSize = useSettingsStore((state) => state.settings.execution.pageSize);
+  const editorFontSize = useSettingsStore((state) => state.settings.editor.fontSize);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
   const selectedConnId = activeTab?.connectionId ?? null;
@@ -156,19 +159,23 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
   useEffect(() => {
     let disposed = false;
     let editor: Monaco.editor.IStandaloneCodeEditor | null = null;
+    let model: Monaco.editor.ITextModel | null = null;
     let resizeObserver: ResizeObserver | null = null;
     let layoutFrame: number | null = null;
+    let disposeWheelZoom: (() => void) | null = null;
     void bootMonaco().then((monaco) => {
       if (disposed || !editorHost.current) return;
       const tab = useWorkspaceStore.getState().tabs
         .find((candidate) => candidate.id === activeTabId);
+      model = monaco.editor.createModel(tab?.editorContent ?? DEFAULT_CODE, 'typescript',
+        monaco.Uri.parse(`mongog-query://editor/${encodeURIComponent(activeTabId ?? 'new')}.ts`));
       editor = monaco.editor.create(editorHost.current, {
-        value: tab?.editorContent ?? DEFAULT_CODE,
-        language: 'typescript',
+        model,
         theme: getMonacoTheme(),
         automaticLayout: true,
         minimap: { enabled: false },
-        fontSize: 13,
+        fontSize: useSettingsStore.getState().settings.editor.fontSize,
+        mouseWheelZoom: false,
         scrollBeyondLastLine: false,
       });
       editor.addCommand(
@@ -181,6 +188,14 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
         updateTab(tab.id, { editorContent: editor!.getValue(), dirty: true });
       });
       editorRef.current = editor;
+      disposeWheelZoom = attachQueryWheelZoom(editorHost.current, {
+        isMac: /Mac/i.test(navigator.platform),
+        getPreferences: () => {
+          const state = useSettingsStore.getState();
+          return { fontSize: state.settings.editor.fontSize, enabled: state.loaded && state.settings.editor.mouseWheelZoom };
+        },
+        setFontSize: (fontSize) => { void useSettingsStore.getState().setEditorFontSize(fontSize); },
+      });
       resizeObserver = new ResizeObserver(() => editor?.layout());
       resizeObserver.observe(editorHost.current);
       const shouldAutoExecute = tab?.autoExecuteOnOpen === true;
@@ -201,11 +216,17 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
     return () => {
       disposed = true;
       resizeObserver?.disconnect();
+      disposeWheelZoom?.();
       if (layoutFrame !== null) cancelAnimationFrame(layoutFrame);
       editor?.dispose();
+      model?.dispose();
       if (editorRef.current === editor) editorRef.current = null;
     };
   }, [activeTabId, updateTab]);
+
+  useEffect(() => {
+    editorRef.current?.updateOptions({ fontSize: editorFontSize });
+  }, [editorFontSize]);
 
   useEffect(() => {
     if (!editorRef.current || activeTab?.editorContent === undefined) return;
