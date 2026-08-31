@@ -19,6 +19,27 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
+    version: '1.2.10',
+    releasedAt: '2026-08-31',
+    title: 'Reliable Windows release setup',
+    summary: 'Windows release builds no longer depend on the Chocolatey package feed, and regular CI avoids duplicate package builds.',
+    sections: [
+      {
+        kind: 'fixed',
+        items: [
+          'Windows x64 builds install Python directly from the official offline installer, verify download checksums and retry temporary download failures.',
+          'Failed installations and unexpected Python versions or architectures stop the build before native dependencies are compiled.',
+        ],
+      },
+      {
+        kind: 'improved',
+        items: [
+          'Standalone smoke package builds are disabled for branch pushes; release E2E, package verification and production smoke checks remain enabled.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.2.9',
     releasedAt: '2026-08-31',
     title: 'Smarter Documents column filters',

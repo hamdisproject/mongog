@@ -30,6 +30,15 @@ job'u signing context'ine erişmez ve olası CSC değişkenlerini NSIS üretimin
 
 ## Yeni sürüm yayınlama
 
+Branch ve `main` push'larında yalnız `quality` job'u çalışır; ayrı
+`package-smoke-*` paketleme job'ları kapalıdır. Tag ile çalışan release
+job'larının E2E, paket doğrulama ve production smoke kontrolleri korunur.
+
+Windows toolchain Python'u Chocolatey yerine doğrudan Python.org'un sabit
+3.12.10 x64 offline kurucusundan yükler. Node ve Python indirmeleri sınırlı
+sayıda yeniden denenir, SHA-256 ile doğrulanır ve kurulum hatalarında job durur.
+Python'un sürümü ve 64-bit mimarisi npm bağımlılıkları kurulmadan önce kontrol edilir.
+
 Aşağıdaki örnekteki `1.0.0` değerini yayınlanacak sürümle değiştir:
 
 ```bash

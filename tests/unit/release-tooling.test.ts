@@ -3,12 +3,19 @@ import { createHash } from 'node:crypto';
 import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { afterEach, describe, expect, it } from 'vitest';
 import packageMetadata from '../../package.json';
 import { generateUpdateManifests } from '../../scripts/generate-update-manifests.mjs';
 import { isRecoverableDmgDetachFailure } from '../../scripts/release-utils.mjs';
 
 const scratchDirectories: string[] = [];
+const { load: loadYaml } = createRequire(import.meta.url)('js-yaml') as {
+  load: (source: string) => {
+    workflows: { ci: { jobs: unknown[] }; release: { jobs: Record<string, unknown>[] } };
+    jobs: Record<string, unknown>;
+  };
+};
 
 function scratch(): string {
   const directory = mkdtempSync(path.join(tmpdir(), 'mongog-release-test-'));
@@ -37,14 +44,25 @@ describe('release tooling', () => {
     expect(workflow).toContain('executor: win/server-2022');
     expect(workflow).toContain("$nodeRoot = 'C:\\tools\\node-v22.13.0'");
     expect(workflow).toContain('test "$(node --version)" = "v22.13.0"');
-    expect(workflow).toContain('choco install python312 -y');
+    expect(workflow).not.toContain('choco install');
+    expect(workflow).toContain('https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe');
+    expect(workflow).toContain('Get-FileHash -LiteralPath $Destination -Algorithm SHA256');
+    expect(workflow).toContain('67b5635e80ea51072b87941312d00ec8927c4db9ba18938f7ad2d27b328b95fb');
+    expect(workflow).toContain('$attempt -le 4');
+    expect(workflow).toContain('$installer.ExitCode -notin @(0, 3010)');
+    expect(workflow).toContain("struct.calcsize('P') == 8");
+    expect(workflow).toContain('Python 3.12.10 x64 verification failed.');
     expect(workflow).toContain("npm_config_msvs_version='2022'");
     expect(workflow).toContain('resource_class: m4pro.medium');
-    expect(workflow).toContain('name: package-smoke-macos-arm64');
-    expect(workflow).toContain('name: package-smoke-macos-x64');
-    expect(workflow).toContain('run_smoke: false');
-    expect(workflow).toContain('name: package-smoke-windows-x64');
-    expect(workflow).toContain('name: package-smoke-linux-x64');
+    const parsed = loadYaml(workflow);
+    expect(parsed.workflows.ci.jobs).toEqual(['quality']);
+    expect(Object.keys(parsed.jobs).some((job) => job.startsWith('package_smoke_'))).toBe(false);
+    expect(parsed.workflows.release.jobs.map((job) => Object.keys(job)[0])).toEqual([
+      'release_macos', 'release_macos', 'release_windows', 'release_linux', 'release_metadata',
+    ]);
+    expect(workflow).toContain('npm run smoke:packaged -- --platform darwin --arch arm64');
+    expect(workflow).toContain('npm run smoke:packaged -- --platform win32 --arch x64');
+    expect(workflow).toContain('xvfb-run -a npm run smoke:packaged -- --platform linux --arch x64');
     expect(workflow).toContain('if [[ "$EXPECTED_MACHO_ARCH" == "x64" ]]; then EXPECTED_MACHO_ARCH="x86_64"; fi');
     expect(workflow).toContain('[[ " $MACHO_ARCHS " == *" $EXPECTED_MACHO_ARCH "* ]]');
     expect(workflow).toContain('[[ "$SIGNING_IDENTITIES" == *"$MACOS_SIGN_IDENTITY"* ]]');
@@ -53,13 +71,7 @@ describe('release tooling', () => {
     expect(workflow).toContain('--targets=@electron-forge/maker-zip');
     expect(workflow).toContain('hdiutil verify "$DMG_PATH"');
     expect(workflow).toContain('sudo chmod 4755 out/MongoG-linux-x64/chrome-sandbox');
-    expect(workflow).toContain('MONGOG_SMOKE_ALLOW_UNAVAILABLE_SECURE_STORAGE=1');
-    expect(workflow).toContain('filters: pipeline.git.branch == "main"');
     expect(workflow).toContain('./node_modules/.bin/electron-forge package --platform=win32 --arch=x64');
-    expect(workflow).toContain('ci-artifacts/MongoG-${VERSION}-UNSIGNED-macOS-<< parameters.arch >>.zip');
-    expect(workflow).toContain('ci-artifacts\\MongoG-${version}-win-x64.zip');
-    expect(workflow).toContain('ci-artifacts/MongoG-${VERSION}-linux-x64.tar.gz');
-    expect(workflow.match(/destination: packages/gu)).toHaveLength(3);
     expect(workflow).not.toContain('--no-sandbox');
 
     const forgeConfig = readFileSync(path.resolve(process.cwd(), 'forge.config.mts'), 'utf8');

@@ -76,24 +76,60 @@ commands:
           name: Install Node.js and Python
           shell: powershell.exe -ExecutionPolicy Bypass
           command: |
+            $ErrorActionPreference = 'Stop'
+            $ProgressPreference = 'SilentlyContinue'
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            function Get-VerifiedToolDownload([string]$Uri, [string]$Destination, [string]$Sha256) {
+              for ($attempt = 1; $attempt -le 4; $attempt++) {
+                try {
+                  Invoke-WebRequest -UseBasicParsing -Uri $Uri -OutFile $Destination -TimeoutSec 120
+                  break
+                } catch {
+                  Remove-Item -LiteralPath $Destination -Force -ErrorAction SilentlyContinue
+                  if ($attempt -eq 4) { throw }
+                  Write-Warning "Tool download failed (attempt $attempt/4); retrying."
+                  Start-Sleep -Seconds (5 * $attempt)
+                }
+              }
+              if ((Get-FileHash -LiteralPath $Destination -Algorithm SHA256).Hash -ne $Sha256) {
+                Remove-Item -LiteralPath $Destination -Force
+                throw "SHA-256 verification failed for $Uri"
+              }
+            }
             $nodeArchive = Join-Path $env:TEMP 'node-v22.13.0-win-x64.zip'
             $nodeRoot = 'C:\tools\node-v22.13.0'
-            Invoke-WebRequest 'https://nodejs.org/dist/v22.13.0/node-v22.13.0-win-x64.zip' -OutFile $nodeArchive
+            # Hash from https://nodejs.org/dist/v22.13.0/SHASUMS256.txt
+            Get-VerifiedToolDownload 'https://nodejs.org/dist/v22.13.0/node-v22.13.0-win-x64.zip' $nodeArchive 'b0feb09ebf41328628e7383f7a092fb7342ce1e05c867a90cf8f1379205a8429'
             if (Test-Path $nodeRoot) { Remove-Item $nodeRoot -Recurse -Force }
             New-Item -ItemType Directory -Force -Path $nodeRoot | Out-Null
             Expand-Archive $nodeArchive -DestinationPath $env:TEMP -Force
             Move-Item (Join-Path $env:TEMP 'node-v22.13.0-win-x64\*') $nodeRoot -Force
-            choco install python312 -y
-            $python = (Get-ChildItem 'C:\Python312\python.exe','C:\Program Files\Python312\python.exe' -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
-            if (-not $python) { throw 'Python 3.12 was not found after installation.' }
+            # The offline installer avoids Chocolatey's package feed entirely.
+            $pythonInstaller = Join-Path $env:TEMP 'python-3.12.10-amd64.exe'
+            $pythonRoot = 'C:\tools\Python312'
+            # SHA-256 from the installer bundle published by Python.org (.exe.sigstore).
+            Get-VerifiedToolDownload 'https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe' $pythonInstaller '67b5635e80ea51072b87941312d00ec8927c4db9ba18938f7ad2d27b328b95fb'
+            $installer = Start-Process -FilePath $pythonInstaller -ArgumentList @(
+              '/quiet', '/norestart', 'InstallAllUsers=0', "TargetDir=$pythonRoot",
+              'PrependPath=0', 'Include_launcher=0', 'Include_pip=0', 'Include_test=0',
+              'Include_doc=0', 'Include_tcltk=0', 'Shortcuts=0'
+            ) -Wait -PassThru
+            if ($installer.ExitCode -notin @(0, 3010)) {
+              throw "Python installer failed with exit code $($installer.ExitCode)."
+            }
+            $python = Join-Path $pythonRoot 'python.exe'
+            if (-not (Test-Path -LiteralPath $python)) { throw 'Python installer did not create the expected interpreter.' }
+            & $python -c "import sys, struct; assert sys.version_info[:3] == (3, 12, 10); assert struct.calcsize('P') == 8; print(sys.version)"
+            if ($LASTEXITCODE -ne 0) { throw 'Python 3.12.10 x64 verification failed.' }
             Add-Content $env:BASH_ENV 'export PATH="/c/tools/node-v22.13.0:$PATH"'
             Add-Content $env:BASH_ENV "export PYTHON='$($python -replace '\\','/')'"
             Add-Content $env:BASH_ENV "export npm_config_python='$($python -replace '\\','/')'"
             Add-Content $env:BASH_ENV "export npm_config_msvs_version='2022'"
             $env:PATH = "$nodeRoot;$env:PATH"
             node --version
-            npm --version
-            & $python --version
+            if ($LASTEXITCODE -ne 0) { throw 'Node.js verification failed.' }
+            npm.cmd --version
+            if ($LASTEXITCODE -ne 0) { throw 'npm verification failed.' }
   install_dependencies_windows:
     steps:
       - restore_npm_cache
@@ -157,112 +193,6 @@ jobs:
       - run: { name: Unit tests, command: "npm test" }
       - run: { name: Integration tests, command: "npm run test:integ" }
       - save_mongodb_cache
-
-  package_smoke_macos:
-    parameters:
-      arch: { type: enum, enum: [arm64, x64] }
-      run_smoke: { type: boolean, default: true }
-    executor: macos_m4
-    steps:
-      - checkout
-      - install_node_unix
-      - install_dependencies_unix
-      - restore_mongodb_cache
-      - run:
-          name: Build unsigned test package
-          command: npm run package -- --platform=darwin --arch=<< parameters.arch >>
-      - run:
-          name: Verify package contents and test fuses
-          command: npm run verify:package -- --platform darwin --arch << parameters.arch >>
-      - when:
-          condition: << parameters.run_smoke >>
-          steps:
-            - run:
-                name: Run packaged smoke
-                command: MONGOG_SMOKE_ALLOW_UNAVAILABLE_SECURE_STORAGE=1 npm run smoke:packaged -- --platform darwin --arch << parameters.arch >>
-      - run:
-          name: Archive downloadable macOS package
-          command: |
-            VERSION="$(node -p "require('./package.json').version")"
-            mkdir -p ci-artifacts
-            ditto -c -k --sequesterRsrc --keepParent \
-              "out/MongoG-darwin-<< parameters.arch >>/MongoG.app" \
-              "ci-artifacts/MongoG-${VERSION}-UNSIGNED-macOS-<< parameters.arch >>.zip"
-      - store_artifacts:
-          path: ci-artifacts
-          destination: packages
-      - save_mongodb_cache
-      - store_diagnostics
-
-  package_smoke_windows:
-    executor: win/server-2022
-    environment:
-      NODE_OPTIONS: --max-old-space-size=8192
-    steps:
-      - checkout
-      - install_windows_toolchain
-      - install_dependencies_windows
-      - restore_mongodb_cache
-      - run:
-          name: Build unsigned test package
-          shell: bash.exe
-          command: |
-            npm run prepackage
-            ./node_modules/.bin/electron-forge package --platform=win32 --arch=x64
-      - run:
-          name: Verify package contents and test fuses
-          shell: bash.exe
-          command: npm run verify:package -- --platform win32 --arch x64
-      - run:
-          name: Run packaged smoke
-          shell: bash.exe
-          command: npm run smoke:packaged -- --platform win32 --arch x64
-      - run:
-          name: Archive downloadable Windows package
-          shell: powershell.exe -ExecutionPolicy Bypass
-          command: |
-            $version = (Get-Content package.json | ConvertFrom-Json).version
-            New-Item -ItemType Directory -Force -Path ci-artifacts | Out-Null
-            Compress-Archive -Path out\MongoG-win32-x64 -DestinationPath "ci-artifacts\MongoG-${version}-win-x64.zip" -CompressionLevel Optimal
-      - store_artifacts:
-          path: ci-artifacts
-          destination: packages
-      - save_mongodb_cache
-      - store_diagnostics
-
-  package_smoke_linux:
-    executor: linux_machine
-    steps:
-      - checkout
-      - install_node_unix
-      - run:
-          name: Install packaging and display dependencies
-          command: |
-            sudo apt-get update
-            sudo apt-get install -y fakeroot rpm xvfb
-      - install_dependencies_unix
-      - restore_mongodb_cache
-      - run: { name: Install Electron runtime libraries, command: "npx playwright install-deps" }
-      - run: { name: Build unsigned test package, command: "npm run package -- --platform=linux --arch=x64" }
-      - run: { name: Verify package contents and test fuses, command: "npm run verify:package -- --platform linux --arch x64" }
-      - run:
-          name: Configure packaged Electron SUID sandbox
-          command: |
-            sudo chown root:root out/MongoG-linux-x64/chrome-sandbox
-            sudo chmod 4755 out/MongoG-linux-x64/chrome-sandbox
-            stat -c '%U:%G %a %n' out/MongoG-linux-x64/chrome-sandbox
-      - run: { name: Run packaged smoke under Xvfb, command: "xvfb-run -a npm run smoke:packaged -- --platform linux --arch x64" }
-      - run:
-          name: Archive downloadable Linux package
-          command: |
-            VERSION="$(node -p "require('./package.json').version")"
-            mkdir -p ci-artifacts
-            tar -czf "ci-artifacts/MongoG-${VERSION}-linux-x64.tar.gz" -C out MongoG-linux-x64
-      - store_artifacts:
-          path: ci-artifacts
-          destination: packages
-      - save_mongodb_cache
-      - store_diagnostics
 
   release_macos:
     parameters:
@@ -497,21 +427,6 @@ workflows:
     when: (not pipeline.git.tag) and (not pipeline.parameters.run_release)
     jobs:
       - quality
-      - package_smoke_macos:
-          name: package-smoke-macos-arm64
-          arch: arm64
-          filters: pipeline.git.branch == "main"
-      - package_smoke_macos:
-          name: package-smoke-macos-x64
-          arch: x64
-          run_smoke: false
-          filters: pipeline.git.branch == "main"
-      - package_smoke_windows:
-          name: package-smoke-windows-x64
-          filters: pipeline.git.branch == "main"
-      - package_smoke_linux:
-          name: package-smoke-linux-x64
-          filters: pipeline.git.branch == "main"
 
   release:
     when: pipeline.parameters.run_release or (pipeline.git.tag matches /^v[0-9]+\.[0-9]+\.[0-9]+$/)

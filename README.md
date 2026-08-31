@@ -100,15 +100,18 @@ For its DB path, start mongod externally and also set
 Kısa yayın kontrol listesi: [docs/RELEASE.md](docs/RELEASE.md)
 
 CircleCI runs typecheck, lint, and unit/integration tests for every branch and
-pull request. Pushes to `main` additionally build and verify unsigned packages
-on macOS arm64/x64, Windows x64, and Linux x64. Native packaged smoke runs on
-macOS arm64, Windows x64, and Linux x64; the macOS x64 package is structurally
-and architecturally verified because CircleCI no longer provides Intel hosts.
-Each successful `main` platform job exposes its packaged application archive
-under the job's **Artifacts → packages** section in CircleCI.
+pull request, including `main`. Standalone `package-smoke-*` builds are disabled;
+branch pushes no longer create unsigned application archives. Release jobs
+retain packaged E2E, package verification, and production smoke checks.
 Release builds are created only from a version tag matching
 `package.json`, for example `v1.0.0`. Each release job stores its normalized
 installer/portable archives directly in CircleCI Artifacts.
+
+The Windows toolchain downloads pinned Node.js and the Python 3.12.10 x64
+offline installer directly from their official sites, verifies SHA-256 hashes,
+and retries transient download failures. It does not depend on Chocolatey's
+package feed. Python is installed into `C:\tools\Python312` and its exact version
+and architecture are checked before native dependencies are built.
 
 macOS release artifacts are signed with Apple Developer ID, notarized by Apple,
 and stapled before upload. Windows publishes an explicitly `UNSIGNED` x64 NSIS
