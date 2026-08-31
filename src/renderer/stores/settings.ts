@@ -11,6 +11,9 @@ interface SettingsState {
   error: string | null;
   load: () => Promise<void>;
   setTheme: (theme: ThemePreference) => Promise<void>;
+  setEditorFontSize: (fontSize: number) => Promise<void>;
+  setEditorMouseWheelZoom: (enabled: boolean) => Promise<void>;
+  setCriteriaOpenByDefault: (open: boolean) => Promise<void>;
   setBsonDisplayMode: (mode: BsonDisplayMode) => Promise<void>;
   setCollectionDefaults: (collection: Pick<ApplicationSettings['collection'], 'defaultView' | 'autoExecuteDefaultQuery'>) => Promise<void>;
   setExplorerCollectionOpenBehavior: (
@@ -25,166 +28,168 @@ interface SettingsState {
 const initialSettings: ApplicationSettings = structuredClone(DEFAULT_SETTINGS);
 applyThemePreference(initialSettings.theme);
 
-export const useSettingsStore = create<SettingsState>()((set, get) => ({
-  settings: initialSettings,
-  loaded: false,
-  saving: false,
-  error: null,
+export const useSettingsStore = create<SettingsState>()((set, get) => {
+  let pending: ApplicationSettings | null = null;
+  let savingPromise: Promise<void> | null = null;
 
-  load: async () => {
-    try {
-      const settings = normalizeApplicationSettings(await window.mongog.settings.load());
-      applyThemePreference(settings.theme);
-      set({ settings, loaded: true, error: null });
-    } catch (error) {
-      applyThemePreference(get().settings.theme);
-      set({ loaded: true, error: errorMessage(error) });
-    }
-  },
-
-  setTheme: async (theme) => {
-    if (get().saving || get().settings.theme === theme) return;
+  // Save full snapshots serially. Wheel input stays responsive while the next
+  // snapshot coalesces all edits made during an in-flight IPC save.
+  const persist = (settings: ApplicationSettings): Promise<void> => {
     const previous = get().settings;
-    const settings = { ...previous, theme };
-    applyThemePreference(theme);
-    set({ settings, saving: true, error: null });
-    try {
-      await window.mongog.settings.save(settings);
-      set({ saving: false });
-    } catch (error) {
-      applyThemePreference(previous.theme);
-      set({ settings: previous, saving: false, error: errorMessage(error) });
+    pending = settings;
+    if (!savingPromise) {
+      savingPromise = Promise.resolve().then(async () => {
+        let confirmed = previous;
+        while (pending) {
+          const snapshot = pending;
+          pending = null;
+          try {
+            await window.mongog.settings.save(snapshot);
+            confirmed = snapshot;
+          } catch (error) {
+            // A newer snapshot includes the failed edit; let it retry without
+            // replacing the user's more recent choices with an older state.
+            if (!pending) {
+              if (get().settings.theme !== confirmed.theme) applyThemePreference(confirmed.theme);
+              set({ settings: confirmed, error: errorMessage(error) });
+            }
+          }
+        }
+        savingPromise = null;
+        set({ saving: false });
+      });
     }
-  },
+    const completion = savingPromise;
+    if (previous.theme !== settings.theme) applyThemePreference(settings.theme);
+    set({ settings, saving: true, error: null });
+    return completion;
+  };
 
-  setBsonDisplayMode: async (mode) => {
-    if (get().saving || get().settings.ejson.defaultMode === mode) return;
-    const previous = get().settings;
-    const settings = { ...previous, ejson: { ...previous.ejson, defaultMode: mode } };
-    set({ settings, saving: true, error: null });
-    try {
-      await window.mongog.settings.save(settings);
-      set({ saving: false });
-    } catch (error) {
-      set({ settings: previous, saving: false, error: errorMessage(error) });
-    }
-  },
+  return {
+    settings: initialSettings,
+    loaded: false,
+    saving: false,
+    error: null,
 
-  setCollectionDefaults: async (collection) => {
-    if (get().saving) return;
-    const previous = get().settings;
-    const normalized: ApplicationSettings['collection'] = {
-      ...previous.collection,
-      defaultView: collection.defaultView,
-      autoExecuteDefaultQuery: collection.defaultView === 'query'
-        ? collection.autoExecuteDefaultQuery
-        : false,
-    };
-    if (
-      previous.collection.defaultView === normalized.defaultView &&
-      previous.collection.autoExecuteDefaultQuery === normalized.autoExecuteDefaultQuery
-    ) return;
-    const settings = { ...previous, collection: normalized };
-    set({ settings, saving: true, error: null });
-    try {
-      await window.mongog.settings.save(settings);
-      set({ saving: false });
-    } catch (error) {
-      set({ settings: previous, saving: false, error: errorMessage(error) });
-    }
-  },
+    load: async () => {
+      try {
+        const settings = normalizeApplicationSettings(await window.mongog.settings.load());
+        applyThemePreference(settings.theme);
+        set({ settings, loaded: true, error: null });
+      } catch (error) {
+        applyThemePreference(get().settings.theme);
+        set({ loaded: true, error: errorMessage(error) });
+      }
+    },
 
-  setExplorerCollectionOpenBehavior: async (explorerOpenBehavior) => {
-    if (
-      get().saving ||
-      get().settings.collection.explorerOpenBehavior === explorerOpenBehavior
-    ) return;
-    const previous = get().settings;
-    const settings = {
-      ...previous,
-      collection: { ...previous.collection, explorerOpenBehavior },
-    };
-    set({ settings, saving: true, error: null });
-    try {
-      await window.mongog.settings.save(settings);
-      set({ saving: false });
-    } catch (error) {
-      set({ settings: previous, saving: false, error: errorMessage(error) });
-    }
-  },
+    setTheme: async (theme) => {
+      if (get().settings.theme === theme) return;
+      const previous = get().settings;
+      await persist({ ...previous, theme });
+    },
 
-  setTableColumnOrder: async (columnOrder) => {
-    if (get().saving || get().settings.table.columnOrder === columnOrder) return;
-    const previous = get().settings;
-    const settings = { ...previous, table: { columnOrder } };
-    set({ settings, saving: true, error: null });
-    try {
-      await window.mongog.settings.save(settings);
-      set({ saving: false });
-    } catch (error) {
-      set({ settings: previous, saving: false, error: errorMessage(error) });
-    }
-  },
+    setEditorFontSize: async (fontSize) => {
+      if (!Number.isInteger(fontSize) || fontSize < 8 || fontSize > 72) return;
+      const previous = get().settings;
+      if (previous.editor.fontSize === fontSize) return;
+      await persist({ ...previous, editor: { ...previous.editor, fontSize } });
+    },
 
-  setConnectionIdleTimeout: async (idleTimeoutMS) => {
-    if (get().saving || get().settings.connection.idleTimeoutMS === idleTimeoutMS) return;
-    const previous = get().settings;
-    const settings = {
-      ...previous,
-      connection: { idleTimeoutMS },
-    };
-    set({ settings, saving: true, error: null });
-    try {
-      await window.mongog.settings.save(settings);
-      set({ saving: false });
-    } catch (error) {
-      set({ settings: previous, saving: false, error: errorMessage(error) });
-    }
-  },
+    setEditorMouseWheelZoom: async (mouseWheelZoom) => {
+      const previous = get().settings;
+      if (previous.editor.mouseWheelZoom === mouseWheelZoom) return;
+      await persist({ ...previous, editor: { ...previous.editor, mouseWheelZoom } });
+    },
 
-  setPageSize: async (pageSize) => {
-    if (
-      get().saving ||
-      !Number.isInteger(pageSize) ||
-      pageSize < 1 ||
-      pageSize > 500 ||
-      get().settings.execution.pageSize === pageSize
-    ) return;
-    const previous = get().settings;
-    const settings = {
-      ...previous,
-      execution: { ...previous.execution, pageSize },
-    };
-    set({ settings, saving: true, error: null });
-    try {
-      await window.mongog.settings.save(settings);
-      set({ saving: false });
-    } catch (error) {
-      set({ settings: previous, saving: false, error: errorMessage(error) });
-    }
-  },
+    setCriteriaOpenByDefault: async (criteriaOpenByDefault) => {
+      const previous = get().settings;
+      if (previous.collection.criteriaOpenByDefault === criteriaOpenByDefault) return;
+      await persist({ ...previous, collection: { ...previous.collection, criteriaOpenByDefault } });
+    },
 
-  setAuditSettings: async (audit) => {
-    if (get().saving) return;
-    const previous = get().settings;
-    const normalized = {
-      retentionDays: Math.max(1, Math.min(36_500, Math.trunc(audit.retentionDays))),
-      maxEntries: Math.max(100, Math.min(1_000_000, Math.trunc(audit.maxEntries))),
-    };
-    if (
-      previous.audit.retentionDays === normalized.retentionDays &&
-      previous.audit.maxEntries === normalized.maxEntries
-    ) return;
-    const settings = { ...previous, audit: normalized };
-    set({ settings, saving: true, error: null });
-    try {
-      await window.mongog.settings.save(settings);
-      set({ saving: false });
-    } catch (error) {
-      set({ settings: previous, saving: false, error: errorMessage(error) });
-    }
-  },
-}));
+    setBsonDisplayMode: async (mode) => {
+      if (get().settings.ejson.defaultMode === mode) return;
+      const previous = get().settings;
+      const settings = { ...previous, ejson: { ...previous.ejson, defaultMode: mode } };
+      await persist(settings);
+    },
+
+    setCollectionDefaults: async (collection) => {
+      const previous = get().settings;
+      const normalized: ApplicationSettings['collection'] = {
+        ...previous.collection,
+        defaultView: collection.defaultView,
+        autoExecuteDefaultQuery: collection.defaultView === 'query'
+          ? collection.autoExecuteDefaultQuery
+          : false,
+      };
+      if (
+        previous.collection.defaultView === normalized.defaultView &&
+        previous.collection.autoExecuteDefaultQuery === normalized.autoExecuteDefaultQuery
+      ) return;
+      const settings = { ...previous, collection: normalized };
+      await persist(settings);
+    },
+
+    setExplorerCollectionOpenBehavior: async (explorerOpenBehavior) => {
+      if (
+        get().settings.collection.explorerOpenBehavior === explorerOpenBehavior
+      ) return;
+      const previous = get().settings;
+      const settings = {
+        ...previous,
+        collection: { ...previous.collection, explorerOpenBehavior },
+      };
+      await persist(settings);
+    },
+
+    setTableColumnOrder: async (columnOrder) => {
+      if (get().settings.table.columnOrder === columnOrder) return;
+      const previous = get().settings;
+      const settings = { ...previous, table: { columnOrder } };
+      await persist(settings);
+    },
+
+    setConnectionIdleTimeout: async (idleTimeoutMS) => {
+      if (get().settings.connection.idleTimeoutMS === idleTimeoutMS) return;
+      const previous = get().settings;
+      const settings = {
+        ...previous,
+        connection: { idleTimeoutMS },
+      };
+      await persist(settings);
+    },
+
+    setPageSize: async (pageSize) => {
+      if (
+        !Number.isInteger(pageSize) ||
+        pageSize < 1 ||
+        pageSize > 500 ||
+        get().settings.execution.pageSize === pageSize
+      ) return;
+      const previous = get().settings;
+      const settings = {
+        ...previous,
+        execution: { ...previous.execution, pageSize },
+      };
+      await persist(settings);
+    },
+
+    setAuditSettings: async (audit) => {
+      const previous = get().settings;
+      const normalized = {
+        retentionDays: Math.max(1, Math.min(36_500, Math.trunc(audit.retentionDays))),
+        maxEntries: Math.max(100, Math.min(1_000_000, Math.trunc(audit.maxEntries))),
+      };
+      if (
+        previous.audit.retentionDays === normalized.retentionDays &&
+        previous.audit.maxEntries === normalized.maxEntries
+      ) return;
+      const settings = { ...previous, audit: normalized };
+      await persist(settings);
+    },
+  };
+});
 
 function errorMessage(error: unknown): string {
   if (error && typeof error === 'object' && 'message' in error) return String(error.message);

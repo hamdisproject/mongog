@@ -35,6 +35,7 @@ export default function App() {
   const loadSettings = useSettingsStore((state) => state.load);
   const engineSubRef = useRef<(() => void) | null>(null);
   const initializedRef = useRef(false);
+  const [startupReady, setStartupReady] = useState(false);
   const workspaceReadyRef = useRef(false);
   const workspaceMetadataRef = useRef('');
 
@@ -64,9 +65,11 @@ export default function App() {
     if (initializedRef.current) return;
     initializedRef.current = true;
     void load();
-    void loadSettings();
     void useUpdatesStore.getState().check();
-    void window.mongog.workspace.load().then((saved) => {
+    void Promise.all([
+      loadSettings(),
+      window.mongog.workspace.load().catch(() => null),
+    ]).then(([, saved]) => {
       if (saved && saved.tabs.length > 0) {
         restore(saved);
       }
@@ -76,6 +79,7 @@ export default function App() {
       const current = useWorkspaceStore.getState();
       workspaceMetadataRef.current = workspaceMetadataFingerprint(current.tabs, current.activeTabId);
       workspaceReadyRef.current = true;
+      setStartupReady(true);
       persist(0);
     });
   }, []);
@@ -198,6 +202,10 @@ export default function App() {
     window.addEventListener('beforeunload', onUnload);
     return () => window.removeEventListener('beforeunload', onUnload);
   }, []);
+
+  if (!startupReady) {
+    return <div role="status" style={{ padding: 24, color: theme.colors.textMuted }}>Loading workspace…</div>;
+  }
 
   return (
     <div style={{
@@ -326,6 +334,7 @@ function workspaceMetadataFingerprint(tabs: WorkspaceTab[], activeTabId: string 
       documentsPageSizeOverride: _documentsPageSizeOverride,
       documentsColumnOrder: _documentsColumnOrder,
       documentsColumnOrderManual: _documentsColumnOrderManual,
+      documentsCriteriaOpen: _documentsCriteriaOpen,
       dirty: _dirty,
       ...metadata
     }) => metadata),

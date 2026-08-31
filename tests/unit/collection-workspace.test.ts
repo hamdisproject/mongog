@@ -114,6 +114,7 @@ describe('collection workspace helpers', () => {
           id: 'runtime-only', kind: 'collection', title: 'db.items', connectionId: 'conn-1',
           collectionViewMode: 'query', autoExecuteOnOpen: true, documentsPageSizeOverride: 100,
           documentsColumnOrder: ['_id', 'quantity', 'sku'], documentsColumnOrderManual: true,
+          documentsCriteriaOpen: false,
         }],
         activeTabId: 'runtime-only',
       },
@@ -122,6 +123,7 @@ describe('collection workspace helpers', () => {
     expect('documentsPageSizeOverride' in parsed.state.tabs[0]!).toBe(false);
     expect('documentsColumnOrder' in parsed.state.tabs[0]!).toBe(false);
     expect('documentsColumnOrderManual' in parsed.state.tabs[0]!).toBe(false);
+    expect('documentsCriteriaOpen' in parsed.state.tabs[0]!).toBe(false);
   });
 
   it('accepts a persisted namespace-locked change stream tab', () => {

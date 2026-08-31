@@ -234,6 +234,7 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
       ...(kind === 'collection' ? {
         collectionViewMode: 'documents' as const,
         documentsState: emptyDocumentCriteriaState(),
+        documentsCriteriaOpen: useSettingsStore.getState().settings.collection.criteriaOpenByDefault,
       } : {}),
     };
     set((state) => ({
@@ -980,6 +981,9 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
       ...(tab.kind === 'collection' && tab.documentsState === undefined
         ? { documentsState: emptyDocumentCriteriaState() }
         : {}),
+      documentsCriteriaOpen: tab.kind === 'collection'
+        ? useSettingsStore.getState().settings.collection.criteriaOpenByDefault
+        : undefined,
     }));
     const tabs = [
       ...normalizedTabs.filter((tab) => tab.pinned),

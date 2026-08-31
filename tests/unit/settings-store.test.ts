@@ -27,6 +27,75 @@ describe('renderer settings store', () => {
     vi.unstubAllGlobals();
   });
 
+  it('persists editor and Criteria preferences without replacing other settings', async () => {
+    save.mockResolvedValue(undefined);
+    await useSettingsStore.getState().setEditorFontSize(18);
+    await useSettingsStore.getState().setEditorMouseWheelZoom(false);
+    await useSettingsStore.getState().setCriteriaOpenByDefault(false);
+    await useSettingsStore.getState().setCollectionDefaults({ defaultView: 'query', autoExecuteDefaultQuery: true });
+    expect(useSettingsStore.getState().settings.editor).toEqual({ ...DEFAULT_SETTINGS.editor, fontSize: 18, mouseWheelZoom: false });
+    expect(useSettingsStore.getState().settings.collection).toEqual({
+      ...DEFAULT_SETTINGS.collection, criteriaOpenByDefault: false, defaultView: 'query', autoExecuteDefaultQuery: true,
+    });
+    expect(save.mock.lastCall?.[0]).toEqual(useSettingsStore.getState().settings);
+  });
+
+  it('coalesces rapid font edits and serializes them with other preferences', async () => {
+    const firstSave = deferredSave();
+    save.mockReturnValueOnce(firstSave.promise).mockResolvedValue(undefined);
+    const first = useSettingsStore.getState().setEditorFontSize(14);
+    await Promise.resolve();
+    const edits = [
+      useSettingsStore.getState().setEditorFontSize(15),
+      useSettingsStore.getState().setEditorFontSize(16),
+      useSettingsStore.getState().setPageSize(125),
+      useSettingsStore.getState().setEditorMouseWheelZoom(false),
+    ];
+    expect(save).toHaveBeenCalledOnce();
+    expect(useSettingsStore.getState().settings.editor.fontSize).toBe(16);
+    firstSave.resolve();
+    await Promise.all([first, ...edits]);
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save.mock.lastCall?.[0].editor).toEqual({ ...DEFAULT_SETTINGS.editor, fontSize: 16, mouseWheelZoom: false });
+    expect(save.mock.lastCall?.[0].execution.pageSize).toBe(125);
+    expect(useSettingsStore.getState().saving).toBe(false);
+  });
+
+  it('does not roll back newer edits when an older save fails', async () => {
+    const firstSave = deferredSave();
+    save.mockReturnValueOnce(firstSave.promise).mockResolvedValue(undefined);
+    const first = useSettingsStore.getState().setEditorFontSize(14);
+    await Promise.resolve();
+    const newer = useSettingsStore.getState().setEditorFontSize(20);
+    const criteria = useSettingsStore.getState().setCriteriaOpenByDefault(false);
+    firstSave.reject(new Error('temporary failure'));
+    await Promise.all([first, newer, criteria]);
+    expect(save.mock.lastCall?.[0].editor.fontSize).toBe(20);
+    expect(useSettingsStore.getState().settings.collection.criteriaOpenByDefault).toBe(false);
+    expect(useSettingsStore.getState().error).toBeNull();
+  });
+
+  it('rolls back a failed final font save to the last confirmed snapshot', async () => {
+    const firstSave = deferredSave();
+    save.mockReturnValueOnce(firstSave.promise).mockRejectedValue(new Error('disk full'));
+    const first = useSettingsStore.getState().setEditorFontSize(14);
+    await Promise.resolve();
+    const newer = useSettingsStore.getState().setEditorFontSize(20);
+    firstSave.resolve();
+    await Promise.all([first, newer]);
+    expect(useSettingsStore.getState().settings.editor.fontSize).toBe(14);
+    expect(useSettingsStore.getState().saving).toBe(false);
+    expect(useSettingsStore.getState().error).toBe('disk full');
+  });
+
+  it('rejects invalid font sizes without saving', async () => {
+    for (const fontSize of [7, 73, 12.5, NaN, Infinity]) {
+      await useSettingsStore.getState().setEditorFontSize(fontSize);
+    }
+    expect(save).not.toHaveBeenCalled();
+    expect(useSettingsStore.getState().settings.editor.fontSize).toBe(13);
+  });
+
   it('persists Query collection defaults and the global page size', async () => {
     save.mockResolvedValue(undefined);
 
@@ -40,6 +109,7 @@ describe('renderer settings store', () => {
       defaultView: 'query',
       autoExecuteDefaultQuery: true,
       explorerOpenBehavior: 'reuse-existing',
+      criteriaOpenByDefault: true,
     });
     expect(useSettingsStore.getState().settings.execution.pageSize).toBe(125);
     expect(save).toHaveBeenCalledTimes(2);
@@ -86,6 +156,7 @@ describe('renderer settings store', () => {
       defaultView: 'documents',
       autoExecuteDefaultQuery: false,
       explorerOpenBehavior: 'reuse-existing',
+      criteriaOpenByDefault: true,
     });
     expect(save).toHaveBeenCalledOnce();
   });
@@ -99,12 +170,14 @@ describe('renderer settings store', () => {
       defaultView: 'documents',
       autoExecuteDefaultQuery: false,
       explorerOpenBehavior: 'new-tab',
+      criteriaOpenByDefault: true,
     });
     expect(save).toHaveBeenCalledOnce();
     expect(save.mock.calls[0]?.[0].collection).toEqual({
       defaultView: 'documents',
       autoExecuteDefaultQuery: false,
       explorerOpenBehavior: 'new-tab',
+      criteriaOpenByDefault: true,
     });
   });
 
@@ -147,3 +220,10 @@ describe('renderer settings store', () => {
     expect(useSettingsStore.getState().error).toBe('settings unavailable');
   });
 });
+
+function deferredSave() {
+  let resolve!: () => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<void>((res, rej) => { resolve = res; reject = rej; });
+  return { promise, resolve, reject };
+}

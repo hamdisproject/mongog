@@ -35,6 +35,8 @@ export interface WorkspaceTab {
   documentsColumnOrder?: string[];
   /** Renderer-only marker that prevents global table-order changes from replacing a manual order. */
   documentsColumnOrderManual?: boolean;
+  /** Renderer-only Criteria visibility; initialized from preferences for each new/restored tab. */
+  documentsCriteriaOpen?: boolean;
   /** query tabs */
   editorContent?: string;
   mode?: 'query' | 'trusted';
@@ -131,7 +133,7 @@ export interface HistoryQuery {
 export interface ApplicationSettings {
   schemaVersion: number;
   theme: 'dark' | 'light' | 'system';
-  editor: { fontSize: number; tabSize: number; wordWrap: boolean; minimap: boolean };
+  editor: { fontSize: number; mouseWheelZoom: boolean; tabSize: number; wordWrap: boolean; minimap: boolean };
   connection: { idleTimeoutMS: number };
   execution: {
     defaultTimeoutMS: number;
@@ -148,6 +150,7 @@ export interface ApplicationSettings {
     defaultView: 'documents' | 'query';
     autoExecuteDefaultQuery: boolean;
     explorerOpenBehavior: CollectionOpenDisposition;
+    criteriaOpenByDefault: boolean;
   };
   table: { columnOrder: TableColumnOrder };
   ejson: { defaultMode: BsonDisplayMode };
@@ -173,7 +176,7 @@ export const DEFAULT_CONNECTION_IDLE_TIMEOUT_MS = 60 * 60 * 1000;
 export const DEFAULT_SETTINGS: ApplicationSettings = {
   schemaVersion: 1,
   theme: 'dark',
-  editor: { fontSize: 13, tabSize: 2, wordWrap: false, minimap: false },
+  editor: { fontSize: 13, mouseWheelZoom: true, tabSize: 2, wordWrap: false, minimap: false },
   connection: { idleTimeoutMS: DEFAULT_CONNECTION_IDLE_TIMEOUT_MS },
   execution: {
     defaultTimeoutMS: 30_000,
@@ -190,6 +193,7 @@ export const DEFAULT_SETTINGS: ApplicationSettings = {
     defaultView: 'documents',
     autoExecuteDefaultQuery: false,
     explorerOpenBehavior: 'reuse-existing',
+    criteriaOpenByDefault: true,
   },
   table: { columnOrder: 'alphabetical' },
   ejson: { defaultMode: 'mongosh' },
@@ -215,6 +219,7 @@ export function normalizeApplicationSettings(value: unknown): ApplicationSetting
       : DEFAULT_SETTINGS.theme,
     editor: {
       fontSize: integerInRange(editor.fontSize, 8, 72, DEFAULT_SETTINGS.editor.fontSize),
+      mouseWheelZoom: booleanValue(editor.mouseWheelZoom, DEFAULT_SETTINGS.editor.mouseWheelZoom),
       tabSize: integerInRange(editor.tabSize, 1, 16, DEFAULT_SETTINGS.editor.tabSize),
       wordWrap: booleanValue(editor.wordWrap, DEFAULT_SETTINGS.editor.wordWrap),
       minimap: booleanValue(editor.minimap, DEFAULT_SETTINGS.editor.minimap),
@@ -240,6 +245,7 @@ export function normalizeApplicationSettings(value: unknown): ApplicationSetting
       maxEntries: integerInRange(audit.maxEntries, 100, 1_000_000, DEFAULT_SETTINGS.audit.maxEntries),
     },
     collection: {
+      criteriaOpenByDefault: booleanValue(collection.criteriaOpenByDefault, DEFAULT_SETTINGS.collection.criteriaOpenByDefault),
       defaultView: collection.defaultView === 'query' || collection.defaultView === 'documents'
         ? collection.defaultView
         : DEFAULT_SETTINGS.collection.defaultView,

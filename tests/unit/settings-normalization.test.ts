@@ -8,6 +8,43 @@ import {
 import { applicationSettingsSchema } from '../../src/shared/ipc/index.js';
 
 describe('application settings normalization', () => {
+  it('defaults legacy editor and Criteria preferences without replacing the saved font size', () => {
+    const settings = normalizeApplicationSettings({ editor: { fontSize: 18 } });
+    expect(settings.editor.fontSize).toBe(18);
+    expect(settings.editor.mouseWheelZoom).toBe(true);
+    expect(settings.collection.criteriaOpenByDefault).toBe(true);
+    expect(applicationSettingsSchema.safeParse(settings).success).toBe(true);
+  });
+
+  it.each([true, false])('preserves explicit zoom and Criteria preference %s', (enabled) => {
+    const settings = normalizeApplicationSettings({
+      editor: { mouseWheelZoom: enabled },
+      collection: { criteriaOpenByDefault: enabled },
+    });
+    expect(settings.editor.mouseWheelZoom).toBe(enabled);
+    expect(settings.collection.criteriaOpenByDefault).toBe(enabled);
+    expect(applicationSettingsSchema.safeParse(settings).success).toBe(true);
+  });
+
+  it.each(['false', 0, null])('repairs and rejects invalid boolean preferences: %s', (value) => {
+    const settings = {
+      ...structuredClone(DEFAULT_SETTINGS),
+      editor: { ...DEFAULT_SETTINGS.editor, mouseWheelZoom: value },
+      collection: { ...DEFAULT_SETTINGS.collection, criteriaOpenByDefault: value },
+    };
+    expect(normalizeApplicationSettings(settings).editor.mouseWheelZoom).toBe(true);
+    expect(normalizeApplicationSettings(settings).collection.criteriaOpenByDefault).toBe(true);
+    expect(applicationSettingsSchema.safeParse(settings).success).toBe(false);
+  });
+
+  it.each([8, 72, 7, 73, 13.5, NaN])('validates font size %s at the IPC boundary', (fontSize) => {
+    const valid = Number.isInteger(fontSize) && fontSize >= 8 && fontSize <= 72;
+    expect(normalizeApplicationSettings({ editor: { fontSize } }).editor.fontSize).toBe(valid ? fontSize : 13);
+    expect(applicationSettingsSchema.safeParse({
+      ...structuredClone(DEFAULT_SETTINGS), editor: { ...DEFAULT_SETTINGS.editor, fontSize },
+    }).success).toBe(valid);
+  });
+
   it('defaults new and missing settings to MongoDB Shell display', () => {
     expect(DEFAULT_SETTINGS.ejson.defaultMode).toBe('mongosh');
     expect(normalizeApplicationSettings(undefined).ejson.defaultMode).toBe('mongosh');
@@ -16,6 +53,7 @@ describe('application settings normalization', () => {
       defaultView: 'documents',
       autoExecuteDefaultQuery: false,
       explorerOpenBehavior: 'reuse-existing',
+      criteriaOpenByDefault: true,
     });
     expect(DEFAULT_SETTINGS.execution.pageSize).toBe(50);
     expect(DEFAULT_SETTINGS.table).toEqual({ columnOrder: 'alphabetical' });
@@ -72,6 +110,7 @@ describe('application settings normalization', () => {
       defaultView: 'query',
       autoExecuteDefaultQuery: true,
       explorerOpenBehavior: 'reuse-existing',
+      criteriaOpenByDefault: true,
     });
 
     expect(normalizeApplicationSettings({
@@ -80,6 +119,7 @@ describe('application settings normalization', () => {
       defaultView: 'documents',
       autoExecuteDefaultQuery: false,
       explorerOpenBehavior: 'reuse-existing',
+      criteriaOpenByDefault: true,
     });
   });
 
