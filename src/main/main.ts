@@ -279,7 +279,10 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-app.on('before-quit', () => {
+// A window can still emit resize/move events and the renderer can still save
+// workspace state during before-quit. Keep persistence alive until all windows
+// have closed; otherwise a pending window-state save can throw during shutdown.
+app.once('will-quit', () => {
   updateService?.dispose();
   if (spikeMongoUri) {
     void import('./spike-mongo.js').then((m) => m.stopSpikeMongo());

@@ -360,6 +360,7 @@ jobs:
       - store_artifacts:
           path: release-inputs/macos-<< parameters.arch >>
           destination: release-macos-<< parameters.arch >>
+      - store_diagnostics
 
   release_windows:
     executor: win/server-2022
@@ -420,6 +421,7 @@ jobs:
       - store_artifacts:
           path: release-inputs/windows-x64
           destination: release-windows-x64
+      - store_diagnostics
 
   release_linux:
     executor: linux_machine
@@ -470,6 +472,7 @@ jobs:
       - store_artifacts:
           path: release-inputs/linux-x64
           destination: release-linux-x64
+      - store_diagnostics
 
   release_metadata:
     executor: linux_node

@@ -72,3 +72,19 @@ değişkenlerini ekle. GitHub token'ı gerekmez.
 Mevcut bir tag'i yeniden derlemek için CircleCI'de **Trigger Pipeline** açıp
 `run_release=true` ve `release_tag=vX.Y.Z` parametrelerini ver. Ayrıntılar için
 ana [README](../README.md#circleci-and-github-releases) belgesine bak.
+
+## Başarısız E2E job'larını inceleme
+
+Release job'ları başarısız olsa da **Artifacts → test-results** altında
+Playwright `trace.zip`, hata bağlamı ve her uygulama açılışına ait
+`electron-N.log` dosyaları saklanır. Kapanış hatalarında bu logdaki
+`before-quit`, `will-quit`, `quit` olaylarını ve ana süreç hatasını kontrol et.
+E2E kapanışı süre sınırına tabidir; süreç ağacı zorla temizlenirse test başarılı
+sayılmaz. Windows geçici dizin temizliği, süreç çıktıktan sonra dosya kilitleri
+için sınırlı sayıda yeniden denenir.
+
+Bir kod düzeltmesini yalnız `main` dalına göndermek, mevcut tag'in yeniden
+çalıştırılmasında kullanılan kodu değiştirmez: release job'ları tag'in commit'ini
+checkout eder. Yeni bir düzeltme yayını için yeni sürüm/tag kullan. Mevcut bir
+tag değiştirilirse eski/yeni commit'lerden üretilen platform paketlerini
+karıştırmadan tüm release workflow'unu yeniden çalıştır.

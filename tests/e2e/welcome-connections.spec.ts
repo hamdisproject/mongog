@@ -1,17 +1,21 @@
-import { existsSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createInterface } from 'node:readline';
 import { _electron as electron, expect, test, type ElectronApplication, type Locator, type Page } from '@playwright/test';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { MongoClient } from 'mongodb';
+import { redactForLog } from '../../src/shared/redaction/index.js';
+import { closeElectron, removeElectronUserData } from './helpers/electron-lifecycle.js';
 
 let mongo: MongoMemoryReplSet;
 let mongoUri: string;
 let userDataPath: string;
 let application: ElectronApplication | null = null;
+let launchNumber = 0;
 
 test.beforeAll(async () => {
   mongo = await MongoMemoryReplSet.create({
@@ -55,13 +59,16 @@ test.beforeAll(async () => {
 });
 
 test.afterEach(async () => {
-  await application?.close().catch(() => undefined);
-  application = null;
+  await closeApplication();
 });
 
 test.afterAll(async () => {
-  await mongo?.stop();
-  if (userDataPath) await rm(userDataPath, { recursive: true, force: true });
+  try {
+    await closeApplication();
+  } finally {
+    await mongo?.stop();
+    if (userDataPath) await removeElectronUserData(userDataPath);
+  }
 });
 
 test('Welcome, Connections, and Collection Query provide the complete lifecycle', async () => {
@@ -338,8 +345,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByTestId('connection-explorer')).toHaveJSProperty('clientWidth', 340);
   await expectViewportLocked(page);
 
-  await application!.close();
-  application = null;
+  await closeApplication();
   page = await launch();
   await expect(page.getByText('Welcome back')).toBeVisible();
   await expect(page.getByTestId('connection-explorer')).toHaveJSProperty('clientWidth', 340);
@@ -964,8 +970,7 @@ test('global collection defaults persist and auto-run a new Query collection onc
   await expect(idleTimeout).toHaveValue('7200000');
   await expect(page.getByText('Preferences are saved automatically.')).toBeVisible();
 
-  await application!.close();
-  application = null;
+  await closeApplication();
   page = await launch();
   await expect(page.locator('[data-tab-kind="welcome"]')).toHaveAttribute('data-tab-active', 'true');
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
@@ -1292,8 +1297,7 @@ test('Explorer collection opening preference creates independent tabs or reuses 
     await page.getByRole('button', { name: 'Open application settings' }).click();
     await alwaysNew.click();
     await expect(alwaysNew).toHaveAttribute('aria-checked', 'true');
-    await application!.close();
-    application = null;
+    await closeApplication();
     page = await launch();
     await page.getByRole('button', { name: 'Open application settings' }).click();
     await expect(page.getByRole('radio', {
@@ -1507,8 +1511,7 @@ test('Query font zoom and Documents Criteria defaults are scoped and persistent'
     await page.screenshot({ path: testInfo.outputPath('query-settings.png') });
     const persistedWorkspace = await page.evaluate(() => window.mongog.workspace.load());
     expect(persistedWorkspace?.tabs.every((tab) => !('documentsCriteriaOpen' in tab))).toBe(true);
-    await application!.close();
-    application = null;
+    await closeApplication();
 
     page = await launch({ MONGOG_E2E_USER_DATA: isolatedUserData });
     await openSettings();
@@ -1535,9 +1538,7 @@ test('Query font zoom and Documents Criteria defaults are scoped and persistent'
     await zoom(120);
     await expect(queryLines()).toHaveCSS('font-size', '19px');
   } finally {
-    await application?.close().catch(() => undefined);
-    application = null;
-    await rm(isolatedUserData, { recursive: true, force: true });
+    try { await closeApplication(); } finally { await removeElectronUserData(isolatedUserData); }
   }
 });
 
@@ -1609,9 +1610,27 @@ item?.sku.toUpperCase();`;
     await page.screenshot({path:testInfo.outputPath('automatic-await.png')});
     expect(errors).toEqual([]);
   } finally {
-    await application?.close().catch(()=>undefined); application=null;
-    await rm(isolated,{recursive:true,force:true});
+    try { await closeApplication(); } finally { await removeElectronUserData(isolated); }
   }
+});
+
+test('quitting with a pending window-state save exits cleanly', async () => {
+  const page = await launch();
+  await expect(page.getByRole('button', { name: 'Open application settings' })).toBeVisible();
+  // A renderer can take time to unload. The debounced resize save must remain
+  // valid until the window closes, even after before-quit has been emitted.
+  await page.evaluate(() => {
+    window.addEventListener('beforeunload', () => {
+      const until = Date.now() + 1_200;
+      while (Date.now() < until) { /* simulate a busy renderer during unload */ }
+    });
+  });
+  await application!.evaluate(({ BrowserWindow }) => {
+    const window = BrowserWindow.getAllWindows()[0]!;
+    const bounds = window.getBounds();
+    window.setBounds({ ...bounds, width: bounds.width + 1 });
+  });
+  await closeApplication();
 });
 
 async function expectQueryErrorOnLine(page: Page, text: string): Promise<void> {
@@ -1848,7 +1867,18 @@ async function expectQueryColumnsFillWidth(page: Page): Promise<void> {
   })).toBeLessThanOrEqual(2);
 }
 
+async function closeApplication(): Promise<void> {
+  const closing = application;
+  if (!closing) return;
+  try {
+    await test.step('Quit Electron and wait for its process to exit', () => closeElectron(closing));
+  } finally {
+    application = null;
+  }
+}
+
 async function launch(extraEnv: Record<string, string> = {}): Promise<Page> {
+  if (application) throw new Error('Close the previous Electron application before relaunching.');
   const executablePath = packagedExecutable();
   application = await electron.launch({
     executablePath,
@@ -1862,6 +1892,21 @@ async function launch(extraEnv: Record<string, string> = {}): Promise<Page> {
       MONGOG_UPDATE_FEED_URL: 'http://127.0.0.1:1/update',
       ...extraEnv,
     },
+  });
+  mkdirSync(test.info().outputDir, { recursive: true });
+  const logPath = test.info().outputPath(`electron-${++launchNumber}.log`);
+  const log = (message: string) => appendFileSync(logPath, `${redactForLog(message)}\n`);
+  const child = application.process();
+  log(`Electron launched: platform=${process.platform} arch=${process.arch} pid=${child.pid}`);
+  for (const stream of [child.stdout, child.stderr]) {
+    if (stream) createInterface({ input: stream }).on('line', log);
+  }
+  child.once('close', (code, signal) => log(`Electron closed: code=${code} signal=${signal}`));
+  await application.evaluate(({ app }) => {
+    process.on('uncaughtExceptionMonitor', (error) => console.error('[E2E main uncaught exception]', error));
+    app.on('before-quit', () => console.log('[E2E lifecycle] before-quit'));
+    app.on('will-quit', () => console.log('[E2E lifecycle] will-quit'));
+    app.on('quit', () => console.log('[E2E lifecycle] quit'));
   });
   const page = await application.firstWindow();
   await application.evaluate(({ BrowserWindow }) => {
