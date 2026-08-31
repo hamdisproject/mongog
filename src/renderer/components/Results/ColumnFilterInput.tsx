@@ -1,4 +1,4 @@
-import { memo, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { columnFilterHelpText } from '../../collection-column-filter.js';
 import {
@@ -30,7 +30,8 @@ export const ColumnFilterInput = memo(function ColumnFilterInput({
   connectionId, database, collection, column, value, error, onChange, onApply,
 }: ColumnFilterInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const paintRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLDivElement>(null);
+  const scrollFrameRef = useRef<number | null>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const composingRef = useRef(false);
   const insertingRef = useRef(false);
@@ -50,15 +51,31 @@ export const ColumnFilterInput = memo(function ColumnFilterInput({
   const open = suggestions.length > 0;
   const selectedIndex = Math.min(active, suggestions.length - 1);
 
-  const syncScroll = () => {
-    if (paintRef.current && inputRef.current) paintRef.current.scrollLeft = inputRef.current.scrollLeft;
-  };
-  useLayoutEffect(syncScroll, [value, composing]);
+  const syncScroll = useCallback(() => {
+    const align = () => {
+      if (textRef.current && inputRef.current) {
+        // A second scroll container can clamp/round differently from a native
+        // input. Translate by its actual offset, including fractional pixels.
+        textRef.current.style.transform = `translateX(${-inputRef.current.scrollLeft}px)`;
+      }
+    };
+    align();
+    if (scrollFrameRef.current !== null) cancelAnimationFrame(scrollFrameRef.current);
+    // Native caret scrolling may finish after React's change/selection event.
+    scrollFrameRef.current = requestAnimationFrame(() => {
+      scrollFrameRef.current = null;
+      align();
+    });
+  }, []);
+  useLayoutEffect(syncScroll, [value, composing, syncScroll]);
   useEffect(() => {
     const observer = new ResizeObserver(syncScroll);
     if (inputRef.current) observer.observe(inputRef.current);
-    return () => observer.disconnect();
-  }, []);
+    return () => {
+      observer.disconnect();
+      if (scrollFrameRef.current !== null) cancelAnimationFrame(scrollFrameRef.current);
+    };
+  }, [syncScroll]);
 
   useEffect(() => {
     setRequest(null);
@@ -146,8 +163,8 @@ export const ColumnFilterInput = memo(function ColumnFilterInput({
       onPointerDown={(event) => event.stopPropagation()}
       onKeyDown={(event) => event.stopPropagation()}
     >
-      <div className="column-filter-paint" ref={paintRef} aria-hidden="true">
-        <div className="column-filter-text">
+      <div className="column-filter-paint" aria-hidden="true">
+        <div className="column-filter-text" ref={textRef}>
           {tokens.map((token) => (
             <span
               key={token.start}
@@ -175,10 +192,13 @@ export const ColumnFilterInput = memo(function ColumnFilterInput({
         spellCheck={false}
         placeholder="exact, {field}: value, [{field}]: value"
         onFocus={() => {
+          syncScroll();
           void useSchemaCache.getState().loadSchema(connectionId, database, collection).catch(() => undefined);
         }}
-        onBlur={() => setRequest(null)}
+        onBlur={() => { setRequest(null); syncScroll(); }}
         onScroll={syncScroll}
+        onKeyUp={syncScroll}
+        onPointerUp={syncScroll}
         onSelect={(event) => {
           syncScroll();
           if (event.currentTarget.selectionStart !== event.currentTarget.selectionEnd) setRequest(null);
@@ -200,6 +220,7 @@ export const ColumnFilterInput = memo(function ColumnFilterInput({
           updateSuggestions(event.currentTarget);
         }}
         onKeyDown={(event) => {
+          syncScroll();
           if (composingRef.current || event.nativeEvent.isComposing || event.keyCode === 229) return;
           if (event.ctrlKey && event.code === 'Space') {
             event.preventDefault();

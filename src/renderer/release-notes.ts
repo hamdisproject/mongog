@@ -19,6 +19,27 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
+    version: '1.2.11',
+    releasedAt: '2026-08-31',
+    title: 'Column filter text alignment',
+    summary: 'Documents column filters keep highlighted text aligned with native input scrolling across editing and resizing.',
+    sections: [
+      {
+        kind: 'fixed',
+        items: [
+          'Highlighted filter text follows the native input scroll offset without a separate scrollbar rounding or clamping its position.',
+          'Caret movement, typing, focus changes and column resizing also synchronize the highlight layer after native scrolling completes.',
+        ],
+      },
+      {
+        kind: 'improved',
+        items: [
+          'Release checks exercise long filters, caret navigation and resizing, and report individual layout measurements when alignment fails.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.2.10',
     releasedAt: '2026-08-31',
     title: 'Reliable Windows release setup',

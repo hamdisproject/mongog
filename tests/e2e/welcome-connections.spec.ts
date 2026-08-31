@@ -84,12 +84,12 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByTestId('sidebar-mongog-brand').locator('img'))
     .toHaveAttribute('src', /mongog-icon.*\.png/);
   await expect(page.locator('[title^="welcome: Welcome"]')).toHaveCount(1);
-  await page.getByRole('button', { name: 'What’s New in 1.2.10' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.11' }).click();
   const releaseNotesTab = page.locator('[data-tab-kind="release-notes"]');
   await expect(page.getByTestId('release-notes-view')).toBeVisible();
   await expect(page.getByTestId('release-notes-mongog-brand')).toHaveAccessibleName('MongoG');
-  await expect(page.getByText('Installed v1.2.10')).toBeVisible();
-  await expect(page.locator('[data-release-version="1.2.10"]')).toContainText('Latest');
+  await expect(page.getByText('Installed v1.2.11')).toBeVisible();
+  await expect(page.locator('[data-release-version="1.2.11"]')).toContainText('Latest');
   await expect(page.locator('[data-release-version="1.0.0"]')).toBeVisible();
   await expectViewportLocked(page);
   await releaseNotesTab.click({ button: 'right' });
@@ -102,7 +102,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.getByTitle('Close Release Notes').click();
   await expect(releaseNotesTab).toHaveCount(0);
   await page.locator('[title^="welcome: Welcome"]').click();
-  await page.getByRole('button', { name: 'What’s New in 1.2.10' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.11' }).click();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
   await expect(page.getByTitle('New query tab')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open global search' })).toBeVisible();
@@ -160,7 +160,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByRole('switch', { name: 'Run default collection query automatically' }))
     .toBeDisabled();
   await expect(page.getByLabel('Global page size')).toHaveValue('50');
-  await expect(page.getByTestId('about-updates-settings')).toContainText('MongoG 1.2.10');
+  await expect(page.getByTestId('about-updates-settings')).toContainText('MongoG 1.2.11');
   await page.getByRole('button', { name: 'Open Release Notes' }).click();
   await expect(page.getByTestId('release-notes-view')).toBeVisible();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
@@ -921,7 +921,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toHaveCount(0);
   await expect(page.locator(`[data-tab-id="${activeBeforeClosingPinnedQuery}"]`)).toHaveAttribute('data-tab-active', 'true');
   await page.getByRole('button', { name: 'Open Welcome' }).click();
-  await page.getByRole('button', { name: 'What’s New in 1.2.10' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.11' }).click();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
 });
 
@@ -933,7 +933,7 @@ test('global collection defaults persist and auto-run a new Query collection onc
   // if that test is interrupted before its final save, establish the same
   // starting workspace explicitly instead of reporting a cascading failure.
   if (await releaseNotesTab.count() === 0) {
-    await page.getByRole('button', { name: 'What’s New in 1.2.10' }).click();
+    await page.getByRole('button', { name: 'What’s New in 1.2.11' }).click();
     await expect(releaseNotesTab).toHaveCount(1);
     await page.getByRole('button', { name: 'Open Welcome' }).click();
   }
@@ -1321,7 +1321,7 @@ test('update available is surfaced in the sidebar after consent is declined', as
 
   const updateButton = page.getByRole('button', { name: 'Update 9.9.9 available' });
   await expect(updateButton).toBeVisible();
-  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.10');
+  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.11');
 
   await updateButton.click();
   await expect(page.getByTestId('updates-view')).toBeVisible();
@@ -1419,7 +1419,7 @@ for (const failure of ['checksum', 'http'] as const) {
 
 test('Updates tab is reachable from Settings and shows the neutral state without a badge', async () => {
   let page = await launch();
-  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.10');
+  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.11');
   await expect(page.getByRole('button', { name: /^Update .* available$/ })).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Open application settings' }).click();
@@ -1743,18 +1743,34 @@ test('Documents column filters complete syntax and nested fields with native edi
     await catalog.pressSequentially(': len >= 1');
     await expect(catalogList).toHaveCount(0);
 
-    // Long native input and paint layer scroll together, without changing font metrics.
+    // Use deliberate overflow, independent of the platform's monospace font.
     const catalogShell = page.locator('[data-column-filter="catalog"]');
     await expect(catalogShell.locator('[data-filter-token="property"]').first()).toHaveCSS('color', 'rgb(156, 220, 254)');
-    await catalog.press('End');
-    await expect.poll(() => catalogShell.evaluate((shell) => {
-      const input = shell.querySelector('input')!;
-      const paint = shell.querySelector('.column-filter-paint')!;
-      const text = shell.querySelector('.column-filter-text')!;
-      return input.scrollLeft > 0 && Math.abs(input.scrollLeft - paint.scrollLeft) <= 1 &&
-        getComputedStyle(input).font === getComputedStyle(text).font &&
-        getComputedStyle(input).padding === getComputedStyle(text).padding;
-    })).toBe(true);
+    const longFilter = `{products}[{name}]: "${'scroll alignment '.repeat(24)}"`;
+    await catalog.fill(longFilter);
+    await catalog.press(process.platform === 'darwin' ? 'Meta+ArrowRight' : 'End');
+    await expect.poll(() => catalog.evaluate((input: HTMLInputElement) => input.selectionStart)).toBe(longFilter.length);
+    await expect.poll(() => catalog.evaluate((input) => input.scrollWidth - input.clientWidth)).toBeGreaterThan(500);
+    await expect.poll(() => catalog.evaluate((input) => input.scrollLeft)).toBeGreaterThan(0);
+    await expectColumnFilterAlignment(catalogShell, 'end of long value');
+    await catalog.pressSequentially('more');
+    await expectColumnFilterAlignment(catalogShell, 'typing at the end');
+    await catalog.press(process.platform === 'darwin' ? 'Meta+ArrowLeft' : 'Home');
+    await expect.poll(() => catalog.evaluate((input: HTMLInputElement) => input.selectionStart)).toBe(0);
+    await expect.poll(() => catalog.evaluate((input) => input.scrollLeft)).toBe(0);
+    await expectColumnFilterAlignment(catalogShell, 'start of long value');
+    await catalog.press(process.platform === 'darwin' ? 'Meta+ArrowRight' : 'End');
+    await catalog.press('ArrowLeft');
+    await catalog.press('Backspace');
+    await expectColumnFilterAlignment(catalogShell, 'editing near the end');
+    await quantity.focus();
+    await expectColumnFilterAlignment(catalogShell, 'after blur');
+    await catalog.focus();
+    await dragHorizontalSeparator(page, page.getByRole('separator', { name: 'Resize catalog column' }), 40);
+    await expectColumnFilterAlignment(catalogShell, 'wider column');
+    await dragHorizontalSeparator(page, page.getByRole('separator', { name: 'Resize catalog column' }), -40);
+    await expectColumnFilterAlignment(catalogShell, 'restored column width');
+    await catalog.fill('{products}[{tags}]: len >= 1');
     await quantity.fill('<> 10');
     await page.screenshot({ path: testInfo.outputPath('column-filters-dark.png') });
     await page.getByRole('button', { name: 'Open application settings' }).click();
@@ -1798,6 +1814,39 @@ test('Documents column filters complete syntax and nested fields with native edi
     try { await closeApplication(); } finally { await removeElectronUserData(isolated); }
   }
 });
+
+async function expectColumnFilterAlignment(shell: Locator, description: string): Promise<void> {
+  await test.step(`Column filter alignment: ${description}`, async () => {
+    const measure = () => shell.evaluate((element) => {
+      const input = element.querySelector('input')!;
+      const text = element.querySelector('.column-filter-text')!;
+      const metrics = (node: Element) => {
+        const style = getComputedStyle(node);
+        return {
+          fontFamily: style.fontFamily, fontSize: style.fontSize, fontWeight: style.fontWeight,
+          fontStyle: style.fontStyle, lineHeight: style.lineHeight, letterSpacing: style.letterSpacing,
+          padding: style.padding,
+        };
+      };
+      return {
+        scrollLeft: input.scrollLeft, scrollWidth: input.scrollWidth, clientWidth: input.clientWidth,
+        caret: input.selectionStart, inputStyle: metrics(input), textStyle: metrics(text),
+        // Measure painted position, not equality between two rounded scroll ranges.
+        offsetError: text.getBoundingClientRect().left + input.scrollLeft - input.getBoundingClientRect().left,
+      };
+    });
+    try {
+      await expect.poll(async () => Math.abs((await measure()).offsetError), `${description}: painted text follows the native input scroll`).toBeLessThanOrEqual(1);
+      const layout = await measure();
+      expect(layout.textStyle, `${description}: overlay and input use the same text metrics`).toEqual(layout.inputStyle);
+    } finally {
+      const name = `column-filter-layout-${description.replaceAll(' ', '-')}`;
+      const path = test.info().outputPath(`${name}.json`);
+      await writeFile(path, JSON.stringify(await measure(), null, 2));
+      await test.info().attach(name, { path, contentType: 'application/json' });
+    }
+  });
+}
 
 test('quitting with a pending window-state save exits cleanly', async () => {
   const page = await launch();
