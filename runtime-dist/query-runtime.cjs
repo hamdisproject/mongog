@@ -129106,18 +129106,18 @@ ${lanes.join("\n")}
               0
               /* Call */
             );
-            const isPromise = !!getAwaitedTypeOfPromise(type);
-            if (callSignatures.length === 0 && !isPromise) {
+            const isPromise2 = !!getAwaitedTypeOfPromise(type);
+            if (callSignatures.length === 0 && !isPromise2) {
               return;
             }
             const testedNode = isIdentifier(location) ? location : isPropertyAccessExpression(location) ? location.name : void 0;
             const testedSymbol = testedNode && getSymbolAtLocation(testedNode);
-            if (!testedSymbol && !isPromise) {
+            if (!testedSymbol && !isPromise2) {
               return;
             }
             const isUsed = testedSymbol && isBinaryExpression(condExpr2.parent) && isSymbolUsedInBinaryExpressionChain(condExpr2.parent, testedSymbol) || testedSymbol && body2 && isSymbolUsedInConditionBody(condExpr2, body2, testedNode, testedSymbol);
             if (!isUsed) {
-              if (isPromise) {
+              if (isPromise2) {
                 errorAndMaybeSuggestAwait(
                   location,
                   /*maybeMissingAwait*/
@@ -245305,32 +245305,554 @@ function toRange(sourceFile, start, end) {
     endCol: e.character + 1
   };
 }
-const CAPTURE_FN = "__mongogCapture";
-const MARK_FN = "__mongogMark";
-function buildInstrumentedSource(source, parsed) {
-  const parts = [];
-  const captured = [];
-  let cursor = 0;
-  for (const stmt of parsed.statements) {
-    parts.push(source.slice(cursor, stmt.start));
-    if (stmt.kind === "expression") {
-      captured.push(stmt.index);
-      const expr = stmt.text.replace(/;+\s*$/, "");
-      parts.push(`await ${CAPTURE_FN}(${stmt.index}, async () => (
-${expr}
-));`);
-    } else {
-      parts.push(`${MARK_FN}(${stmt.index});
-${stmt.text}`);
+function isPromiseContinuation(node2) {
+  return ts.isPropertyAccessExpression(node2) && ["then", "catch", "finally"].includes(node2.name.text) || ts.isElementAccessExpression(node2) && ts.isStringLiteral(node2.argumentExpression) && ["then", "catch", "finally"].includes(node2.argumentExpression.text);
+}
+function buildAutoAwaitProjection(source) {
+  const { sourceFile, diagnostics } = parseScript(source);
+  let name = "__mongogAwait";
+  while (source.includes(name)) name += "_";
+  const insertions = /* @__PURE__ */ new Map();
+  const insert2 = (position, value) => {
+    const items = insertions.get(position) ?? [];
+    items.push(value);
+    insertions.set(position, items);
+  };
+  const wrap2 = (node2, helper = name) => {
+    insert2(node2.getStart(sourceFile), `${helper}(`);
+    insert2(node2.end, ")");
+  };
+  const binding = (node2) => {
+    if (ts.isIdentifier(node2)) return;
+    for (const item of node2.elements) if (ts.isBindingElement(item)) {
+      if (item.propertyName && ts.isComputedPropertyName(item.propertyName)) expression(item.propertyName.expression);
+      binding(item.name);
+      if (item.initializer) expression(item.initializer);
     }
-    cursor = stmt.end;
+  };
+  const target = (node2) => {
+    if (ts.isPropertyAccessExpression(node2)) expression(node2.expression);
+    else if (ts.isElementAccessExpression(node2)) {
+      expression(node2.expression);
+      expression(node2.argumentExpression);
+    } else if (ts.isParenthesizedExpression(node2)) target(node2.expression);
+  };
+  const visit = (node2) => {
+    if (ts.isTypeNode(node2)) return;
+    if (ts.isVariableDeclaration(node2) || ts.isParameter(node2)) {
+      binding(node2.name);
+      if (node2.initializer) expression(node2.initializer);
+      return;
+    }
+    if (ts.isForOfStatement(node2)) {
+      visit(node2.initializer);
+      wrap2(node2.expression, `${name}Iterable`);
+      expression(node2.expression);
+      visit(node2.statement);
+      return;
+    }
+    if (ts.isPropertyAssignment(node2)) {
+      if (ts.isComputedPropertyName(node2.name)) expression(node2.name.expression);
+      expression(node2.initializer);
+      return;
+    }
+    if (ts.isShorthandPropertyAssignment(node2)) {
+      insert2(node2.getStart(sourceFile), `${node2.name.text}: `);
+      expression(node2.name);
+      return;
+    }
+    if (ts.isPropertyDeclaration(node2)) {
+      if (node2.initializer) expression(node2.initializer);
+      return;
+    }
+    if (ts.isFunctionLike(node2) && "body" in node2) {
+      if ("name" in node2 && node2.name && ts.isComputedPropertyName(node2.name)) expression(node2.name.expression);
+      for (const parameter of node2.parameters) visit(parameter);
+      if (node2.body) visit(node2.body);
+      return;
+    }
+    if (ts.isExpression(node2)) {
+      expression(node2);
+      return;
+    }
+    ts.forEachChild(node2, visit);
+  };
+  const expression = (node2, wait = true, chain = false) => {
+    const optional = ts.isPropertyAccessChain(node2) || ts.isElementAccessChain(node2) || ts.isCallChain(node2);
+    if (optional && chain) wait = false;
+    if (ts.isParenthesizedExpression(node2) || ts.isAsExpression(node2) || ts.isTypeAssertionExpression(node2) || ts.isNonNullExpression(node2) || ts.isSatisfiesExpression(node2)) {
+      expression(node2.expression, wait, chain);
+      return;
+    }
+    if (ts.isIdentifier(node2)) {
+      if (wait) wrap2(node2);
+      return;
+    }
+    if (ts.isFunctionExpression(node2) || ts.isArrowFunction(node2) || ts.isClassExpression(node2)) {
+      if (ts.isClassExpression(node2)) ts.forEachChild(node2, visit);
+      else {
+        node2.parameters.forEach(visit);
+        visit(node2.body);
+      }
+      return;
+    }
+    if (ts.isCallExpression(node2) || ts.isNewExpression(node2)) {
+      if (wait) wrap2(node2);
+      const callee = node2.expression;
+      if (ts.isPropertyAccessExpression(callee) || ts.isElementAccessExpression(callee)) {
+        if (ts.isPropertyAccessExpression(callee) && ["map", "reduce", "flatMap"].includes(callee.name.text)) wrap2(callee.expression, `${name}Array`);
+        expression(callee.expression, !isPromiseContinuation(callee), optional);
+        if (ts.isElementAccessExpression(callee)) expression(callee.argumentExpression);
+      } else expression(callee, false);
+      node2.arguments?.forEach((argument) => {
+        if (ts.isArrowFunction(argument) || ts.isFunctionExpression(argument)) wrap2(argument, `${name}Callback`);
+        expression(argument);
+      });
+      return;
+    }
+    if (ts.isPropertyAccessExpression(node2) || ts.isElementAccessExpression(node2)) {
+      if (wait) wrap2(node2);
+      expression(node2.expression, true, optional);
+      if (ts.isElementAccessExpression(node2)) expression(node2.argumentExpression);
+      return;
+    }
+    if (ts.isBinaryExpression(node2)) {
+      const assignment = node2.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && node2.operatorToken.kind <= ts.SyntaxKind.LastAssignment;
+      if (assignment) target(node2.left);
+      else expression(node2.left);
+      expression(node2.right);
+      return;
+    }
+    if (ts.isPrefixUnaryExpression(node2) && [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(node2.operator)) {
+      target(node2.operand);
+      return;
+    }
+    if (ts.isPostfixUnaryExpression(node2)) {
+      target(node2.operand);
+      return;
+    }
+    if (ts.isDeleteExpression(node2)) {
+      target(node2.expression);
+      return;
+    }
+    if (ts.isTypeOfExpression(node2) && ts.isIdentifier(node2.expression)) return;
+    if (ts.isMetaProperty(node2) || node2.kind === ts.SyntaxKind.SuperKeyword) return;
+    ts.forEachChild(node2, visit);
+  };
+  sourceFile.statements.forEach(visit);
+  const prelude = `export {};
+type ${name}ArrayResult<T> = T extends readonly (infer V)[] ? Omit<T, 'map' | 'reduce' | 'flatMap'> & {
+  map<R>(callback: (value: V, index: number, array: T) => R, thisArg?: unknown): Awaited<R>[];
+  flatMap<R>(callback: (value: V, index: number, array: T) => R, thisArg?: unknown): (Awaited<R> extends readonly (infer E)[] ? E : Awaited<R>)[];
+  reduce(callback: (previous: V, value: V, index: number, array: T) => V | PromiseLike<V>): V;
+  reduce<R>(callback: (previous: R, value: V, index: number, array: T) => R | PromiseLike<R>, initial: R): R;
+} : T;
+declare function ${name}Array<T>(value: T): ${name}ArrayResult<T>;
+declare function ${name}<T>(value: T): Awaited<T>;
+declare function ${name}Callback<A extends any[], R>(fn: (...args: A) => R): ((...args: A) => Promise<Awaited<R>>) & ((...args: A) => R);
+declare function ${name}Iterable<T>(value: Iterable<T> | AsyncIterable<T>): Iterable<Awaited<T>>;
+`;
+  let generated = prelude;
+  let cursor = 0;
+  const mappings = [];
+  for (const [position, values] of [...insertions].sort(([a], [b]) => a - b)) {
+    if (position > cursor) {
+      mappings.push({ originalStart: cursor, generatedStart: generated.length, length: position - cursor });
+      generated += source.slice(cursor, position);
+    }
+    generated += values.join("");
+    cursor = position;
   }
-  parts.push(source.slice(cursor));
-  const body = parts.join("");
-  const code = `(async () => {
-${body}
-})()`;
-  return { code, capturedStatementIndexes: captured };
+  mappings.push({ originalStart: cursor, generatedStart: generated.length, length: source.length - cursor });
+  generated += source.slice(cursor);
+  return {
+    source: generated,
+    mappings,
+    diagnostics: diagnostics.map((item) => ({ start: item.start, length: item.end - item.start, message: item.message })),
+    generatedNames: [name, `${name}Callback`, `${name}Array`, `${name}ArrayResult`, `${name}Iterable`],
+    toGenerated(offset) {
+      const previous = mappings.find((item) => offset > item.originalStart && offset <= item.originalStart + item.length);
+      const mapping = previous ?? mappings.find((item) => item.originalStart === offset);
+      return mapping ? mapping.generatedStart + offset - mapping.originalStart : generated.length;
+    },
+    toOriginal(offset) {
+      const mapping = mappings.find((item) => offset >= item.generatedStart && offset <= item.generatedStart + item.length);
+      return mapping ? mapping.originalStart + offset - mapping.generatedStart : void 0;
+    }
+  };
+}
+function lowerAutoAwait(source, parsed) {
+  const names = /* @__PURE__ */ new Set();
+  const collect = (node2) => {
+    if (ts.isIdentifier(node2)) names.add(node2.text);
+    ts.forEachChild(node2, collect);
+  };
+  collect(parsed.sourceFile);
+  let nextId = 0;
+  const fresh = (label) => {
+    let name;
+    do {
+      name = `__mongog_${label}_${nextId++}`;
+    } while (names.has(name));
+    names.add(name);
+    return ts.factory.createIdentifier(name);
+  };
+  const runtime = fresh("async");
+  const capturedStatementIndexes = [];
+  const f = ts.factory;
+  const helper = (name, args = []) => f.createCallExpression(f.createPropertyAccessExpression(runtime, name), void 0, args);
+  const number = (value) => f.createNumericLiteral(value);
+  const assign = (left, right) => f.createAssignment(left, right);
+  const statement = (value) => f.createExpressionStatement(value);
+  const sequence = (...values) => f.createParenthesizedExpression(f.createCommaListExpression(values));
+  const undef = () => f.createVoidZero();
+  const directives = (statements) => {
+    const result = [];
+    for (const item of statements) {
+      if (!ts.isExpressionStatement(item) || !ts.isStringLiteral(item.expression)) break;
+      result.push(item);
+    }
+    return result;
+  };
+  const declare = (ids) => ids.length ? [f.createVariableStatement(
+    void 0,
+    f.createVariableDeclarationList(ids.map((id) => f.createVariableDeclaration(id)), ts.NodeFlags.Let)
+  )] : [];
+  let scope = { temps: [], sync: false };
+  const temp = () => {
+    const id = fresh("value");
+    scope.temps.push(id);
+    return id;
+  };
+  const wait = (value) => {
+    if (scope.sync) return helper("sync", [value]);
+    const saved = temp();
+    return sequence(assign(saved, value), f.createConditionalExpression(
+      helper("isPromise", [saved]),
+      void 0,
+      f.createAwaitExpression(helper("wait", [saved])),
+      void 0,
+      saved
+    ));
+  };
+  const transformer = (context2) => {
+    const visit = (node2) => {
+      if (ts.isTypeNode(node2)) return node2;
+      if (ts.isFunctionLike(node2) && "body" in node2 && node2.body) return functionBody(node2);
+      if (ts.isIdentifier(node2)) return node2;
+      if (ts.isShorthandPropertyAssignment(node2)) return f.createPropertyAssignment(node2.name, expr(node2.name));
+      if (ts.isVariableDeclaration(node2)) return f.updateVariableDeclaration(node2, ts.visitNode(node2.name, visit), node2.exclamationToken, node2.type, node2.initializer && expr(node2.initializer));
+      if (ts.isPropertyAssignment(node2)) return f.updatePropertyAssignment(node2, ts.visitNode(node2.name, visit), expr(node2.initializer));
+      if (ts.isBindingElement(node2)) return f.updateBindingElement(node2, node2.dotDotDotToken, ts.visitNode(node2.propertyName, visit), ts.visitNode(node2.name, visit), node2.initializer && expr(node2.initializer));
+      if (ts.isReturnStatement(node2)) {
+        let value = node2.expression ? expr(node2.expression) : undef();
+        if (scope.result) value = assign(scope.result, value);
+        return f.updateReturnStatement(node2, value);
+      }
+      if (ts.isThrowStatement(node2)) return f.updateThrowStatement(node2, expr(node2.expression));
+      if (ts.isExpressionStatement(node2)) return f.updateExpressionStatement(node2, expr(node2.expression));
+      if (ts.isIfStatement(node2)) return f.updateIfStatement(node2, expr(node2.expression), ts.visitNode(node2.thenStatement, visit), ts.visitNode(node2.elseStatement, visit));
+      if (ts.isWhileStatement(node2)) return f.updateWhileStatement(node2, expr(node2.expression), loopBody(node2.statement));
+      if (ts.isDoStatement(node2)) return f.updateDoStatement(node2, loopBody(node2.statement), expr(node2.expression));
+      if (ts.isForStatement(node2)) return f.updateForStatement(
+        node2,
+        node2.initializer && (ts.isVariableDeclarationList(node2.initializer) ? ts.visitNode(node2.initializer, visit) : expr(node2.initializer)),
+        node2.condition && expr(node2.condition),
+        node2.incrementor && expr(node2.incrementor),
+        loopBody(node2.statement)
+      );
+      if (ts.isForInStatement(node2)) return f.updateForInStatement(node2, node2.initializer, expr(node2.expression), loopBody(node2.statement));
+      if (ts.isLabeledStatement(node2) && ts.isForOfStatement(node2.statement)) return forOf(node2.statement, node2.label);
+      if (ts.isForOfStatement(node2)) return forOf(node2);
+      if (ts.isCatchClause(node2)) {
+        const binding = node2.variableDeclaration?.name;
+        const error2 = binding && ts.isIdentifier(binding) ? binding : fresh("caught");
+        const body = ts.visitNode(node2.block, visit);
+        return f.updateCatchClause(node2, f.createVariableDeclaration(error2), f.updateBlock(body, [
+          statement(helper("checkCatch", [error2])),
+          ...binding && !ts.isIdentifier(binding) ? [f.createVariableStatement(void 0, f.createVariableDeclarationList([f.createVariableDeclaration(binding, void 0, void 0, error2)], ts.NodeFlags.Let))] : [],
+          ...body.statements
+        ]));
+      }
+      if (ts.isPropertyDeclaration(node2) && node2.initializer) {
+        const initializer = syncExpression(node2.initializer);
+        return f.updatePropertyDeclaration(node2, node2.modifiers, node2.name, node2.questionToken ?? node2.exclamationToken, node2.type, initializer);
+      }
+      if (ts.isExpression(node2)) return expr(node2);
+      return ts.visitEachChild(node2, visit, context2);
+    };
+    const loopBody = (body) => f.createBlock([
+      statement(helper("checkpoint")),
+      ts.visitNode(body, visit)
+    ], true);
+    const forOf = (node2, label) => {
+      const iterator = fresh("iterator");
+      const step = fresh("step");
+      const value = wait(f.createPropertyAccessExpression(step, "value"));
+      const binding = ts.isVariableDeclarationList(node2.initializer) ? f.createVariableStatement(void 0, f.updateVariableDeclarationList(node2.initializer, [
+        f.updateVariableDeclaration(node2.initializer.declarations[0], node2.initializer.declarations[0].name, void 0, void 0, value)
+      ])) : statement(assign(lvalue(node2.initializer), value));
+      const loop = f.createForStatement(void 0, void 0, void 0, f.createBlock([
+        statement(helper("checkpoint")),
+        statement(assign(step, wait(f.createCallExpression(f.createPropertyAccessExpression(iterator, "next"), void 0, [])))),
+        f.createIfStatement(f.createPropertyAccessExpression(step, "done"), f.createBreakStatement()),
+        binding,
+        ts.visitNode(node2.statement, visit)
+      ], true));
+      return f.createBlock([
+        f.createVariableStatement(void 0, f.createVariableDeclarationList([
+          f.createVariableDeclaration(iterator, void 0, void 0, helper("iterator", [expr(node2.expression)]))
+        ], ts.NodeFlags.Const)),
+        ...declare([step]),
+        f.createTryStatement(
+          f.createBlock([label ? f.createLabeledStatement(label, loop) : loop], true),
+          void 0,
+          f.createBlock([statement(wait(f.createCallExpression(f.createPropertyAccessExpression(iterator, "close"), void 0, [])))], true)
+        )
+      ], true);
+    };
+    const functionBody = (node2) => {
+      const name = "name" in node2 && node2.name && ts.isComputedPropertyName(node2.name) ? f.updateComputedPropertyName(node2.name, expr(node2.name.expression)) : void 0;
+      const previous = scope;
+      const explicitAsync = node2.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword) ?? false;
+      const sync2 = ts.isConstructorDeclaration(node2) || ts.isSetAccessorDeclaration(node2) || !explicitAsync && "asteriskToken" in node2 && !!node2.asteriskToken;
+      scope = { temps: [], sync: sync2 };
+      if (!sync2 && !explicitAsync) {
+        scope.result = fresh("result");
+        scope.state = fresh("state");
+      }
+      const body = ts.isBlock(node2.body) ? ts.visitEachChild(node2.body, visit, context2) : f.createBlock([ts.visitNode(f.createReturnStatement(node2.body), visit)], true);
+      let loweredBody;
+      if (scope.state && scope.result) {
+        const { state: state2, result } = scope;
+        const error2 = fresh("error");
+        const promise2 = fresh("promise");
+        const inner = f.createArrowFunction(
+          [f.createModifier(ts.SyntaxKind.AsyncKeyword)],
+          void 0,
+          [],
+          void 0,
+          void 0,
+          f.createBlock([
+            ...declare(scope.temps),
+            f.createTryStatement(f.createBlock([
+              statement(helper("checkpoint")),
+              ...body.statements
+            ], true), f.createCatchClause(f.createVariableDeclaration(error2), f.createBlock([
+              f.createIfStatement(
+                f.createBinaryExpression(state2, ts.SyntaxKind.EqualsEqualsEqualsToken, number(0)),
+                f.createBlock([statement(assign(state2, number(2))), statement(assign(result, error2))]),
+                f.createThrowStatement(error2)
+              )
+            ], true)), f.createBlock([
+              f.createIfStatement(f.createBinaryExpression(state2, ts.SyntaxKind.ExclamationEqualsEqualsToken, number(2)), statement(assign(state2, number(1))))
+            ], true))
+          ], true)
+        );
+        loweredBody = f.createBlock([
+          ...declare([state2, result]),
+          statement(assign(state2, number(0))),
+          f.createVariableStatement(void 0, f.createVariableDeclarationList([f.createVariableDeclaration(promise2, void 0, void 0, f.createCallExpression(f.createParenthesizedExpression(inner), void 0, []))], ts.NodeFlags.Const)),
+          f.createIfStatement(f.createBinaryExpression(state2, ts.SyntaxKind.EqualsEqualsEqualsToken, number(1)), f.createReturnStatement(result)),
+          f.createIfStatement(f.createBinaryExpression(state2, ts.SyntaxKind.EqualsEqualsEqualsToken, number(2)), f.createThrowStatement(result)),
+          statement(assign(state2, number(3))),
+          ...ts.isFunctionDeclaration(node2) || ts.isFunctionExpression(node2) ? [
+            f.createIfStatement(f.createMetaProperty(ts.SyntaxKind.NewKeyword, f.createIdentifier("target")), f.createReturnStatement(helper("sync", [promise2])))
+          ] : [],
+          f.createReturnStatement(helper("track", [promise2]))
+        ], true);
+      } else {
+        loweredBody = f.updateBlock(body, [...declare(scope.temps), statement(helper("checkpoint")), ...body.statements]);
+      }
+      if (ts.isBlock(node2.body)) loweredBody = f.updateBlock(loweredBody, [...directives(node2.body.statements), ...loweredBody.statements]);
+      const parameters = node2.parameters.map((parameter) => f.updateParameterDeclaration(
+        parameter,
+        parameter.modifiers,
+        parameter.dotDotDotToken,
+        syncBinding(parameter.name),
+        parameter.questionToken,
+        parameter.type,
+        parameter.initializer && syncExpression(parameter.initializer)
+      ));
+      scope = previous;
+      if (ts.isFunctionDeclaration(node2)) return f.updateFunctionDeclaration(node2, node2.modifiers, node2.asteriskToken, node2.name, node2.typeParameters, parameters, node2.type, loweredBody);
+      if (ts.isFunctionExpression(node2)) return f.updateFunctionExpression(node2, node2.modifiers, node2.asteriskToken, node2.name, node2.typeParameters, parameters, node2.type, loweredBody);
+      if (ts.isArrowFunction(node2)) return f.updateArrowFunction(node2, node2.modifiers, node2.typeParameters, parameters, node2.type, node2.equalsGreaterThanToken, loweredBody);
+      if (ts.isMethodDeclaration(node2)) return f.updateMethodDeclaration(node2, node2.modifiers, node2.asteriskToken, name ?? node2.name, node2.questionToken, node2.typeParameters, parameters, node2.type, loweredBody);
+      if (ts.isGetAccessorDeclaration(node2)) return f.updateGetAccessorDeclaration(node2, node2.modifiers, name ?? node2.name, parameters, node2.type, loweredBody);
+      if (ts.isSetAccessorDeclaration(node2)) return f.updateSetAccessorDeclaration(node2, node2.modifiers, name ?? node2.name, parameters, loweredBody);
+      return f.updateConstructorDeclaration(node2, node2.modifiers, parameters, loweredBody);
+    };
+    const syncExpression = (node2) => {
+      const previous = scope;
+      scope = { temps: [], sync: true };
+      const value = expr(node2);
+      const body = f.createBlock([...declare(scope.temps), f.createReturnStatement(value)], true);
+      scope = previous;
+      return f.createCallExpression(f.createParenthesizedExpression(f.createArrowFunction(void 0, void 0, [], void 0, void 0, body)), void 0, []);
+    };
+    const syncBinding = (node2) => {
+      if (ts.isIdentifier(node2)) return node2;
+      const elements = node2.elements.map((element) => ts.isOmittedExpression(element) ? element : f.updateBindingElement(
+        element,
+        element.dotDotDotToken,
+        element.propertyName && ts.isComputedPropertyName(element.propertyName) ? f.updateComputedPropertyName(element.propertyName, syncExpression(element.propertyName.expression)) : element.propertyName,
+        syncBinding(element.name),
+        element.initializer && syncExpression(element.initializer)
+      ));
+      return ts.isObjectBindingPattern(node2) ? f.updateObjectBindingPattern(node2, elements) : f.updateArrayBindingPattern(node2, elements);
+    };
+    const lvalue = (node2) => {
+      if (ts.isPropertyAccessExpression(node2)) return f.updatePropertyAccessExpression(node2, node2.expression.kind === ts.SyntaxKind.SuperKeyword ? node2.expression : expr(node2.expression), node2.name);
+      if (ts.isElementAccessExpression(node2)) return f.updateElementAccessExpression(node2, expr(node2.expression), expr(node2.argumentExpression));
+      if (ts.isParenthesizedExpression(node2)) return f.updateParenthesizedExpression(node2, lvalue(node2.expression));
+      if (ts.isArrayLiteralExpression(node2)) return f.updateArrayLiteralExpression(node2, node2.elements.map(lvalue));
+      if (ts.isSpreadElement(node2)) return f.updateSpreadElement(node2, lvalue(node2.expression));
+      if (ts.isBinaryExpression(node2) && node2.operatorToken.kind === ts.SyntaxKind.EqualsToken) return f.updateBinaryExpression(node2, lvalue(node2.left), node2.operatorToken, expr(node2.right));
+      if (ts.isObjectLiteralExpression(node2)) return f.updateObjectLiteralExpression(node2, node2.properties.map((property) => {
+        if (ts.isPropertyAssignment(property)) return f.updatePropertyAssignment(property, ts.visitNode(property.name, visit), lvalue(property.initializer));
+        if (ts.isShorthandPropertyAssignment(property)) return f.updateShorthandPropertyAssignment(property, property.name, property.objectAssignmentInitializer && expr(property.objectAssignmentInitializer));
+        if (ts.isSpreadAssignment(property)) return f.updateSpreadAssignment(property, lvalue(property.expression));
+        return property;
+      }));
+      return node2;
+    };
+    const parallelArguments = (node2) => {
+      if (ts.isArrayLiteralExpression(node2)) return f.updateArrayLiteralExpression(node2, node2.elements.map((element) => {
+        if (ts.isOmittedExpression(element)) return element;
+        if (ts.isSpreadElement(element)) return f.updateSpreadElement(element, expr(element.expression));
+        const arrow = f.createArrowFunction([f.createModifier(ts.SyntaxKind.AsyncKeyword)], void 0, [], void 0, void 0, element);
+        return f.createCallExpression(f.createParenthesizedExpression(functionBody(arrow)), void 0, []);
+      }));
+      if (ts.isCallExpression(node2)) return call(node2, true);
+      return expr(node2);
+    };
+    const isCombinator = (node2) => ts.isPropertyAccessExpression(node2.expression) && ts.isIdentifier(node2.expression.expression) && node2.expression.expression.text === "Promise" && ["all", "allSettled", "race", "any"].includes(node2.expression.name.text);
+    const call = (node2, parallelArray = false) => {
+      if (node2.expression.kind === ts.SyntaxKind.SuperKeyword) return f.updateCallExpression(node2, node2.expression, node2.typeArguments, node2.arguments.map((arg) => expr(arg)));
+      const method2 = node2.expression;
+      const promiseChain = isPromiseContinuation(method2);
+      let receiver = undef();
+      let callee;
+      if (ts.isPropertyAccessExpression(method2) || ts.isElementAccessExpression(method2)) {
+        if (method2.expression.kind === ts.SyntaxKind.SuperKeyword) {
+          receiver = f.createThis();
+          callee = method2;
+        } else {
+          const target2 = temp();
+          receiver = assign(target2, expr(method2.expression, !promiseChain));
+          callee = ts.isPropertyAccessExpression(method2) ? f.createPropertyAccessExpression(target2, method2.name) : f.createElementAccessExpression(target2, expr(method2.argumentExpression));
+        }
+      } else callee = expr(method2, false);
+      const combinator = isCombinator(node2);
+      const savedCallee = combinator ? temp() : void 0;
+      const target = ts.isBinaryExpression(receiver) ? receiver.left : receiver;
+      const args = node2.arguments.map((arg, index2) => combinator && index2 === 0 ? f.createConditionalExpression(helper("isCombinator", [target, savedCallee]), void 0, parallelArguments(arg), void 0, expr(arg)) : expr(arg));
+      if (savedCallee) callee = assign(savedCallee, callee);
+      return helper("invoke", [receiver, callee, f.createArrayLiteralExpression(args), parallelArray ? f.createTrue() : f.createFalse()]);
+    };
+    const optionalChain = (node2, shouldWait = true) => {
+      const links = [];
+      let base2 = node2;
+      while (ts.isPropertyAccessChain(base2) || ts.isElementAccessChain(base2) || ts.isCallChain(base2)) {
+        links.unshift(base2);
+        base2 = base2.expression;
+      }
+      const build = (index2, current, receiver = undef()) => {
+        if (index2 === links.length) return shouldWait ? wait(current) : current;
+        const link = links[index2];
+        const saved = temp();
+        const proceed = () => {
+          if (ts.isCallExpression(link)) {
+            const args = link.arguments.map((arg, argumentIndex) => isCombinator(link) && argumentIndex === 0 ? f.createConditionalExpression(helper("isCombinator", [receiver, saved]), void 0, parallelArguments(arg), void 0, expr(arg)) : expr(arg));
+            const called = helper("invoke", [receiver, saved, f.createArrayLiteralExpression(args)]);
+            const next = links[index2 + 1];
+            const keepPromise = next ? isPromiseContinuation(next) : !shouldWait;
+            return build(index2 + 1, keepPromise ? called : wait(called));
+          }
+          const access = ts.isPropertyAccessExpression(link) ? f.createPropertyAccessExpression(saved, link.name) : f.createElementAccessExpression(saved, expr(link.argumentExpression));
+          return build(index2 + 1, access, saved);
+        };
+        const continuation = isPromiseContinuation(link) && ts.isCallExpression(links[index2 + 1] ?? node2);
+        return sequence(assign(saved, continuation ? current : wait(current)), link.questionDotToken ? f.createConditionalExpression(f.createBinaryExpression(saved, ts.SyntaxKind.EqualsEqualsToken, f.createNull()), void 0, undef(), void 0, proceed()) : proceed());
+      };
+      return build(0, expr(base2, !isPromiseContinuation(links[0])));
+    };
+    const expr = (node2, shouldWait = true) => {
+      if (ts.isParenthesizedExpression(node2)) return f.updateParenthesizedExpression(node2, expr(node2.expression, shouldWait));
+      if (ts.isAsExpression(node2)) return f.updateAsExpression(node2, expr(node2.expression, shouldWait), node2.type);
+      if (ts.isNonNullExpression(node2)) return f.updateNonNullExpression(node2, expr(node2.expression, shouldWait));
+      if (ts.isSatisfiesExpression(node2)) return f.updateSatisfiesExpression(node2, expr(node2.expression, shouldWait), node2.type);
+      if (ts.isTypeAssertionExpression(node2)) return f.updateTypeAssertion(node2, node2.type, expr(node2.expression, shouldWait));
+      if (ts.isFunctionExpression(node2) || ts.isArrowFunction(node2)) return functionBody(node2);
+      if (ts.isClassExpression(node2)) return ts.visitEachChild(node2, visit, context2);
+      if (ts.isPropertyAccessChain(node2) || ts.isElementAccessChain(node2) || ts.isCallChain(node2)) return optionalChain(node2, shouldWait);
+      if (ts.isAwaitExpression(node2)) return f.createAwaitExpression(helper("wait", [expr(node2.expression, false)]));
+      if (ts.isCallExpression(node2)) {
+        const value = call(node2);
+        return shouldWait ? wait(value) : value;
+      }
+      if (ts.isNewExpression(node2)) {
+        const value = helper("construct", [expr(node2.expression, false), f.createArrayLiteralExpression(node2.arguments?.map((arg) => expr(arg)) ?? [])]);
+        return shouldWait ? wait(value) : value;
+      }
+      if (ts.isTaggedTemplateExpression(node2)) {
+        const value = f.updateTaggedTemplateExpression(node2, lvalue(node2.tag), node2.typeArguments, ts.visitNode(node2.template, visit));
+        return shouldWait ? wait(value) : value;
+      }
+      if (ts.isPropertyAccessExpression(node2) || ts.isElementAccessExpression(node2)) {
+        const value = lvalue(node2);
+        return shouldWait ? wait(value) : value;
+      }
+      if (ts.isBinaryExpression(node2)) {
+        const isAssignment = node2.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && node2.operatorToken.kind <= ts.SyntaxKind.LastAssignment;
+        return f.updateBinaryExpression(node2, isAssignment ? lvalue(node2.left) : expr(node2.left), node2.operatorToken, expr(node2.right));
+      }
+      if (ts.isPrefixUnaryExpression(node2)) return f.updatePrefixUnaryExpression(
+        node2,
+        node2.operator === ts.SyntaxKind.PlusPlusToken || node2.operator === ts.SyntaxKind.MinusMinusToken ? lvalue(node2.operand) : expr(node2.operand)
+      );
+      if (ts.isPostfixUnaryExpression(node2)) return f.updatePostfixUnaryExpression(node2, lvalue(node2.operand));
+      if (ts.isDeleteExpression(node2)) return f.updateDeleteExpression(node2, lvalue(node2.expression));
+      if (ts.isTypeOfExpression(node2) && ts.isIdentifier(node2.expression)) return node2;
+      if (ts.isObjectLiteralExpression(node2)) return ts.visitEachChild(node2, visit, context2);
+      if (ts.isIdentifier(node2)) return shouldWait ? wait(node2) : node2;
+      if (ts.isMetaProperty(node2) || node2.kind === ts.SyntaxKind.SuperKeyword) return node2;
+      return ts.visitEachChild(node2, (child) => ts.isExpression(child) ? expr(child) : visit(child), context2);
+    };
+    return (file2) => {
+      const statements = [];
+      for (const [index2, original] of file2.statements.entries()) {
+        if (ts.isExpressionStatement(original)) {
+          capturedStatementIndexes.push(index2);
+          const expression = expr(original.expression);
+          const thunk = f.createArrowFunction([f.createModifier(ts.SyntaxKind.AsyncKeyword)], void 0, [], void 0, void 0, f.createParenthesizedExpression(expression));
+          statements.push(statement(f.createAwaitExpression(f.createCallExpression(f.createIdentifier("__mongogCapture"), void 0, [number(index2), thunk]))));
+        } else {
+          statements.push(statement(f.createCallExpression(f.createIdentifier("__mongogMark"), void 0, [number(index2)])));
+          const transformed = ts.visitNode(original, visit);
+          statements.push(transformed);
+        }
+      }
+      const wrapper = f.createArrowFunction(
+        [f.createModifier(ts.SyntaxKind.AsyncKeyword)],
+        void 0,
+        [],
+        void 0,
+        void 0,
+        f.createBlock([...directives(file2.statements), ...declare(scope.temps), ...statements], true)
+      );
+      return f.updateSourceFile(file2, [statement(f.createCallExpression(f.createParenthesizedExpression(wrapper), void 0, []))]);
+    };
+  };
+  const output = ts.transpileModule(source, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None, esModuleInterop: true },
+    transformers: { before: [transformer] }
+  });
+  return { code: output.outputText, runtimeIdentifier: runtime.text, capturedStatementIndexes, projection: buildAutoAwaitProjection(source) };
+}
+function buildInstrumentedSource(source, parsed) {
+  return lowerAutoAwait(source, parsed);
 }
 const TypedArrayPrototypeGetSymbolToStringTag = (() => {
   const g = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(Uint8Array.prototype), Symbol.toStringTag).get;
@@ -250390,6 +250912,220 @@ function formatKey(key) {
 function indent(depth) {
   return "  ".repeat(depth);
 }
+const arrayOperations = ["map", "forEach", "filter", "reduce", "find", "some", "every", "flatMap"];
+const isPromise = (value) => value !== null && (typeof value === "object" || typeof value === "function") && typeof value.then === "function";
+function createAutoAwaitRuntime(hooks) {
+  const arrayMethods = /* @__PURE__ */ new Map();
+  const sorts = /* @__PURE__ */ new Set();
+  const combinators = /* @__PURE__ */ new Map();
+  const registerPromise = (constructor) => combinators.set(
+    constructor,
+    /* @__PURE__ */ new Set([constructor.all, constructor.allSettled, constructor.race, constructor.any])
+  );
+  registerPromise(Promise);
+  const registerArray = (prototype) => {
+    for (const operation2 of arrayOperations) arrayMethods.set(prototype[operation2], operation2);
+    sorts.add(prototype.sort);
+  };
+  registerArray(Array.prototype);
+  const track = (value) => {
+    if (isPromise(value)) hooks.track(Promise.resolve(value));
+    return value;
+  };
+  const wait = async (value) => {
+    hooks.checkpoint();
+    const result = await track(value);
+    hooks.checkpoint();
+    return result;
+  };
+  const sync2 = (value) => {
+    if (isPromise(value)) {
+      track(value);
+      throw new Error("This synchronous context cannot wait for a database result. Move the operation to a normal function or a for...of loop.");
+    }
+    return value;
+  };
+  const run = (iterator) => {
+    const advance = (value) => {
+      let step = iterator.next(value);
+      while (!step.done) {
+        hooks.checkpoint();
+        if (isPromise(step.value)) return track(wait(step.value).then(advance, (error2) => {
+          iterator.return(void 0);
+          throw error2;
+        }));
+        step = iterator.next(step.value);
+      }
+      return step.value;
+    };
+    return advance();
+  };
+  const array = (operation2, receiver, args) => {
+    if (receiver === null || receiver === void 0) throw new TypeError("Array method called on null or undefined");
+    const object2 = Object(receiver);
+    const length = Math.min(Number.MAX_SAFE_INTEGER, Math.max(0, Math.trunc(Number(object2.length)) || 0));
+    const callback = args[0];
+    if (typeof callback !== "function") throw new TypeError("Array callback must be a function");
+    return run((function* () {
+      const size = operation2 === "map" ? length : 0;
+      const constructor = Array.isArray(receiver) ? receiver.constructor : Array;
+      const species = constructor?.[Symbol.species] ?? Array;
+      const output = Reflect.construct(species, [size]);
+      let accumulator = args[1];
+      let initialized = args.length > 1;
+      for (let index2 = 0; index2 < length; index2++) {
+        hooks.checkpoint();
+        if (!(index2 in object2) && operation2 !== "find") continue;
+        const value = object2[index2];
+        if (operation2 === "reduce" && !initialized) {
+          accumulator = value;
+          initialized = true;
+          continue;
+        }
+        const result = yield Reflect.apply(
+          callback,
+          operation2 === "reduce" ? void 0 : args[1],
+          operation2 === "reduce" ? [accumulator, value, index2, object2] : [value, index2, object2]
+        );
+        switch (operation2) {
+          case "map":
+            output[index2] = result;
+            break;
+          case "filter":
+            if (result) output.push(value);
+            break;
+          case "flatMap":
+            if (Array.isArray(result)) {
+              for (let i = 0; i < result.length; i++) if (i in result) output.push(result[i]);
+            } else output.push(result);
+            break;
+          case "reduce":
+            accumulator = result;
+            break;
+          case "find":
+            if (result) return value;
+            break;
+          case "some":
+            if (result) return true;
+            break;
+          case "every":
+            if (!result) return false;
+            break;
+        }
+      }
+      if (operation2 === "reduce") {
+        if (!initialized) throw new TypeError("Reduce of empty array with no initial value");
+        return accumulator;
+      }
+      if (operation2 === "forEach" || operation2 === "find") return void 0;
+      if (operation2 === "some") return false;
+      if (operation2 === "every") return true;
+      return output;
+    })());
+  };
+  const invoke = (receiver, fn, args, parallelArray = false) => {
+    hooks.checkpoint();
+    if (typeof fn !== "function") throw new TypeError("The called value is not a function");
+    const operation2 = arrayMethods.get(fn);
+    if (operation2 && !parallelArray) return array(operation2, receiver, args);
+    if (operation2 && parallelArray) return track(Reflect.apply(parallelMethods.get(fn) ?? fn, receiver, args));
+    if (sorts.has(fn) && typeof args[0] === "function") {
+      const comparator = args[0];
+      return Reflect.apply(fn, receiver, [(...values) => sync2(Reflect.apply(comparator, void 0, values))]);
+    }
+    const callbacks = [];
+    const guardedArgs = args.map((argument) => {
+      if (typeof argument !== "function") return argument;
+      return function(...values) {
+        hooks.checkpoint();
+        if (callbacks.some((callback2) => !callback2.consumed)) {
+          throw new Error("This API does not await its callback. Use a for...of loop for database operations (including cursor.forEach).");
+        }
+        const result2 = Reflect.apply(argument, this, values);
+        if (!isPromise(result2)) return result2;
+        track(result2);
+        const callback = { consumed: false };
+        callbacks.push(callback);
+        return { then(resolve, reject2) {
+          callback.consumed = true;
+          return Promise.resolve(result2).then(resolve, reject2);
+        } };
+      };
+    });
+    const verify = (value) => {
+      if (callbacks.some((callback) => !callback.consumed)) {
+        throw new Error("This API does not await its callback. Use a for...of loop for database operations (including cursor.forEach).");
+      }
+      return value;
+    };
+    const result = Reflect.apply(fn, receiver, guardedArgs);
+    return isPromise(result) ? track(Promise.resolve(result).then(verify)) : verify(result);
+  };
+  return {
+    isPromise,
+    isCombinator: (receiver, fn) => combinators.get(receiver)?.has(fn) === true,
+    wait,
+    sync: sync2,
+    track,
+    invoke,
+    construct: (constructor, args) => {
+      hooks.checkpoint();
+      let constructing = true;
+      const guarded = args.map((argument) => typeof argument !== "function" ? argument : function(...values) {
+        const result = Reflect.apply(argument, this, values);
+        return constructing ? sync2(result) : result;
+      });
+      try {
+        return track(Reflect.construct(constructor, guarded));
+      } finally {
+        constructing = false;
+      }
+    },
+    checkpoint: hooks.checkpoint,
+    checkCatch: hooks.checkCatch,
+    iterator: (value) => {
+      if (value === null || value === void 0) throw new TypeError("Value is not iterable");
+      const iterable = value;
+      const factory = iterable[Symbol.asyncIterator] ?? iterable[Symbol.iterator];
+      if (typeof factory !== "function") throw new TypeError("Value is not iterable");
+      const iterator = Reflect.apply(factory, value, []);
+      let done = false;
+      const remember = (result) => {
+        done = !!result.done;
+        return result;
+      };
+      return {
+        next: () => {
+          hooks.checkpoint();
+          const result = iterator.next();
+          return isPromise(result) ? track(Promise.resolve(result).then(remember)) : remember(result);
+        },
+        close: () => {
+          if (!done && iterator.return) {
+            done = true;
+            return track(iterator.return());
+          }
+          return void 0;
+        }
+      };
+    },
+    install: (realmArray, realmPromise = Promise) => {
+      registerPromise(realmPromise);
+      const prototype = realmArray.prototype;
+      registerArray(prototype);
+      for (const operation2 of arrayOperations) {
+        const original = prototype[operation2];
+        const replacement = function(...args) {
+          return array(operation2, this, args);
+        };
+        Object.defineProperty(prototype, operation2, { configurable: true, writable: true, value: replacement });
+        arrayMethods.set(replacement, operation2);
+        parallelMethods.set(replacement, original);
+      }
+    }
+  };
+}
+const parallelMethods = /* @__PURE__ */ new WeakMap();
 const CONSOLE_ARG_PREVIEW_BYTES = 16 * 1024;
 function shellFactory(constructor, factory) {
   Object.setPrototypeOf(factory, constructor);
@@ -250513,6 +251249,11 @@ function createSandbox(options) {
     name: "mongog-script-context",
     codeGeneration: { strings: false, wasm: false }
   });
+  if (options.autoAwait) {
+    const runtime = createAutoAwaitRuntime(options.autoAwait.hooks);
+    sandbox[options.autoAwait.identifier] = runtime;
+    runtime.install(vm.runInContext("Array", context2), vm.runInContext("Promise", context2));
+  }
   vm.createContext(sandbox, { name: "x" });
   return {
     context: context2,
@@ -250810,7 +251551,19 @@ class ExecutionEngine {
       mode: opts.mode,
       capture: (i, t) => capture(i, t),
       mark: (i) => {
+        scope.throwIfCancelled();
         scope.currentIndex = i;
+      },
+      autoAwait: {
+        identifier: instrumented.runtimeIdentifier,
+        hooks: {
+          checkpoint: () => scope.throwIfCancelled(),
+          track: (promise2) => scope.trackOperation(promise2),
+          checkCatch: (error2) => {
+            scope.throwIfCancelled();
+            if (error2 instanceof MongoGCancellationError) throw error2;
+          }
+        }
       },
       onConsole: (entry) => emit({ type: "console", entry }),
       currentStatementIndex: () => scope.currentIndex
@@ -250864,6 +251617,7 @@ class ExecutionEngine {
             durationMs: 0
           });
         }
+        scope.cancel();
         emitSkippedRemaining(statements, scope.currentIndex, emit, "error");
         finish("failed");
       }
@@ -250939,6 +251693,7 @@ class ExecutionScope {
   streams = /* @__PURE__ */ new Set();
   cancelPromise;
   underlyingSettled = Promise.resolve();
+  pendingOperations = /* @__PURE__ */ new Set();
   constructor(externalSignal) {
     this.cancelPromise = new Promise((_resolve, reject2) => {
       this.controller.signal.addEventListener("abort", () => {
@@ -250968,8 +251723,14 @@ class ExecutionScope {
       () => void 0
     );
   }
-  whenUnderlyingSettled() {
-    return this.underlyingSettled;
+  async whenUnderlyingSettled() {
+    await this.underlyingSettled;
+    while (this.pendingOperations.size) await Promise.all([...this.pendingOperations]);
+  }
+  trackOperation(promise2) {
+    const settled = promise2.then(() => void 0, () => void 0);
+    this.pendingOperations.add(settled);
+    void settled.then(() => this.pendingOperations.delete(settled));
   }
   trackCursor(id) {
     this.cursors.add(id);
@@ -307663,11 +308424,11 @@ function requirePromise() {
         this._rejectionHandler0 = promise2;
       };
       Promise2.prototype._settlePromise = function(promise2, handler, receiver, value) {
-        var isPromise = promise2 instanceof Promise2;
+        var isPromise2 = promise2 instanceof Promise2;
         var bitField = this._bitField;
         var asyncGuaranteed = (bitField & 134217728) !== 0;
         if ((bitField & 65536) !== 0) {
-          if (isPromise) promise2._invokeInternalOnCancel();
+          if (isPromise2) promise2._invokeInternalOnCancel();
           if (receiver instanceof PassThroughHandlerContext && receiver.isFinallyHandler()) {
             receiver.cancelPromise = promise2;
             if (tryCatch(handler).call(receiver, value) === errorObj) {
@@ -307677,13 +308438,13 @@ function requirePromise() {
             promise2._fulfill(reflectHandler.call(receiver));
           } else if (receiver instanceof Proxyable) {
             receiver._promiseCancelled(promise2);
-          } else if (isPromise || promise2 instanceof PromiseArray) {
+          } else if (isPromise2 || promise2 instanceof PromiseArray) {
             promise2._cancel();
           } else {
             receiver.cancel();
           }
         } else if (typeof handler === "function") {
-          if (!isPromise) {
+          if (!isPromise2) {
             handler.call(receiver, value, promise2);
           } else {
             if (asyncGuaranteed) promise2._setAsyncGuaranteed();
@@ -307697,7 +308458,7 @@ function requirePromise() {
               receiver._promiseRejected(value, promise2);
             }
           }
-        } else if (isPromise) {
+        } else if (isPromise2) {
           if (asyncGuaranteed) promise2._setAsyncGuaranteed();
           if ((bitField & 33554432) !== 0) {
             promise2._fulfill(value);

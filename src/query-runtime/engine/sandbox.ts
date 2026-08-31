@@ -14,6 +14,7 @@ import * as bson from 'bson';
 import type { ConsoleEntry } from '../../shared/domain/index.js';
 import { serializeToEjson } from '../../shared/ejson/index.js';
 import { appError } from '../../shared/errors/index.js';
+import { createAutoAwaitRuntime, type AutoAwaitHooks } from './auto-await.js';
 
 export interface SandboxOptions {
   client: mongodb.MongoClient;
@@ -24,6 +25,7 @@ export interface SandboxOptions {
   onConsole: (entry: ConsoleEntry) => void;
   currentStatementIndex: () => number;
   consoleEntryLimit?: number;
+  autoAwait?: { identifier: string; hooks: AutoAwaitHooks };
 }
 
 export interface SandboxHandle {
@@ -195,6 +197,11 @@ export function createSandbox(options: SandboxOptions): SandboxHandle {
     name: 'mongog-script-context',
     codeGeneration: { strings: false, wasm: false },
   });
+  if (options.autoAwait) {
+    const runtime = createAutoAwaitRuntime(options.autoAwait.hooks);
+    sandbox[options.autoAwait.identifier] = runtime;
+    runtime.install(vm.runInContext('Array', context) as ArrayConstructor, vm.runInContext('Promise', context) as PromiseConstructor);
+  }
   vm.createContext(sandbox, { name: 'x' }); // no-op guard against accidental double-context misuse
 
   return {

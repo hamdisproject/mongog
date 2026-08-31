@@ -34,7 +34,7 @@ describe('cancellation', () => {
   it('cancels between statements: remaining statements are skipped', async () => {
     const source = Array.from(
       { length: 30 },
-      (_, i) => `await db.collection("cancellable").countDocuments({ i: ${i} });`,
+      (_, i) => `db.collection("cancellable").countDocuments({ i: ${i} });`,
     ).join('\n');
 
     const events: EngineEvent[] = [];
@@ -107,7 +107,7 @@ await new Promise(() => {}); // never resolves -> only cancellation unwinds
       {
         client,
         database: 'mongog_test',
-        source: 'await db.collection("cancellable").findOne({ i: 1 });',
+        source: 'const found = db.collection("cancellable").findOne({ i: 1 }); found;',
         mode: 'query',
         timeoutMS: 0,
         registry,
@@ -140,7 +140,7 @@ await new Promise(() => {}); // never resolves -> only cancellation unwinds
         database: 'mongog_test',
         source: Array.from(
           { length: 200 },
-          (_, i) => `await db.collection("cancellable").countDocuments({ i: { $gte: ${i} } });`,
+          (_, i) => `db.collection("cancellable").countDocuments({ i: { $gte: ${i} } });`,
         ).join('\n'),
         mode: 'query',
         timeoutMS: 100,

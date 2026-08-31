@@ -221,7 +221,19 @@ export class ExecutionEngine {
       mode: opts.mode,
       capture: (i, t) => capture(i, t),
       mark: (i) => {
+        scope.throwIfCancelled();
         scope.currentIndex = i;
+      },
+      autoAwait: {
+        identifier: instrumented.runtimeIdentifier,
+        hooks: {
+          checkpoint: () => scope.throwIfCancelled(),
+          track: (promise) => scope.trackOperation(promise),
+          checkCatch: (error) => {
+            scope.throwIfCancelled();
+            if (error instanceof MongoGCancellationError) throw error;
+          },
+        },
       },
       onConsole: (entry) => emit({ type: 'console', entry }),
       currentStatementIndex: () => scope.currentIndex,
@@ -284,6 +296,9 @@ export class ExecutionEngine {
             durationMs: 0,
           });
         }
+        // Stop continuations of parallel jobs after an uncaught failure. Their
+        // real driver promises remain tracked until they settle.
+        scope.cancel();
         emitSkippedRemaining(statements, scope.currentIndex, emit, 'error');
         finish('failed');
       }
@@ -386,6 +401,7 @@ class ExecutionScope {
   private streams = new Set<string>();
   private cancelPromise: Promise<never>;
   private underlyingSettled: Promise<void> = Promise.resolve();
+  private pendingOperations = new Set<Promise<void>>();
 
   constructor(externalSignal?: AbortSignal) {
     this.cancelPromise = new Promise<never>((_resolve, reject) => {
@@ -423,8 +439,15 @@ class ExecutionScope {
     );
   }
 
-  whenUnderlyingSettled(): Promise<void> {
-    return this.underlyingSettled;
+  async whenUnderlyingSettled(): Promise<void> {
+    await this.underlyingSettled;
+    while (this.pendingOperations.size) await Promise.all([...this.pendingOperations]);
+  }
+
+  trackOperation(promise: Promise<unknown>): void {
+    const settled = promise.then(() => undefined, () => undefined);
+    this.pendingOperations.add(settled);
+    void settled.then(() => this.pendingOperations.delete(settled));
   }
 
   trackCursor(id: string): void {

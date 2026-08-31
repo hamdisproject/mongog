@@ -1541,6 +1541,91 @@ test('Query font zoom and Documents Criteria defaults are scoped and persistent'
   }
 });
 
+test('Automatic await works in Query and Trusted modes with mapped Monaco diagnostics', async ({}, testInfo) => {
+  const isolated = await mkdtemp(join(tmpdir(), 'mongog-await-e2e-'));
+  const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+  try {
+    const page = await launch({MONGOG_E2E_USER_DATA:isolated});
+    const errors: string[] = [];
+    page.on('pageerror', error=>errors.push(error.stack ?? error.message));
+    await page.getByRole('button', {name:'New Connection',exact:true}).click();
+    await page.getByLabel('Connection name').fill('Auto Await E2E');
+    await page.getByLabel('Connection URI').fill(mongoUri);
+    await page.getByLabel('Default database').fill('mongog_e2e');
+    await page.getByRole('button', {name:'Test, Save & Connect'}).click();
+    await expect(page.getByText('Connection tested, saved, and connected.')).toBeVisible({timeout:30000});
+    await page.getByRole('button', {name:'Open global search'}).click();
+    await page.getByLabel('Search databases and collections').fill('inventory');
+    await page.getByRole('option', {name:/inventory Auto Await E2E/}).click();
+    await page.getByRole('button', {name:'Query',exact:true}).click();
+    const surface = page.getByTestId('query-editor-surface');
+    const results = page.getByTestId('query-results-region');
+    const source = `const items=db.collection<{sku:string, quantity:number}>("inventory");
+const item=items.findOne({sku:"alpha"});
+if(items.countDocuments({})>0) print(item?.sku);
+item?.sku.toUpperCase();`;
+    await setQueryEditorValue(page, source);
+    await page.getByRole('button', {name:/^Run /}).click();
+    await expect(results).toContainText('ALPHA');
+    // Force the language worker to answer a real document-field completion.
+    await setQueryEditorValue(page, source+'\nitem?.qu');
+    await page.keyboard.press('Control+Space');
+    await expect(page.locator('.suggest-widget.visible')).toContainText('quantity', {timeout:15000});
+    await page.keyboard.press('Escape');
+    await setQueryEditorValue(page, source+'\nitem?.fieldThatDoesNotExist;');
+    await expect(surface.locator('.squiggly-error')).not.toHaveCount(0, {timeout:15000});
+    await expectQueryErrorOnLine(page, 'fieldThatDoesNotExist');
+    await setQueryEditorValue(page, source);
+    await expect(surface.locator('.squiggly-error')).toHaveCount(0, {timeout:15000});
+    await expect.poll(() => page.evaluate(async () => (await window.mongog.workspace.load())?.tabs.find(tab=>tab.kind==='collection')?.editorContent)).toBe(source);
+
+    page.once('dialog', dialog=>dialog.accept());
+    await page.getByLabel('Execution mode').selectOption('trusted');
+    await setQueryEditorValue(page, source.replace('toUpperCase()', 'toLowerCase()'));
+    await page.getByRole('button', {name:/^Run /}).click();
+    await expect(results.locator('pre').last()).toContainText('alpha');
+
+    // Existing explicit awaits and promise continuations remain valid.
+    await setQueryEditorValue(page, 'await db.collection("inventory").findOne({sku:"beta"}).then(item=>item.sku.toUpperCase());');
+    await page.getByRole('button', {name:/^Run /}).click();
+    await expect(results).toContainText('BETA');
+
+    // Select only line 2: the first line must not execute, and failure markers
+    // must be on the original selection line instead of generated helper code.
+    const selectedSource='throw new Error("must not run");\nconst item=db.collection("inventory").findOne({sku:"alpha"}); item.sku;';
+    await setQueryEditorValue(page, selectedSource);
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Shift+End');
+    await page.keyboard.press(`${modifier}+Enter`);
+    await expect(results).toContainText('alpha');
+    await expect(results).not.toContainText('must not run');
+    await setQueryEditorValue(page, 'throw new Error("must not run");\nconst missing=db.collection("inventory").findOne({sku:"absent"}); missing.sku;');
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Shift+End');
+    await page.keyboard.press(`${modifier}+Enter`);
+    await expect(results).toContainText('Statement 2');
+    await expect(results).not.toContainText('must not run');
+    await expectQueryErrorOnLine(page, 'missing.sku');
+    await page.screenshot({path:testInfo.outputPath('automatic-await.png')});
+    expect(errors).toEqual([]);
+  } finally {
+    await application?.close().catch(()=>undefined); application=null;
+    await rm(isolated,{recursive:true,force:true});
+  }
+});
+
+async function expectQueryErrorOnLine(page: Page, text: string): Promise<void> {
+  await expect.poll(() => page.getByTestId('query-editor-surface').evaluate((surface, text) => {
+    const line = [...surface.querySelectorAll('.view-line')].find(line=>line.textContent?.includes(text));
+    if (!line) return false;
+    const bounds=line.getBoundingClientRect();
+    return [...surface.querySelectorAll('.squiggly-error')].some(marker=> {
+      const rect=marker.getBoundingClientRect();
+      return rect.top >= bounds.top && rect.top < bounds.bottom;
+    });
+  }, text), {timeout:15000}).toBe(true);
+}
+
 async function setMonacoValue(page: Page, label: string, value: string): Promise<void> {
   const kind = label.replace('Collection ', '');
   await page.getByTestId(`criteria-editor-${kind}`).evaluate((element) => {

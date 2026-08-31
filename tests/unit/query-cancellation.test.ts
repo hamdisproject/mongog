@@ -44,6 +44,40 @@ describe('query execution cancellation acknowledgement', () => {
     expect(events.filter((event) => event.type === 'statement-error')).toHaveLength(0);
     await registry.dispose();
   });
+  it.each(['race', 'all'])('tracks losing/rejected Promise.%s jobs until real operations settle', async method => {
+    let release!: (value: unknown) => void;
+    const slow = new Promise(resolve => { release = resolve; });
+    const db = { command: ({slow: delayed}: {slow?: boolean}) => delayed ? slow : method === 'all' ? Promise.reject(new Error('failed')) : Promise.resolve(1) };
+    const registry = new CursorRegistry();
+    const engine = new ExecutionEngine(registry);
+    const events: EngineEvent[] = [];
+    const handle = engine.execute({client:{db:()=>db} as unknown as MongoClient, database:'test',
+      source:`Promise.${method}([db.command({}), db.command({slow:true})]);`, mode:'query', timeoutMS:0, registry, owner:{connectionId:'test'}}, event=>events.push(event));
+    let settled = false;
+    void handle.settled.then(()=> { settled=true; });
+    await handle.promise;
+    expect(settled).toBe(false);
+    expect(events.at(-1)).toMatchObject({type:'execution-finished',status:method==='all'?'failed':'completed'});
+    release(2); await handle.settled;
+    expect(settled).toBe(true);
+    await registry.dispose();
+  });
+
+  it('cancellation at an implicit wait prevents catch and later operations from continuing', async () => {
+    let release!: (value: unknown) => void;
+    const slow = new Promise(resolve=> {release=resolve;});
+    const commands: unknown[] = [];
+    const db = { command: (value: unknown) => { commands.push(value); return slow; } };
+    const registry = new CursorRegistry(); const engine = new ExecutionEngine(registry);
+    const handle = engine.execute({client:{db:()=>db} as unknown as MongoClient,database:'test',
+      source:'try { const value=db.command({first:1}); db.command({second:1}); } catch(error) { db.command({caught:1}); }',
+      mode:'query',timeoutMS:0,registry,owner:{connectionId:'test'}},()=>{});
+    handle.cancel(); await handle.promise;
+    release(1); await handle.settled;
+    expect(commands).toEqual([{first:1}]);
+    await registry.dispose();
+  });
+
 });
 
 function fakeClient(driverPromise: Promise<unknown>): MongoClient {

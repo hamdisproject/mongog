@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import vm from 'node:vm';
+import { createAutoAwaitRuntime } from '../../src/query-runtime/engine/auto-await.js';
 import {
   buildInstrumentedSource,
   parseScript,
@@ -25,7 +26,7 @@ xs.length;
 "semi;colon";
 `;
     const p = parseScript(src);
-    const { code } = buildInstrumentedSource(src, p);
+    const { code, runtimeIdentifier } = buildInstrumentedSource(src, p);
 
     const captured: Array<{ index: number; value: unknown }> = [];
     const marks: number[] = [];
@@ -35,6 +36,7 @@ xs.length;
       },
       __mongogMark: (index: number) => marks.push(index),
     };
+    Object.assign(sandbox, { [runtimeIdentifier]: createAutoAwaitRuntime({ checkpoint: () => {}, track: () => {}, checkCatch: () => {} }) });
     vm.createContext(sandbox);
     await vm.runInContext(code, sandbox);
 
@@ -49,7 +51,7 @@ xs.length;
   it('keeps shared variable scope across statements', async () => {
     const src = 'const x = 21;\nx * 2;';
     const p = parseScript(src);
-    const { code } = buildInstrumentedSource(src, p);
+    const { code, runtimeIdentifier } = buildInstrumentedSource(src, p);
     const captured: unknown[] = [];
     const sandbox = {
       __mongogCapture: async (_i: number, thunk: () => Promise<unknown>) => {
@@ -57,6 +59,7 @@ xs.length;
       },
       __mongogMark: () => undefined,
     };
+    Object.assign(sandbox, { [runtimeIdentifier]: createAutoAwaitRuntime({ checkpoint: () => {}, track: () => {}, checkCatch: () => {} }) });
     vm.createContext(sandbox);
     await vm.runInContext(code, sandbox);
     expect(captured).toEqual([42]);
@@ -65,7 +68,7 @@ xs.length;
   it('supports top-level await inside capture thunks', async () => {
     const src = 'const later = async () => 7;\nawait later();';
     const p = parseScript(src);
-    const { code } = buildInstrumentedSource(src, p);
+    const { code, runtimeIdentifier } = buildInstrumentedSource(src, p);
     const captured: unknown[] = [];
     const sandbox = {
       __mongogCapture: async (_i: number, thunk: () => Promise<unknown>) => {
@@ -73,6 +76,7 @@ xs.length;
       },
       __mongogMark: () => undefined,
     };
+    Object.assign(sandbox, { [runtimeIdentifier]: createAutoAwaitRuntime({ checkpoint: () => {}, track: () => {}, checkCatch: () => {} }) });
     vm.createContext(sandbox);
     await vm.runInContext(code, sandbox);
     expect(captured).toEqual([7]);

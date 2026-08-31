@@ -159,9 +159,11 @@ export async function runSmokeChecks(supervisor: RuntimeSupervisor, spikeMongoUr
           mode: 'query',
           source: `
 const coll = db.collection("smoke");
-await coll.insertMany([{ a: 1 }, { a: 2 }, { a: 3 }]);
+coll.insertMany([{ a: 1 }, { a: 2 }, { a: 3 }]);
 coll.find({ a: { $gte: 2 } });
-await coll.countDocuments({});
+const count = coll.countDocuments({});
+if (count !== 3) throw new Error("Automatic await returned an unresolved count");
+count;
 `,
           sourceOffset: { line: 0, column: 0 },
         },

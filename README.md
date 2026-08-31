@@ -28,6 +28,20 @@ connection** holding the real `MongoClient` and executing user scripts in a
 Compiler API (never semicolons); results stream as canonical-EJSON envelopes;
 cursors stay runtime-side behind handle-based paging.
 
+## Query scripts
+
+Database calls wait automatically in both Query and Trusted Script modes:
+
+```js
+const users = db.collection("users");
+const user = users.findOne({ name: "Ada" });
+print(user?.name);
+```
+
+Use `Promise.all([...])` for parallel work and `for...of` for cursor iteration.
+Explicit `await` remains supported. See [Query scripts](docs/query-scripts.md)
+for callbacks, transactions, synchronous boundaries and cancellation.
+
 ## Develop
 
 ```bash

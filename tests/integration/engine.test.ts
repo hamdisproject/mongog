@@ -101,6 +101,62 @@ await users.updateMany({ active: false }, { $set: { archived: true } });
     expect(statementRanges.length).toBeGreaterThanOrEqual(3);
   });
 
+  it.each(['query', 'trusted'] as const)('await-free reads, writes, helpers and callbacks in %s mode', async mode => {
+    const c = await run(`
+const users = db.collection("users");
+const user = users.findOne({name:"Ada"});
+const names = ["Ada", "Grace"].map(name => users.findOne({name}).name);
+function activeCount() { return users.countDocuments({active:true}); }
+const target = db.collection("implicit_" + "${mode}");
+target.deleteMany({});
+const inserted = target.insertOne({name:user.name});
+const record = target.findOne({_id:inserted.insertedId});
+if (activeCount() > 0) print(record.name);
+({name:record.name, names, count:activeCount()});
+`, { mode });
+    expect(c.errors).toEqual([]);
+    const last = c.results.at(-1)?.result;
+    expect(last?.kind).toBe('scalar');
+    if (last?.kind === 'scalar') {
+      const value = parseEjson(last.value) as {name:string;names:string[];count:unknown};
+      expect(value).toMatchObject({name:'Ada', names:['Ada','Grace']}); expect(Number(value.count)).toBe(2);
+    }
+    expect(c.events.some(event => event.type === 'console')).toBe(true);
+  });
+
+  it('iterates cursors without toArray and keeps returned cursors available for paging', async () => {
+    const c = await run(`
+const users=db.collection("users"); const names=[];
+for(const user of users.find({}).sort({name:1})) names.push(users.findOne({_id:user._id}).name);
+names;
+users.find({}).sort({name:1});
+`, { pageSize: 1 });
+    expect(c.errors).toEqual([]);
+    const names = c.results[0]?.result;
+    if (names?.kind === 'scalar') expect(parseEjson(names.value)).toEqual(['Ada','Grace','Linus']);
+    else expect.unreachable('expected names');
+    const cursor = c.results[1]?.result;
+    if (cursor?.kind === 'documents') {
+      expect(cursor.documents).toHaveLength(1); expect(cursor.hasMore).toBe(true);
+      expect((await registry.fetchNext(cursor.cursorId, 1)).documents).toHaveLength(1);
+    } else expect.unreachable('expected paged cursor');
+  });
+
+  it('rejects asynchronous cursor.forEach callbacks with an actionable message', async () => {
+    const c = await run('db.collection("users").find({}).forEach(user => { db.collection("users").findOne({_id:user._id}); });');
+    expect(c.finished?.status).toBe('failed');
+    expect(c.errors[0]?.message).toContain('for...of');
+  });
+
+  it('uses original policy and selected statement ranges for implicit awaits', async () => {
+    const blocked = await run('function write() { db.collection("users").insertOne({}); } write();', {readOnly:true});
+    expect(blocked.errors[0]?.category).toBe('ReadOnlyProtection');
+    const c = await run('const x=db.collection("users").findOne({name:"missing"});\nx.name;\nprint("skipped");', {sourceOffset:{line:7,column:4}});
+    expect(c.errors[0]?.index).toBe(1);
+    expect(c.events.find(event=>event.type==='statement-error')).toMatchObject({range:{startLine:9,startCol:1}});
+    expect(c.events.find(event=>event.type==='statement-skipped')).toMatchObject({index:2});
+  });
+
   it('supports destructuring from the mongodb namespace (ObjectId)', async () => {
     const c = await run(`
 const { ObjectId } = mongodb;
@@ -244,12 +300,13 @@ new ObjectId().toHexString().length;
     expect(c.errors[0]!.category).toBe('ModuleNotAllowed');
   });
 
-  it('runs transactions on a replica set', async () => {
+  it.each([false, true])('runs transactions on a replica set (explicit await: %s)', async explicitAwait => {
     const rsUri = await getReplSetUri();
     const rsClient = await newClient(rsUri);
     const rsRegistry = new CursorRegistry();
     const rsEngine = new ExecutionEngine(rsRegistry);
     const db = rsClient.db('mongog_test_rs');
+    await db.collection('accounts').deleteMany({});
     await db.collection('accounts').insertMany([
       { accountNo: 'A1', balance: 200 },
       { accountNo: 'A2', balance: 0 },
@@ -271,7 +328,7 @@ try {
   await session.endSession();
 }
 (await db.collection("accounts").find({}).toArray()).map(a => a.balance).join(",");
-`,
+`.replace(explicitAwait ? /$^/g : /\b(await|async) /g, ""),
         mode: 'trusted',
         registry: rsRegistry,
         owner: { connectionId: 'rs' },

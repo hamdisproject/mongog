@@ -11,7 +11,7 @@ import { typescript as monacoTs } from 'monaco-editor';
 // monaco-editor 0.56 has an "exports" map: deep imports need the .js suffix.
 // ESM modules self-import their CSS; no separate stylesheet import is needed.
 import editorWorker from 'monaco-editor/editor/editor.worker.js?worker';
-import tsWorker from 'monaco-editor/language/typescript/ts.worker.js?worker';
+import tsWorker from './query-language-worker.ts?worker';
 import { loadMongoTypeLibs } from './extra-libs.js';
 import { registerSchemaCompletions } from './completions.js';
 import { registerObjectExpressionLanguage } from './object-expression.js';
