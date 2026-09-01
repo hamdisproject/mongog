@@ -19,6 +19,35 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
+    version: '1.2.13',
+    releasedAt: '2026-09-01',
+    title: 'Windows updates and sharper platform icons',
+    summary: 'Windows can download verified updates in the background, while refreshed package icons keep MongoG clear and consistent.',
+    sections: [
+      {
+        kind: 'added',
+        items: [
+          'Windows updates now download automatically and wait for an explicit Restart & Install action before changing the installed application.',
+          'Update download and ready-to-install states remain visible in the sidebar and Updates view.',
+        ],
+      },
+      {
+        kind: 'improved',
+        items: [
+          'Windows application, taskbar, installer and uninstaller icons now use crisp DPI-specific MongoG artwork from 16 to 256 pixels.',
+          'The macOS disk image now uses the MongoG volume icon instead of the Electron default.',
+          'Windows installation requests elevation only when the existing per-user installation location requires additional permission.',
+        ],
+      },
+      {
+        kind: 'fixed',
+        items: [
+          'Windows release metadata now includes the updater manifest and SHA-512 details required for verified in-app downloads.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.2.12',
     releasedAt: '2026-09-01',
     title: 'Clearer Documents table controls',

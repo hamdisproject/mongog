@@ -57,13 +57,15 @@ function createFakeUpdater(): FakeUpdater {
   };
 }
 
-function createService() {
+function createService(automaticDownload = false) {
   const updater = createFakeUpdater();
   const broadcasts: UpdateStatusPayload[] = [];
   const service = new UpdateService(
     updater,
     (payload) => broadcasts.push(payload),
     () => '1.2.6',
+    undefined,
+    automaticDownload,
   );
   return { updater, service, broadcasts };
 }
@@ -72,6 +74,14 @@ describe('UpdateService', () => {
   it('configures consent-driven full downloads', () => {
     const { updater } = createService();
     expect(updater.autoDownload).toBe(false);
+    expect(updater.autoInstallOnAppQuit).toBe(false);
+    expect(updater.disableDifferentialDownload).toBe(true);
+    expect(updater.disableWebInstaller).toBe(true);
+  });
+
+  it('configures automatic download without install-on-quit when requested', () => {
+    const { updater } = createService(true);
+    expect(updater.autoDownload).toBe(true);
     expect(updater.autoInstallOnAppQuit).toBe(false);
     expect(updater.disableDifferentialDownload).toBe(true);
     expect(updater.disableWebInstaller).toBe(true);
@@ -91,6 +101,15 @@ describe('UpdateService', () => {
     updater.emit('update-available', { version: '2.0.0' });
     await expect(result).resolves.toMatchObject({ phase: 'available', version: '2.0.0' });
     expect(broadcasts).toContainEqual({ phase: 'available', version: '2.0.0' });
+  });
+
+  it('maps update-available directly to downloading for automatic downloads', async () => {
+    const { updater, service, broadcasts } = createService(true);
+    const result = service.check();
+    updater.emit('update-available', { version: '2.0.0' });
+    await expect(result).resolves.toMatchObject({ phase: 'downloading', version: '2.0.0' });
+    expect(broadcasts).toContainEqual({ phase: 'downloading', version: '2.0.0' });
+    expect(broadcasts).not.toContainEqual({ phase: 'available', version: '2.0.0' });
   });
 
   it('check() maps a thrown error to phase error and broadcasts it', async () => {
@@ -219,6 +238,24 @@ describe('createUpdateService factory', () => {
     expect(service.isSupported).toBe(true);
   });
 
+  it('makes the deterministic Windows updater download automatically but wait for install consent', async () => {
+    const broadcasts: UpdateStatusPayload[] = [];
+    const service = await createUpdateService((payload) => broadcasts.push(payload), 'https://x/update', {
+      e2eVersion: '9.9.9',
+      getCurrentVersion: () => '1.2.6',
+      platform: 'win32',
+    });
+
+    await expect(service.check()).resolves.toMatchObject({
+      phase: 'downloaded',
+      version: '9.9.9',
+      currentVersion: '1.2.6',
+    });
+    expect(broadcasts).toContainEqual({ phase: 'downloading', version: '9.9.9' });
+    expect(broadcasts).toContainEqual({ phase: 'downloaded', version: '9.9.9' });
+    expect(broadcasts).not.toContainEqual({ phase: 'available', version: '9.9.9' });
+  });
+
   it('uses the injected real-updater factory when provided', async () => {
     const realUpdater = createFakeUpdater();
     const createRealUpdater = vi.fn(async () => realUpdater);
@@ -291,7 +328,7 @@ describe('createUpdateService factory', () => {
     expect(createRealUpdater).toHaveBeenCalledOnce();
   });
 
-  describe.each(['darwin', 'linux'] as const)('%s packaged configuration', (platform) => {
+  describe.each(['darwin', 'linux', 'win32'] as const)('%s packaged configuration', (platform) => {
     it.each([
       ['missing', undefined],
       ['empty', ''],
@@ -316,30 +353,10 @@ describe('createUpdateService factory', () => {
     });
   });
 
-  it('does not initialize the Windows updater for an unsigned package', async () => {
-    const createRealUpdater = vi.fn(async () => createFakeUpdater());
-    const service = await createUpdateService(() => undefined, 'https://x/update', {
-      createRealUpdater,
-      getCurrentVersion: () => '1.2.6',
-      isPackaged: true,
-      platform: 'win32',
-      resourcesPath: '/path/that/does/not/exist',
-    });
-
-    await expect(service.check()).resolves.toMatchObject({ phase: 'not-supported' });
-    expect(createRealUpdater).not.toHaveBeenCalled();
-  });
-
-  it('initializes Windows updater only when the NSIS config pins a publisher', async () => {
-    const resourcesPath = scratch();
-    writeFileSync(path.join(resourcesPath, 'app-update.yml'), [
-      'provider: generic',
-      'url: "https://x/update"',
-      'publisherName:',
-      '  - "CN=Hamdis Project"',
-      '',
-    ].join('\n'));
-    const createRealUpdater = vi.fn(async () => createFakeUpdater());
+  it('initializes the unsigned Windows updater from the pinned generic feed', async () => {
+    const resourcesPath = configuredResources();
+    const updater = createFakeUpdater();
+    const createRealUpdater = vi.fn(async () => updater);
     const service = await createUpdateService(() => undefined, 'https://x/update', {
       createRealUpdater,
       getCurrentVersion: () => '1.2.6',
@@ -350,26 +367,7 @@ describe('createUpdateService factory', () => {
 
     expect(service.isSupported).toBe(true);
     expect(createRealUpdater).toHaveBeenCalledOnce();
-  });
-
-  it('rejects a Windows updater config with no publisher identity', async () => {
-    const resourcesPath = scratch();
-    writeFileSync(path.join(resourcesPath, 'app-update.yml'), [
-      'provider: generic',
-      'url: "https://x/update"',
-      'publisherName:',
-      '',
-    ].join('\n'));
-    const createRealUpdater = vi.fn(async () => createFakeUpdater());
-    const service = await createUpdateService(() => undefined, 'https://x/update', {
-      createRealUpdater,
-      getCurrentVersion: () => '1.2.6',
-      isPackaged: true,
-      platform: 'win32',
-      resourcesPath,
-    });
-
-    expect(service.isSupported).toBe(false);
-    expect(createRealUpdater).not.toHaveBeenCalled();
+    expect(updater.autoDownload).toBe(true);
+    expect(updater.autoInstallOnAppQuit).toBe(false);
   });
 });

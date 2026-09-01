@@ -1,7 +1,7 @@
 {
   "name": "mongog",
   "productName": "MongoG",
-  "version": "1.2.12",
+  "version": "1.2.13",
   "description": "MongoG - production-grade MongoDB desktop IDE",
   "author": {
     "name": "Hamdis Project",
@@ -25,7 +25,7 @@
     "prestart": "npm run extract:types && npm run build:runtime",
     "start": "node --max-old-space-size=8192 node_modules/@electron-forge/cli/dist/electron-forge.js start",
     "build:runtime": "vite build -c vite.runtime.config.mts",
-    "build:icons": "node scripts/build-macos-icns.mjs",
+    "build:icons": "node scripts/build-macos-icns.mjs && node scripts/build-windows-ico.mjs",
     "extract:types": "node scripts/extract-mongo-types.mjs",
     "pretypecheck": "npm run extract:types",
     "prepackage": "npm run extract:types && npm run build:runtime && npm run build:icons && npm run verify:icons",
@@ -45,7 +45,7 @@
     "test:e2e": "playwright test -c playwright.config.ts",
     "test:all": "vitest run",
     "typecheck": "tsc --noEmit",
-    "verify:icons": "node scripts/verify-macos-icons.mjs",
+    "verify:icons": "node scripts/verify-macos-icons.mjs && node scripts/verify-windows-icons.mjs",
     "lint": "eslint src tests"
   },
   "dependencies": {

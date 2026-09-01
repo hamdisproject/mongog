@@ -40,24 +40,28 @@ export class UpdateService {
   private checkPromise: Promise<UpdateCheckResult> | null = null;
   private listeners: Array<{ event: string; listener: (...args: unknown[]) => void }> = [];
   private lastError: string | null = null;
+  private automaticDownload: boolean;
 
   constructor(
     updater: UpdaterLike | undefined,
     broadcast: UpdateBroadcast,
     getCurrentVersion: () => string,
     initializationError?: unknown,
+    automaticDownload = false,
   ) {
     this.updater = updater;
     this.broadcast = broadcast;
     this.getCurrentVersion = getCurrentVersion;
+    this.automaticDownload = automaticDownload;
     if (!this.updater && initializationError !== undefined) {
       this.phase = 'error';
       this.lastError = errorMessage(initializationError);
     }
-    // Consent-driven installs: never auto-download during a version check. When
-    // the updater is absent (unsupported build) there is nothing to configure.
+    // Windows downloads in the background but still requires an explicit
+    // Restart & Install action. macOS and Linux retain consent-driven downloads.
+    // No platform ever installs a downloaded update merely because the app quits.
     if (this.updater) {
-      this.updater.autoDownload = false;
+      this.updater.autoDownload = this.automaticDownload;
       this.updater.autoInstallOnAppQuit = false;
       this.updater.disableDifferentialDownload = true;
       this.updater.disableWebInstaller = true;
@@ -142,9 +146,17 @@ export class UpdateService {
     this.listen('update-available', (...args) => {
       const info = args[0] as { version?: string } | undefined;
       this.availableVersion = info?.version ?? null;
-      this.phase = 'available';
       this.lastError = null;
-      this.broadcast({ phase: 'available', version: this.availableVersion ?? undefined });
+      if (this.automaticDownload) {
+        // electron-updater starts the transfer after this event when
+        // autoDownload is enabled. Publish downloading immediately so the
+        // renderer never flashes the manual-download consent prompt.
+        this.phase = 'downloading';
+        this.broadcast({ phase: 'downloading', version: this.availableVersion ?? undefined });
+      } else {
+        this.phase = 'available';
+        this.broadcast({ phase: 'available', version: this.availableVersion ?? undefined });
+      }
     });
     this.listen('update-not-available', () => {
       this.availableVersion = null;
@@ -219,25 +231,25 @@ export async function createUpdateService(
   options: CreateUpdateServiceOptions = {},
 ): Promise<UpdateService> {
   const getCurrentVersion = options.getCurrentVersion ?? defaultCurrentVersion;
+  const platform = options.platform ?? process.platform;
+  const automaticDownload = platform === 'win32';
   try {
     if (options.e2eVersion) {
       return new UpdateService(
         createFakeUpdater(options.e2eVersion),
         broadcast,
         getCurrentVersion,
+        undefined,
+        automaticDownload,
       );
     }
     if (options.isPackaged === false) {
       return new UpdateService(undefined, broadcast, getCurrentVersion);
     }
-    const platform = options.platform ?? process.platform;
     if (platform === 'linux' && !isRpmPackage(options.resourcesPath ?? process.resourcesPath)) {
       return new UpdateService(undefined, broadcast, getCurrentVersion);
     }
-    if (platform === 'win32' && !isNsisPackage(options.resourcesPath ?? process.resourcesPath)) {
-      return new UpdateService(undefined, broadcast, getCurrentVersion);
-    }
-    if (platform === 'darwin' || platform === 'linux') {
+    if (platform === 'darwin' || platform === 'linux' || platform === 'win32') {
       try {
         parseUpdateConfig(readFileSync(path.join(options.resourcesPath ?? process.resourcesPath, 'app-update.yml'), 'utf8'));
       } catch {
@@ -248,7 +260,7 @@ export async function createUpdateService(
     }
     const createReal = options.createRealUpdater ?? importRealUpdater;
     const updater = await createReal(feedUrl);
-    return new UpdateService(updater, broadcast, getCurrentVersion);
+    return new UpdateService(updater, broadcast, getCurrentVersion, undefined, automaticDownload);
   } catch (error) {
     // Keep initialization failures actionable through the existing error phase;
     // they must not take down the app or masquerade as unsupported builds.
@@ -267,6 +279,13 @@ async function importRealUpdater(feedUrl: string): Promise<UpdaterLike> {
   // failure while still resolving the dependency from app.asar.
   const require = createRequire(import.meta.url);
   const { autoUpdater } = require('electron-updater') as typeof import('electron-updater');
+  const e2eCachePath = process.env.MONGOG_E2E_USER_DATA?.trim()
+    ? process.env.MONGOG_UPDATE_E2E_CACHE_PATH?.trim()
+    : undefined;
+  if (e2eCachePath) {
+    const updaterWithApp = autoUpdater as typeof autoUpdater & { app: { baseCachePath: string } };
+    Object.defineProperty(updaterWithApp.app, 'baseCachePath', { get: () => e2eCachePath });
+  }
   // electron-updater requires an Electron runtime; running outside a packaged
   // app it still accepts configuration but its checks reject at run time. Keep
   // the service constructible so the IPC surface behaves deterministically.
@@ -282,16 +301,6 @@ function isRpmPackage(resourcesPath: string): boolean {
   }
 }
 
-function isNsisPackage(resourcesPath: string): boolean {
-  try {
-    const config = readFileSync(path.join(resourcesPath, 'app-update.yml'), 'utf8');
-    return /^provider:\s*generic\s*$/mu.test(config) &&
-      /^publisherName:\s*\n[ \t]+-[ \t]+\S.*$/mu.test(config);
-  } catch {
-    return false;
-  }
-}
-
 function defaultCurrentVersion(): string {
   throw new Error('current version unavailable outside Electron');
 }
@@ -302,7 +311,7 @@ function createFakeUpdater(version: string): UpdaterLike {
   const emit = (event: string, ...args: unknown[]) => {
     for (const listener of listeners.get(event) ?? []) listener(...args);
   };
-  return {
+  const updater: UpdaterLike = {
     autoDownload: false,
     autoInstallOnAppQuit: false,
     disableDifferentialDownload: true,
@@ -310,6 +319,7 @@ function createFakeUpdater(version: string): UpdaterLike {
     setFeedURL() {},
     async checkForUpdates() {
       emit('update-available', { version });
+      if (updater.autoDownload) await updater.downloadUpdate();
     },
     async downloadUpdate() {
       emit('download-progress', { percent: 100 });
@@ -328,6 +338,7 @@ function createFakeUpdater(version: string): UpdaterLike {
       return listeners;
     },
   };
+  return updater;
 }
 
 function errorMessage(error: unknown): string {

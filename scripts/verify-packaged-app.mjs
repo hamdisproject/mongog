@@ -45,13 +45,24 @@ if (!unpackedFiles.some((file) => /better[-_]sqlite3\.node$/u.test(file))) {
 }
 
 const updateConfig = path.join(application.resources, 'app-update.yml');
-if (platform === 'darwin' || platform === 'linux') {
+if (platform === 'darwin' || platform === 'linux' || platform === 'win32') {
   requiredFile(updateConfig, 'Packaged updater configuration');
   parseUpdateConfig(readFileSync(updateConfig, 'utf8'));
 }
 if (platform === 'win32') {
-  if (existsSync(updateConfig)) {
-    throw new Error('Unsigned Windows releases must not contain app-update.yml.');
+  const packagedIcon = path.join(application.resources, 'mongog-icon.png');
+  requiredFile(packagedIcon, 'Packaged Windows runtime icon');
+  const sourceIcon = path.resolve('assets', 'windows', 'mongog-icon.png');
+  if (!readFileSync(packagedIcon).equals(readFileSync(sourceIcon))) {
+    throw new Error('Packaged Windows runtime icon is out of sync with the generated Windows icon.');
+  }
+}
+if (platform === 'darwin') {
+  const packagedIcon = path.join(application.bundle, 'Contents', 'Resources', 'electron.icns');
+  requiredFile(packagedIcon, 'Packaged macOS application icon');
+  const sourceIcon = path.resolve('assets', 'legacy', 'mongog-icon.icns');
+  if (!readFileSync(packagedIcon).equals(readFileSync(sourceIcon))) {
+    throw new Error('Packaged macOS application icon is out of sync with the generated MongoG icon.');
   }
 }
 if (release && platform === 'linux') {

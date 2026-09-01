@@ -13,6 +13,7 @@ import {
 
 const UPDATE_MANIFESTS = {
   darwin: 'latest-mac.yml',
+  win32: 'latest.yml',
   linux: 'latest-linux.yml',
 };
 
@@ -52,6 +53,7 @@ function manifestYaml(version, files) {
 export async function generateUpdateManifests(directory, version = packageMetadata.version) {
   const macArm = releaseAssetNames('darwin', 'arm64', version)[1];
   const macX64 = releaseAssetNames('darwin', 'x64', version)[1];
+  const windows = releaseAssetNames('win32', 'x64', version, { unsigned: true })[0];
   const linux = releaseAssetNames('linux', 'x64', version)[0];
 
   const manifests = [
@@ -61,6 +63,10 @@ export async function generateUpdateManifests(directory, version = packageMetada
         updateFile(directory, macArm),
         updateFile(directory, macX64),
       ]),
+    },
+    {
+      name: UPDATE_MANIFESTS.win32,
+      files: [await updateFile(directory, windows)],
     },
     {
       name: UPDATE_MANIFESTS.linux,

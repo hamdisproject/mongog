@@ -116,6 +116,28 @@ function ExplorerTree({ compactHeader = false }: { compactHeader?: boolean }) {
   const [groupActionError, setGroupActionError] = useState<string | null>(null);
   const [appVersion, setAppVersion] = useState('0.0.1');
   const normalizedSearch = search.trim().toLocaleLowerCase();
+  const updateBadge = updatePhase === 'downloaded'
+    ? {
+        label: `Update ${updateVersion ?? ''} ready to install`,
+        title: updateVersion
+          ? `MongoG v${updateVersion} is ready to install. Open Updates.`
+          : 'An update is ready to install. Open Updates.',
+      }
+    : updatePhase === 'downloading'
+      ? {
+          label: `Update ${updateVersion ?? ''} downloading`,
+          title: updateVersion
+            ? `MongoG v${updateVersion} is downloading. Open Updates.`
+            : 'An update is downloading. Open Updates.',
+        }
+      : updatePhase === 'available'
+        ? {
+            label: `Update ${updateVersion ?? ''} available`,
+            title: updateVersion
+              ? `MongoG v${updateVersion} is available. Open Updates.`
+              : 'An update is available. Open Updates.',
+          }
+        : null;
 
   const matchesProfile = (profileId: string, profileName: string) => {
     if (!normalizedSearch) return true;
@@ -507,11 +529,11 @@ function ExplorerTree({ compactHeader = false }: { compactHeader?: boolean }) {
         </button>
         <span title={`MongoG version ${appVersion}`} style={{ color: 'var(--color-text-faint)', fontSize: 10, whiteSpace: 'nowrap' }}>
           v{appVersion}
-          {updatePhase === 'available' && (
+          {updateBadge && (
             <button
               type="button"
-              aria-label={`Update ${updateVersion ?? ''} available`}
-              title={updateVersion ? `MongoG v${updateVersion} is available. Open Updates.` : 'An update is available. Open Updates.'}
+              aria-label={updateBadge.label}
+              title={updateBadge.title}
               onClick={() => openUpdates()}
               onMouseEnter={(event) => { event.currentTarget.style.background = 'var(--color-panel-raised)'; }}
               onMouseLeave={(event) => { event.currentTarget.style.background = 'transparent'; }}

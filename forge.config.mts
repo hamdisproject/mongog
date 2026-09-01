@@ -53,12 +53,16 @@ const macSignOptions: PackagerOsxSignOptions | null = macRelease
 // never compiled into Assets.car for the compact default package.
 const packagerIcon = process.platform === 'darwin'
   ? 'assets/legacy/mongog-icon'
-  : 'assets/mongog-icon';
+  : process.platform === 'win32'
+    ? 'assets/windows/mongog-icon'
+    : 'assets/mongog-icon';
 const extraResources = [
-  'assets/mongog-icon.png',
+  process.platform === 'win32'
+    ? 'assets/windows/mongog-icon.png'
+    : 'assets/mongog-icon.png',
   // Packager copies extraResource before applying the app signature. The
   // updater reads this file during download even when setFeedURL is used.
-  ...(['darwin', 'linux'].includes(process.platform) ? ['build/app-update.yml'] : []),
+  ...(['darwin', 'win32', 'linux'].includes(process.platform) ? ['build/app-update.yml'] : []),
   ...(process.platform === 'linux' ? ['build/package-type'] : []),
 ];
 
@@ -121,6 +125,9 @@ const config: ForgeConfig = {
       platforms: ['darwin'],
       config: {
         format: 'ULFO',
+        // electron-installer-dmg otherwise uses its bundled Electron icon for
+        // the mounted volume even when the .app has a custom application icon.
+        icon: path.resolve('assets/legacy/mongog-icon.icns'),
         // appdmg's legacy HFS+ path invokes `bless --openfolder` on Intel.
         // On hosted macOS runners Finder can race the subsequent detach and
         // unmount the temporary volume first. APFS skips that legacy step and

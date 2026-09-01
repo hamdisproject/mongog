@@ -18,6 +18,7 @@ const signedMacos = args.get('signed-macos') === true || args.get('signed-macos'
 const unsignedWindows = args.get('unsigned-windows') === true || args.get('unsigned-windows') === 'true';
 const generatedMetadata = new Set([
   'SHA256SUMS.txt',
+  'latest.yml',
   'latest-mac.yml',
   'latest-linux.yml',
 ]);

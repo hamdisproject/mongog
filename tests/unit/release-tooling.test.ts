@@ -78,10 +78,15 @@ describe('release tooling', () => {
     expect(forgeConfig).toContain('continueOnError: false');
     expect(forgeConfig).toContain('resetAdHocDarwinSignature: true');
     expect(forgeConfig).toContain('rebuildConfig: { force: true }');
+    expect(forgeConfig).toContain("['darwin', 'win32', 'linux'].includes(process.platform)");
+    expect(forgeConfig).toContain("'assets/windows/mongog-icon'");
+    expect(forgeConfig).toContain("'assets/windows/mongog-icon.png'");
+    expect(forgeConfig).toContain("icon: path.resolve('assets/legacy/mongog-icon.icns')");
 
     const windowsMaker = readFileSync(script('make-windows-nsis.mjs'), 'utf8');
     expect(windowsMaker).toContain("CSC_IDENTITY_AUTO_DISCOVERY: 'false'");
-    expect(windowsMaker).toContain("app-update.yml");
+    expect(windowsMaker).not.toContain("app-update.yml");
+    expect(windowsMaker).not.toContain('rmSync');
     expect(windowsMaker).toContain("'electron-builder', 'cli.js'");
     expect(windowsMaker).toContain('spawnSync(process.execPath, builderArguments');
     expect(windowsMaker).not.toContain("'node_modules', '.bin', 'electron-builder.cmd'");
@@ -90,7 +95,24 @@ describe('release tooling', () => {
 
     const builderConfig = readFileSync(path.resolve(process.cwd(), 'electron-builder.yml'), 'utf8');
     expect(builderConfig).not.toContain('publish:');
-    expect(builderConfig).not.toContain('verifyUpdateCodeSignature');
+    expect(builderConfig).toContain('verifyUpdateCodeSignature: false');
+    expect(builderConfig).toContain('packElevateHelper: true');
+    expect(builderConfig).toContain('icon: assets/windows/mongog-icon.ico');
+    expect(builderConfig).toContain('installerIcon: assets/windows/mongog-icon.ico');
+    expect(builderConfig).toContain('uninstallerIcon: assets/windows/mongog-icon.ico');
+    expect(builderConfig).toContain('installerHeaderIcon: assets/windows/mongog-icon.ico');
+
+    expect(packageMetadata.scripts['build:icons']).toContain('build-windows-ico.mjs');
+    expect(packageMetadata.scripts['verify:icons']).toContain('verify-windows-icons.mjs');
+
+    const packageVerifier = readFileSync(script('verify-packaged-app.mjs'), 'utf8');
+    expect(packageVerifier).toContain("platform === 'win32'");
+    expect(packageVerifier).toContain("requiredFile(updateConfig, 'Packaged updater configuration')");
+    expect(packageVerifier).toContain("requiredFile(packagedIcon, 'Packaged Windows runtime icon')");
+    expect(packageVerifier).toContain("path.resolve('assets', 'windows', 'mongog-icon.png')");
+    expect(packageVerifier).toContain("requiredFile(packagedIcon, 'Packaged macOS application icon')");
+    expect(packageVerifier).toContain("path.resolve('assets', 'legacy', 'mongog-icon.icns')");
+    expect(packageVerifier).not.toContain('must not contain app-update.yml');
   });
 
   it('stores version-tag release artifacts directly in CircleCI', () => {
@@ -266,16 +288,27 @@ describe('release tooling', () => {
 
     await expect(generateUpdateManifests(directory)).resolves.toEqual([
       'latest-mac.yml',
+      'latest.yml',
       'latest-linux.yml',
     ]);
     const macManifest = readFileSync(path.join(directory, 'latest-mac.yml'), 'utf8');
+    const windowsManifest = readFileSync(path.join(directory, 'latest.yml'), 'utf8');
     const linuxManifest = readFileSync(path.join(directory, 'latest-linux.yml'), 'utf8');
     expect(macManifest).toContain(`version: "${packageMetadata.version}"`);
     expect(macManifest).toContain(`MongoG-${packageMetadata.version}-macOS-arm64.zip`);
     expect(macManifest).toContain(`MongoG-${packageMetadata.version}-macOS-x64.zip`);
     expect(macManifest).not.toContain('.dmg');
+    expect(windowsManifest).toContain(`MongoG-Setup-${packageMetadata.version}-UNSIGNED-win-x64.exe`);
+    expect(windowsManifest).toContain(
+      createHash('sha512')
+        .update(`MongoG-Setup-${packageMetadata.version}-UNSIGNED-win-x64.exe`)
+        .digest('base64'),
+    );
+    expect(windowsManifest).toContain(
+      `size: ${Buffer.byteLength(`MongoG-Setup-${packageMetadata.version}-UNSIGNED-win-x64.exe`)}`,
+    );
     expect(linuxManifest).toContain(`mongog-${packageMetadata.version}-1.x86_64.rpm`);
-    expect(readdirSync(directory)).not.toContain('latest.yml');
+    expect(readdirSync(directory)).toContain('latest.yml');
     const expectedHash = createHash('sha512')
       .update(`mongog-${packageMetadata.version}-1.x86_64.rpm`)
       .digest('base64');

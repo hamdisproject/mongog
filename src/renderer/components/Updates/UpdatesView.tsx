@@ -28,7 +28,9 @@ export function UpdatesView() {
 
   const downloadLabel = phase === 'downloaded'
     ? 'Restart & Install'
-    : 'Download now';
+    : phase === 'downloading'
+      ? 'Downloading…'
+      : 'Download now';
 
   return (
     <main

@@ -135,7 +135,12 @@ export function applicationIconPath(): string {
     : 'mongog-icon.png';
   return app.isPackaged
     ? path.join(process.resourcesPath, iconFilename)
-    : path.join(app.getAppPath(), 'assets', iconFilename);
+    : path.join(
+        app.getAppPath(),
+        'assets',
+        ...(process.platform === 'win32' ? ['windows'] : []),
+        iconFilename,
+      );
 }
 
 function contentType(filePath: string): string {

@@ -6,8 +6,9 @@ Releases'a göndermek için kullanılacak kısa kontrol listesidir.
 > **İmzalama durumu:** macOS paketleri Apple Developer ID ile imzalanır, Apple
 > tarafından notarize edilir ve biletleri pakete zımbalanır. Windows uygulaması
 > ve x64 NSIS kurucusu maliyet nedeniyle açıkça `UNSIGNED` olarak yayımlanır;
-> SmartScreen uyarısı beklenir ve otomatik güncelleme kapalıdır. Linux resmî
-> yayını yalnız x64 RPM'dir.
+> SmartScreen/Unknown Publisher uyarısı beklenir. Windows güncellemeleri HTTPS
+> ve SHA-512 ile doğrulanır ancak Authenticode yayıncı doğrulaması yapılmaz.
+> Linux resmî yayını yalnız x64 RPM'dir.
 
 ## CircleCI `release` context
 
@@ -53,16 +54,21 @@ git push origin main v1.0.0
 `package.json` sürümü `1.0.0` ise tag `v1.0.0` olmalıdır. Aksi durumda release
 workflow güvenli biçimde durur.
 
-macOS ve Linux paketleri `build/app-update.yml` dosyasını imzalamadan önce
-`Resources` dizinine alır. Bu dosya generic feed adresini ve `mongog-updater`
-önbellek dizinini tanımlar; `setFeedURL()` kullanılması dosya gereksinimini
-ortadan kaldırmaz. `verify:package` eksik veya bozuk yapılandırmayı reddeder.
-İmzasız Windows paketleri bu dosyayı içermez.
+macOS, Windows ve Linux paketleri `build/app-update.yml` dosyasını paketleme
+sırasında `Resources` dizinine alır. Bu dosya generic feed adresini ve
+`mongog-updater` önbellek dizinini tanımlar; `setFeedURL()` kullanılması dosya
+gereksinimini ortadan kaldırmaz. `verify:package` eksik veya bozuk
+yapılandırmayı her üç platformda da reddeder.
 
 1.2.8 öncesi kurulumda `app-update.yml` eksikse uygulama içinden indirme
 başlatılamaz. Kullanıcı imzalı 1.2.8 DMG'sini indirip uygulamayı bir kez manuel
 değiştirmelidir; kullanıcı veri dizini silinmez. Kurulu `.app` içine dosya
 ekleme: bu işlem imzayı geçersiz kılar. Mevcut `v1.2.7` etiketi korunur.
+
+Windows'ta updater yapılandırması içermeyen eski sürümler yeni akışa kendiliğinden
+geçemez. Windows güncellemesini etkinleştiren ilk sürüm bir kez manuel kurulmalı;
+sonraki sürümler `latest.yml` üzerinden arka planda indirilir ve yalnız kullanıcı
+**Restart & Install** seçtiğinde uygulanır.
 
 ## CircleCI'de kontrol ve indirme
 
@@ -74,14 +80,14 @@ ekleme: bu işlem imzayı geçersiz kılar. Mevcut `v1.2.7` etiketi korunur.
 5. macOS için `release-macos-arm64` veya `release-macos-x64` altındaki imzalı
    `.dmg` ve `.zip` dosyalarını indir.
 6. Windows x64 NSIS dosyasının adında `UNSIGNED` bulunduğunu, Authenticode
-   durumunun `NotSigned` olduğunu ve pakette `resources/app-update.yml`
-   bulunmadığını doğrula.
+   durumunun `NotSigned` olduğunu ve pakette geçerli `resources/app-update.yml`
+   bulunduğunu doğrula.
 7. Linux job'unda yalnız `.rpm` bulunduğunu ve paketteki
    `resources/package-type` değerinin `rpm` olduğunu doğrula.
 8. `release-metadata` job'unun altı paketi bir araya getirdiğini,
-   `SHA256SUMS.txt` ile `latest-mac.yml` ve `latest-linux.yml` dosyalarını
-   ürettiğini doğrula; `latest.yml` yayımlanmamalıdır.
-9. Altı paketi ve iki updater manifestini web admin paneline birlikte yükle.
+   `SHA256SUMS.txt` ile `latest-mac.yml`, `latest.yml` ve `latest-linux.yml`
+   dosyalarını ürettiğini doğrula.
+9. Altı paketi ve üç updater manifestini web admin paneline birlikte yükle.
    `/update` yayını atomik değiştirilmeden sürümü aktif etme; istemci eksik veya
    eski bir manifest ile yeni paketi eşleştirmemelidir.
 

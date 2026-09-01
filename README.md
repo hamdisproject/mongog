@@ -75,11 +75,11 @@ npm run typecheck
 ```bash
 npm run package     # → out/MongoG-<platform>-<arch>/ (asar + fuses + unpacked runtime)
 npm run make        # host installers: macOS DMG/ZIP and Linux RPM
-npm run make:windows:nsis # unsigned Windows x64 NSIS release (Windows; manual updates)
+npm run make:windows:nsis # unsigned Windows x64 NSIS release (Windows; in-app updates)
 npm run verify:package -- --platform darwin --arch arm64
 npm run smoke:packaged -- --platform darwin --arch arm64
-npm run build:icons        # builds compact ICNS from the standard ten-image iconset
-npm run verify:icons       # validates optical bounds, iconset sizes, and ICNS contents
+npm run build:icons        # builds compact macOS ICNS and multi-resolution Windows ICO
+npm run verify:icons       # validates optical bounds, image tiers, and icon containers
 npm run package:mac:legacy # compatibility alias for the default compact macOS package
 ```
 
@@ -88,6 +88,10 @@ Its 1024 px master keeps the visible icon inside a centered 824 px optical
 envelope, matching the compact footprint of standard macOS application icons.
 The Icon Composer `.icon` sources remain in `assets/` as design archives but are
 not shipped or used by Finder and Dock.
+
+Windows packages use `assets/windows/mongog-icon.ico`, which contains native
+16–256 px DPI representations derived from the compact macOS visual. The
+installer, uninstaller, executable, and application window share that icon.
 
 Packaged-app self-check:
 `MONGOG_SMOKE=1 out/MongoG-darwin-arm64/MongoG.app/Contents/MacOS/MongoG`.
@@ -115,9 +119,10 @@ and architecture are checked before native dependencies are built.
 
 macOS release artifacts are signed with Apple Developer ID, notarized by Apple,
 and stapled before upload. Windows publishes an explicitly `UNSIGNED` x64 NSIS
-installer; Windows may show a SmartScreen warning, and automatic updates stay
-disabled for that build. Linux publishes only the x64 RPM. Production Electron
-fuses remain hardened on every platform.
+installer; Windows may show a SmartScreen or Unknown Publisher warning. Windows
+updates use HTTPS and SHA-512 verification but do not have Authenticode publisher
+verification. Linux publishes only the x64 RPM. Production Electron fuses remain
+hardened on every platform.
 
 Create a restricted CircleCI context named `release`, limit it to the MongoG
 project and release team, and add the Apple variables documented in
@@ -142,19 +147,19 @@ Pipeline** screen by setting `run_release=true` and
 settings and use the CircleCI job names for required branch-protection checks.
 The dependent `release-metadata` job assembles the six official packages,
 verifies the complete set, writes `SHA256SUMS.txt`, and generates
-`latest-mac.yml` and `latest-linux.yml` from the packages' actual SHA-512
-hashes. No Windows updater manifest is published for the unsigned build.
+`latest-mac.yml`, `latest.yml`, and `latest-linux.yml` from the packages' actual
+SHA-512 hashes.
 
-On macOS and RPM-based Linux builds, the app uses `electron-updater` with a
-generic provider pointed at `MONGOG_UPDATE_FEED_URL` (default
-`https://mongog.com/update`). It reads `/update/latest-mac.yml` or
-`/update/latest-linux.yml`, prompts before downloading, verifies the artifact,
-then waits for a separate restart choice. Unsigned Windows builds report
-automatic updates as unsupported and use the website's manual-download flow.
-`/api/latest-version` remains reserved for that website UI. A release is
-publishable only after the six official artifacts and both generated manifests
-from `release-metadata` are deployed together: two macOS DMGs, two macOS ZIPs,
-one explicitly unsigned Windows NSIS EXE and one Linux RPM.
+The app uses `electron-updater` with a generic provider pointed at
+`MONGOG_UPDATE_FEED_URL` (default `https://mongog.com/update`). macOS and
+RPM-based Linux read `/update/latest-mac.yml` or `/update/latest-linux.yml` and
+prompt before downloading. Windows reads `/update/latest.yml` and downloads in
+the background, but installation still requires an explicit **Restart &
+Install** action; NSIS requests elevation only if the existing install location
+requires it. `/api/latest-version` remains reserved for the website UI. A
+release is publishable only after the six official artifacts and all three
+generated manifests from `release-metadata` are deployed together: two macOS
+DMGs, two macOS ZIPs, one explicitly unsigned Windows NSIS EXE and one Linux RPM.
 
 ## Layout
 

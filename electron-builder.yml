@@ -9,9 +9,18 @@ win:
     - target: nsis
       arch:
         - x64
-  icon: assets/mongog-icon.ico
+  icon: assets/windows/mongog-icon.ico
+  # Windows releases are intentionally unsigned. Integrity still comes from
+  # HTTPS plus the SHA-512 value in latest.yml, but no publisher is verified.
+  verifyUpdateCodeSignature: false
 nsis:
   oneClick: true
   perMachine: false
+  installerIcon: assets/windows/mongog-icon.ico
+  uninstallerIcon: assets/windows/mongog-icon.ico
+  installerHeaderIcon: assets/windows/mongog-icon.ico
+  # Keep the updater elevation helper available for installations whose
+  # existing directory unexpectedly requires administrator permission.
+  packElevateHelper: true
   include: build/installer.nsh
   deleteAppDataOnUninstall: false

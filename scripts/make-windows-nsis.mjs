@@ -1,4 +1,3 @@
-import { rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { packageMetadata, parseArguments, packagedApplication, requireTarget, rootDirectory } from './release-utils.mjs';
@@ -16,9 +15,6 @@ if (process.env.MONGOG_RELEASE !== '1') {
 }
 
 const packaged = packagedApplication(platform, arch);
-// Unsigned Windows releases are manual-download only. Remove any stale updater
-// configuration so this package can never opt into unauthenticated updates.
-rmSync(path.join(packaged.resources, 'app-update.yml'), { force: true });
 
 // Invoke electron-builder through the current Node runtime instead of its
 // Windows .cmd shim. cmd.exe /s strips the outer quotes from paths under some
@@ -51,4 +47,4 @@ const result = spawnSync(process.execPath, builderArguments, {
 if (result.error) throw result.error;
 if (result.status !== 0) throw new Error(`electron-builder failed with exit code ${result.status ?? 'unknown'}.`);
 
-console.log(`Built unsigned MongoG ${packageMetadata.version} NSIS installer (manual updates only).`);
+console.log(`Built unsigned MongoG ${packageMetadata.version} NSIS installer with in-app updates enabled.`);
