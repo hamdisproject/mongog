@@ -19,6 +19,28 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
+    version: '1.2.12',
+    releasedAt: '2026-09-01',
+    title: 'Clearer Documents table controls',
+    summary: 'Documents keeps active sort fields visible and separates column dragging from filtering and criteria actions.',
+    sections: [
+      {
+        kind: 'fixed',
+        items: [
+          'Active top-level sort fields remain visible as table columns when the current documents or projection omit them, including their direction and priority.',
+          'Column filter inputs no longer initiate column reordering because dragging starts only from the dedicated header grip.',
+        ],
+      },
+      {
+        kind: 'improved',
+        items: [
+          'Column drag grips appear on hover or focus, reserve stable header space, and keep sorting and resizing as separate controls.',
+          'Refresh now sits beside Clear and Apply in the Documents Criteria action group.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.2.11',
     releasedAt: '2026-08-31',
     title: 'Column filter text alignment',

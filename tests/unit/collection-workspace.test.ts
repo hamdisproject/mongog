@@ -65,6 +65,15 @@ describe('collection workspace helpers', () => {
     ], 'document')).toEqual(['_id', 'sku', 'quantity', 'note', 'amenities']);
   });
 
+  it('includes required columns missing from the current Documents page', () => {
+    expect(extractCollectionColumns([{ sku: 'a' }], 'alphabetical', ['isSent', 'sku']))
+      .toEqual(['_id', 'isSent', 'sku']);
+    expect(extractCollectionColumns([{ sku: 'a' }], 'document', ['isSent']))
+      .toEqual(['_id', 'sku', 'isSent']);
+    expect(extractCollectionColumns([], 'alphabetical', ['isSent']))
+      .toEqual(['_id', 'isSent']);
+  });
+
   it('applies a new automatic order while removing columns absent from a non-empty page', () => {
     expect(reconcileCollectionColumns(['quantity', '_id', 'legacy'], ['_id', 'sku', 'quantity']))
       .toEqual(['_id', 'sku', 'quantity']);

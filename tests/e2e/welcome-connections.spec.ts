@@ -84,12 +84,12 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByTestId('sidebar-mongog-brand').locator('img'))
     .toHaveAttribute('src', /mongog-icon.*\.png/);
   await expect(page.locator('[title^="welcome: Welcome"]')).toHaveCount(1);
-  await page.getByRole('button', { name: 'What’s New in 1.2.11' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.12' }).click();
   const releaseNotesTab = page.locator('[data-tab-kind="release-notes"]');
   await expect(page.getByTestId('release-notes-view')).toBeVisible();
   await expect(page.getByTestId('release-notes-mongog-brand')).toHaveAccessibleName('MongoG');
-  await expect(page.getByText('Installed v1.2.11')).toBeVisible();
-  await expect(page.locator('[data-release-version="1.2.11"]')).toContainText('Latest');
+  await expect(page.getByText('Installed v1.2.12')).toBeVisible();
+  await expect(page.locator('[data-release-version="1.2.12"]')).toContainText('Latest');
   await expect(page.locator('[data-release-version="1.0.0"]')).toBeVisible();
   await expectViewportLocked(page);
   await releaseNotesTab.click({ button: 'right' });
@@ -102,7 +102,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.getByTitle('Close Release Notes').click();
   await expect(releaseNotesTab).toHaveCount(0);
   await page.locator('[title^="welcome: Welcome"]').click();
-  await page.getByRole('button', { name: 'What’s New in 1.2.11' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.12' }).click();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
   await expect(page.getByTitle('New query tab')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open global search' })).toBeVisible();
@@ -160,7 +160,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByRole('switch', { name: 'Run default collection query automatically' }))
     .toBeDisabled();
   await expect(page.getByLabel('Global page size')).toHaveValue('50');
-  await expect(page.getByTestId('about-updates-settings')).toContainText('MongoG 1.2.11');
+  await expect(page.getByTestId('about-updates-settings')).toContainText('MongoG 1.2.12');
   await page.getByRole('button', { name: 'Open Release Notes' }).click();
   await expect(page.getByTestId('release-notes-view')).toBeVisible();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
@@ -501,6 +501,8 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByLabel('Collection filter')).toBeVisible();
   await expect(page.getByLabel('Collection sort')).toBeVisible();
   await expect(page.getByLabel('Collection projection')).toBeVisible();
+  const criteriaActions = page.getByRole('group', { name: 'Criteria actions' });
+  await expect(criteriaActions.getByRole('button')).toHaveText(['Clear', 'Apply', 'Refresh']);
   await expectViewportLocked(page);
   const documentsTable = page.getByTestId('collection-documents-table');
   await expect.poll(() => collectionColumnNames(page))
@@ -530,11 +532,24 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
 
   const skuHeader = headerSkuSort.locator('xpath=ancestor::th');
   const quantityHeader = headerQuantitySort.locator('xpath=ancestor::th');
-  await skuHeader.dragTo(quantityHeader);
+  const skuDragHandle = page.locator('[data-column-drag-handle="sku"]');
+  await expect(skuHeader).not.toHaveAttribute('draggable', 'true');
+  await expect(skuDragHandle).toHaveAttribute('draggable', 'true');
+  await page.mouse.move(1, 1);
+  await expect(skuDragHandle).toHaveCSS('opacity', '0');
+  await skuHeader.hover();
+  await expect(skuDragHandle).toHaveCSS('opacity', '0.6');
+  await skuDragHandle.dragTo(quantityHeader);
   await expect.poll(() => collectionColumnNames(page))
     .toEqual(['_id', 'quantity', 'sku', 'amenities', 'catalog', 'status']);
   await expect(headerSkuSort).toHaveAttribute('aria-label', 'Sort sku ascending');
   await expect(headerQuantitySort).toHaveAttribute('aria-label', 'Sort quantity ascending');
+  const skuFilter = page.getByLabel('Filter sku column');
+  await skuFilter.fill('alpha');
+  await expect(skuFilter).toBeFocused();
+  await expect.poll(() => collectionColumnNames(page))
+    .toEqual(['_id', 'quantity', 'sku', 'amenities', 'catalog', 'status']);
+  await skuFilter.fill('');
 
   await page.locator('[data-tab-kind="settings"]').click();
   await alphabeticalColumnOrder.click();
@@ -706,12 +721,19 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
     (element) => element.getBoundingClientRect().height,
   )).toBeGreaterThan(initialFilterHeight);
   await expectViewportLocked(page);
-  await setMonacoValue(page, 'Collection sort', '{ createdAt: -1 }');
+  await setMonacoValue(page, 'Collection sort', '{ isSent: -1 }');
+  await expect(page.locator('[data-sort-column="isSent"]')).toHaveCount(0);
   await setMonacoValue(page, 'Collection projection', '{ sku: 1, quantity: 1 }');
   await expect(page.getByRole('button', { name: 'Apply', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page.getByText('"alpha"', { exact: true })).toBeVisible();
   await expect(page.getByText('"beta"', { exact: true })).toHaveCount(0);
+  const isSentSort = page.locator('[data-sort-column="isSent"]');
+  await expect(isSentSort).toHaveAttribute('aria-label', /sorted descending, priority 1/);
+  const isSentCellIndex = await isSentSort.evaluate((element) =>
+    (element.closest('th') as HTMLTableCellElement).cellIndex);
+  await expect(documentsTable.locator('tbody tr').first().locator('td').nth(isSentCellIndex))
+    .toHaveText('null');
   await page.getByRole('button', { name: 'Calculate total document count' }).click();
   await expect(page.getByRole('button', { name: 'Calculate total document count' }))
     .toHaveText('Total count: 1');
@@ -777,6 +799,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByText('Saved · High quantity inventory')).toBeVisible();
   await setMonacoValue(page, 'Collection sort', '{ quantity: -1 }');
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(page.locator('[data-sort-column="isSent"]')).toHaveCount(0);
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+s' : 'Control+s');
   await expect(page.getByText('Saved · High quantity inventory')).toBeVisible();
 
@@ -921,7 +944,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toHaveCount(0);
   await expect(page.locator(`[data-tab-id="${activeBeforeClosingPinnedQuery}"]`)).toHaveAttribute('data-tab-active', 'true');
   await page.getByRole('button', { name: 'Open Welcome' }).click();
-  await page.getByRole('button', { name: 'What’s New in 1.2.11' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.12' }).click();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
 });
 
@@ -933,7 +956,7 @@ test('global collection defaults persist and auto-run a new Query collection onc
   // if that test is interrupted before its final save, establish the same
   // starting workspace explicitly instead of reporting a cascading failure.
   if (await releaseNotesTab.count() === 0) {
-    await page.getByRole('button', { name: 'What’s New in 1.2.11' }).click();
+    await page.getByRole('button', { name: 'What’s New in 1.2.12' }).click();
     await expect(releaseNotesTab).toHaveCount(1);
     await page.getByRole('button', { name: 'Open Welcome' }).click();
   }
@@ -1321,7 +1344,7 @@ test('update available is surfaced in the sidebar after consent is declined', as
 
   const updateButton = page.getByRole('button', { name: 'Update 9.9.9 available' });
   await expect(updateButton).toBeVisible();
-  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.11');
+  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.12');
 
   await updateButton.click();
   await expect(page.getByTestId('updates-view')).toBeVisible();
@@ -1419,7 +1442,7 @@ for (const failure of ['checksum', 'http'] as const) {
 
 test('Updates tab is reachable from Settings and shows the neutral state without a badge', async () => {
   let page = await launch();
-  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.11');
+  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.12');
   await expect(page.getByRole('button', { name: /^Update .* available$/ })).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Open application settings' }).click();

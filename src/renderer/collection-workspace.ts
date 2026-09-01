@@ -58,16 +58,18 @@ export function reconcileCollectionColumns(
   return arraysEqual(previous, next) ? previous : next;
 }
 
-/** Discover top-level table columns; no documents means no new schema was observed. */
+/** Discover top-level table columns while keeping required UI columns visible. */
 export function extractCollectionColumns(
   documents: Array<Record<string, unknown>>,
   columnOrder: TableColumnOrder = 'alphabetical',
+  requiredColumns: string[] = [],
 ): string[] {
-  if (documents.length === 0) return [];
+  if (documents.length === 0 && requiredColumns.length === 0) return [];
   const keys = new Set<string>();
   for (const document of documents) {
     for (const key of Object.keys(document)) keys.add(key);
   }
+  for (const column of requiredColumns) keys.add(column);
   const fields = Array.from(keys).filter((key) => key !== '_id');
   if (columnOrder === 'alphabetical') fields.sort();
   return ['_id', ...fields];

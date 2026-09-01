@@ -164,6 +164,51 @@ body {
   white-space: nowrap;
 }
 
+.collection-column-drag-handle {
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: grab;
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.collection-column-header:hover .collection-column-drag-handle,
+.collection-column-drag-handle:focus-visible,
+.collection-column-header[data-dragging='true'] .collection-column-drag-handle {
+  opacity: 0.6;
+  pointer-events: auto;
+}
+
+.collection-column-drag-handle:hover,
+.collection-column-drag-handle:focus-visible {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  opacity: 1;
+}
+
+.collection-column-drag-handle:focus-visible {
+  outline: 1px solid var(--color-focus);
+  outline-offset: -1px;
+}
+
+.collection-column-drag-handle:active {
+  cursor: grabbing;
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .column-filter-suggestions {
   position: fixed;
   z-index: 10000;

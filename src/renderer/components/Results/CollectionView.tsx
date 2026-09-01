@@ -75,6 +75,7 @@ const s: Record<string, React.CSSProperties> = {
   criteriaHeader: {
     display: 'flex', alignItems: 'center', gap: 8, color: theme.colors.textMuted, fontSize: 11,
   },
+  criteriaActions: { display: 'flex', alignItems: 'center', gap: 6 },
   criteriaGrid: {
     display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 8,
   },
@@ -189,6 +190,7 @@ const s: Record<string, React.CSSProperties> = {
 };
 
 const EMPTY_FILTER = '{}';
+const COLUMN_DRAG_MIME = 'application/x-mongog-collection-column';
 
 interface DocumentRow {
   key: string;
@@ -325,12 +327,26 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     setNotice('Connection restarted after query cancellation. Refresh to open a new cursor.');
   }, [runtimeEpoch]);
 
+  const sortIndicators = useMemo(() => {
+    try {
+      return readColumnSortIndicators(criteria.sort);
+    } catch {
+      return [];
+    }
+  }, [criteria.sort]);
+  const requiredSortColumns = useMemo(
+    () => sortIndicators
+      .map((indicator) => indicator.column)
+      .filter((column) => !column.includes('.')),
+    [sortIndicators],
+  );
   const discoveredColumns = useMemo(
     () => extractCollectionColumns(
       rows.map((row) => row.value).filter(isDocumentValue),
       tableColumnOrder,
+      requiredSortColumns,
     ),
-    [rows, tableColumnOrder],
+    [requiredSortColumns, rows, tableColumnOrder],
   );
   const columnOrder = tab.documentsColumnOrder ?? [];
   const columnsManuallyReordered = tab.documentsColumnOrderManual ?? false;
@@ -345,7 +361,6 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const documentPanelRef = useRef<HTMLDivElement>(null);
   const documentPanelResizeCleanup = useRef<(() => void) | null>(null);
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
-  const suppressSortClick = useRef(false);
   const columns = useMemo(
     () => reconcileCollectionColumns(columnOrder, discoveredColumns, columnsManuallyReordered),
     [columnOrder, columnsManuallyReordered, discoveredColumns],
@@ -355,13 +370,6 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const [countError, setCountError] = useState<string | null>(null);
   const countRequestGeneration = useRef(0);
   const loading = fetchState !== null;
-  const sortIndicators = useMemo(() => {
-    try {
-      return readColumnSortIndicators(criteria.sort);
-    } catch {
-      return [];
-    }
-  }, [criteria.sort]);
   const sortIndicatorByColumn = useMemo(() => new Map(
     sortIndicators.map((indicator) => [indicator.column, indicator] as const),
   ), [sortIndicators]);
@@ -628,7 +636,6 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   };
 
   const applyColumnSort = (column: string) => {
-    if (suppressSortClick.current) return;
     try {
       const next = cycleColumnSort(draftSort, column);
       setCriteriaErrors((current) => ({ ...current, sort: null }));
@@ -938,7 +945,6 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
         >
           Filter syntax &amp; examples
         </button>
-        <ToolbarButton secondary onClick={() => void loadInitial()} disabled={busy}>Refresh</ToolbarButton>
         <ToolbarButton secondary onClick={() => setExportOpen(true)} disabled={busy || !cursorId}>Export…</ToolbarButton>
         <ToolbarButton secondary onClick={() => useDataTransferStore.getState().open({
           mode: 'file-import',
@@ -1062,8 +1068,11 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
             <span>Mongo object syntax · Cmd/Ctrl+Enter to apply</span>
             <span style={{ flex: 1 }} />
             {criteriaError && <span style={s.criteriaError} role="alert">{criteriaError}</span>}
-            <ToolbarButton secondary onClick={clearCriteria} disabled={busy}>Clear</ToolbarButton>
-            <ToolbarButton onClick={applyCriteria} disabled={busy || invalidCriteria}>Apply</ToolbarButton>
+            <div role="group" aria-label="Criteria actions" style={s.criteriaActions}>
+              <ToolbarButton secondary onClick={clearCriteria} disabled={busy}>Clear</ToolbarButton>
+              <ToolbarButton onClick={applyCriteria} disabled={busy || invalidCriteria}>Apply</ToolbarButton>
+              <ToolbarButton secondary onClick={() => void loadInitial()} disabled={busy}>Refresh</ToolbarButton>
+            </div>
           </div>
           <CollectionCriteriaEditor
             tabId={tab.id}
@@ -1155,29 +1164,24 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
                 {columns.map((column) => (
                   <th
                     key={column}
+                    className="collection-column-header"
+                    data-dragging={draggedColumn === column ? 'true' : 'false'}
                     style={s.th}
                     aria-sort={sortIndicatorByColumn.get(column)?.direction === 1
                       ? 'ascending'
                       : sortIndicatorByColumn.get(column)?.direction === -1
                         ? 'descending'
                         : undefined}
-                    draggable
-                    onDragStart={(event) => {
-                      suppressSortClick.current = true;
-                      setDraggedColumn(column);
-                      event.dataTransfer.effectAllowed = 'move';
-                      event.dataTransfer.setData('text/plain', column);
-                    }}
-                    onDragEnd={() => {
-                      setDraggedColumn(null);
-                      window.setTimeout(() => { suppressSortClick.current = false; }, 0);
-                    }}
                     onDragOver={(event) => {
-                      if (draggedColumn && draggedColumn !== column) event.preventDefault();
+                      if (event.dataTransfer.types.includes(COLUMN_DRAG_MIME)) {
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = 'move';
+                      }
                     }}
                     onDrop={(event) => {
+                      if (!event.dataTransfer.types.includes(COLUMN_DRAG_MIME)) return;
                       event.preventDefault();
-                      const source = draggedColumn ?? event.dataTransfer.getData('text/plain');
+                      const source = event.dataTransfer.getData(COLUMN_DRAG_MIME);
                       if (source) moveColumn(source, column);
                       setDraggedColumn(null);
                     }}
@@ -1189,7 +1193,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
                         data-sort-column={column}
                         style={s.columnSortControl}
                         aria-label={columnSortLabel(column, sortIndicatorByColumn.get(column))}
-                        title={`${column} — click to sort; drag to reorder`}
+                        title={`${column} — click to sort`}
                         onClick={() => applyColumnSort(column)}
                         onKeyDown={(event) => {
                           if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -1206,6 +1210,23 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
                           </span>
                         )}
                       </span>
+                      <button
+                        type="button"
+                        className="collection-column-drag-handle"
+                        data-column-drag-handle={column}
+                        draggable
+                        aria-label={`Drag to reorder ${column} column`}
+                        title={`Drag to reorder ${column} column`}
+                        onDragStart={(event) => {
+                          setDraggedColumn(column);
+                          event.dataTransfer.effectAllowed = 'move';
+                          event.dataTransfer.setData(COLUMN_DRAG_MIME, column);
+                          event.dataTransfer.setData('text/plain', column);
+                        }}
+                        onDragEnd={() => setDraggedColumn(null)}
+                      >
+                        <ColumnDragGripIcon />
+                      </button>
                       <span
                         aria-label={`Resize ${column} column`}
                         role="separator"
@@ -1436,6 +1457,19 @@ function ColumnSortIcon({ direction }: { direction: ColumnSortDirection }) {
       ) : (
         <path d="M8 3v10m0 0l-3.5-3.5M8 13l3.5-3.5" />
       )}
+    </svg>
+  );
+}
+
+function ColumnDragGripIcon() {
+  return (
+    <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor" aria-hidden="true">
+      <circle cx="3" cy="4" r="1" />
+      <circle cx="7" cy="4" r="1" />
+      <circle cx="3" cy="8" r="1" />
+      <circle cx="7" cy="8" r="1" />
+      <circle cx="3" cy="12" r="1" />
+      <circle cx="7" cy="12" r="1" />
     </svg>
   );
 }
