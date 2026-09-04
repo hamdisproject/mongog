@@ -19,23 +19,25 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
-    version: '1.2.17',
+    version: '1.2.18',
     releasedAt: '2026-09-04',
-    title: 'Bulk document actions and smoother workspace navigation',
-    summary: 'Select, edit and delete multiple documents safely, move through crowded tab bars, and copy query console output in one click.',
+    title: 'Copyable query results and smoother workspace navigation',
+    summary: 'Copy statement and console output in one click, manage documents in bulk, and move through crowded tab bars with a dependable custom scrollbar.',
     sections: [
       {
         kind: 'added',
         items: [
           'Select individual documents or the current page, then update a shared field, unset a field, or edit complete documents in one BSON-aware bulk workflow.',
           'Delete selected documents with a mandatory confirmation and per-document optimistic concurrency checks.',
+          'Copy each statement result in the active BSON display format, including the currently loaded document page, scalar values, writes, commands, errors, and stream summaries.',
           'Copy all query console output in the active BSON display format with a one-click action and confirmation toast.',
         ],
       },
       {
         kind: 'improved',
         items: [
-          'Crowded workspace tab bars now scroll horizontally with a thin theme-aware scrollbar while keeping Query, Search, and Transfer actions fixed.',
+          'Crowded workspace tab bars now use a 4 px theme-aware custom scrollbar that appears immediately on hover or keyboard focus while keeping Query, Search, and Transfer actions fixed.',
+          'The tab scrollbar supports thumb dragging, track clicks, mouse-wheel and trackpad input, plus Arrow, Home, and End keyboard controls.',
           'Opening or activating a tab automatically reveals it without disturbing pinned and regular tab ordering.',
           'Hovering the tab strip highlights its scrollbar, and vertical mouse-wheel movement scrolls overflowing tabs horizontally.',
           'Visible console output remains selectable as text in addition to the one-click Copy action.',

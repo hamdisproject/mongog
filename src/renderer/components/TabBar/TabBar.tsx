@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   bulkClosableTabIds,
   isTabRenameable,
@@ -19,8 +19,11 @@ const s: Record<string, React.CSSProperties> = {
   actions: {
     display: 'flex', flexShrink: 0, alignSelf: 'stretch',
   },
+  tabViewport: {
+    position: 'relative', flex: 1, minWidth: 0, alignSelf: 'stretch', overflow: 'hidden',
+  },
   tabs: {
-    display: 'flex', flex: 1, minWidth: 0, overflowX: 'auto', overflowY: 'hidden',
+    display: 'flex', width: '100%', height: '100%', minWidth: 0, overflowX: 'auto', overflowY: 'hidden',
   },
   tab: {
     position: 'relative', display: 'flex', alignItems: 'center', gap: 2, padding: '3px 4px',
@@ -83,6 +86,19 @@ interface DropTarget {
   position: 'before' | 'after';
 }
 
+interface ScrollMetrics {
+  clientWidth: number;
+  scrollWidth: number;
+  scrollLeft: number;
+}
+
+interface ScrollDrag {
+  pointerId: number;
+  startClientX: number;
+  startScrollLeft: number;
+  scrollPerPixel: number;
+}
+
 export function TabBar() {
   const {
     tabs,
@@ -100,9 +116,33 @@ export function TabBar() {
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
+  const [scrollMetrics, setScrollMetrics] = useState<ScrollMetrics>({
+    clientWidth: 0,
+    scrollWidth: 0,
+    scrollLeft: 0,
+  });
+  const viewportRef = useRef<HTMLDivElement>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
+  const scrollDragRef = useRef<ScrollDrag | null>(null);
   const pinnedCount = tabs.filter((tab) => tab.pinned).length;
   const tabOrder = tabs.map((tab) => `${tab.id}:${tab.pinned ? 'p' : 'u'}`).join('|');
+
+  const updateScrollMetrics = useCallback(() => {
+    const tabStrip = tabsRef.current;
+    if (!tabStrip) return;
+    const next = {
+      clientWidth: tabStrip.clientWidth,
+      scrollWidth: tabStrip.scrollWidth,
+      scrollLeft: tabStrip.scrollLeft,
+    };
+    setScrollMetrics((current) => (
+      current.clientWidth === next.clientWidth
+      && current.scrollWidth === next.scrollWidth
+      && current.scrollLeft === next.scrollLeft
+        ? current
+        : next
+    ));
+  }, []);
 
   useLayoutEffect(() => {
     if (!activeTabId || !tabsRef.current) return;
@@ -110,11 +150,17 @@ export function TabBar() {
       element instanceof HTMLElement && element.dataset.tabId === activeTabId
     ));
     activeTab?.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'nearest' });
-  }, [activeTabId, tabOrder]);
+    updateScrollMetrics();
+  }, [activeTabId, tabOrder, updateScrollMetrics]);
+
+  useLayoutEffect(() => {
+    updateScrollMetrics();
+  }, [tabOrder, updateScrollMetrics]);
 
   useEffect(() => {
     const tabStrip = tabsRef.current;
-    if (!tabStrip) return;
+    const viewport = viewportRef.current;
+    if (!tabStrip || !viewport) return;
     const handleWheel = (event: WheelEvent) => {
       if (tabStrip.scrollWidth <= tabStrip.clientWidth) return;
       const rawDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY)
@@ -130,9 +176,37 @@ export function TabBar() {
       tabStrip.scrollLeft += rawDelta * deltaMultiplier;
       if (tabStrip.scrollLeft !== previousScrollLeft) event.preventDefault();
     };
-    tabStrip.addEventListener('wheel', handleWheel, { passive: false });
-    return () => tabStrip.removeEventListener('wheel', handleWheel);
-  }, []);
+    const observer = new ResizeObserver(updateScrollMetrics);
+    observer.observe(tabStrip);
+    for (const child of tabStrip.children) observer.observe(child);
+    tabStrip.addEventListener('scroll', updateScrollMetrics, { passive: true });
+    viewport.addEventListener('wheel', handleWheel, { passive: false });
+    updateScrollMetrics();
+    return () => {
+      observer.disconnect();
+      tabStrip.removeEventListener('scroll', updateScrollMetrics);
+      viewport.removeEventListener('wheel', handleWheel);
+    };
+  }, [tabOrder, updateScrollMetrics]);
+
+  const maxScrollLeft = Math.max(0, scrollMetrics.scrollWidth - scrollMetrics.clientWidth);
+  const scrollbarTrackWidth = Math.max(0, scrollMetrics.clientWidth - 4);
+  const scrollbarThumbWidth = scrollbarTrackWidth > 0 && scrollMetrics.scrollWidth > 0
+    ? Math.min(
+      scrollbarTrackWidth,
+      Math.max(24, scrollbarTrackWidth * (scrollMetrics.clientWidth / scrollMetrics.scrollWidth)),
+    )
+    : 0;
+  const scrollbarTravel = Math.max(0, scrollbarTrackWidth - scrollbarThumbWidth);
+  const scrollbarThumbLeft = maxScrollLeft > 0
+    ? (scrollMetrics.scrollLeft / maxScrollLeft) * scrollbarTravel
+    : 0;
+
+  const setScrollLeft = (value: number) => {
+    const tabStrip = tabsRef.current;
+    if (!tabStrip) return;
+    tabStrip.scrollLeft = Math.max(0, Math.min(maxScrollLeft, value));
+  };
 
   const startRename = (tab: WorkspaceTab) => {
     if (!isTabRenameable(tab)) return;
@@ -218,57 +292,134 @@ export function TabBar() {
         </button>
       </div>
       <div
-        ref={tabsRef}
-        className="workspace-tab-scroll"
-        style={s.tabs}
-        data-testid="workspace-tab-scroll"
+        ref={viewportRef}
+        className="workspace-tab-viewport"
+        style={s.tabViewport}
+        data-testid="workspace-tab-viewport"
       >
-        {tabs.map((tab, index) => (
-          <Fragment key={tab.id}>
-            {pinnedCount > 0 && pinnedCount < tabs.length && index === pinnedCount && (
-              <div style={s.pinnedDivider} data-testid="pinned-tab-divider" aria-hidden="true" />
-            )}
-            <Tab
-              tab={tab}
-              active={tab.id === activeTabId}
-              dragging={tab.id === draggingTabId}
-              dropPosition={dropTarget?.tabId === tab.id ? dropTarget.position : null}
-              renaming={renamingTabId === tab.id}
-              renameDraft={renameDraft}
-              onRenameDraft={setRenameDraft}
-              onStartRename={() => startRename(tab)}
-              onCommitRename={commitRename}
-              onCancelRename={cancelRename}
-              onContextMenu={(event) => {
+        <div
+          ref={tabsRef}
+          id="workspace-tab-list"
+          className="workspace-tab-scroll"
+          style={s.tabs}
+          data-testid="workspace-tab-scroll"
+        >
+          {tabs.map((tab, index) => (
+            <Fragment key={tab.id}>
+              {pinnedCount > 0 && pinnedCount < tabs.length && index === pinnedCount && (
+                <div style={s.pinnedDivider} data-testid="pinned-tab-divider" aria-hidden="true" />
+              )}
+              <Tab
+                tab={tab}
+                active={tab.id === activeTabId}
+                dragging={tab.id === draggingTabId}
+                dropPosition={dropTarget?.tabId === tab.id ? dropTarget.position : null}
+                renaming={renamingTabId === tab.id}
+                renameDraft={renameDraft}
+                onRenameDraft={setRenameDraft}
+                onStartRename={() => startRename(tab)}
+                onCommitRename={commitRename}
+                onCancelRename={cancelRename}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  setMenu({ tabId: tab.id, x: event.clientX, y: event.clientY });
+                }}
+                onDragStart={(event) => {
+                  event.dataTransfer.effectAllowed = 'move';
+                  event.dataTransfer.setData(TAB_DRAG_MIME, tab.id);
+                  event.dataTransfer.setData('text/plain', tab.title);
+                  setDraggingTabId(tab.id);
+                  setDropTarget(null);
+                }}
+                onDragOver={(event) => handleDragOver(event, tab)}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const sourceId = event.dataTransfer.getData(TAB_DRAG_MIME) || draggingTabId;
+                  const source = tabs.find((candidate) => candidate.id === sourceId);
+                  if (source && source.id !== tab.id && !!source.pinned === !!tab.pinned) {
+                    const rect = event.currentTarget.getBoundingClientRect();
+                    reorderTab(
+                      source.id,
+                      tab.id,
+                      event.clientX < rect.left + rect.width / 2 ? 'before' : 'after',
+                    );
+                  }
+                  finishDrag();
+                }}
+                onDragEnd={finishDrag}
+              />
+            </Fragment>
+          ))}
+        </div>
+        {maxScrollLeft > 0 && (
+          <div
+            className="workspace-tab-scrollbar"
+            data-testid="workspace-tab-scrollbar"
+            role="scrollbar"
+            aria-label="Workspace tabs"
+            aria-controls="workspace-tab-list"
+            aria-orientation="horizontal"
+            aria-valuemin={0}
+            aria-valuemax={Math.round(maxScrollLeft)}
+            aria-valuenow={Math.round(scrollMetrics.scrollLeft)}
+            tabIndex={0}
+            onKeyDown={(event) => {
+              let next: number | null = null;
+              if (event.key === 'ArrowLeft') next = scrollMetrics.scrollLeft - 40;
+              else if (event.key === 'ArrowRight') next = scrollMetrics.scrollLeft + 40;
+              else if (event.key === 'Home') next = 0;
+              else if (event.key === 'End') next = maxScrollLeft;
+              if (next === null) return;
+              event.preventDefault();
+              setScrollLeft(next);
+            }}
+            onPointerDown={(event) => {
+              if (event.target !== event.currentTarget) return;
+              const rect = event.currentTarget.getBoundingClientRect();
+              const clickOffset = event.clientX - rect.left;
+              const centeredThumb = clickOffset - scrollbarThumbWidth / 2;
+              const ratio = scrollbarTravel > 0
+                ? Math.max(0, Math.min(1, centeredThumb / scrollbarTravel))
+                : 0;
+              setScrollLeft(ratio * maxScrollLeft);
+            }}
+          >
+            <div
+              className="workspace-tab-scrollbar-thumb"
+              data-testid="workspace-tab-scrollbar-thumb"
+              style={{
+                width: scrollbarThumbWidth,
+                transform: `translateX(${scrollbarThumbLeft}px)`,
+              }}
+              onPointerDown={(event) => {
                 event.preventDefault();
-                setMenu({ tabId: tab.id, x: event.clientX, y: event.clientY });
+                event.stopPropagation();
+                scrollDragRef.current = {
+                  pointerId: event.pointerId,
+                  startClientX: event.clientX,
+                  startScrollLeft: scrollMetrics.scrollLeft,
+                  scrollPerPixel: scrollbarTravel > 0 ? maxScrollLeft / scrollbarTravel : 0,
+                };
+                event.currentTarget.setPointerCapture(event.pointerId);
               }}
-              onDragStart={(event) => {
-                event.dataTransfer.effectAllowed = 'move';
-                event.dataTransfer.setData(TAB_DRAG_MIME, tab.id);
-                event.dataTransfer.setData('text/plain', tab.title);
-                setDraggingTabId(tab.id);
-                setDropTarget(null);
+              onPointerMove={(event) => {
+                const drag = scrollDragRef.current;
+                if (!drag || drag.pointerId !== event.pointerId) return;
+                setScrollLeft(
+                  drag.startScrollLeft + (event.clientX - drag.startClientX) * drag.scrollPerPixel,
+                );
               }}
-              onDragOver={(event) => handleDragOver(event, tab)}
-              onDrop={(event) => {
-                event.preventDefault();
-                const sourceId = event.dataTransfer.getData(TAB_DRAG_MIME) || draggingTabId;
-                const source = tabs.find((candidate) => candidate.id === sourceId);
-                if (source && source.id !== tab.id && !!source.pinned === !!tab.pinned) {
-                  const rect = event.currentTarget.getBoundingClientRect();
-                  reorderTab(
-                    source.id,
-                    tab.id,
-                    event.clientX < rect.left + rect.width / 2 ? 'before' : 'after',
-                  );
-                }
-                finishDrag();
+              onPointerUp={(event) => {
+                if (scrollDragRef.current?.pointerId !== event.pointerId) return;
+                scrollDragRef.current = null;
+                event.currentTarget.releasePointerCapture(event.pointerId);
               }}
-              onDragEnd={finishDrag}
+              onPointerCancel={() => {
+                scrollDragRef.current = null;
+              }}
             />
-          </Fragment>
-        ))}
+          </div>
+        )}
       </div>
       {menu && (
         <ContextMenu

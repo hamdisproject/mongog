@@ -261,34 +261,59 @@ body {
 
 /* Only the tab strip scrolls; primary workspace actions remain reachable. */
 .workspace-tab-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: none;
   overscroll-behavior-x: contain;
 }
 
 .workspace-tab-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.workspace-tab-scrollbar {
+  position: absolute;
+  z-index: 6;
+  left: 2px;
+  right: 2px;
+  bottom: 0;
   height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-border) 48%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 100ms ease-out;
+  touch-action: none;
 }
 
-.workspace-tab-scroll::-webkit-scrollbar-track {
-  background: transparent;
+.workspace-tab-viewport:hover .workspace-tab-scrollbar,
+.workspace-tab-viewport:focus-within .workspace-tab-scrollbar {
+  opacity: 1;
+  pointer-events: auto;
 }
 
-.workspace-tab-scroll::-webkit-scrollbar-thumb {
+.workspace-tab-scrollbar:focus-visible {
+  outline: 1px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.workspace-tab-scrollbar-thumb {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
   background: var(--color-border-strong);
   border-radius: 999px;
+  cursor: grab;
+  transition: background 100ms ease-out;
+  touch-action: none;
 }
 
-.workspace-tab-scroll::-webkit-scrollbar-thumb:hover {
+.workspace-tab-scrollbar-thumb:hover {
   background: var(--color-accent);
 }
 
-.workspace-tab-scroll:hover {
-  scrollbar-color: var(--color-accent) transparent;
-}
-
-.workspace-tab-scroll:hover::-webkit-scrollbar-thumb {
-  background: var(--color-accent);
+.workspace-tab-scrollbar-thumb:active {
+  cursor: grabbing;
 }
 
 .workspace-tab-drag-handle {

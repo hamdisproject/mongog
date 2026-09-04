@@ -84,12 +84,12 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByTestId('sidebar-mongog-brand').locator('img'))
     .toHaveAttribute('src', /mongog-icon.*\.png/);
   await expect(page.locator('[title^="welcome: Welcome"]')).toHaveCount(1);
-  await page.getByRole('button', { name: 'What’s New in 1.2.17' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.18' }).click();
   const releaseNotesTab = page.locator('[data-tab-kind="release-notes"]');
   await expect(page.getByTestId('release-notes-view')).toBeVisible();
   await expect(page.getByTestId('release-notes-mongog-brand')).toHaveAccessibleName('MongoG');
-  await expect(page.getByText('Installed v1.2.17')).toBeVisible();
-  await expect(page.locator('[data-release-version="1.2.17"]')).toContainText('Latest');
+  await expect(page.getByText('Installed v1.2.18')).toBeVisible();
+  await expect(page.locator('[data-release-version="1.2.18"]')).toContainText('Latest');
   await expect(page.locator('[data-release-version="1.0.0"]')).toBeVisible();
   await expectViewportLocked(page);
   await releaseNotesTab.click({ button: 'right' });
@@ -102,7 +102,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.getByTitle('Close Release Notes').click();
   await expect(releaseNotesTab).toHaveCount(0);
   await page.locator('[title^="welcome: Welcome"]').click();
-  await page.getByRole('button', { name: 'What’s New in 1.2.17' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.18' }).click();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
   await expect(page.getByTitle('New query tab')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open global search' })).toBeVisible();
@@ -160,7 +160,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByRole('switch', { name: 'Run default collection query automatically' }))
     .toBeDisabled();
   await expect(page.getByLabel('Global page size')).toHaveValue('50');
-  await expect(page.getByTestId('about-updates-settings')).toContainText('MongoG 1.2.17');
+  await expect(page.getByTestId('about-updates-settings')).toContainText('MongoG 1.2.18');
   await page.getByRole('button', { name: 'Open Release Notes' }).click();
   await expect(page.getByTestId('release-notes-view')).toBeVisible();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
@@ -861,6 +861,23 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
     .toEqual(['#', '_id', 'sku', 'quantity', 'amenities', 'status']);
   await expect(page.getByTestId('query-documents-table').locator('[data-bson-syntax]').first()).toBeVisible();
   await expect(page.getByTestId('query-documents-table').locator('[data-bson-token="string"]').first()).toBeVisible();
+  const copyDocumentStatement = page.getByRole('button', {
+    name: 'Copy Statement 1 output',
+    exact: true,
+  });
+  await copyDocumentStatement.click();
+  await expect(statement).toHaveAttribute('aria-expanded', 'true');
+  await expect.poll(async () => (
+    await application!.evaluate(({ clipboard }) => clipboard.readText())
+  )).toContain('sku: "beta"');
+  await expect.poll(async () => (
+    await application!.evaluate(({ clipboard }) => clipboard.readText())
+  )).toMatch(/^\[[\s\S]*\]$/u);
+  const statementCopiedToast = page.getByTestId('toast-notification')
+    .filter({ hasText: 'Statement output copied.' });
+  await expect(statementCopiedToast).toHaveRole('status');
+  await expect(statementCopiedToast).toBeVisible();
+  await expect(statementCopiedToast).toHaveCount(0, { timeout: 5_000 });
 
   await page.locator('[data-tab-kind="settings"]').click();
   await alphabeticalColumnOrder.click();
@@ -887,6 +904,43 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   const queryTxt = await readFile(join(userDataPath, queryTxtName), 'utf8');
   expect(queryTxt).toContain('sku');
   expect(queryTxt).toContain('beta');
+
+  await setQueryEditorValue(page, 'Int32(41);');
+  await page.getByRole('button', { name: /^Run/ }).click();
+  await expect(page.getByText('scalar', { exact: true })).toBeVisible({ timeout: 30_000 });
+  const scalarStatement = page.getByRole('button', { name: /Statement 1.*scalar/ });
+  const copyScalarStatement = page.getByRole('button', {
+    name: 'Copy Statement 1 output',
+    exact: true,
+  });
+  await copyScalarStatement.click();
+  await expect(scalarStatement).toHaveAttribute('aria-expanded', 'true');
+  await expect.poll(async () => (
+    await application!.evaluate(({ clipboard }) => clipboard.readText())
+  )).toBe('41');
+  await expect(page.getByTestId('toast-notification').filter({ hasText: 'Statement output copied.' }))
+    .toBeVisible();
+  await expect(page.getByTestId('toast-notification').filter({ hasText: 'Statement output copied.' }))
+    .toHaveCount(0, { timeout: 5_000 });
+
+  await page.evaluate(() => {
+    const clipboard = navigator.clipboard as Clipboard & { __mongogOriginalWriteText?: Clipboard['writeText'] };
+    clipboard.__mongogOriginalWriteText = clipboard.writeText;
+    clipboard.writeText = () => Promise.reject(new Error('Simulated clipboard failure'));
+  });
+  await copyScalarStatement.click();
+  const statementCopyError = page.getByTestId('toast-notification')
+    .filter({ hasText: 'Could not copy statement output.' });
+  await expect(statementCopyError).toHaveRole('alert');
+  await expect(statementCopyError).toBeVisible();
+  await page.evaluate(() => {
+    const clipboard = navigator.clipboard as Clipboard & { __mongogOriginalWriteText?: Clipboard['writeText'] };
+    if (clipboard.__mongogOriginalWriteText) {
+      clipboard.writeText = clipboard.__mongogOriginalWriteText;
+      delete clipboard.__mongogOriginalWriteText;
+    }
+  });
+  await expect(statementCopyError).toHaveCount(0, { timeout: 5_000 });
 
   await setQueryEditorValue(page, [
     'console.log("copy-value", ObjectId("64b64c000000000000000001"));',
@@ -966,7 +1020,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toHaveCount(0);
   await expect(page.locator(`[data-tab-id="${activeBeforeClosingPinnedQuery}"]`)).toHaveAttribute('data-tab-active', 'true');
   await page.getByRole('button', { name: 'Open Welcome' }).click();
-  await page.getByRole('button', { name: 'What’s New in 1.2.17' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.18' }).click();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
 });
 
@@ -975,8 +1029,10 @@ test('workspace tabs use a thin independent scrollbar and reveal the active tab'
   try {
     const page = await launch({ MONGOG_E2E_USER_DATA: isolated });
     const actions = page.getByTestId('workspace-tab-actions');
+    const tabViewport = page.getByTestId('workspace-tab-viewport');
     const tabScroll = page.getByTestId('workspace-tab-scroll');
     const newQuery = page.getByTitle('New query tab');
+    await expect(page.getByTestId('workspace-tab-scrollbar')).toHaveCount(0);
     const initialActions = await actions.boundingBox();
     if (!initialActions) throw new Error('Expected workspace tab actions bounds');
 
@@ -984,13 +1040,49 @@ test('workspace tabs use a thin independent scrollbar and reveal the active tab'
     await expect.poll(() => tabScroll.evaluate((element) => element.scrollWidth - element.clientWidth))
       .toBeGreaterThan(0);
     await expect.poll(() => tabScroll.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
-    expect(await tabScroll.evaluate((element) => (
-      getComputedStyle(element, '::-webkit-scrollbar').height
-    ))).toBe('4px');
+    const scrollbar = page.getByTestId('workspace-tab-scrollbar');
+    const thumb = page.getByTestId('workspace-tab-scrollbar-thumb');
+    await expect(scrollbar).toBeAttached();
+    await expect(scrollbar).toHaveCSS('height', '4px');
 
     await tabScroll.evaluate((element) => { element.scrollLeft = 0; });
-    await tabScroll.hover();
+    await expect(scrollbar).toHaveCSS('opacity', '0');
+    await tabViewport.hover();
+    await expect(scrollbar).toHaveCSS('opacity', '1');
+    await expect.poll(() => tabScroll.evaluate((element) => element.scrollLeft)).toBe(0);
     await page.mouse.wheel(0, 320);
+    await expect.poll(() => tabScroll.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+
+    await scrollbar.focus();
+    await scrollbar.press('Home');
+    await expect.poll(() => tabScroll.evaluate((element) => element.scrollLeft)).toBe(0);
+    await scrollbar.press('ArrowRight');
+    await expect.poll(() => tabScroll.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+    await scrollbar.press('End');
+    await expect.poll(async () => tabScroll.evaluate((element) => ({
+      scrollLeft: element.scrollLeft,
+      max: element.scrollWidth - element.clientWidth,
+    }))).toMatchObject({
+      scrollLeft: expect.any(Number),
+      max: expect.any(Number),
+    });
+    await expect.poll(() => tabScroll.evaluate((element) => (
+      Math.abs(element.scrollLeft - (element.scrollWidth - element.clientWidth))
+    ))).toBeLessThanOrEqual(1);
+
+    await scrollbar.press('Home');
+    const trackBounds = await scrollbar.boundingBox();
+    if (!trackBounds) throw new Error('Expected custom tab scrollbar bounds');
+    await page.mouse.click(trackBounds.x + trackBounds.width * 0.75, trackBounds.y + 2);
+    await expect.poll(() => tabScroll.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+
+    await scrollbar.press('Home');
+    const thumbBounds = await thumb.boundingBox();
+    if (!thumbBounds) throw new Error('Expected custom tab scrollbar thumb bounds');
+    await page.mouse.move(thumbBounds.x + thumbBounds.width / 2, thumbBounds.y + 2);
+    await page.mouse.down();
+    await page.mouse.move(thumbBounds.x + thumbBounds.width / 2 + 60, thumbBounds.y + 2);
+    await page.mouse.up();
     await expect.poll(() => tabScroll.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
 
     await tabScroll.evaluate((element) => { element.scrollLeft = element.scrollWidth; });
@@ -1032,7 +1124,7 @@ test('global collection defaults persist and auto-run a new Query collection onc
   // if that test is interrupted before its final save, establish the same
   // starting workspace explicitly instead of reporting a cascading failure.
   if (await releaseNotesTab.count() === 0) {
-    await page.getByRole('button', { name: 'What’s New in 1.2.17' }).click();
+    await page.getByRole('button', { name: 'What’s New in 1.2.18' }).click();
     await expect(releaseNotesTab).toHaveCount(1);
     await page.getByRole('button', { name: 'Open Welcome' }).click();
   }
@@ -1425,7 +1517,7 @@ test('update available is surfaced in the sidebar after consent is declined', as
     name: automaticDownload ? 'Update 9.9.9 ready to install' : 'Update 9.9.9 available',
   });
   await expect(updateButton).toBeVisible();
-  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.17');
+  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.18');
 
   await updateButton.click();
   await expect(page.getByTestId('updates-view')).toBeVisible();
@@ -1550,7 +1642,7 @@ for (const failure of ['checksum', 'http'] as const) {
 
 test('Updates tab is reachable from Settings and shows the neutral state without a badge', async () => {
   let page = await launch();
-  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.17');
+  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.18');
   await expect(page.getByRole('button', { name: /^Update .* available$/ })).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Open application settings' }).click();

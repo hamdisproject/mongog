@@ -31,6 +31,11 @@ import { extractCollectionColumns } from '../../collection-workspace.js';
 import { LoadingOverlay } from '../Common/LoadingOverlay.js';
 import { cancelQueryExecution } from '../../query-cancellation.js';
 import { formatConsoleEntry, formatConsoleOutput } from '../../console-output.js';
+import {
+  formatQueryErrorOutput,
+  formatQueryResultOutput,
+  renderQueryEnvelope,
+} from '../../query-output.js';
 import { useToastStore } from '../../stores/toasts.js';
 
 const s: Record<string, React.CSSProperties> = {
@@ -264,6 +269,7 @@ function ResultCard({
           item={item}
           displayMode={displayMode}
         />
+        <CopyResultAction item={item} displayMode={displayMode} />
         <span style={{ marginLeft: 'auto' }}>{item.durationMs.toFixed(1)} ms</span>
       </div>
       {!collapsed && <div style={s.cardBody}>
@@ -281,6 +287,39 @@ function ResultCard({
         )}
       </div>}
     </div>
+  );
+}
+
+function CopyResultAction({
+  item,
+  displayMode,
+}: {
+  item: StatementResultState;
+  displayMode: BsonDisplayMode;
+}) {
+  const copy = async () => {
+    const output = formatQueryResultOutput(item.result, displayMode);
+    try {
+      await navigator.clipboard.writeText(output);
+      useToastStore.getState().show('Statement output copied.');
+    } catch {
+      useToastStore.getState().show('Could not copy statement output.', 'error');
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      aria-label={`Copy Statement ${item.index + 1} output`}
+      style={s.btn}
+      onClick={(event) => {
+        event.stopPropagation();
+        void copy();
+      }}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
+      Copy
+    </button>
   );
 }
 
@@ -594,7 +633,7 @@ function DocumentsResult({
       {selectedEnvelope && (
         <>
           <pre style={{ ...s.code, marginTop: 7 }}>
-            {renderEnvelope(selectedFullEnvelope ?? selectedEnvelope, displayMode, true)}
+            {renderQueryEnvelope(selectedFullEnvelope ?? selectedEnvelope, displayMode, true)}
           </pre>
           {selectedEnvelope.truncated && !selectedFullEnvelope && (
             <div style={s.controls}>
@@ -664,9 +703,9 @@ function DocumentsResult({
 function NonDocumentResult({ result, displayMode }: { result: QueryResult; displayMode: BsonDisplayMode }) {
   switch (result.kind) {
     case 'scalar':
-      return <pre style={s.code}>{renderEnvelope(result.value, displayMode, true)}</pre>;
+      return <pre style={s.code}>{renderQueryEnvelope(result.value, displayMode, true)}</pre>;
     case 'command':
-      return <pre style={s.code}>{renderEnvelope(result.value, displayMode, true)}</pre>;
+      return <pre style={s.code}>{renderQueryEnvelope(result.value, displayMode, true)}</pre>;
     case 'write':
       return (
         <>
@@ -676,7 +715,7 @@ function NonDocumentResult({ result, displayMode }: { result: QueryResult; displ
               <span key={label}>{label}: {value}</span>
             ))}
           </div>
-          {result.raw && <pre style={s.code}>{renderEnvelope(result.raw, displayMode, true)}</pre>}
+          {result.raw && <pre style={s.code}>{renderQueryEnvelope(result.raw, displayMode, true)}</pre>}
         </>
       );
     case 'opaque':
@@ -693,10 +732,32 @@ function NonDocumentResult({ result, displayMode }: { result: QueryResult; displ
 }
 
 function ErrorCard({ item }: { item: StatementErrorState }) {
+  const copy = async () => {
+    const output = formatQueryErrorOutput(item.error);
+    try {
+      await navigator.clipboard.writeText(output);
+      useToastStore.getState().show('Statement output copied.');
+    } catch {
+      useToastStore.getState().show('Could not copy statement output.', 'error');
+    }
+  };
+
   return (
     <div style={s.errorCard}>
-      <div style={{ fontWeight: 600 }}>
-        Statement {item.index < 0 ? 'validation' : item.index + 1}: {item.error.category}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ fontWeight: 600 }}>
+          Statement {item.index < 0 ? 'validation' : item.index + 1}: {item.error.category}
+        </div>
+        <button
+          type="button"
+          aria-label={item.index < 0
+            ? 'Copy validation error output'
+            : `Copy Statement ${item.index + 1} output`}
+          style={s.btn}
+          onClick={() => void copy()}
+        >
+          Copy
+        </button>
       </div>
       <div>{item.error.message}</div>
       {item.error.hint && <div style={{ color: '#d7ba7d', marginTop: 4 }}>{item.error.hint}</div>}
@@ -723,17 +784,6 @@ function envelopeToRow(envelope: EjsonEnvelope): Record<string, unknown> {
     return { $value: value };
   } catch {
     return { $preview: envelope.ejson, $parseError: true };
-  }
-}
-
-function renderEnvelope(envelope: EjsonEnvelope, mode: BsonDisplayMode, pretty: boolean): string {
-  if (envelope.truncated) {
-    return `${envelope.ejson}\n… truncated preview (${formatBytes(envelope.byteSize)} original)`;
-  }
-  try {
-    return renderBson(parseEjson(envelope), mode, pretty);
-  } catch {
-    return envelope.ejson;
   }
 }
 
