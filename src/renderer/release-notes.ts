@@ -19,7 +19,7 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
-    version: '1.2.14',
+    version: '1.2.15',
     releasedAt: '2026-09-04',
     title: 'Bulk document actions and smoother workspace navigation',
     summary: 'Select, edit and delete multiple documents safely, move through crowded tab bars, and copy query console output in one click.',
@@ -38,6 +38,12 @@ export const RELEASE_NOTES = [
           'Crowded workspace tab bars now scroll horizontally with a thin theme-aware scrollbar while keeping Query, Search, and Transfer actions fixed.',
           'Opening or activating a tab automatically reveals it without disturbing pinned and regular tab ordering.',
           'Bulk operations validate every input before writing, continue through stale, missing, or driver failures, and reselect visible failed documents after refresh.',
+        ],
+      },
+      {
+        kind: 'fixed',
+        items: [
+          'Windows release validation now accepts native CRLF clipboard line endings without changing the copied console content.',
         ],
       },
     ],
