@@ -19,7 +19,7 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
-    version: '1.2.15',
+    version: '1.2.16',
     releasedAt: '2026-09-04',
     title: 'Bulk document actions and smoother workspace navigation',
     summary: 'Select, edit and delete multiple documents safely, move through crowded tab bars, and copy query console output in one click.',
@@ -44,6 +44,7 @@ export const RELEASE_NOTES = [
         kind: 'fixed',
         items: [
           'Windows release validation now accepts native CRLF clipboard line endings without changing the copied console content.',
+          'Linux release jobs now avoid the unreliable EC2 Ubuntu mirror and bound dependency downloads with retries and timeouts.',
         ],
       },
     ],

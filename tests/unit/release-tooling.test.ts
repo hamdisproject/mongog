@@ -63,6 +63,9 @@ describe('release tooling', () => {
     expect(workflow).toContain('npm run smoke:packaged -- --platform darwin --arch arm64');
     expect(workflow).toContain('npm run smoke:packaged -- --platform win32 --arch x64');
     expect(workflow).toContain('xvfb-run -a npm run smoke:packaged -- --platform linux --arch x64');
+    expect(workflow).toContain('https://archive.ubuntu.com/ubuntu');
+    expect(workflow).toContain('Acquire::Retries "4";');
+    expect(workflow).toContain('15m npx playwright install-deps chromium');
     expect(workflow).toContain('if [[ "$EXPECTED_MACHO_ARCH" == "x64" ]]; then EXPECTED_MACHO_ARCH="x86_64"; fi');
     expect(workflow).toContain('[[ " $MACHO_ARCHS " == *" $EXPECTED_MACHO_ARCH "* ]]');
     expect(workflow).toContain('[[ "$SIGNING_IDENTITIES" == *"$MACOS_SIGN_IDENTITY"* ]]');

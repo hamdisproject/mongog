@@ -360,13 +360,30 @@ jobs:
       - select_release_tag_unix
       - install_node_unix
       - run:
+          name: Configure reliable Ubuntu package downloads
+          command: |
+            for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/*.sources; do
+              [ -f "$source_file" ] || continue
+              sudo sed -i -E \
+                -e 's|https?://([a-z0-9-]+\.)?ec2\.archive\.ubuntu\.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' \
+                -e 's|http://archive\.ubuntu\.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' \
+                "$source_file"
+            done
+            printf '%s\n' \
+              'Acquire::Retries "4";' \
+              'Acquire::http::Timeout "30";' \
+              'Acquire::https::Timeout "30";' \
+              | sudo tee /etc/apt/apt.conf.d/80-mongog-ci-network >/dev/null
+      - run:
           name: Install packaging and display dependencies
           command: |
-            sudo apt-get update
-            sudo apt-get install -y fakeroot rpm xvfb
+            sudo timeout --signal=TERM --kill-after=30s 15m apt-get update
+            sudo timeout --signal=TERM --kill-after=30s 15m apt-get install -y fakeroot rpm xvfb
       - install_dependencies_unix
       - restore_mongodb_cache
-      - run: { name: Install Electron runtime libraries, command: "npx playwright install-deps" }
+      - run:
+          name: Install Electron runtime libraries
+          command: timeout --signal=TERM --kill-after=30s 15m npx playwright install-deps chromium
       - run:
           name: Validate release tag
           command: MONGOG_RELEASE=1 node scripts/validate-release-environment.mjs --platform linux --tag "$RELEASE_TAG"
