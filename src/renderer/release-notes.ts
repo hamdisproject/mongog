@@ -19,6 +19,30 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
+    version: '1.2.14',
+    releasedAt: '2026-09-04',
+    title: 'Bulk document actions and smoother workspace navigation',
+    summary: 'Select, edit and delete multiple documents safely, move through crowded tab bars, and copy query console output in one click.',
+    sections: [
+      {
+        kind: 'added',
+        items: [
+          'Select individual documents or the current page, then update a shared field, unset a field, or edit complete documents in one BSON-aware bulk workflow.',
+          'Delete selected documents with a mandatory confirmation and per-document optimistic concurrency checks.',
+          'Copy all query console output in the active BSON display format with a one-click action and confirmation toast.',
+        ],
+      },
+      {
+        kind: 'improved',
+        items: [
+          'Crowded workspace tab bars now scroll horizontally with a thin theme-aware scrollbar while keeping Query, Search, and Transfer actions fixed.',
+          'Opening or activating a tab automatically reveals it without disturbing pinned and regular tab ordering.',
+          'Bulk operations validate every input before writing, continue through stale, missing, or driver failures, and reselect visible failed documents after refresh.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.2.13',
     releasedAt: '2026-09-01',
     title: 'Windows updates and sharper platform icons',

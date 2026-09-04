@@ -259,17 +259,28 @@ body {
   box-shadow: inset -1px 0 var(--color-accent);
 }
 
-/* Tabs remain horizontally scrollable with mouse/trackpad, but the native
-   overlay scrollbar must not cover the tab labels or change the bar height. */
-.workspace-tab-bar {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+/* Only the tab strip scrolls; primary workspace actions remain reachable. */
+.workspace-tab-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+  overscroll-behavior-x: contain;
 }
 
-.workspace-tab-bar::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
+.workspace-tab-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.workspace-tab-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.workspace-tab-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 999px;
+}
+
+.workspace-tab-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent);
 }
 
 .workspace-tab-drag-handle {

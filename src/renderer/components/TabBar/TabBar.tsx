@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   bulkClosableTabIds,
   isTabRenameable,
@@ -14,7 +14,13 @@ const TAB_DRAG_MIME = 'application/x-mongog-workspace-tab';
 const s: Record<string, React.CSSProperties> = {
   bar: {
     display: 'flex', background: 'var(--color-panel-raised)', borderBottom: '1px solid var(--color-border)',
-    minHeight: 32, overflowX: 'auto', overflowY: 'hidden', flexShrink: 0,
+    minHeight: 32, overflow: 'hidden', flexShrink: 0,
+  },
+  actions: {
+    display: 'flex', flexShrink: 0, alignSelf: 'stretch',
+  },
+  tabs: {
+    display: 'flex', flex: 1, minWidth: 0, overflowX: 'auto', overflowY: 'hidden',
   },
   tab: {
     position: 'relative', display: 'flex', alignItems: 'center', gap: 2, padding: '3px 4px',
@@ -94,7 +100,17 @@ export function TabBar() {
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
+  const tabsRef = useRef<HTMLDivElement>(null);
   const pinnedCount = tabs.filter((tab) => tab.pinned).length;
+  const tabOrder = tabs.map((tab) => `${tab.id}:${tab.pinned ? 'p' : 'u'}`).join('|');
+
+  useLayoutEffect(() => {
+    if (!activeTabId || !tabsRef.current) return;
+    const activeTab = Array.from(tabsRef.current.children).find((element) => (
+      element instanceof HTMLElement && element.dataset.tabId === activeTabId
+    ));
+    activeTab?.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'nearest' });
+  }, [activeTabId, tabOrder]);
 
   const startRename = (tab: WorkspaceTab) => {
     if (!isTabRenameable(tab)) return;
@@ -159,70 +175,79 @@ export function TabBar() {
 
   return (
     <div className="workspace-tab-bar" style={s.bar} data-testid="workspace-tab-bar">
-      <button type="button" onClick={() => openQuery()} style={s.newBtn} title="New query tab">
-        <span style={{ color: 'var(--color-success)', fontSize: 15 }}>+</span> Query
-      </button>
-      <button
-        type="button"
-        aria-label="Open global search"
-        onClick={openGlobalSearch}
-        style={s.newBtn}
-        title="Global search (Cmd/Ctrl+K)"
+      <div style={s.actions} data-testid="workspace-tab-actions">
+        <button type="button" onClick={() => openQuery()} style={s.newBtn} title="New query tab">
+          <span style={{ color: 'var(--color-success)', fontSize: 15 }}>+</span> Query
+        </button>
+        <button
+          type="button"
+          aria-label="Open global search"
+          onClick={openGlobalSearch}
+          style={s.newBtn}
+          title="Global search (Cmd/Ctrl+K)"
+        >
+          <span style={{ color: 'var(--color-success)', fontSize: 15 }} aria-hidden="true">⌕</span>
+          Search
+          <span style={{ color: 'var(--color-text-faint)', fontSize: 9, marginLeft: 2 }}>⌘/Ctrl K</span>
+        </button>
+        <button type="button" onClick={() => openDataTransfer()} style={s.newBtn} title="Import files or copy collections">
+          <span style={{ color: 'var(--color-success)', fontSize: 14 }} aria-hidden="true">⇥</span>
+          Transfer
+        </button>
+      </div>
+      <div
+        ref={tabsRef}
+        className="workspace-tab-scroll"
+        style={s.tabs}
+        data-testid="workspace-tab-scroll"
       >
-        <span style={{ color: 'var(--color-success)', fontSize: 15 }} aria-hidden="true">⌕</span>
-        Search
-        <span style={{ color: 'var(--color-text-faint)', fontSize: 9, marginLeft: 2 }}>⌘/Ctrl K</span>
-      </button>
-      <button type="button" onClick={() => openDataTransfer()} style={s.newBtn} title="Import files or copy collections">
-        <span style={{ color: 'var(--color-success)', fontSize: 14 }} aria-hidden="true">⇥</span>
-        Transfer
-      </button>
-      {tabs.map((tab, index) => (
-        <Fragment key={tab.id}>
-          {pinnedCount > 0 && pinnedCount < tabs.length && index === pinnedCount && (
-            <div style={s.pinnedDivider} data-testid="pinned-tab-divider" aria-hidden="true" />
-          )}
-          <Tab
-            tab={tab}
-            active={tab.id === activeTabId}
-            dragging={tab.id === draggingTabId}
-            dropPosition={dropTarget?.tabId === tab.id ? dropTarget.position : null}
-            renaming={renamingTabId === tab.id}
-            renameDraft={renameDraft}
-            onRenameDraft={setRenameDraft}
-            onStartRename={() => startRename(tab)}
-            onCommitRename={commitRename}
-            onCancelRename={cancelRename}
-            onContextMenu={(event) => {
-              event.preventDefault();
-              setMenu({ tabId: tab.id, x: event.clientX, y: event.clientY });
-            }}
-            onDragStart={(event) => {
-              event.dataTransfer.effectAllowed = 'move';
-              event.dataTransfer.setData(TAB_DRAG_MIME, tab.id);
-              event.dataTransfer.setData('text/plain', tab.title);
-              setDraggingTabId(tab.id);
-              setDropTarget(null);
-            }}
-            onDragOver={(event) => handleDragOver(event, tab)}
-            onDrop={(event) => {
-              event.preventDefault();
-              const sourceId = event.dataTransfer.getData(TAB_DRAG_MIME) || draggingTabId;
-              const source = tabs.find((candidate) => candidate.id === sourceId);
-              if (source && source.id !== tab.id && !!source.pinned === !!tab.pinned) {
-                const rect = event.currentTarget.getBoundingClientRect();
-                reorderTab(
-                  source.id,
-                  tab.id,
-                  event.clientX < rect.left + rect.width / 2 ? 'before' : 'after',
-                );
-              }
-              finishDrag();
-            }}
-            onDragEnd={finishDrag}
-          />
-        </Fragment>
-      ))}
+        {tabs.map((tab, index) => (
+          <Fragment key={tab.id}>
+            {pinnedCount > 0 && pinnedCount < tabs.length && index === pinnedCount && (
+              <div style={s.pinnedDivider} data-testid="pinned-tab-divider" aria-hidden="true" />
+            )}
+            <Tab
+              tab={tab}
+              active={tab.id === activeTabId}
+              dragging={tab.id === draggingTabId}
+              dropPosition={dropTarget?.tabId === tab.id ? dropTarget.position : null}
+              renaming={renamingTabId === tab.id}
+              renameDraft={renameDraft}
+              onRenameDraft={setRenameDraft}
+              onStartRename={() => startRename(tab)}
+              onCommitRename={commitRename}
+              onCancelRename={cancelRename}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                setMenu({ tabId: tab.id, x: event.clientX, y: event.clientY });
+              }}
+              onDragStart={(event) => {
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData(TAB_DRAG_MIME, tab.id);
+                event.dataTransfer.setData('text/plain', tab.title);
+                setDraggingTabId(tab.id);
+                setDropTarget(null);
+              }}
+              onDragOver={(event) => handleDragOver(event, tab)}
+              onDrop={(event) => {
+                event.preventDefault();
+                const sourceId = event.dataTransfer.getData(TAB_DRAG_MIME) || draggingTabId;
+                const source = tabs.find((candidate) => candidate.id === sourceId);
+                if (source && source.id !== tab.id && !!source.pinned === !!tab.pinned) {
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  reorderTab(
+                    source.id,
+                    tab.id,
+                    event.clientX < rect.left + rect.width / 2 ? 'before' : 'after',
+                  );
+                }
+                finishDrag();
+              }}
+              onDragEnd={finishDrag}
+            />
+          </Fragment>
+        ))}
+      </div>
       {menu && (
         <ContextMenu
           x={menu.x}

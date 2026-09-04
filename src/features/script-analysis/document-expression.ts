@@ -46,6 +46,57 @@ export function parseDocumentExpression(
   source: string,
   label = 'Expression',
 ): ParsedDocumentExpression {
+  const { sourceFile, root } = parseRootExpression(source, label, 'one object literal');
+  if (!ts.isObjectLiteralExpression(root)) {
+    throw expressionError(sourceFile, root, source.length, `${label} must be an object literal.`);
+  }
+
+  const value = convertObject(sourceFile, root, source.length, label);
+  return { json: JSON.stringify(toCanonicalJsonData(value)) };
+}
+
+/** Parses any safe literal/BSON value without evaluating user-provided code. */
+export function parseValueExpression(
+  source: string,
+  label = 'Value',
+): ParsedDocumentExpression {
+  const { sourceFile, root } = parseRootExpression(source, label, 'one value');
+  const value = convertValue(sourceFile, root, source.length, label);
+  return { json: JSON.stringify(toCanonicalJsonData(value)) };
+}
+
+/** Parses an array whose entries must all be document object literals. */
+export function parseDocumentArrayExpression(
+  source: string,
+  label = 'Documents',
+): ParsedDocumentExpression {
+  const { sourceFile, root } = parseRootExpression(source, label, 'one document array');
+  if (!ts.isArrayLiteralExpression(root)) {
+    throw expressionError(sourceFile, root, source.length, `${label} must be an array of document objects.`);
+  }
+  const documents = root.elements.map((element) => {
+    if (ts.isOmittedExpression(element) || ts.isSpreadElement(element)) {
+      throw expressionError(
+        sourceFile,
+        element,
+        source.length,
+        `${label} does not allow array holes or spread elements.`,
+      );
+    }
+    const entry = unwrapParentheses(element);
+    if (!ts.isObjectLiteralExpression(entry)) {
+      throw expressionError(sourceFile, entry, source.length, `${label} entries must be document objects.`);
+    }
+    return convertObject(sourceFile, entry, source.length, label);
+  });
+  return { json: JSON.stringify(toCanonicalJsonData(documents)) };
+}
+
+function parseRootExpression(
+  source: string,
+  label: string,
+  expected: string,
+): { sourceFile: ts.SourceFile; root: ts.Expression } {
   if (!source.trim()) {
     throw new DocumentExpressionError(`${label} cannot be empty.`, 0, Math.max(1, source.length));
   }
@@ -78,16 +129,11 @@ export function parseDocumentExpression(
     !statement ||
     !ts.isExpressionStatement(statement)
   ) {
-    throw new DocumentExpressionError(`${label} must be one object literal.`, 0, Math.max(1, source.length));
+    throw new DocumentExpressionError(`${label} must be ${expected}.`, 0, Math.max(1, source.length));
   }
 
   const root = unwrapParentheses(statement.expression);
-  if (!ts.isObjectLiteralExpression(root)) {
-    throw expressionError(sourceFile, root, source.length, `${label} must be an object literal.`);
-  }
-
-  const value = convertObject(sourceFile, root, source.length, label);
-  return { json: JSON.stringify(toCanonicalJsonData(value)) };
+  return { sourceFile, root };
 }
 
 function convertObject(

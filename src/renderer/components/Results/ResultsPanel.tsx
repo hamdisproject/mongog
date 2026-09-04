@@ -30,6 +30,8 @@ import { useExportJobsStore } from '../../stores/exports.js';
 import { extractCollectionColumns } from '../../collection-workspace.js';
 import { LoadingOverlay } from '../Common/LoadingOverlay.js';
 import { cancelQueryExecution } from '../../query-cancellation.js';
+import { formatConsoleEntry, formatConsoleOutput } from '../../console-output.js';
+import { useToastStore } from '../../stores/toasts.js';
 
 const s: Record<string, React.CSSProperties> = {
   panel: {
@@ -131,6 +133,16 @@ export function ResultsPanel() {
       ? 'Cancelling query…'
       : 'Running query…';
 
+  const copyConsoleOutput = async () => {
+    const output = formatConsoleOutput(execution.consoleEntries, displayMode);
+    try {
+      await navigator.clipboard.writeText(output);
+      useToastStore.getState().show('Console output copied.');
+    } catch {
+      useToastStore.getState().show('Could not copy console output.', 'error');
+    }
+  };
+
   return (
     <div style={s.panel}>
       <div style={s.header}>
@@ -169,11 +181,20 @@ export function ResultsPanel() {
 
         {execution.consoleEntries.length > 0 && (
           <div style={s.console}>
-            <div style={{ marginBottom: 5, fontSize: 11 }}>Console</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, fontSize: 11 }}>
+              <span>Console</span>
+              <button
+                type="button"
+                aria-label="Copy console output"
+                style={s.btn}
+                onClick={() => void copyConsoleOutput()}
+              >
+                Copy
+              </button>
+            </div>
             {execution.consoleEntries.map((entry, index) => (
               <pre key={`${entry.statementIndex}:${index}`} style={s.code}>
-                {`console.${entry.level} `}
-                {entry.args.map((arg) => renderEnvelope(arg, displayMode, false)).join(' ')}
+                {formatConsoleEntry(entry, displayMode)}
               </pre>
             ))}
           </div>

@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import type { AppError } from '../errors/index.js';
 import type { EjsonEnvelope } from '../ejson/index.js';
+import {
+  bulkDeletePayloadExceedsLimit,
+  bulkUpdatePayloadExceedsLimit,
+} from '../collection-update.js';
 import type {
   AuditBucket,
   AuditFilter,
@@ -8,6 +12,10 @@ import type {
   AuditSummary,
   ConnectionState,
   CollectionDocumentsPage,
+  CollectionBulkUpdateInput,
+  CollectionBulkUpdateResult,
+  CollectionBulkDeleteInput,
+  CollectionBulkDeleteResult,
   CollectionMutationResult,
   DocumentsPage,
   EngineEvent,
@@ -105,6 +113,8 @@ export const IpcChannels = {
   connCollectionCount: 'mongog:conn:collection:count',
   connCollectionInsert: 'mongog:conn:collection:insert',
   connCollectionReplace: 'mongog:conn:collection:replace',
+  connCollectionBulkUpdate: 'mongog:conn:collection:bulk-update',
+  connCollectionBulkDelete: 'mongog:conn:collection:bulk-delete',
   connCollectionDelete: 'mongog:conn:collection:delete',
   connCollectionRename: 'mongog:conn:collection:rename',
   connCollectionDrop: 'mongog:conn:collection:drop',
@@ -764,6 +774,49 @@ export const connCollectionReplaceSchema = z.object({
   documentEjson: ejsonSchema,
 });
 
+const collectionBulkUpdateChangeSchema = z.union([
+  z.object({
+    kind: z.literal('field'),
+    path: z.string().trim().min(1).max(1_024),
+    operation: z.literal('set'),
+    valueEjson: ejsonSchema,
+  }).strict(),
+  z.object({
+    kind: z.literal('field'),
+    path: z.string().trim().min(1).max(1_024),
+    operation: z.literal('unset'),
+  }).strict(),
+  z.object({
+    kind: z.literal('replace'),
+    documentsEjson: z.array(ejsonSchema).min(1).max(500),
+  }).strict(),
+]);
+
+export const connCollectionBulkUpdateSchema = z.object({
+  ...namespaceSchema,
+  originalDocumentsEjson: z.array(ejsonSchema).min(1).max(500),
+  change: collectionBulkUpdateChangeSchema,
+}).strict().superRefine((input, ctx) => {
+  if (bulkUpdatePayloadExceedsLimit(input)) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Bulk update payload exceeds the 64 MiB limit; select fewer documents.',
+    });
+  }
+}) satisfies z.ZodType<CollectionBulkUpdateInput>;
+
+export const connCollectionBulkDeleteSchema = z.object({
+  ...namespaceSchema,
+  originalDocumentsEjson: z.array(ejsonSchema).min(1).max(500),
+}).strict().superRefine((input, ctx) => {
+  if (bulkDeletePayloadExceedsLimit(input)) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Bulk delete payload exceeds the 64 MiB limit; select fewer documents.',
+    });
+  }
+}) satisfies z.ZodType<CollectionBulkDeleteInput>;
+
 export const connCollectionDeleteSchema = z.object({
   ...namespaceSchema,
   originalDocumentEjson: ejsonSchema,
@@ -1016,6 +1069,8 @@ export interface MongoGDesktopApi {
       originalDocumentEjson: string;
       documentEjson: string;
     }): Promise<CollectionMutationResult>;
+    collectionBulkUpdate(input: CollectionBulkUpdateInput): Promise<CollectionBulkUpdateResult>;
+    collectionBulkDelete(input: CollectionBulkDeleteInput): Promise<CollectionBulkDeleteResult>;
     collectionDelete(input: {
       connectionId: string;
       database: string;

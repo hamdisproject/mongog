@@ -1,14 +1,22 @@
 import { EJSON } from 'bson';
 import type { Collection, Document, Filter, MongoClient, Sort } from 'mongodb';
 import type {
+  CollectionBulkDeleteItemResult,
+  CollectionBulkDeleteResult,
+  CollectionBulkUpdateChange,
+  CollectionBulkUpdateItemResult,
+  CollectionBulkUpdateResult,
   CollectionDocumentsPage,
   CollectionMutationResult,
 } from '../../shared/domain/index.js';
 import { serializeToEjson } from '../../shared/ejson/index.js';
-import { appError } from '../../shared/errors/index.js';
+import { appError, serializeError } from '../../shared/errors/index.js';
+import { bulkFieldPathError } from '../../shared/collection-update.js';
 import {
   DocumentExpressionError,
+  parseDocumentArrayExpression,
   parseDocumentExpression,
+  parseValueExpression,
 } from '../../features/script-analysis/index.js';
 import { CursorRegistry, type CursorOwner } from '../registry/cursors.js';
 
@@ -38,6 +46,15 @@ export interface CollectionReplaceOptions extends CollectionNamespace {
 
 export interface CollectionDeleteOptions extends CollectionNamespace {
   originalDocumentEjson: string;
+}
+
+export interface CollectionBulkUpdateOptions extends CollectionNamespace {
+  originalDocumentsEjson: string[];
+  change: CollectionBulkUpdateChange;
+}
+
+export interface CollectionBulkDeleteOptions extends CollectionNamespace {
+  originalDocumentsEjson: string[];
 }
 
 export interface CollectionCountOptions extends CollectionNamespace {
@@ -138,6 +155,90 @@ export async function replaceCollectionDocument(
   };
 }
 
+export async function bulkUpdateCollectionDocuments(
+  client: MongoClient,
+  options: CollectionBulkUpdateOptions,
+): Promise<CollectionBulkUpdateResult> {
+  if (options.originalDocumentsEjson.length < 1 || options.originalDocumentsEjson.length > 500) {
+    throw appError('Validation', 'Bulk update requires between 1 and 500 original documents.');
+  }
+
+  const originals = options.originalDocumentsEjson.map((source, index) => {
+    const document = parseEjsonDocument(source, `Original document ${index + 1}`);
+    assertDocumentHasId(document, `Original document ${index + 1}`);
+    return document;
+  });
+  assertUniqueDocumentIds(originals, 'Original documents');
+
+  let replacements: Document[] | undefined;
+  let fieldValue: unknown;
+  let fieldPath: string | undefined;
+  if (options.change.kind === 'replace') {
+    if (options.change.documentsEjson.length !== originals.length) {
+      throw appError('Validation', 'Bulk replacement must contain exactly one document for every original.');
+    }
+    const parsed = options.change.documentsEjson.map((source, index) => (
+      parseEjsonDocument(source, `Replacement document ${index + 1}`)
+    ));
+    assertUniqueDocumentIds(parsed, 'Replacement documents');
+    const byId = new Map(parsed.map((document) => [canonicalDocumentId(document), document]));
+    replacements = originals.map((original) => {
+      const replacement = byId.get(canonicalDocumentId(original));
+      if (!replacement) {
+        throw appError('Validation', 'Replacement documents must preserve the original _id set.');
+      }
+      assertDocumentIdUnchanged(original, replacement);
+      return replacement;
+    });
+  } else {
+    assertBulkFieldPath(options.change.path);
+    fieldPath = options.change.path.trim();
+    if (options.change.operation === 'set') {
+      fieldValue = parseEjsonValue(options.change.valueEjson, 'Field value');
+    }
+  }
+
+  const collection = client.db(options.database).collection(options.collection);
+  const items = await mapWithConcurrency(originals, 8, async (original, index) => {
+    try {
+      const result = options.change.kind === 'replace'
+        ? await collection.replaceOne(optimisticFilter(original), replacements![index]!)
+        : await collection.updateOne(
+          optimisticFilter(original),
+          options.change.operation === 'set'
+            ? { $set: { [fieldPath!]: fieldValue } }
+            : { $unset: { [fieldPath!]: '' } },
+        );
+      if (!result.acknowledged) {
+        throw appError('MongoDBCommand', 'MongoDB did not acknowledge the bulk update item.');
+      }
+      if (result.matchedCount === 0) await throwMutationConflict(collection, original);
+      return {
+        index,
+        status: 'success',
+        modified: result.modifiedCount > 0,
+      } satisfies CollectionBulkUpdateItemResult;
+    } catch (error) {
+      return {
+        index,
+        status: 'error',
+        error: serializeError(error),
+      } satisfies CollectionBulkUpdateItemResult;
+    }
+  });
+
+  const successful = items.filter((item) => item.status === 'success');
+  const modifiedCount = successful.filter((item) => item.modified).length;
+  return {
+    requestedCount: originals.length,
+    matchedCount: successful.length,
+    modifiedCount,
+    unchangedCount: successful.length - modifiedCount,
+    failedCount: items.length - successful.length,
+    items,
+  };
+}
+
 export async function deleteCollectionDocument(
   client: MongoClient,
   options: CollectionDeleteOptions,
@@ -153,6 +254,50 @@ export async function deleteCollectionDocument(
   return {
     acknowledged: result.acknowledged,
     deletedCount: result.deletedCount,
+  };
+}
+
+export async function bulkDeleteCollectionDocuments(
+  client: MongoClient,
+  options: CollectionBulkDeleteOptions,
+): Promise<CollectionBulkDeleteResult> {
+  if (options.originalDocumentsEjson.length < 1 || options.originalDocumentsEjson.length > 500) {
+    throw appError('Validation', 'Bulk delete requires between 1 and 500 original documents.');
+  }
+
+  // Parse and validate the complete batch before issuing the first delete. This
+  // prevents malformed or duplicate inputs from producing partial writes.
+  const originals = options.originalDocumentsEjson.map((source, index) => {
+    const document = parseEjsonDocument(source, `Original document ${index + 1}`);
+    assertDocumentHasId(document, `Original document ${index + 1}`);
+    return document;
+  });
+  assertUniqueDocumentIds(originals, 'Original documents');
+
+  const collection = client.db(options.database).collection(options.collection);
+  const items = await mapWithConcurrency(originals, 8, async (original, index) => {
+    try {
+      const result = await collection.deleteOne(optimisticFilter(original));
+      if (!result.acknowledged) {
+        throw appError('MongoDBCommand', 'MongoDB did not acknowledge the bulk delete item.');
+      }
+      if (result.deletedCount === 0) await throwMutationConflict(collection, original);
+      return { index, status: 'success' } satisfies CollectionBulkDeleteItemResult;
+    } catch (error) {
+      return {
+        index,
+        status: 'error',
+        error: serializeError(error),
+      } satisfies CollectionBulkDeleteItemResult;
+    }
+  });
+
+  const deletedCount = items.filter((item) => item.status === 'success').length;
+  return {
+    requestedCount: originals.length,
+    deletedCount,
+    failedCount: items.length - deletedCount,
+    items,
   };
 }
 
@@ -206,6 +351,51 @@ export function parseEjsonDocument(ejson: string, label: string): Document {
   }
   assertNoExecutableCriteriaOperators(value, label);
   return assertDocumentValue(value, label, 'JSON object');
+}
+
+export function parseEjsonValue(ejson: string, label: string): unknown {
+  let value: unknown;
+  try {
+    value = EJSON.parse(ejson, { relaxed: false });
+  } catch (ejsonError) {
+    try {
+      const parsed = parseValueExpression(ejson, label);
+      value = EJSON.parse(parsed.json, { relaxed: false });
+    } catch (expressionError) {
+      const message = expressionError instanceof DocumentExpressionError
+        ? expressionError.message
+        : `${label} is not valid Extended JSON or MongoDB Shell literal syntax.`;
+      throw appError('Validation', message, {
+        name: (ejsonError as Error).name,
+        causeMessage: (ejsonError as Error).message,
+      });
+    }
+  }
+  assertNoExecutableCriteriaOperators(value, label);
+  return value;
+}
+
+export function parseEjsonDocumentArray(ejson: string, label: string): Document[] {
+  let value: unknown;
+  try {
+    value = EJSON.parse(ejson, { relaxed: false });
+  } catch (ejsonError) {
+    try {
+      const parsed = parseDocumentArrayExpression(ejson, label);
+      value = EJSON.parse(parsed.json, { relaxed: false });
+    } catch (expressionError) {
+      const message = expressionError instanceof DocumentExpressionError
+        ? expressionError.message
+        : `${label} is not a valid document array.`;
+      throw appError('Validation', message, {
+        name: (ejsonError as Error).name,
+        causeMessage: (ejsonError as Error).message,
+      });
+    }
+  }
+  if (!Array.isArray(value)) throw appError('Validation', `${label} must be an array of document objects.`);
+  assertNoExecutableCriteriaOperators(value, label);
+  return value.map((entry, index) => assertDocumentValue(entry, `${label} entry ${index + 1}`, 'document object'));
 }
 
 /** Administration forms intentionally keep their strict Extended JSON boundary. */
@@ -286,9 +476,28 @@ export function assertDocumentIdUnchanged(original: Document, replacement: Docum
   }
 }
 
+export function assertBulkFieldPath(path: string): void {
+  const message = bulkFieldPathError(path);
+  if (message) throw appError('Validation', message);
+}
+
 function assertDocumentHasId(document: Document, label: string): void {
   if (!Object.hasOwn(document, '_id')) {
     throw appError('Validation', `${label} must include an _id field.`);
+  }
+}
+
+function canonicalDocumentId(document: Document): string {
+  assertDocumentHasId(document, 'Document');
+  return canonicalValue(document._id);
+}
+
+function assertUniqueDocumentIds(documents: Document[], label: string): void {
+  const ids = new Set<string>();
+  for (const document of documents) {
+    const id = canonicalDocumentId(document);
+    if (ids.has(id)) throw appError('Validation', `${label} contain a duplicate _id value.`);
+    ids.add(id);
   }
 }
 
@@ -322,4 +531,21 @@ async function throwMutationConflict(
     );
   }
   throw appError('NotFound', 'The document no longer exists.');
+}
+
+async function mapWithConcurrency<T, R>(
+  values: T[],
+  concurrency: number,
+  operation: (value: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(values.length);
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(concurrency, values.length) }, async () => {
+    while (nextIndex < values.length) {
+      const index = nextIndex++;
+      results[index] = await operation(values[index]!, index);
+    }
+  });
+  await Promise.all(workers);
+  return results;
 }

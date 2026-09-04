@@ -84,12 +84,12 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByTestId('sidebar-mongog-brand').locator('img'))
     .toHaveAttribute('src', /mongog-icon.*\.png/);
   await expect(page.locator('[title^="welcome: Welcome"]')).toHaveCount(1);
-  await page.getByRole('button', { name: 'What’s New in 1.2.13' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.14' }).click();
   const releaseNotesTab = page.locator('[data-tab-kind="release-notes"]');
   await expect(page.getByTestId('release-notes-view')).toBeVisible();
   await expect(page.getByTestId('release-notes-mongog-brand')).toHaveAccessibleName('MongoG');
-  await expect(page.getByText('Installed v1.2.13')).toBeVisible();
-  await expect(page.locator('[data-release-version="1.2.13"]')).toContainText('Latest');
+  await expect(page.getByText('Installed v1.2.14')).toBeVisible();
+  await expect(page.locator('[data-release-version="1.2.14"]')).toContainText('Latest');
   await expect(page.locator('[data-release-version="1.0.0"]')).toBeVisible();
   await expectViewportLocked(page);
   await releaseNotesTab.click({ button: 'right' });
@@ -102,7 +102,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.getByTitle('Close Release Notes').click();
   await expect(releaseNotesTab).toHaveCount(0);
   await page.locator('[title^="welcome: Welcome"]').click();
-  await page.getByRole('button', { name: 'What’s New in 1.2.13' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.14' }).click();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
   await expect(page.getByTitle('New query tab')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open global search' })).toBeVisible();
@@ -160,7 +160,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByRole('switch', { name: 'Run default collection query automatically' }))
     .toBeDisabled();
   await expect(page.getByLabel('Global page size')).toHaveValue('50');
-  await expect(page.getByTestId('about-updates-settings')).toContainText('MongoG 1.2.13');
+  await expect(page.getByTestId('about-updates-settings')).toContainText('MongoG 1.2.14');
   await page.getByRole('button', { name: 'Open Release Notes' }).click();
   await expect(page.getByTestId('release-notes-view')).toBeVisible();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
@@ -888,6 +888,24 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   expect(queryTxt).toContain('sku');
   expect(queryTxt).toContain('beta');
 
+  await setQueryEditorValue(page, [
+    'console.log("copy-value", ObjectId("64b64c000000000000000001"));',
+    'console.warn({ count: Int32(7), nested: { enabled: true } });',
+  ].join('\n'));
+  await page.getByRole('button', { name: /^Run/ }).click();
+  const copyConsoleOutput = page.getByRole('button', { name: 'Copy console output' });
+  await expect(copyConsoleOutput).toBeVisible({ timeout: 30_000 });
+  await copyConsoleOutput.click();
+  await expect.poll(() => application!.evaluate(({ clipboard }) => clipboard.readText()))
+    .toBe([
+      'console.log "copy-value" ObjectId("64b64c000000000000000001")',
+      'console.warn { count: 7, nested: { enabled: true } }',
+    ].join('\n'));
+  const copiedToast = page.getByTestId('toast-notification').filter({ hasText: 'Console output copied.' });
+  await expect(copiedToast).toHaveRole('status');
+  await expect(copiedToast).toBeVisible();
+  await expect(copiedToast).toHaveCount(0, { timeout: 5_000 });
+
   await page.getByRole('button', { name: 'Documents', exact: true }).click();
   await expect(page.getByRole('button', { name: /^Criteria · 3/ })).toBeVisible();
   await expect(page.getByText('"beta"', { exact: true })).toBeVisible();
@@ -944,8 +962,57 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toHaveCount(0);
   await expect(page.locator(`[data-tab-id="${activeBeforeClosingPinnedQuery}"]`)).toHaveAttribute('data-tab-active', 'true');
   await page.getByRole('button', { name: 'Open Welcome' }).click();
-  await page.getByRole('button', { name: 'What’s New in 1.2.13' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.14' }).click();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
+});
+
+test('workspace tabs use a thin independent scrollbar and reveal the active tab', async () => {
+  const isolated = await mkdtemp(join(tmpdir(), 'mongog-tab-scroll-'));
+  try {
+    const page = await launch({ MONGOG_E2E_USER_DATA: isolated });
+    const actions = page.getByTestId('workspace-tab-actions');
+    const tabScroll = page.getByTestId('workspace-tab-scroll');
+    const newQuery = page.getByTitle('New query tab');
+    const initialActions = await actions.boundingBox();
+    if (!initialActions) throw new Error('Expected workspace tab actions bounds');
+
+    for (let index = 0; index < 12; index += 1) await newQuery.click();
+    await expect.poll(() => tabScroll.evaluate((element) => element.scrollWidth - element.clientWidth))
+      .toBeGreaterThan(0);
+    await expect.poll(() => tabScroll.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+    expect(await tabScroll.evaluate((element) => (
+      getComputedStyle(element, '::-webkit-scrollbar').height
+    ))).toBe('4px');
+
+    await tabScroll.evaluate((element) => { element.scrollLeft = element.scrollWidth; });
+    await expect.poll(() => tabScroll.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+    const scrolledActions = await actions.boundingBox();
+    if (!scrolledActions) throw new Error('Expected scrolled workspace tab actions bounds');
+    expect(Math.abs(scrolledActions.x - initialActions.x)).toBeLessThanOrEqual(1);
+    await expect(newQuery).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Open global search' })).toBeVisible();
+    await expect(page.getByTitle('Import files or copy collections')).toBeVisible();
+
+    const tabs = tabScroll.locator('[data-tab-id]');
+    const firstTab = tabs.first();
+    const lastTab = tabs.last();
+    await firstTab.locator('[data-tab-select]').evaluate((element: HTMLElement) => element.click());
+    await expect(firstTab).toHaveAttribute('data-tab-active', 'true');
+    await expect.poll(() => tabScroll.evaluate((element) => element.scrollLeft)).toBe(0);
+
+    await lastTab.locator('[data-tab-select]').evaluate((element: HTMLElement) => element.click());
+    await expect(lastTab).toHaveAttribute('data-tab-active', 'true');
+    await expect.poll(async () => {
+      const viewport = await tabScroll.boundingBox();
+      const active = await lastTab.boundingBox();
+      if (!viewport || !active) return false;
+      return active.x >= viewport.x - 1 &&
+        active.x + active.width <= viewport.x + viewport.width + 1;
+    }).toBe(true);
+    await expectViewportLocked(page);
+  } finally {
+    try { await closeApplication(); } finally { await removeElectronUserData(isolated); }
+  }
 });
 
 test('global collection defaults persist and auto-run a new Query collection once', async () => {
@@ -956,7 +1023,7 @@ test('global collection defaults persist and auto-run a new Query collection onc
   // if that test is interrupted before its final save, establish the same
   // starting workspace explicitly instead of reporting a cascading failure.
   if (await releaseNotesTab.count() === 0) {
-    await page.getByRole('button', { name: 'What’s New in 1.2.13' }).click();
+    await page.getByRole('button', { name: 'What’s New in 1.2.14' }).click();
     await expect(releaseNotesTab).toHaveCount(1);
     await page.getByRole('button', { name: 'Open Welcome' }).click();
   }
@@ -1349,7 +1416,7 @@ test('update available is surfaced in the sidebar after consent is declined', as
     name: automaticDownload ? 'Update 9.9.9 ready to install' : 'Update 9.9.9 available',
   });
   await expect(updateButton).toBeVisible();
-  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.13');
+  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.14');
 
   await updateButton.click();
   await expect(page.getByTestId('updates-view')).toBeVisible();
@@ -1474,7 +1541,7 @@ for (const failure of ['checksum', 'http'] as const) {
 
 test('Updates tab is reachable from Settings and shows the neutral state without a badge', async () => {
   let page = await launch();
-  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.13');
+  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.14');
   await expect(page.getByRole('button', { name: /^Update .* available$/ })).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Open application settings' }).click();
@@ -1870,6 +1937,126 @@ test('Documents column filters complete syntax and nested fields with native edi
   }
 });
 
+test('selected document rows support bulk updates and deletes', async () => {
+  test.setTimeout(120_000);
+  const isolated = await mkdtemp(join(tmpdir(), 'mongog-bulk-update-'));
+  const client = new MongoClient(mongoUri);
+  await client.connect();
+  const collection = client.db('mongog_e2e').collection('bulk_update_e2e');
+  await collection.deleteMany({});
+  const inserted = await collection.insertMany([
+    { sku: 'bulk-a', quantity: 1 },
+    { sku: 'bulk-b', quantity: 2 },
+  ]);
+  try {
+    const page = await launch({ MONGOG_E2E_USER_DATA: isolated });
+    await page.getByRole('button', { name: 'New Connection', exact: true }).click();
+    await page.getByLabel('Connection name').fill('Bulk Update E2E');
+    await page.getByLabel('Connection URI').fill(mongoUri);
+    await page.getByLabel('Default database').fill('mongog_e2e');
+    await page.getByRole('button', { name: 'Test, Save & Connect' }).click();
+    await expect(page.getByText('Connection tested, saved, and connected.')).toBeVisible({ timeout: 30_000 });
+    const explorer = page.getByRole('navigation', { name: 'Connection explorer' });
+    await explorer.getByRole('treeitem', { name: 'Connection Bulk Update E2E' }).press('ArrowRight');
+    await explorer.getByRole('treeitem', { name: 'Database mongog_e2e' }).press('ArrowRight');
+    await page.getByTitle('Open mongog_e2e.bulk_update_e2e').click();
+
+    const table = page.getByTestId('collection-documents-table');
+    const rows = table.locator('tbody tr');
+    await expect(rows).toHaveCount(2);
+    const selectAll = page.getByLabel('Select all documents on this page');
+    const firstSelection = page.getByLabel('Select document row 1');
+    await firstSelection.check();
+    await expect(selectAll).toHaveJSProperty('indeterminate', true);
+    await expect(page.getByTestId('document-panel')).toHaveCount(0);
+    await selectAll.check();
+    await expect(page.getByRole('button', { name: 'Edit selected (2)' })).toBeEnabled();
+
+    await page.getByRole('button', { name: 'Edit selected (2)' }).click();
+    const panel = page.getByTestId('document-panel');
+    await expect(panel.getByText('Edit 2 selected document(s)')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Delete selected (2)' })).toBeDisabled();
+    await panel.getByLabel('Bulk update field path').fill('metadata.status');
+    await setEditorValueByLabel(page, 'Bulk field BSON value', '"ready"');
+    page.once('dialog', async (dialog) => {
+      expect(dialog.message()).toContain('2 selected document(s)');
+      await dialog.accept();
+    });
+    await panel.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByText(/Bulk update complete: 2 matched, 2 modified/)).toBeVisible();
+    await expect.poll(async () => collection.countDocuments({ 'metadata.status': 'ready' })).toBe(2);
+
+    await selectAll.check();
+    await page.getByRole('button', { name: 'Edit selected (2)' }).click();
+    await panel.getByRole('button', { name: 'Full documents' }).click();
+    const firstId = inserted.insertedIds[0]!.toHexString();
+    const secondId = inserted.insertedIds[1]!.toHexString();
+    await setEditorValueByLabel(page, 'Bulk documents BSON editor', `[
+      { _id: ObjectId("${secondId}"), sku: "bulk-b", quantity: Int32(20), rewritten: true },
+      { _id: ObjectId("${firstId}"), sku: "bulk-a", quantity: Int32(10), rewritten: true },
+    ]`);
+    page.once('dialog', (dialog) => dialog.accept());
+    await panel.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByText(/Bulk update complete: 2 matched, 2 modified/)).toBeVisible();
+    await expect.poll(async () => collection.countDocuments({ rewritten: true })).toBe(2);
+
+    await selectAll.check();
+    await page.getByRole('button', { name: 'Edit selected (2)' }).click();
+    await panel.getByLabel('Bulk update field path').fill('partialFlag');
+    await setEditorValueByLabel(page, 'Bulk field BSON value', 'true');
+    await collection.updateOne({ sku: 'bulk-a' }, { $set: { concurrent: true } });
+    page.once('dialog', (dialog) => dialog.accept());
+    await panel.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByTestId('bulk-update-failures')).toContainText('1 failed');
+    const staleRow = rows.filter({ hasText: 'bulk-a' });
+    await expect(staleRow.getByRole('checkbox')).toBeChecked();
+    await expect.poll(async () => collection.countDocuments({ partialFlag: true })).toBe(1);
+
+    await setMonacoValue(page, 'Collection projection', '{ sku: 1 }');
+    await page.getByRole('button', { name: 'Apply', exact: true }).click();
+    await expect(rows).toHaveCount(2);
+    await page.getByLabel('Select all documents on this page').check();
+    await expect(page.getByRole('button', { name: 'Edit selected (2)' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Delete selected (2)' })).toBeDisabled();
+
+    await page.getByRole('button', { name: 'Clear', exact: true }).click();
+    await expect(rows).toHaveCount(2);
+    await expect(page.getByRole('button', { name: 'Delete selected (0)' })).toBeDisabled();
+    await selectAll.check();
+    await expect(page.getByRole('button', { name: 'Delete selected (2)' })).toBeEnabled();
+
+    page.once('dialog', async (dialog) => {
+      expect(dialog.message()).toBe(
+        'Delete 2 selected documents from mongog_e2e.bulk_update_e2e? This operation cannot be undone.',
+      );
+      await dialog.dismiss();
+    });
+    await page.getByRole('button', { name: 'Delete selected (2)' }).click();
+    await expect.poll(async () => collection.countDocuments({})).toBe(2);
+
+    page.once('dialog', async (dialog) => {
+      await collection.updateOne({ sku: 'bulk-a' }, { $set: { deleteConcurrent: true } });
+      await dialog.accept();
+    });
+    await page.getByRole('button', { name: 'Delete selected (2)' }).click();
+    await expect(page.getByTestId('bulk-delete-failures')).toContainText('1 failed');
+    await expect.poll(async () => collection.countDocuments({})).toBe(1);
+    const deleteStaleRow = rows.filter({ hasText: 'bulk-a' });
+    await expect(deleteStaleRow.getByRole('checkbox')).toBeChecked();
+
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: 'Delete selected (1)' }).click();
+    await expect(page.getByText('Bulk delete complete: 1 deleted, 0 failed.')).toBeVisible();
+    await expect(table.getByText('No documents found')).toBeVisible();
+    await expect(table.locator('tbody input[type="checkbox"]')).toHaveCount(0);
+    await expect.poll(async () => collection.countDocuments({})).toBe(0);
+  } finally {
+    await collection.drop().catch(() => undefined);
+    await client.close();
+    try { await closeApplication(); } finally { await removeElectronUserData(isolated); }
+  }
+});
+
 async function expectColumnFilterAlignment(shell: Locator, description: string): Promise<void> {
   await test.step(`Column filter alignment: ${description}`, async () => {
     const measure = () => shell.evaluate((element) => {
@@ -1950,6 +2137,14 @@ async function setQueryEditorValue(page: Page, value: string): Promise<void> {
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
   await page.keyboard.press('Backspace');
   await page.keyboard.insertText(value);
+}
+
+async function setEditorValueByLabel(page: Page, label: string, value: string): Promise<void> {
+  await page.getByLabel(label).focus();
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+  await page.keyboard.press('Backspace');
+  await application!.evaluate(({ clipboard }, text) => clipboard.writeText(text), value);
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+V' : 'Control+V');
 }
 
 async function expectCancelBelowSpinner(overlay: Locator): Promise<void> {

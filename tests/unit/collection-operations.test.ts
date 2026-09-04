@@ -1,11 +1,25 @@
 import { Decimal128, Int32, Long, ObjectId } from 'bson';
-import { describe, expect, it } from 'vitest';
+import type { MongoClient } from 'mongodb';
+import { describe, expect, it, vi } from 'vitest';
 import {
+  assertBulkFieldPath,
   assertDocumentIdUnchanged,
+  bulkDeleteCollectionDocuments,
+  parseEjsonDocumentArray,
   parseEjsonDocument,
+  parseEjsonValue,
   parseQueryDocumentExpression,
   parseStrictEjsonDocument,
 } from '../../src/query-runtime/collection/operations.js';
+import {
+  bulkDeletePayloadExceedsLimit,
+  bulkFieldPathError,
+  bulkUpdatePayloadExceedsLimit,
+} from '../../src/shared/collection-update.js';
+import {
+  connCollectionBulkDeleteSchema,
+  connCollectionBulkUpdateSchema,
+} from '../../src/shared/ipc/index.js';
 
 describe('collection operation validation', () => {
   it('parses canonical Extended JSON into BSON values', () => {
@@ -101,5 +115,89 @@ describe('collection operation validation', () => {
       { _id: id, value: 1 },
       { value: 2 },
     )).toThrow(expect.objectContaining({ category: 'Validation' }));
+  });
+
+  it('validates bulk field paths and standalone BSON values', () => {
+    expect(() => assertBulkFieldPath('address.city')).not.toThrow();
+    expect(() => assertBulkFieldPath('items.0.price')).not.toThrow();
+    expect(() => assertBulkFieldPath('_id')).toThrow(expect.objectContaining({ category: 'Validation' }));
+    expect(() => assertBulkFieldPath('_id.value')).toThrow(expect.objectContaining({ category: 'Validation' }));
+    expect(() => assertBulkFieldPath('items.$[].price')).toThrow(expect.objectContaining({ category: 'Validation' }));
+    expect(() => assertBulkFieldPath('address..city')).toThrow(expect.objectContaining({ category: 'Validation' }));
+    expect(parseEjsonValue('Long("42")', 'Field value')).toBeInstanceOf(Long);
+    expect(() => parseEjsonValue('{ $where: "unsafe" }', 'Field value'))
+      .toThrow(expect.objectContaining({ category: 'Validation' }));
+    expect(bulkFieldPathError('valid.path')).toBeNull();
+    expect(bulkUpdatePayloadExceedsLimit(['€'], 6)).toBe(true);
+    expect(bulkUpdatePayloadExceedsLimit(['€'], 7)).toBe(false);
+    expect(bulkDeletePayloadExceedsLimit(['€'], 6)).toBe(true);
+    expect(bulkDeletePayloadExceedsLimit(['€'], 7)).toBe(false);
+  });
+
+  it('parses safe full-document arrays with BSON types', () => {
+    const documents = parseEjsonDocumentArray(`[
+      { _id: ObjectId("507f1f77bcf86cd799439011"), value: Int32(1) },
+      { _id: ObjectId("507f1f77bcf86cd799439012"), value: Decimal128("2.5") },
+    ]`, 'Documents');
+    expect(documents).toHaveLength(2);
+    expect(documents[0]?._id).toBeInstanceOf(ObjectId);
+    expect(documents[1]?.value).toBeInstanceOf(Decimal128);
+    expect(() => parseEjsonDocumentArray('[{ _id: 1 }, 2]', 'Documents'))
+      .toThrow(expect.objectContaining({ category: 'Validation' }));
+  });
+
+  it('bounds and validates the collection bulk update IPC request', () => {
+    expect(connCollectionBulkUpdateSchema.safeParse({
+      connectionId: 'connection',
+      database: 'database',
+      collection: 'collection',
+      originalDocumentsEjson: ['{"_id":1}'],
+      change: { kind: 'field', path: 'status', operation: 'set', valueEjson: '"ready"' },
+    }).success).toBe(true);
+    expect(connCollectionBulkUpdateSchema.safeParse({
+      connectionId: 'connection',
+      database: 'database',
+      collection: 'collection',
+      originalDocumentsEjson: Array.from({ length: 501 }, () => '{"_id":1}'),
+      change: { kind: 'field', path: 'status', operation: 'unset' },
+    }).success).toBe(false);
+  });
+
+  it('bounds and validates the collection bulk delete IPC request', () => {
+    expect(connCollectionBulkDeleteSchema.safeParse({
+      connectionId: 'connection',
+      database: 'database',
+      collection: 'collection',
+      originalDocumentsEjson: ['{"_id":1}'],
+    }).success).toBe(true);
+    expect(connCollectionBulkDeleteSchema.safeParse({
+      connectionId: 'connection',
+      database: 'database',
+      collection: 'collection',
+      originalDocumentsEjson: [],
+    }).success).toBe(false);
+    expect(connCollectionBulkDeleteSchema.safeParse({
+      connectionId: 'connection',
+      database: 'database',
+      collection: 'collection',
+      originalDocumentsEjson: Array.from({ length: 501 }, () => '{"_id":1}'),
+    }).success).toBe(false);
+  });
+
+  it('validates every bulk delete original before accessing MongoDB', async () => {
+    const db = vi.fn();
+    const client = { db } as unknown as MongoClient;
+
+    await expect(bulkDeleteCollectionDocuments(client, {
+      database: 'database',
+      collection: 'collection',
+      originalDocumentsEjson: ['{"_id":1}', '{"value":2}'],
+    })).rejects.toMatchObject({ category: 'Validation' });
+    await expect(bulkDeleteCollectionDocuments(client, {
+      database: 'database',
+      collection: 'collection',
+      originalDocumentsEjson: ['{"_id":1}', '{"_id":1}'],
+    })).rejects.toMatchObject({ category: 'Validation' });
+    expect(db).not.toHaveBeenCalled();
   });
 });

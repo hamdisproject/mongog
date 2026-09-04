@@ -34,6 +34,8 @@ import {
   connCollectionCountSchema,
   connCollectionInsertSchema,
   connCollectionReplaceSchema,
+  connCollectionBulkUpdateSchema,
+  connCollectionBulkDeleteSchema,
   connCollectionDeleteSchema,
   connCollectionRenameSchema,
   connCollectionDropSchema,
@@ -89,6 +91,8 @@ import {
   normalizeSidebarWidth,
 } from '../../shared/domain/workspace.js';
 import type {
+  CollectionBulkDeleteResult,
+  CollectionBulkUpdateResult,
   CollectionDocumentsPage,
   CollectionMutationResult,
   DocumentsPage,
@@ -565,6 +569,60 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
       if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
       return client.request<CollectionMutationResult>('collection-replace', payload);
     }, (result) => ({ affectedCount: result.modifiedCount ?? result.matchedCount ?? 0 }));
+  }, validateSender);
+
+  registerChannel(IpcChannels.connCollectionBulkUpdate, connCollectionBulkUpdateSchema, async (payload) => {
+    return ctx.audit.run(auditContext(payload.connectionId, {
+      database: payload.database, collection: payload.collection,
+      category: 'documents', action: 'documents.bulk-update', origin: 'user', operationClass: 'write',
+      summary: 'Bulk update selected documents',
+      detail: {
+        mode: payload.change.kind,
+        requestedCount: payload.originalDocumentsEjson.length,
+        ...(payload.change.kind === 'field'
+          ? { fieldPath: payload.change.path, fieldOperation: payload.change.operation }
+          : {}),
+      },
+    }), async () => {
+      requireWritableConnection(payload.connectionId);
+      const client = supervisor.get(payload.connectionId);
+      if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+      return client.request<CollectionBulkUpdateResult>('collection-bulk-update', payload);
+    }, (result) => ({
+      affectedCount: result.modifiedCount,
+      resultCount: result.matchedCount,
+      ...(result.failedCount > 0
+        ? {
+          status: 'error' as const,
+          errorCategory: 'BulkPartialFailure',
+          errorMessage: `${result.failedCount} of ${result.requestedCount} bulk update items failed.`,
+        }
+        : {}),
+    }));
+  }, validateSender);
+
+  registerChannel(IpcChannels.connCollectionBulkDelete, connCollectionBulkDeleteSchema, async (payload) => {
+    return ctx.audit.run(auditContext(payload.connectionId, {
+      database: payload.database, collection: payload.collection,
+      category: 'documents', action: 'documents.bulk-delete', origin: 'user', operationClass: 'write',
+      summary: 'Bulk delete selected documents',
+      detail: { requestedCount: payload.originalDocumentsEjson.length },
+    }), async () => {
+      requireWritableConnection(payload.connectionId);
+      const client = supervisor.get(payload.connectionId);
+      if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+      return client.request<CollectionBulkDeleteResult>('collection-bulk-delete', payload);
+    }, (result) => ({
+      affectedCount: result.deletedCount,
+      resultCount: result.deletedCount,
+      ...(result.failedCount > 0
+        ? {
+          status: 'error' as const,
+          errorCategory: 'BulkPartialFailure',
+          errorMessage: `${result.failedCount} of ${result.requestedCount} bulk delete items failed.`,
+        }
+        : {}),
+    }));
   }, validateSender);
 
   registerChannel(IpcChannels.connCollectionDelete, connCollectionDeleteSchema, async (payload) => {

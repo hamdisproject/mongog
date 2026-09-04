@@ -1,12 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { parseDocumentExpression } from '../../../features/script-analysis/index.js';
+import {
+  parseDocumentArrayExpression,
+  parseDocumentExpression,
+  parseValueExpression,
+} from '../../../features/script-analysis/index.js';
 import type {
+  CollectionBulkDeleteResult,
+  CollectionBulkUpdateInput,
+  CollectionBulkUpdateResult,
   DocumentCriteriaText,
   DocumentsPage,
   ExportFormat,
   ExportScope,
   WorkspaceTab,
 } from '../../../shared/domain/index.js';
+import { bulkFieldPathError } from '../../../shared/collection-update.js';
 import {
   parseEjson,
   renderBson,
@@ -152,7 +160,9 @@ const s: Record<string, React.CSSProperties> = {
   },
   row: { cursor: 'pointer' },
   selectedRow: { background: 'var(--color-selected)' },
-  rowNumber: { color: 'var(--color-text-faint)', fontSize: 10, width: 45 },
+  bulkSelectedRow: { boxShadow: 'inset 3px 0 var(--color-accent)' },
+  rowNumber: { color: 'var(--color-text-faint)', fontSize: 10, width: 68 },
+  selectionCell: { display: 'flex', alignItems: 'center', gap: 7 },
   empty: { flex: 1, padding: 28, color: 'var(--color-text-faint)', fontSize: 12, textAlign: 'center' },
   emptyTableCell: {
     height: 86, padding: 20, color: 'var(--color-text-faint)', fontSize: 12,
@@ -169,6 +179,24 @@ const s: Record<string, React.CSSProperties> = {
   editorHeader: {
     display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', background: 'var(--color-panel)',
     borderBottom: '1px solid var(--color-border)', fontSize: 11,
+  },
+  bulkControls: {
+    display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px',
+    background: 'var(--color-panel-raised)', borderBottom: '1px solid var(--color-border)',
+    fontSize: 11, flexWrap: 'wrap',
+  },
+  bulkInput: {
+    minWidth: 190, flex: '0 1 360px', border: '1px solid var(--color-border-strong)',
+    borderRadius: 3, background: 'var(--color-input)', color: 'var(--color-text)',
+    padding: '4px 7px', fontSize: 11, outline: 0,
+  },
+  bulkSelect: {
+    border: '1px solid var(--color-border-strong)', borderRadius: 3,
+    background: 'var(--color-input-soft)', color: 'var(--color-text)', padding: '4px 7px', fontSize: 11,
+  },
+  bulkFailures: {
+    padding: '6px 10px', color: '#f7b3b3', background: 'var(--color-danger-surface)',
+    borderBottom: '1px solid #6f2929', fontSize: 11, maxHeight: 150, overflow: 'auto',
   },
   editor: {
     flex: 1, resize: 'none', border: 0, outline: 0, padding: 10, background: 'var(--color-input)',
@@ -200,6 +228,28 @@ interface DocumentRow {
 }
 
 type EditorMode = 'view' | 'edit' | 'new';
+
+interface BulkEditorState {
+  originals: DocumentRow[];
+  mode: 'field' | 'replace';
+  fieldPath: string;
+  fieldOperation: 'set' | 'unset';
+  fieldValueText: string;
+  fullDocumentsText: string;
+  validationError: string | null;
+}
+
+interface BulkFailureState {
+  operation: 'update' | 'delete';
+  summary: string;
+  errors: Array<{ rowNumber: number; message: string }>;
+}
+
+interface LoadDocumentsOptions {
+  pageSize?: number;
+  targetPageIndex?: number;
+  preserveDocumentIds?: Set<string>;
+}
 
 interface ActiveDocumentFetch {
   operationId: string;
@@ -298,6 +348,9 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const [hasMore, setHasMore] = useState(false);
   const [rows, setRows] = useState<DocumentRow[]>([]);
   const [selected, setSelected] = useState<DocumentRow | null>(null);
+  const [selectedRowKeys, setSelectedRowKeys] = useState<Set<string>>(() => new Set());
+  const [bulkEditor, setBulkEditor] = useState<BulkEditorState | null>(null);
+  const [bulkFailure, setBulkFailure] = useState<BulkFailureState | null>(null);
   const [editorMode, setEditorMode] = useState<EditorMode>('view');
   const [editorText, setEditorText] = useState('');
   const [editorValidationError, setEditorValidationError] = useState<string | null>(null);
@@ -323,6 +376,9 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     setFetchState(null);
     setCursorId(null);
     setHasMore(false);
+    setSelectedRowKeys(new Set());
+    setBulkEditor(null);
+    setBulkFailure(null);
     setError(null);
     setNotice('Connection restarted after query cancellation. Refresh to open a new cursor.');
   }, [runtimeEpoch]);
@@ -370,6 +426,11 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const [countError, setCountError] = useState<string | null>(null);
   const countRequestGeneration = useRef(0);
   const loading = fetchState !== null;
+  const selectedRows = useMemo(
+    () => rows.filter((row) => selectedRowKeys.has(row.key)),
+    [rows, selectedRowKeys],
+  );
+  const allRowsSelected = rows.length > 0 && selectedRows.length === rows.length;
   const sortIndicatorByColumn = useMemo(() => new Map(
     sortIndicators.map((indicator) => [indicator.column, indicator] as const),
   ), [sortIndicators]);
@@ -424,6 +485,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     documentPanelHeight,
     selected,
     editorMode,
+    bulkEditor,
     criteriaOpen,
     columnFilterHelpOpen,
     columnFilterExamplesOpen,
@@ -451,7 +513,11 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     }
   }, [displayMode, editorMode, selected]);
 
-  const applyPage = useCallback((page: DocumentsPage, pageSize: number) => {
+  const applyPage = useCallback((
+    page: DocumentsPage,
+    pageSize: number,
+    preserveDocumentIds?: Set<string>,
+  ) => {
     const nextRows = page.documents.map((envelope, index) =>
       createDocumentRow(envelope, page.pageIndex * pageSize + index),
     );
@@ -459,11 +525,20 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     setPageIndex(page.pageIndex);
     setHasMore(page.hasMore);
     setSelected(null);
+    setSelectedRowKeys(preserveDocumentIds
+      ? new Set(nextRows
+        .filter((row) => {
+          const id = documentRowId(row);
+          return id !== null && preserveDocumentIds.has(id);
+        })
+        .map((row) => row.key))
+      : new Set());
     setEditorText('');
     setEditorMode('view');
+    setBulkEditor(null);
   }, []);
 
-  const loadInitial = useCallback(async (requestedPageSize?: number) => {
+  const loadInitial = useCallback(async (options: LoadDocumentsOptions = {}) => {
     if (!connectionId || !collection || !isConnected) {
       setCursorId(null);
       setHasMore(false);
@@ -484,8 +559,8 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     setError(null);
     setNotice(null);
     try {
-      const pageSize = requestedPageSize ?? latestPageSize.current;
-      const page = await window.mongog.query.collectionFind({
+      const pageSize = options.pageSize ?? latestPageSize.current;
+      let page = await window.mongog.query.collectionFind({
         connectionId,
         database,
         collection,
@@ -500,9 +575,30 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
         await window.mongog.query.cursorClose(connectionId, page.cursorId).catch(() => undefined);
         return;
       }
+      operation.cursorId = page.cursorId;
+      const targetPageIndex = Math.max(0, Math.trunc(options.targetPageIndex ?? 0));
+      while (page.pageIndex < targetPageIndex && page.hasMore) {
+        operation.operationId = crypto.randomUUID();
+        setFetchState({
+          operationId: operation.operationId,
+          label: `Reloading page ${Math.min(targetPageIndex + 1, page.pageIndex + 2)}…`,
+          cancelling: false,
+        });
+        page = {
+          ...(await window.mongog.query.cursorFetchNext(
+            connectionId,
+            page.cursorId,
+            page.pageSize,
+            operation.operationId,
+          )),
+          cursorId: page.cursorId,
+          pageSize: page.pageSize,
+        };
+        if (operation.cancelled || activeFetchRef.current !== operation) return;
+      }
       setCursorId(page.cursorId);
       setCursorPageSize(page.pageSize);
-      applyPage(page, page.pageSize);
+      applyPage(page, page.pageSize, options.preserveDocumentIds);
     } catch (caught) {
       if (!operation.cancelled && !isCancellationError(caught)) {
         setRows([]);
@@ -532,7 +628,8 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     setSelected(null);
     setEditorText('');
     setEditorMode('view');
-    await loadInitial(nextPageSize);
+    setBulkFailure(null);
+    await loadInitial({ pageSize: nextPageSize });
   };
 
   useEffect(() => {
@@ -556,6 +653,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   ]);
 
   const applyCriteria = () => {
+    if (bulkEditor) return;
     const compiledColumns = compileColumnFilters(columnFilters);
     setColumnFilterErrors(compiledColumns.errors);
     if (Object.keys(compiledColumns.errors).length > 0) return;
@@ -574,6 +672,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   };
 
   const clearCriteria = () => {
+    if (bulkEditor) return;
     setColumnFilters({});
     setColumnFilterErrors({});
     setCriteriaErrors({ filter: null, sort: null, projection: null });
@@ -636,6 +735,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   };
 
   const applyColumnSort = (column: string) => {
+    if (bulkEditor) return;
     try {
       const next = cycleColumnSort(draftSort, column);
       setCriteriaErrors((current) => ({ ...current, sort: null }));
@@ -701,7 +801,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   };
 
   const fetchPage = async (direction: 'next' | 'previous') => {
-    if (!cursorId) return;
+    if (!cursorId || bulkEditor) return;
     const operation: ActiveDocumentFetch = {
       operationId: crypto.randomUUID(),
       cursorId,
@@ -753,6 +853,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   };
 
   const selectRow = async (row: DocumentRow) => {
+    if (bulkEditor) return;
     if (selected?.key === row.key) {
       setSelected(null);
       setEditorText('');
@@ -785,8 +886,210 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     }
   };
 
+  const toggleRowSelection = (row: DocumentRow) => {
+    if (bulkEditor || busy) return;
+    setBulkFailure(null);
+    setSelectedRowKeys((current) => {
+      const next = new Set(current);
+      if (next.has(row.key)) next.delete(row.key);
+      else next.add(row.key);
+      return next;
+    });
+  };
+
+  const toggleAllRows = () => {
+    if (bulkEditor || busy) return;
+    setBulkFailure(null);
+    setSelectedRowKeys(allRowsSelected ? new Set() : new Set(rows.map((row) => row.key)));
+  };
+
+  const loadCompleteSelectedRows = async (): Promise<DocumentRow[]> => {
+    const completeRows: DocumentRow[] = [];
+    for (const row of selectedRows) {
+      let envelope = row.envelope;
+      if (envelope.truncated) {
+        if (!cursorId || !envelope.fullValueId) {
+          throw new Error('A selected document is too large and its full value is unavailable. Refresh or select fewer documents.');
+        }
+        envelope = await window.mongog.query.cursorFetchFull(
+          connectionId,
+          cursorId,
+          envelope.fullValueId,
+        );
+      }
+      const complete = createDocumentRow(envelope, row.absoluteIndex);
+      if (!complete.value) throw new Error(`Document ${row.absoluteIndex + 1} could not be decoded.`);
+      completeRows.push({ ...complete, key: row.key });
+    }
+    return completeRows;
+  };
+
+  const openBulkEditor = async () => {
+    if (selectedRows.length === 0 || readOnly || projectionActive || !isConnected || busy) return;
+    setEditorBusy(true);
+    setError(null);
+    setNotice(null);
+    setBulkFailure(null);
+    try {
+      const completeRows = await loadCompleteSelectedRows();
+      const editableDocuments = completeRows.map((row) => row.value!);
+      setSelected(null);
+      setEditorText('');
+      setEditorMode('view');
+      setBulkEditor({
+        originals: completeRows,
+        mode: 'field',
+        fieldPath: columns.find((column) => column !== '_id') ?? '',
+        fieldOperation: 'set',
+        fieldValueText: 'null',
+        fullDocumentsText: renderBson(editableDocuments, displayMode, true, 'editable'),
+        validationError: null,
+      });
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setEditorBusy(false);
+    }
+  };
+
+  const saveBulkUpdate = async () => {
+    if (!bulkEditor || readOnly || projectionActive || !isConnected || editorBusy) return;
+    let change: CollectionBulkUpdateInput['change'];
+    try {
+      if (bulkEditor.mode === 'field') {
+        const path = bulkEditor.fieldPath.trim();
+        const pathError = bulkFieldPathError(path);
+        if (pathError) throw new Error(pathError);
+        change = bulkEditor.fieldOperation === 'set'
+          ? {
+            kind: 'field',
+            path,
+            operation: 'set',
+            valueEjson: parseValueExpression(bulkEditor.fieldValueText, 'Field value').json,
+          }
+          : { kind: 'field', path, operation: 'unset' };
+      } else {
+        const parsed = parseDocumentArrayExpression(bulkEditor.fullDocumentsText, 'Documents');
+        const edited = parseDocumentArrayJson(parsed.json);
+        const ordered = alignBulkReplacementDocuments(bulkEditor.originals, edited);
+        change = {
+          kind: 'replace',
+          documentsEjson: ordered.map((document) => renderBson(document, 'canonical', true)),
+        };
+      }
+    } catch (caught) {
+      const message = errorMessage(caught);
+      setBulkEditor((current) => current ? { ...current, validationError: message } : current);
+      setError(message);
+      return;
+    }
+
+    const operationSummary = change.kind === 'field'
+      ? `${change.operation === 'set' ? 'Set' : 'Remove'} field "${change.path}"`
+      : 'Replace full documents';
+    if (!window.confirm(`${operationSummary} for ${bulkEditor.originals.length} selected document(s)?`)) return;
+
+    const targetPageIndex = pageIndex;
+    setEditorBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const result = await window.mongog.query.collectionBulkUpdate({
+        connectionId,
+        database,
+        collection,
+        originalDocumentsEjson: bulkEditor.originals.map((row) => row.envelope.ejson),
+        change,
+      });
+      const failedItems = result.items.filter(
+        (item): item is Extract<CollectionBulkUpdateResult['items'][number], { status: 'error' }> => (
+          item.status === 'error'
+        ),
+      );
+      const failedIds = new Set(failedItems.flatMap((item) => {
+        const row = bulkEditor.originals[item.index];
+        const id = row ? documentRowId(row) : null;
+        return id ? [id] : [];
+      }));
+      if (result.matchedCount > 0) {
+        useSchemaCache.getState().invalidate(connectionId, database, collection);
+      }
+      setBulkEditor(null);
+      await loadInitial({ targetPageIndex, preserveDocumentIds: failedIds });
+      const summary = bulkUpdateSummary(result);
+      setNotice(failedItems.length === 0 ? summary : null);
+      setBulkFailure(failedItems.length > 0 ? {
+        operation: 'update',
+        summary,
+        errors: failedItems.map((item) => ({
+          rowNumber: (bulkEditor.originals[item.index]?.absoluteIndex ?? item.index) + 1,
+          message: item.error.message,
+        })),
+      } : null);
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setEditorBusy(false);
+    }
+  };
+
+  const deleteSelectedDocuments = async () => {
+    if (selectedRows.length === 0 || readOnly || projectionActive || !isConnected || busy || bulkEditor) return;
+    const targetPageIndex = pageIndex;
+    setEditorBusy(true);
+    setError(null);
+    setNotice(null);
+    setBulkFailure(null);
+    try {
+      const completeRows = await loadCompleteSelectedRows();
+      const noun = completeRows.length === 1 ? 'document' : 'documents';
+      const confirmed = window.confirm(
+        `Delete ${completeRows.length} selected ${noun} from ${database}.${collection}? This operation cannot be undone.`,
+      );
+      if (!confirmed) return;
+
+      const result = await window.mongog.query.collectionBulkDelete({
+        connectionId,
+        database,
+        collection,
+        originalDocumentsEjson: completeRows.map((row) => row.envelope.ejson),
+      });
+      const failedItems = result.items.filter(
+        (item): item is Extract<CollectionBulkDeleteResult['items'][number], { status: 'error' }> => (
+          item.status === 'error'
+        ),
+      );
+      const failedIds = new Set(failedItems.flatMap((item) => {
+        const row = completeRows[item.index];
+        const id = row ? documentRowId(row) : null;
+        return id ? [id] : [];
+      }));
+      if (result.deletedCount > 0) {
+        useSchemaCache.getState().invalidate(connectionId, database, collection);
+      }
+      await loadInitial({ targetPageIndex, preserveDocumentIds: failedIds });
+      const summary = bulkDeleteSummary(result);
+      setNotice(failedItems.length === 0 ? summary : null);
+      setBulkFailure(failedItems.length > 0 ? {
+        operation: 'delete',
+        summary,
+        errors: failedItems.map((item) => ({
+          rowNumber: (completeRows[item.index]?.absoluteIndex ?? item.index) + 1,
+          message: item.error.message,
+        })),
+      } : null);
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setEditorBusy(false);
+    }
+  };
+
   const openNewDocument = () => {
     setSelected(null);
+    setSelectedRowKeys(new Set());
+    setBulkEditor(null);
+    setBulkFailure(null);
     setEditorMode('new');
     setEditorText('{\n  \n}');
     setEditorValidationError(null);
@@ -864,7 +1167,9 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const projectionActive = criteria.projection.length > 0;
   const canEditSelection = !readOnly && !!selected && !projectionActive;
   const busy = loading || editorBusy;
-  const documentPanelOpen = !!selected || editorMode === 'new';
+  const canBulkEdit = !readOnly && isConnected && !projectionActive && selectedRows.length > 0;
+  const canBulkDelete = !readOnly && isConnected && !projectionActive && selectedRows.length > 0;
+  const documentPanelOpen = !!bulkEditor || !!selected || editorMode === 'new';
   const normalizedDraft = {
     filter: draftFilter.trim() || EMPTY_FILTER,
     sort: draftSort.trim(),
@@ -962,7 +1267,21 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
         {!isConnected && connectionId && (
           <ToolbarButton onClick={() => void connect(connectionId)} disabled={busy}>Connect</ToolbarButton>
         )}
-        <ToolbarButton onClick={openNewDocument} disabled={readOnly || busy}>New</ToolbarButton>
+        <ToolbarButton
+          secondary
+          onClick={() => void openBulkEditor()}
+          disabled={!canBulkEdit || busy || !!bulkEditor}
+        >
+          Edit selected ({selectedRows.length})
+        </ToolbarButton>
+        <ToolbarButton
+          danger
+          onClick={() => void deleteSelectedDocuments()}
+          disabled={!canBulkDelete || busy || !!bulkEditor}
+        >
+          Delete selected ({selectedRows.length})
+        </ToolbarButton>
+        <ToolbarButton onClick={openNewDocument} disabled={readOnly || busy || !!bulkEditor}>New</ToolbarButton>
       </div>
 
       {exportOpen && (
@@ -1069,9 +1388,9 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
             <span style={{ flex: 1 }} />
             {criteriaError && <span style={s.criteriaError} role="alert">{criteriaError}</span>}
             <div role="group" aria-label="Criteria actions" style={s.criteriaActions}>
-              <ToolbarButton secondary onClick={clearCriteria} disabled={busy}>Clear</ToolbarButton>
-              <ToolbarButton onClick={applyCriteria} disabled={busy || invalidCriteria}>Apply</ToolbarButton>
-              <ToolbarButton secondary onClick={() => void loadInitial()} disabled={busy}>Refresh</ToolbarButton>
+              <ToolbarButton secondary onClick={clearCriteria} disabled={busy || !!bulkEditor}>Clear</ToolbarButton>
+              <ToolbarButton onClick={applyCriteria} disabled={busy || !!bulkEditor || invalidCriteria}>Apply</ToolbarButton>
+              <ToolbarButton secondary onClick={() => void loadInitial()} disabled={busy || !!bulkEditor}>Refresh</ToolbarButton>
             </div>
           </div>
           <CollectionCriteriaEditor
@@ -1124,6 +1443,20 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
           <button style={s.secondaryButton} onClick={() => setError(null)}>Dismiss</button>
         </div>
       )}
+      {bulkFailure && (
+        <div
+          style={s.bulkFailures}
+          role="alert"
+          data-testid={`bulk-${bulkFailure.operation}-failures`}
+        >
+          <strong>{bulkFailure.summary}</strong>
+          <ul style={{ margin: '5px 0 0', paddingLeft: 20 }}>
+            {bulkFailure.errors.map((item, index) => (
+              <li key={`${item.rowNumber}:${index}`}>Row {item.rowNumber}: {item.message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {notice && <div style={s.notice}>{notice}</div>}
       {!connectionId && (
         <div style={s.notice}>Assign a connection from this saved item’s details before loading documents.</div>
@@ -1149,18 +1482,29 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
             data-testid="collection-documents-table"
             style={{
               ...s.table,
-              width: `max(100%, ${46 + columns.reduce((total, column) => total + (columnWidths[column] ?? (column === '_id' ? 220 : 180)), 0)}px)`,
+              width: `max(100%, ${70 + columns.reduce((total, column) => total + (columnWidths[column] ?? (column === '_id' ? 220 : 180)), 0)}px)`,
             }}
           >
             <colgroup>
-              <col style={{ width: 46 }} />
+              <col style={{ width: 70 }} />
               {columns.map((column) => (
                 <col key={column} style={{ width: columnWidths[column] ?? (column === '_id' ? 220 : 180) }} />
               ))}
             </colgroup>
             <thead>
               <tr>
-                <th style={s.th}><div style={s.columnTitle}>#</div></th>
+                <th style={s.th}>
+                  <div style={s.columnTitle}>
+                    <SelectionCheckbox
+                      ariaLabel="Select all documents on this page"
+                      checked={allRowsSelected}
+                      indeterminate={selectedRows.length > 0 && !allRowsSelected}
+                      disabled={busy || !!bulkEditor || rows.length === 0}
+                      onChange={toggleAllRows}
+                    />
+                    <span>#</span>
+                  </div>
+                </th>
                 {columns.map((column) => (
                   <th
                     key={column}
@@ -1256,10 +1600,27 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
               ) : rows.map((row) => (
                 <tr
                   key={row.key}
-                  style={{ ...s.row, ...(selected?.key === row.key ? s.selectedRow : {}) }}
+                  aria-selected={selectedRowKeys.has(row.key)}
+                  style={{
+                    ...s.row,
+                    ...(selected?.key === row.key ? s.selectedRow : {}),
+                    ...(selectedRowKeys.has(row.key) ? s.bulkSelectedRow : {}),
+                  }}
                   onClick={() => void selectRow(row)}
                 >
-                  <td style={{ ...s.td, ...s.rowNumber, width: 46 }}>{row.absoluteIndex + 1}</td>
+                  <td style={{ ...s.td, ...s.rowNumber, width: 70 }}>
+                    <div style={s.selectionCell}>
+                      <input
+                        type="checkbox"
+                        aria-label={`Select document row ${row.absoluteIndex + 1}`}
+                        checked={selectedRowKeys.has(row.key)}
+                        disabled={busy || !!bulkEditor}
+                        onClick={(event) => event.stopPropagation()}
+                        onChange={() => toggleRowSelection(row)}
+                      />
+                      <span>{row.absoluteIndex + 1}</span>
+                    </div>
+                  </td>
                   {columns.map((column) => (
                     <td
                       key={column}
@@ -1300,56 +1661,162 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
             data-testid="document-panel"
             style={{ ...s.editorPanel, height: documentPanelHeight ?? '38%' }}
           >
-          <div style={s.editorHeader}>
-            <strong>{editorMode === 'new' ? 'New document' : editorMode === 'edit' ? 'Edit document' : 'Document'}</strong>
-            <span style={{ flex: 1, color: 'var(--color-text-muted)' }}>
-              {displayModeLabel(displayMode)}{projectionActive ? ' — projected documents cannot be edited' : ''}
-            </span>
-            {editorValidationError && editorMode !== 'view' && (
-              <span role="alert" title={editorValidationError} style={{ maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: theme.colors.danger }}>
-                Invalid BSON syntax
-              </span>
-            )}
-            {editorMode === 'view' ? (
-              <>
-                <ToolbarButton secondary onClick={() => {
-                  if (selected) {
-                    setEditorText(renderDocumentEnvelope(selected.envelope, displayMode, true));
-                  }
-                  setEditorMode('edit');
-                }} disabled={!canEditSelection || editorBusy}>Edit</ToolbarButton>
-                <ToolbarButton danger onClick={() => void deleteDocument()} disabled={!canEditSelection || editorBusy}>Delete</ToolbarButton>
-                <ToolbarButton secondary onClick={() => { setSelected(null); setEditorText(''); }}>Close</ToolbarButton>
-              </>
-            ) : (
-              <>
-                <ToolbarButton onClick={() => void saveDocument()} disabled={editorBusy || !!editorValidationError}>Save</ToolbarButton>
-                <ToolbarButton secondary onClick={() => {
-                  if (selected) {
-                    setEditorText(renderDocumentEnvelope(selected.envelope, displayMode));
-                    setEditorMode('view');
-                  } else {
-                    setEditorText('');
-                    setEditorMode('view');
-                  }
-                }} disabled={editorBusy}>Cancel</ToolbarButton>
-              </>
-            )}
-          </div>
-          <DocumentBsonEditor
-            tabId={tab.id}
-            value={editorText}
-            readOnly={editorMode === 'view'}
-            onChange={setEditorText}
-            onSave={() => void saveDocument()}
-            onValidationChange={setEditorValidationError}
-          />
+          {bulkEditor ? (
+            <>
+              <div style={s.editorHeader}>
+                <strong>Edit {bulkEditor.originals.length} selected document(s)</strong>
+                <ToolbarButton secondary={bulkEditor.mode !== 'field'} onClick={() => setBulkEditor((current) => (
+                  current ? { ...current, mode: 'field', validationError: null } : current
+                ))}>Field</ToolbarButton>
+                <ToolbarButton secondary={bulkEditor.mode !== 'replace'} onClick={() => setBulkEditor((current) => (
+                  current ? { ...current, mode: 'replace', validationError: null } : current
+                ))}>Full documents</ToolbarButton>
+                <span style={{ flex: 1, color: 'var(--color-text-muted)' }}>{displayModeLabel(displayMode)}</span>
+                {bulkEditor.validationError && (
+                  <span role="alert" title={bulkEditor.validationError} style={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: theme.colors.danger }}>
+                    Invalid bulk update
+                  </span>
+                )}
+                <ToolbarButton
+                  onClick={() => void saveBulkUpdate()}
+                  disabled={editorBusy || !!bulkEditor.validationError || (
+                    bulkEditor.mode === 'field' && !!bulkFieldPathError(bulkEditor.fieldPath)
+                  )}
+                >Save</ToolbarButton>
+                <ToolbarButton secondary onClick={() => setBulkEditor(null)} disabled={editorBusy}>Cancel</ToolbarButton>
+              </div>
+              {bulkEditor.mode === 'field' && (
+                <div style={s.bulkControls}>
+                  <label htmlFor={`bulk-field-path-${tab.id}`}>Field path</label>
+                  <input
+                    id={`bulk-field-path-${tab.id}`}
+                    list={`bulk-field-options-${tab.id}`}
+                    aria-label="Bulk update field path"
+                    style={{
+                      ...s.bulkInput,
+                      ...(bulkFieldPathError(bulkEditor.fieldPath) ? { borderColor: theme.colors.danger } : {}),
+                    }}
+                    value={bulkEditor.fieldPath}
+                    disabled={editorBusy}
+                    onChange={(event) => setBulkEditor((current) => current ? {
+                      ...current,
+                      fieldPath: event.target.value,
+                      validationError: null,
+                    } : current)}
+                  />
+                  <datalist id={`bulk-field-options-${tab.id}`}>
+                    {columns.filter((column) => column !== '_id').map((column) => (
+                      <option key={column} value={column} />
+                    ))}
+                  </datalist>
+                  <label htmlFor={`bulk-field-operation-${tab.id}`}>Operation</label>
+                  <select
+                    id={`bulk-field-operation-${tab.id}`}
+                    aria-label="Bulk update field operation"
+                    style={s.bulkSelect}
+                    value={bulkEditor.fieldOperation}
+                    disabled={editorBusy}
+                    onChange={(event) => setBulkEditor((current) => current ? {
+                      ...current,
+                      fieldOperation: event.target.value as 'set' | 'unset',
+                      validationError: null,
+                    } : current)}
+                  >
+                    <option value="set">Set value</option>
+                    <option value="unset">Remove field</option>
+                  </select>
+                  {bulkFieldPathError(bulkEditor.fieldPath) && (
+                    <span role="alert" style={{ color: theme.colors.danger }}>
+                      {bulkFieldPathError(bulkEditor.fieldPath)}
+                    </span>
+                  )}
+                </div>
+              )}
+              {bulkEditor.mode === 'field' && bulkEditor.fieldOperation === 'unset' ? (
+                <div style={{ ...s.empty, textAlign: 'left' }}>
+                  The selected field will be removed from every matching document.
+                </div>
+              ) : (
+                <DocumentBsonEditor
+                  key={bulkEditor.mode}
+                  tabId={`${tab.id}:bulk`}
+                  value={bulkEditor.mode === 'field'
+                    ? bulkEditor.fieldValueText
+                    : bulkEditor.fullDocumentsText}
+                  readOnly={false}
+                  validationKind={bulkEditor.mode === 'field' ? 'value' : 'document-array'}
+                  ariaLabel={bulkEditor.mode === 'field' ? 'Bulk field BSON value' : 'Bulk documents BSON editor'}
+                  onChange={(value) => setBulkEditor((current) => current ? {
+                    ...current,
+                    ...(current.mode === 'field'
+                      ? { fieldValueText: value }
+                      : { fullDocumentsText: value }),
+                  } : current)}
+                  onSave={() => void saveBulkUpdate()}
+                  onValidationChange={(message) => setBulkEditor((current) => (
+                    current && current.validationError !== message
+                      ? { ...current, validationError: message }
+                      : current
+                  ))}
+                />
+              )}
+            </>
+          ) : (
+            <>
+              <div style={s.editorHeader}>
+                <strong>{editorMode === 'new' ? 'New document' : editorMode === 'edit' ? 'Edit document' : 'Document'}</strong>
+                <span style={{ flex: 1, color: 'var(--color-text-muted)' }}>
+                  {displayModeLabel(displayMode)}{projectionActive ? ' — projected documents cannot be edited' : ''}
+                </span>
+                {editorValidationError && editorMode !== 'view' && (
+                  <span role="alert" title={editorValidationError} style={{ maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: theme.colors.danger }}>
+                    Invalid BSON syntax
+                  </span>
+                )}
+                {editorMode === 'view' ? (
+                  <>
+                    <ToolbarButton secondary onClick={() => {
+                      if (selected) {
+                        setEditorText(renderDocumentEnvelope(selected.envelope, displayMode, true));
+                      }
+                      setEditorMode('edit');
+                    }} disabled={!canEditSelection || editorBusy}>Edit</ToolbarButton>
+                    <ToolbarButton danger onClick={() => void deleteDocument()} disabled={!canEditSelection || editorBusy}>Delete</ToolbarButton>
+                    <ToolbarButton secondary onClick={() => { setSelected(null); setEditorText(''); }}>Close</ToolbarButton>
+                  </>
+                ) : (
+                  <>
+                    <ToolbarButton onClick={() => void saveDocument()} disabled={editorBusy || !!editorValidationError}>Save</ToolbarButton>
+                    <ToolbarButton secondary onClick={() => {
+                      if (selected) {
+                        setEditorText(renderDocumentEnvelope(selected.envelope, displayMode));
+                        setEditorMode('view');
+                      } else {
+                        setEditorText('');
+                        setEditorMode('view');
+                      }
+                    }} disabled={editorBusy}>Cancel</ToolbarButton>
+                  </>
+                )}
+              </div>
+              <DocumentBsonEditor
+                tabId={tab.id}
+                value={editorText}
+                readOnly={editorMode === 'view'}
+                onChange={setEditorText}
+                onSave={() => void saveDocument()}
+                onValidationChange={setEditorValidationError}
+              />
+            </>
+          )}
           </div>
         </>
       )}
 
       <div style={s.status}>
-        <span>{loading || editorBusy ? 'Working…' : `${rows.length} document(s)`}</span>
+        <span>{loading || editorBusy
+          ? 'Working…'
+          : `${rows.length} document(s) · ${selectedRows.length} selected`}</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span>Page {pageIndex + 1}</span>
           <button
@@ -1380,11 +1847,11 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
             <select
               aria-label="Documents page size"
               value={pageSizeOverride === undefined ? 'default' : String(pageSizeOverride)}
-              disabled={busy || editorMode !== 'view'}
+              disabled={busy || !!bulkEditor || editorMode !== 'view'}
               onChange={(event) => void changePageSize(event.target.value)}
               style={{
                 ...s.pageSizeSelect,
-                ...(busy || editorMode !== 'view' ? s.disabled : {}),
+                ...(busy || !!bulkEditor || editorMode !== 'view' ? s.disabled : {}),
               }}
             >
               {pageSizeOptions.map((option) => (
@@ -1392,8 +1859,8 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
               ))}
             </select>
           </label>
-          <ToolbarButton secondary onClick={() => void fetchPage('previous')} disabled={busy || pageIndex === 0}>Previous</ToolbarButton>
-          <ToolbarButton secondary onClick={() => void fetchPage('next')} disabled={busy || !hasMore}>Next</ToolbarButton>
+          <ToolbarButton secondary onClick={() => void fetchPage('previous')} disabled={busy || !!bulkEditor || pageIndex === 0}>Previous</ToolbarButton>
+          <ToolbarButton secondary onClick={() => void fetchPage('next')} disabled={busy || !!bulkEditor || !hasMore}>Next</ToolbarButton>
         </span>
       </div>
     </div>
@@ -1436,6 +1903,35 @@ function ToolbarButton({
     <button style={{ ...base, ...(disabled ? s.disabled : {}) }} disabled={disabled} onClick={onClick}>
       {children}
     </button>
+  );
+}
+
+function SelectionCheckbox({
+  ariaLabel,
+  checked,
+  indeterminate,
+  disabled,
+  onChange,
+}: {
+  ariaLabel: string;
+  checked: boolean;
+  indeterminate: boolean;
+  disabled: boolean;
+  onChange: () => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate;
+  }, [indeterminate]);
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      aria-label={ariaLabel}
+      checked={checked}
+      disabled={disabled}
+      onChange={onChange}
+    />
   );
 }
 
@@ -1493,6 +1989,55 @@ function createDocumentRow(envelope: EjsonEnvelope, absoluteIndex: number): Docu
     envelope,
     value,
   };
+}
+
+function documentRowId(row: DocumentRow): string | null {
+  return row.value && Object.hasOwn(row.value, '_id')
+    ? renderBson(row.value._id, 'canonical', false)
+    : null;
+}
+
+function parseDocumentArrayJson(source: string): Record<string, unknown>[] {
+  const value = parseEjson<unknown>({
+    ejson: source,
+    byteSize: source.length,
+    truncated: false,
+  });
+  if (!Array.isArray(value) || value.some((entry) => !isDocumentValue(entry))) {
+    throw new Error('Documents must be an array of document objects.');
+  }
+  return value as Record<string, unknown>[];
+}
+
+function alignBulkReplacementDocuments(
+  originals: DocumentRow[],
+  edited: Record<string, unknown>[],
+): Record<string, unknown>[] {
+  if (edited.length !== originals.length) {
+    throw new Error('Full document edit must keep exactly one document for every selected row.');
+  }
+  const editedById = new Map<string, Record<string, unknown>>();
+  for (const document of edited) {
+    if (!Object.hasOwn(document, '_id')) throw new Error('Every edited document must keep its _id field.');
+    const id = renderBson(document._id, 'canonical', false);
+    if (editedById.has(id)) throw new Error('Edited documents cannot contain duplicate _id values.');
+    editedById.set(id, document);
+  }
+  return originals.map((row) => {
+    const id = documentRowId(row);
+    if (!id) throw new Error('Every selected document must include an _id field.');
+    const replacement = editedById.get(id);
+    if (!replacement) throw new Error('Full document edit must preserve the original _id set.');
+    return replacement;
+  });
+}
+
+function bulkUpdateSummary(result: CollectionBulkUpdateResult): string {
+  return `Bulk update complete: ${result.matchedCount} matched, ${result.modifiedCount} modified, ${result.unchangedCount} unchanged, ${result.failedCount} failed.`;
+}
+
+function bulkDeleteSummary(result: CollectionBulkDeleteResult): string {
+  return `Bulk delete complete: ${result.deletedCount} deleted, ${result.failedCount} failed.`;
 }
 
 function parseDocumentValue(envelope: EjsonEnvelope): Record<string, unknown> | null {

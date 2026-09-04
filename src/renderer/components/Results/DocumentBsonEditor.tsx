@@ -2,7 +2,9 @@ import { useEffect, useRef } from 'react';
 import type * as Monaco from 'monaco-editor';
 import {
   DocumentExpressionError,
+  parseDocumentArrayExpression,
   parseDocumentExpression,
+  parseValueExpression,
 } from '../../../features/script-analysis/index.js';
 import { OBJECT_EXPRESSION_LANGUAGE } from '../../monaco/object-expression.js';
 import { bootMonaco } from '../../monaco/setup.js';
@@ -15,6 +17,8 @@ interface DocumentBsonEditorProps {
   onChange: (value: string) => void;
   onSave: () => void;
   onValidationChange: (message: string | null) => void;
+  validationKind?: 'document' | 'document-array' | 'value';
+  ariaLabel?: string;
 }
 
 export function DocumentBsonEditor({
@@ -24,6 +28,8 @@ export function DocumentBsonEditor({
   onChange,
   onSave,
   onValidationChange,
+  validationKind = 'document',
+  ariaLabel = 'Document BSON editor',
 }: DocumentBsonEditorProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const modelRef = useRef<Monaco.editor.ITextModel | null>(null);
@@ -51,12 +57,12 @@ export function DocumentBsonEditor({
       model = monaco.editor.createModel(
         valueRef.current,
         OBJECT_EXPRESSION_LANGUAGE,
-        monaco.Uri.parse(`${OBJECT_EXPRESSION_LANGUAGE}://document/${encodeURIComponent(tabId)}`),
+        monaco.Uri.parse(`${OBJECT_EXPRESSION_LANGUAGE}://${validationKind}/${encodeURIComponent(tabId)}`),
       );
       editor = monaco.editor.create(hostRef.current, {
         model,
         theme: getMonacoTheme(),
-        ariaLabel: 'Document BSON editor',
+        ariaLabel,
         automaticLayout: true,
         readOnly: readOnlyRef.current,
         minimap: { enabled: false },
@@ -79,11 +85,11 @@ export function DocumentBsonEditor({
       changeRegistration = model.onDidChangeContent(() => {
         const next = model!.getValue();
         onChangeRef.current(next);
-        validateDocumentModel(monaco, model!, validationRef.current, readOnlyRef.current);
+        validateDocumentModel(monaco, model!, validationRef.current, readOnlyRef.current, validationKind);
       });
       modelRef.current = model;
       editorRef.current = editor;
-      validateDocumentModel(monaco, model, validationRef.current, readOnlyRef.current);
+      validateDocumentModel(monaco, model, validationRef.current, readOnlyRef.current, validationKind);
     });
 
     return () => {
@@ -94,7 +100,7 @@ export function DocumentBsonEditor({
       modelRef.current = null;
       editorRef.current = null;
     };
-  }, [tabId]);
+  }, [ariaLabel, tabId, validationKind]);
 
   useEffect(() => {
     const model = modelRef.current;
@@ -106,9 +112,9 @@ export function DocumentBsonEditor({
     editorRef.current?.updateOptions({ readOnly });
     void bootMonaco().then((monaco) => {
       const model = modelRef.current;
-      if (model) validateDocumentModel(monaco, model, validationRef.current, readOnly);
+      if (model) validateDocumentModel(monaco, model, validationRef.current, readOnly, validationKind);
     });
-  }, [readOnly]);
+  }, [readOnly, validationKind]);
 
   return <div data-testid="document-bson-editor" ref={hostRef} style={{ flex: 1, minHeight: 0 }} />;
 }
@@ -118,6 +124,7 @@ function validateDocumentModel(
   model: Monaco.editor.ITextModel,
   onValidationChange: (message: string | null) => void,
   readOnly: boolean,
+  validationKind: 'document' | 'document-array' | 'value',
 ): void {
   if (readOnly) {
     monaco.editor.setModelMarkers(model, OBJECT_EXPRESSION_LANGUAGE, []);
@@ -126,7 +133,9 @@ function validateDocumentModel(
   }
   const source = model.getValue();
   try {
-    parseDocumentExpression(source, 'Document');
+    if (validationKind === 'document-array') parseDocumentArrayExpression(source, 'Documents');
+    else if (validationKind === 'value') parseValueExpression(source, 'Field value');
+    else parseDocumentExpression(source, 'Document');
     monaco.editor.setModelMarkers(model, OBJECT_EXPRESSION_LANGUAGE, []);
     onValidationChange(null);
   } catch (error) {

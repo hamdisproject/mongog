@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   DocumentExpressionError,
+  parseDocumentArrayExpression,
   parseDocumentExpression,
+  parseValueExpression,
 } from '../../src/features/script-analysis/index.js';
 import {
   Binary,
@@ -104,6 +106,28 @@ describe('safe document expressions', () => {
     expect(value.ref).toBeInstanceOf(DBRef);
     expect(value.code).toBeInstanceOf(Code);
     expect(value.symbol).toBeInstanceOf(BSONSymbol);
+  });
+
+  it('parses standalone literal BSON values for field updates', () => {
+    const parsed = parseValueExpression('Decimal128("125.50")', 'Field value');
+    const value = EJSON.parse(parsed.json, { relaxed: false });
+    expect(value).toBeInstanceOf(Decimal128);
+    expect((value as Decimal128).toString()).toBe('125.50');
+    expect(EJSON.parse(parseValueExpression('[Int32(1), null, "x"]').json, { relaxed: false }))
+      .toEqual([new Int32(1), null, 'x']);
+  });
+
+  it('parses document arrays while rejecting non-document and executable entries', () => {
+    const parsed = parseDocumentArrayExpression(`[
+      { _id: ObjectId("507f1f77bcf86cd799439011"), value: Int32(1) },
+      { _id: ObjectId("507f1f77bcf86cd799439012"), value: Decimal128("2.5") },
+    ]`);
+    const documents = EJSON.parse(parsed.json, { relaxed: false }) as Array<Record<string, unknown>>;
+    expect(documents).toHaveLength(2);
+    expect(documents[0]?._id).toBeInstanceOf(ObjectId);
+    expect(documents[1]?.value).toBeInstanceOf(Decimal128);
+    expect(() => parseDocumentArrayExpression('[{ _id: 1 }, 2]')).toThrow(DocumentExpressionError);
+    expect(() => parseDocumentArrayExpression('[{ value: run() }]')).toThrow(DocumentExpressionError);
   });
 
   it.each([

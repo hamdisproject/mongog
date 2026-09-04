@@ -250250,6 +250250,19 @@ class DocumentExpressionError extends Error {
 }
 const EXECUTABLE_DOCUMENT_OPERATORS = /* @__PURE__ */ new Set(["$where", "$function", "$accumulator"]);
 function parseDocumentExpression(source, label = "Expression") {
+  const { sourceFile, root } = parseRootExpression(source, label, "one object literal");
+  if (!ts.isObjectLiteralExpression(root)) {
+    throw expressionError(sourceFile, root, source.length, `${label} must be an object literal.`);
+  }
+  const value = convertObject(sourceFile, root, source.length, label);
+  return { json: JSON.stringify(toCanonicalJsonData(value)) };
+}
+function parseValueExpression(source, label = "Value") {
+  const { sourceFile, root } = parseRootExpression(source, label, "one value");
+  const value = convertValue(sourceFile, root, source.length, label);
+  return { json: JSON.stringify(toCanonicalJsonData(value)) };
+}
+function parseRootExpression(source, label, expected) {
   if (!source.trim()) {
     throw new DocumentExpressionError(`${label} cannot be empty.`, 0, Math.max(1, source.length));
   }
@@ -250275,14 +250288,10 @@ function parseDocumentExpression(source, label = "Expression") {
   }
   const statement = sourceFile.statements[0];
   if (sourceFile.statements.length !== 1 || !statement || !ts.isExpressionStatement(statement)) {
-    throw new DocumentExpressionError(`${label} must be one object literal.`, 0, Math.max(1, source.length));
+    throw new DocumentExpressionError(`${label} must be ${expected}.`, 0, Math.max(1, source.length));
   }
   const root = unwrapParentheses(statement.expression);
-  if (!ts.isObjectLiteralExpression(root)) {
-    throw expressionError(sourceFile, root, source.length, `${label} must be an object literal.`);
-  }
-  const value = convertObject(sourceFile, root, source.length, label);
-  return { json: JSON.stringify(toCanonicalJsonData(value)) };
+  return { sourceFile, root };
 }
 function convertObject(sourceFile, node2, sourceLength, label) {
   const result = /* @__PURE__ */ Object.create(null);
@@ -252312,6 +252321,22 @@ function isScalar(value) {
   const t = typeof value;
   return t !== "object" || value._bsontype !== void 0 || value instanceof Date;
 }
+function bulkFieldPathError(path2) {
+  const normalized = path2.trim();
+  if (!normalized) return "Field path cannot be empty.";
+  if (normalized === "_id" || normalized.startsWith("_id.")) {
+    return "The immutable _id field cannot be changed.";
+  }
+  if (normalized.includes("\0")) return "Field path cannot contain null characters.";
+  const segments = normalized.split(".");
+  if (segments.some((segment) => segment.length === 0)) {
+    return "Field path cannot contain empty segments.";
+  }
+  if (segments.some((segment) => segment.startsWith("$"))) {
+    return "Field path cannot contain positional or operator segments.";
+  }
+  return null;
+}
 async function findCollectionDocuments(client2, registry2, options) {
   const filter2 = parseQueryDocumentExpression(options.filterEjson, "Filter");
   const sort2 = options.sortEjson ? parseQueryDocumentExpression(options.sortEjson, "Sort") : void 0;
@@ -252366,6 +252391,76 @@ async function replaceCollectionDocument(client2, options) {
     modifiedCount: result.modifiedCount
   };
 }
+async function bulkUpdateCollectionDocuments(client2, options) {
+  if (options.originalDocumentsEjson.length < 1 || options.originalDocumentsEjson.length > 500) {
+    throw appError("Validation", "Bulk update requires between 1 and 500 original documents.");
+  }
+  const originals = options.originalDocumentsEjson.map((source, index2) => {
+    const document2 = parseEjsonDocument(source, `Original document ${index2 + 1}`);
+    assertDocumentHasId(document2, `Original document ${index2 + 1}`);
+    return document2;
+  });
+  assertUniqueDocumentIds(originals, "Original documents");
+  let replacements;
+  let fieldValue;
+  let fieldPath;
+  if (options.change.kind === "replace") {
+    if (options.change.documentsEjson.length !== originals.length) {
+      throw appError("Validation", "Bulk replacement must contain exactly one document for every original.");
+    }
+    const parsed = options.change.documentsEjson.map((source, index2) => parseEjsonDocument(source, `Replacement document ${index2 + 1}`));
+    assertUniqueDocumentIds(parsed, "Replacement documents");
+    const byId = new Map(parsed.map((document2) => [canonicalDocumentId(document2), document2]));
+    replacements = originals.map((original) => {
+      const replacement = byId.get(canonicalDocumentId(original));
+      if (!replacement) {
+        throw appError("Validation", "Replacement documents must preserve the original _id set.");
+      }
+      assertDocumentIdUnchanged(original, replacement);
+      return replacement;
+    });
+  } else {
+    assertBulkFieldPath(options.change.path);
+    fieldPath = options.change.path.trim();
+    if (options.change.operation === "set") {
+      fieldValue = parseEjsonValue(options.change.valueEjson, "Field value");
+    }
+  }
+  const collection2 = client2.db(options.database).collection(options.collection);
+  const items = await mapWithConcurrency(originals, 8, async (original, index2) => {
+    try {
+      const result = options.change.kind === "replace" ? await collection2.replaceOne(optimisticFilter(original), replacements[index2]) : await collection2.updateOne(
+        optimisticFilter(original),
+        options.change.operation === "set" ? { $set: { [fieldPath]: fieldValue } } : { $unset: { [fieldPath]: "" } }
+      );
+      if (!result.acknowledged) {
+        throw appError("MongoDBCommand", "MongoDB did not acknowledge the bulk update item.");
+      }
+      if (result.matchedCount === 0) await throwMutationConflict(collection2, original);
+      return {
+        index: index2,
+        status: "success",
+        modified: result.modifiedCount > 0
+      };
+    } catch (error2) {
+      return {
+        index: index2,
+        status: "error",
+        error: serializeError(error2)
+      };
+    }
+  });
+  const successful = items.filter((item) => item.status === "success");
+  const modifiedCount = successful.filter((item) => item.modified).length;
+  return {
+    requestedCount: originals.length,
+    matchedCount: successful.length,
+    modifiedCount,
+    unchangedCount: successful.length - modifiedCount,
+    failedCount: items.length - successful.length,
+    items
+  };
+}
 async function deleteCollectionDocument(client2, options) {
   const original = parseEjsonDocument(options.originalDocumentEjson, "Original document");
   assertDocumentHasId(original, "Original document");
@@ -252377,6 +252472,41 @@ async function deleteCollectionDocument(client2, options) {
   return {
     acknowledged: result.acknowledged,
     deletedCount: result.deletedCount
+  };
+}
+async function bulkDeleteCollectionDocuments(client2, options) {
+  if (options.originalDocumentsEjson.length < 1 || options.originalDocumentsEjson.length > 500) {
+    throw appError("Validation", "Bulk delete requires between 1 and 500 original documents.");
+  }
+  const originals = options.originalDocumentsEjson.map((source, index2) => {
+    const document2 = parseEjsonDocument(source, `Original document ${index2 + 1}`);
+    assertDocumentHasId(document2, `Original document ${index2 + 1}`);
+    return document2;
+  });
+  assertUniqueDocumentIds(originals, "Original documents");
+  const collection2 = client2.db(options.database).collection(options.collection);
+  const items = await mapWithConcurrency(originals, 8, async (original, index2) => {
+    try {
+      const result = await collection2.deleteOne(optimisticFilter(original));
+      if (!result.acknowledged) {
+        throw appError("MongoDBCommand", "MongoDB did not acknowledge the bulk delete item.");
+      }
+      if (result.deletedCount === 0) await throwMutationConflict(collection2, original);
+      return { index: index2, status: "success" };
+    } catch (error2) {
+      return {
+        index: index2,
+        status: "error",
+        error: serializeError(error2)
+      };
+    }
+  });
+  const deletedCount = items.filter((item) => item.status === "success").length;
+  return {
+    requestedCount: originals.length,
+    deletedCount,
+    failedCount: items.length - deletedCount,
+    items
   };
 }
 async function renameCollection(client2, options) {
@@ -252412,6 +252542,25 @@ function parseEjsonDocument(ejson, label) {
   }
   assertNoExecutableCriteriaOperators(value, label);
   return assertDocumentValue(value, label, "JSON object");
+}
+function parseEjsonValue(ejson, label) {
+  let value;
+  try {
+    value = EJSON.parse(ejson, { relaxed: false });
+  } catch (ejsonError) {
+    try {
+      const parsed = parseValueExpression(ejson, label);
+      value = EJSON.parse(parsed.json, { relaxed: false });
+    } catch (expressionError2) {
+      const message = expressionError2 instanceof DocumentExpressionError ? expressionError2.message : `${label} is not valid Extended JSON or MongoDB Shell literal syntax.`;
+      throw appError("Validation", message, {
+        name: ejsonError.name,
+        causeMessage: ejsonError.message
+      });
+    }
+  }
+  assertNoExecutableCriteriaOperators(value, label);
+  return value;
 }
 function parseStrictEjsonDocument(ejson, label) {
   let value;
@@ -252482,9 +252631,25 @@ function assertDocumentIdUnchanged(original, replacement) {
     throw appError("Validation", "The immutable _id field cannot be changed.");
   }
 }
+function assertBulkFieldPath(path2) {
+  const message = bulkFieldPathError(path2);
+  if (message) throw appError("Validation", message);
+}
 function assertDocumentHasId(document2, label) {
   if (!Object.hasOwn(document2, "_id")) {
     throw appError("Validation", `${label} must include an _id field.`);
+  }
+}
+function canonicalDocumentId(document2) {
+  assertDocumentHasId(document2, "Document");
+  return canonicalValue(document2._id);
+}
+function assertUniqueDocumentIds(documents, label) {
+  const ids = /* @__PURE__ */ new Set();
+  for (const document2 of documents) {
+    const id = canonicalDocumentId(document2);
+    if (ids.has(id)) throw appError("Validation", `${label} contain a duplicate _id value.`);
+    ids.add(id);
   }
 }
 function canonicalValue(value) {
@@ -252509,6 +252674,18 @@ async function throwMutationConflict(collection2, original) {
     );
   }
   throw appError("NotFound", "The document no longer exists.");
+}
+async function mapWithConcurrency(values, concurrency, operation2) {
+  const results = new Array(values.length);
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(concurrency, values.length) }, async () => {
+    while (nextIndex < values.length) {
+      const index2 = nextIndex++;
+      results[index2] = await operation2(values[index2], index2);
+    }
+  });
+  await Promise.all(workers);
+  return results;
 }
 async function listIndexes(client2, namespace) {
   const cursor = client2.db(namespace.database).collection(namespace.collection).listIndexes();
@@ -320822,6 +320999,23 @@ async function handle(req) {
         collection: req.collection,
         originalDocumentEjson: req.originalDocumentEjson,
         documentEjson: req.documentEjson
+      }));
+      return;
+    }
+    case "collection-bulk-update": {
+      reply(req.id, await bulkUpdateCollectionDocuments(requireClient(), {
+        database: req.database,
+        collection: req.collection,
+        originalDocumentsEjson: req.originalDocumentsEjson,
+        change: req.change
+      }));
+      return;
+    }
+    case "collection-bulk-delete": {
+      reply(req.id, await bulkDeleteCollectionDocuments(requireClient(), {
+        database: req.database,
+        collection: req.collection,
+        originalDocumentsEjson: req.originalDocumentsEjson
       }));
       return;
     }

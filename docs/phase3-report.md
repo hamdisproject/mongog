@@ -61,3 +61,33 @@ cursor/full-value handles.
 | Packaged app runtime/storage smoke | PASS |
 
 Phase 4 schema-aware completion is now complete; see `docs/phase4-report.md`.
+
+## Selected-row bulk mutation extension (2026-09-04)
+
+- The collection table now supports explicit row selection and select-all for
+  the currently loaded page without changing the single-document row-click
+  workflow.
+- Selected documents can receive one shared BSON-safe field value, have a
+  field removed through dot notation, or be edited independently in one full
+  document-array editor. `_id` remains immutable in every mode.
+- Selected documents can also be deleted from the current page after a
+  mandatory namespace-and-count confirmation. The destructive action remains
+  disabled for offline, read-only, projected, and busy collection views.
+- Bulk writes use explicit typed, sender-checked and zod-validated IPC operations.
+  Inputs are limited to 500 documents and 64 MiB, are fully validated before
+  writing, and run with at most eight concurrent official-driver operations.
+- Every item retains the original exact-document optimistic check. Successful
+  items are kept when another item is stale, missing, or rejected; failures
+  are returned per row, audited without document values, and reselected when
+  they remain visible after the same page is refreshed.
+- Read-only, disconnected, and projected collection views cannot start a bulk
+  edit. Oversized values continue to use the cursor registry's opaque
+  full-value handles.
+
+| Extension check | Result |
+|---|---|
+| TypeScript strict check | PASS |
+| Unit tests | 572 / 572 PASS |
+| Real-mongod integration tests | 67 / 67 PASS |
+| Packaged Electron E2E tests | 15 / 15 PASS |
+| Electron Forge arm64 package | PASS |

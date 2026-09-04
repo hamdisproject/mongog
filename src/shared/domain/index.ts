@@ -233,6 +233,50 @@ export interface CollectionMutationResult {
   deletedCount?: number;
 }
 
+export type CollectionBulkUpdateChange =
+  | { kind: 'field'; path: string; operation: 'set'; valueEjson: string }
+  | { kind: 'field'; path: string; operation: 'unset' }
+  | { kind: 'replace'; documentsEjson: string[] };
+
+export interface CollectionBulkUpdateInput {
+  connectionId: string;
+  database: string;
+  collection: string;
+  originalDocumentsEjson: string[];
+  change: CollectionBulkUpdateChange;
+}
+
+export type CollectionBulkUpdateItemResult =
+  | { index: number; status: 'success'; modified: boolean }
+  | { index: number; status: 'error'; error: AppError };
+
+export interface CollectionBulkUpdateResult {
+  requestedCount: number;
+  matchedCount: number;
+  modifiedCount: number;
+  unchangedCount: number;
+  failedCount: number;
+  items: CollectionBulkUpdateItemResult[];
+}
+
+export interface CollectionBulkDeleteInput {
+  connectionId: string;
+  database: string;
+  collection: string;
+  originalDocumentsEjson: string[];
+}
+
+export type CollectionBulkDeleteItemResult =
+  | { index: number; status: 'success' }
+  | { index: number; status: 'error'; error: AppError };
+
+export interface CollectionBulkDeleteResult {
+  requestedCount: number;
+  deletedCount: number;
+  failedCount: number;
+  items: CollectionBulkDeleteItemResult[];
+}
+
 /** Events emitted by the query engine (runtime -> main -> renderer). */
 export type EngineEvent =
   | { type: 'execution-started'; executionId: string; statements: StatementInfo[] }

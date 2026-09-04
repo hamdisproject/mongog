@@ -15,7 +15,8 @@
  *   -> { id, type: 'list-databases' }
  *   -> { id, type: 'list-collections', database }
  *   -> { id, type: 'collection-find', ... }
- *   -> { id, type: 'collection-insert' | 'collection-replace' | 'collection-delete', ... }
+ *   -> { id, type: 'collection-insert' | 'collection-replace' | 'collection-bulk-update' |
+ *        'collection-bulk-delete' | 'collection-delete', ... }
  *   -> { id, type: 'shutdown' }
  *  <- { id, ok: true, value? } | { id, ok: false, error: AppError }
  *  <- { type: 'engine-event', executionId, event }     (streamed, no id)
@@ -27,6 +28,8 @@ import { CursorRegistry } from './registry/cursors.js';
 import { FetchOperationRegistry } from './registry/fetch-operations.js';
 import { sampleSchema } from './metadata/sample.js';
 import {
+  bulkDeleteCollectionDocuments,
+  bulkUpdateCollectionDocuments,
   countCollectionDocuments,
   deleteCollectionDocument,
   dropCollection,
@@ -315,6 +318,23 @@ async function handle(req: RuntimeRequest): Promise<void> {
         collection: req.collection as string,
         originalDocumentEjson: req.originalDocumentEjson as string,
         documentEjson: req.documentEjson as string,
+      }));
+      return;
+    }
+    case 'collection-bulk-update': {
+      reply(req.id, await bulkUpdateCollectionDocuments(requireClient(), {
+        database: req.database as string,
+        collection: req.collection as string,
+        originalDocumentsEjson: req.originalDocumentsEjson as string[],
+        change: req.change as import('../shared/domain/index.js').CollectionBulkUpdateChange,
+      }));
+      return;
+    }
+    case 'collection-bulk-delete': {
+      reply(req.id, await bulkDeleteCollectionDocuments(requireClient(), {
+        database: req.database as string,
+        collection: req.collection as string,
+        originalDocumentsEjson: req.originalDocumentsEjson as string[],
       }));
       return;
     }
