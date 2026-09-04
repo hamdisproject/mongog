@@ -110,6 +110,29 @@ describe('renderer connections store collection loading', () => {
     expect(useConnectionStore.getState().runtimeEpochs['conn-1']).toBe(1);
   });
 
+  it('reloads databases and expands the profile after a restarted runtime reconnects', async () => {
+    listDatabases.mockResolvedValue([{ name: 'app' }]);
+    useConnectionStore.setState({
+      connected: {},
+      databases: {},
+      expandedProfileIds: new Set(),
+    });
+
+    useConnectionStore.getState().applyRuntimeState({
+      connectionId: 'conn-1',
+      status: 'connected',
+      runtimePid: 456,
+      serverVersion: '8.0.1',
+      connectedAt: 123_457,
+    });
+
+    await vi.waitFor(() => {
+      expect(useConnectionStore.getState().databases['conn-1']).toEqual([{ name: 'app' }]);
+    });
+    expect(listDatabases).toHaveBeenCalledWith('conn-1');
+    expect(useConnectionStore.getState().expandedProfileIds.has('conn-1')).toBe(true);
+  });
+
   it('expands a profile after an explicit connection succeeds', async () => {
     await useConnectionStore.getState().connect('conn-1');
 

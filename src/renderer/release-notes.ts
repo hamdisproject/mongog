@@ -19,6 +19,22 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
+    version: '1.2.20',
+    releasedAt: '2026-09-05',
+    title: 'Reliable reconnects and cross-platform release checks',
+    summary: 'Connection discovery, context menus, and tab scrollbar validation now behave consistently across Windows, Linux, and macOS.',
+    sections: [
+      {
+        kind: 'fixed',
+        items: [
+          'Explorer profiles now expand and reload their database list after a query cancellation restarts the connection runtime.',
+          'Context menus now register Escape dismissal before the menu is painted, preventing a stale menu from blocking the next action.',
+          'Tab scrollbar track-click validation now targets the exposed track reliably across different platform viewport widths.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.2.19',
     releasedAt: '2026-09-04',
     title: 'Explicit connections and discoverable bulk fields',

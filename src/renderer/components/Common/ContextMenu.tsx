@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { theme } from '../../theme.js';
 
@@ -22,7 +22,7 @@ export function ContextMenu({
   items: ContextMenuItem[];
   onClose: () => void;
 }) {
-  useEffect(() => {
+  useLayoutEffect(() => {
     const close = () => onClose();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();

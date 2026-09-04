@@ -84,12 +84,12 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByTestId('sidebar-mongog-brand').locator('img'))
     .toHaveAttribute('src', /mongog-icon.*\.png/);
   await expect(page.locator('[title^="welcome: Welcome"]')).toHaveCount(1);
-  await page.getByRole('button', { name: 'What’s New in 1.2.19' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.20' }).click();
   const releaseNotesTab = page.locator('[data-tab-kind="release-notes"]');
   await expect(page.getByTestId('release-notes-view')).toBeVisible();
   await expect(page.getByTestId('release-notes-mongog-brand')).toHaveAccessibleName('MongoG');
-  await expect(page.getByText('Installed v1.2.19')).toBeVisible();
-  await expect(page.locator('[data-release-version="1.2.19"]')).toContainText('Latest');
+  await expect(page.getByText('Installed v1.2.20')).toBeVisible();
+  await expect(page.locator('[data-release-version="1.2.20"]')).toContainText('Latest');
   await expect(page.locator('[data-release-version="1.0.0"]')).toBeVisible();
   await expectViewportLocked(page);
   await releaseNotesTab.click({ button: 'right' });
@@ -102,7 +102,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await page.getByTitle('Close Release Notes').click();
   await expect(releaseNotesTab).toHaveCount(0);
   await page.locator('[title^="welcome: Welcome"]').click();
-  await page.getByRole('button', { name: 'What’s New in 1.2.19' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.20' }).click();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
   await expect(page.getByTitle('New query tab')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open global search' })).toBeVisible();
@@ -160,7 +160,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByRole('switch', { name: 'Run default collection query automatically' }))
     .toBeDisabled();
   await expect(page.getByLabel('Global page size')).toHaveValue('50');
-  await expect(page.getByTestId('about-updates-settings')).toContainText('MongoG 1.2.19');
+  await expect(page.getByTestId('about-updates-settings')).toContainText('MongoG 1.2.20');
   await page.getByRole('button', { name: 'Open Release Notes' }).click();
   await expect(page.getByTestId('release-notes-view')).toBeVisible();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
@@ -293,6 +293,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.getByRole('menuitem', { name: 'Rename Tab…' })).toHaveCount(0);
   await expect(page.getByRole('menuitem', { name: 'Pin Tab' })).toBeVisible();
   await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu', { name: 'Context menu' })).toHaveCount(0);
 
   await queryTab.click({ button: 'right' });
   await page.getByRole('menuitem', { name: 'Pin Tab' }).click();
@@ -1028,7 +1029,7 @@ test('Welcome, Connections, and Collection Query provide the complete lifecycle'
   await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toHaveCount(0);
   await expect(page.locator(`[data-tab-id="${activeBeforeClosingPinnedQuery}"]`)).toHaveAttribute('data-tab-active', 'true');
   await page.getByRole('button', { name: 'Open Welcome' }).click();
-  await page.getByRole('button', { name: 'What’s New in 1.2.19' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.20' }).click();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
 });
 
@@ -1079,9 +1080,15 @@ test('workspace tabs use a thin independent scrollbar and reveal the active tab'
     ))).toBeLessThanOrEqual(1);
 
     await scrollbar.press('Home');
+    await expect.poll(() => tabScroll.evaluate((element) => element.scrollLeft)).toBe(0);
     const trackBounds = await scrollbar.boundingBox();
+    const trackClickThumbBounds = await thumb.boundingBox();
     if (!trackBounds) throw new Error('Expected custom tab scrollbar bounds');
-    await page.mouse.click(trackBounds.x + trackBounds.width * 0.75, trackBounds.y + 2);
+    if (!trackClickThumbBounds) throw new Error('Expected custom tab scrollbar thumb bounds');
+    const trackRight = trackBounds.x + trackBounds.width;
+    const thumbRight = trackClickThumbBounds.x + trackClickThumbBounds.width;
+    expect(trackRight).toBeGreaterThan(thumbRight);
+    await page.mouse.click(thumbRight + (trackRight - thumbRight) / 2, trackBounds.y + 2);
     await expect.poll(() => tabScroll.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
 
     await scrollbar.press('Home');
@@ -1132,7 +1139,7 @@ test('global collection defaults persist and auto-run a new Query collection onc
   // if that test is interrupted before its final save, establish the same
   // starting workspace explicitly instead of reporting a cascading failure.
   if (await releaseNotesTab.count() === 0) {
-    await page.getByRole('button', { name: 'What’s New in 1.2.19' }).click();
+    await page.getByRole('button', { name: 'What’s New in 1.2.20' }).click();
     await expect(releaseNotesTab).toHaveCount(1);
     await page.getByRole('button', { name: 'Open Welcome' }).click();
   }
@@ -1353,10 +1360,9 @@ test('global collection defaults persist and auto-run a new Query collection onc
     });
     const defaultsExplorer = page.getByRole('navigation', { name: 'Connection explorer' });
     const defaultsProfile = defaultsExplorer.getByRole('treeitem', { name: 'Connection Defaults E2E' });
-    await defaultsProfile.focus();
-    await defaultsProfile.press('ArrowRight');
+    await expect(defaultsProfile).toHaveAttribute('aria-expanded', 'true');
     const defaultsDatabase = defaultsExplorer.getByRole('treeitem', { name: 'Database mongog_e2e' });
-    await expect(defaultsDatabase).toBeVisible();
+    await expect(defaultsDatabase).toBeVisible({ timeout: 15_000 });
     await defaultsDatabase.click({ button: 'right' });
     await page.getByRole('menuitem', { name: 'Refresh Collections' }).click();
     await defaultsDatabase.focus();
@@ -1525,7 +1531,7 @@ test('update available is surfaced in the sidebar after consent is declined', as
     name: automaticDownload ? 'Update 9.9.9 ready to install' : 'Update 9.9.9 available',
   });
   await expect(updateButton).toBeVisible();
-  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.19');
+  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.20');
 
   await updateButton.click();
   await expect(page.getByTestId('updates-view')).toBeVisible();
@@ -1650,7 +1656,7 @@ for (const failure of ['checksum', 'http'] as const) {
 
 test('Updates tab is reachable from Settings and shows the neutral state without a badge', async () => {
   let page = await launch();
-  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.19');
+  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.20');
   await expect(page.getByRole('button', { name: /^Update .* available$/ })).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Open application settings' }).click();

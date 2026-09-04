@@ -498,6 +498,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
       delete errors[connectionId];
       delete idleDisconnects[connectionId];
       set({ connected, errors, idleDisconnects, expandedProfileIds });
+      void get().loadDatabases(connectionId);
       return;
     }
     if (state.status === 'connecting') {
