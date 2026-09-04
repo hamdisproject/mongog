@@ -66,6 +66,8 @@ describe('release tooling', () => {
     expect(workflow).toContain('https://archive.ubuntu.com/ubuntu');
     expect(workflow).toContain('Acquire::Retries "4";');
     expect(workflow).toContain('15m npx playwright install-deps chromium');
+    expect(workflow).toContain('Electron Forge did not produce a Linux executable after two attempts.');
+    expect(workflow).toContain('Electron Forge did not produce a Linux RPM after two attempts.');
     expect(workflow).toContain('if [[ "$EXPECTED_MACHO_ARCH" == "x64" ]]; then EXPECTED_MACHO_ARCH="x86_64"; fi');
     expect(workflow).toContain('[[ " $MACHO_ARCHS " == *" $EXPECTED_MACHO_ARCH "* ]]');
     expect(workflow).toContain('[[ "$SIGNING_IDENTITIES" == *"$MACOS_SIGN_IDENTITY"* ]]');

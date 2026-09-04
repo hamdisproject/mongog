@@ -19,7 +19,7 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
-    version: '1.2.16',
+    version: '1.2.17',
     releasedAt: '2026-09-04',
     title: 'Bulk document actions and smoother workspace navigation',
     summary: 'Select, edit and delete multiple documents safely, move through crowded tab bars, and copy query console output in one click.',
@@ -37,6 +37,8 @@ export const RELEASE_NOTES = [
         items: [
           'Crowded workspace tab bars now scroll horizontally with a thin theme-aware scrollbar while keeping Query, Search, and Transfer actions fixed.',
           'Opening or activating a tab automatically reveals it without disturbing pinned and regular tab ordering.',
+          'Hovering the tab strip highlights its scrollbar, and vertical mouse-wheel movement scrolls overflowing tabs horizontally.',
+          'Visible console output remains selectable as text in addition to the one-click Copy action.',
           'Bulk operations validate every input before writing, continue through stale, missing, or driver failures, and reselect visible failed documents after refresh.',
         ],
       },
@@ -45,6 +47,7 @@ export const RELEASE_NOTES = [
         items: [
           'Windows release validation now accepts native CRLF clipboard line endings without changing the copied console content.',
           'Linux release jobs now avoid the unreliable EC2 Ubuntu mirror and bound dependency downloads with retries and timeouts.',
+          'Linux packaging now retries once from clean output if Electron Forge returns without producing an executable or RPM.',
         ],
       },
     ],

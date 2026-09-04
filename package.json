@@ -1,7 +1,7 @@
 {
   "name": "mongog",
   "productName": "MongoG",
-  "version": "1.2.16",
+  "version": "1.2.17",
   "description": "MongoG - production-grade MongoDB desktop IDE",
   "author": {
     "name": "Hamdis Project",

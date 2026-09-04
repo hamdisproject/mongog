@@ -112,6 +112,28 @@ export function TabBar() {
     activeTab?.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'nearest' });
   }, [activeTabId, tabOrder]);
 
+  useEffect(() => {
+    const tabStrip = tabsRef.current;
+    if (!tabStrip) return;
+    const handleWheel = (event: WheelEvent) => {
+      if (tabStrip.scrollWidth <= tabStrip.clientWidth) return;
+      const rawDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY)
+        ? event.deltaX
+        : event.deltaY;
+      if (rawDelta === 0) return;
+      const deltaMultiplier = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+        ? 16
+        : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+          ? tabStrip.clientWidth
+          : 1;
+      const previousScrollLeft = tabStrip.scrollLeft;
+      tabStrip.scrollLeft += rawDelta * deltaMultiplier;
+      if (tabStrip.scrollLeft !== previousScrollLeft) event.preventDefault();
+    };
+    tabStrip.addEventListener('wheel', handleWheel, { passive: false });
+    return () => tabStrip.removeEventListener('wheel', handleWheel);
+  }, []);
+
   const startRename = (tab: WorkspaceTab) => {
     if (!isTabRenameable(tab)) return;
     setRenamingTabId(tab.id);

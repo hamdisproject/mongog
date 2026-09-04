@@ -283,6 +283,14 @@ body {
   background: var(--color-accent);
 }
 
+.workspace-tab-scroll:hover {
+  scrollbar-color: var(--color-accent) transparent;
+}
+
+.workspace-tab-scroll:hover::-webkit-scrollbar-thumb {
+  background: var(--color-accent);
+}
+
 .workspace-tab-drag-handle {
   width: 18px;
   height: 24px;

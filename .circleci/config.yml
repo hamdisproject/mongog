@@ -390,10 +390,35 @@ jobs:
       - run:
           name: Build and verify unsigned E2E package
           command: |
-            npm run package -- --platform=linux --arch=x64
+            for package_attempt in 1 2; do
+              if npm run package -- --platform=linux --arch=x64 && \
+                { test -s out/MongoG-linux-x64/MongoG || test -s out/MongoG-linux-x64/mongog; }; then
+                break
+              fi
+              if [ "$package_attempt" -eq 2 ]; then
+                echo "Electron Forge did not produce a Linux executable after two attempts." >&2
+                exit 1
+              fi
+              echo "Electron Forge returned without a Linux executable; retrying from clean build output." >&2
+              rm -rf .vite out/MongoG-linux-x64
+            done
             npm run verify:package -- --platform linux --arch x64
             xvfb-run -a npm run test:e2e
-      - run: { name: Build production RPM, command: "MONGOG_RELEASE=1 npm run make -- --platform=linux --arch=x64 --targets=@electron-forge/maker-rpm" }
+      - run:
+          name: Build production RPM
+          command: |
+            for make_attempt in 1 2; do
+              if MONGOG_RELEASE=1 npm run make -- --platform=linux --arch=x64 --targets=@electron-forge/maker-rpm && \
+                test -n "$(find out/make -type f -name '*.rpm' -print -quit 2>/dev/null)"; then
+                break
+              fi
+              if [ "$make_attempt" -eq 2 ]; then
+                echo "Electron Forge did not produce a Linux RPM after two attempts." >&2
+                exit 1
+              fi
+              echo "Electron Forge returned without a Linux RPM; retrying from clean build output." >&2
+              rm -rf .vite out/MongoG-linux-x64 out/make
+            done
       - run: { name: Verify production package, command: "MONGOG_RELEASE=1 npm run verify:package -- --platform linux --arch x64 --release" }
       - run:
           name: Configure packaged Electron SUID sandbox

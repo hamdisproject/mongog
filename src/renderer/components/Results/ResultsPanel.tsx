@@ -70,6 +70,7 @@ const s: Record<string, React.CSSProperties> = {
     border: '1px solid var(--color-warning-border)', background: 'var(--color-warning-surface)', borderRadius: 3,
     padding: 8, marginBottom: 6, color: 'var(--color-warning-text)',
   },
+  consoleCode: { userSelect: 'text', cursor: 'text' },
   tableWrap: {
     width: '100%', maxWidth: '100%', minWidth: 0, overflow: 'auto',
     maxHeight: 300, border: '1px solid var(--color-border)',
@@ -193,7 +194,7 @@ export function ResultsPanel() {
               </button>
             </div>
             {execution.consoleEntries.map((entry, index) => (
-              <pre key={`${entry.statementIndex}:${index}`} style={s.code}>
+              <pre key={`${entry.statementIndex}:${index}`} style={{ ...s.code, ...s.consoleCode }}>
                 {formatConsoleEntry(entry, displayMode)}
               </pre>
             ))}
