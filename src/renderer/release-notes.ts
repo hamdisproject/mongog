@@ -19,6 +19,27 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
+    version: '1.2.21',
+    releasedAt: '2026-09-05',
+    title: 'Faster GitHub Actions releases',
+    summary: 'Production packages now build once in parallel on GitHub Actions and arrive in a verified draft release.',
+    sections: [
+      {
+        kind: 'improved',
+        items: [
+          'macOS ARM64 and x64, Windows x64, and Linux x64 production packages now build in parallel through GitHub Actions.',
+          'Each production package is built once, with platform and architecture download caches reducing repeated release work.',
+        ],
+      },
+      {
+        kind: 'fixed',
+        items: [
+          'Release assets, checksums, and updater manifests are verified together before a draft GitHub Release is created.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.2.20',
     releasedAt: '2026-09-05',
     title: 'Reliable reconnects and cross-platform release checks',

@@ -18,7 +18,7 @@ const packaged = packagedApplication(platform, arch);
 
 // Invoke electron-builder through the current Node runtime instead of its
 // Windows .cmd shim. cmd.exe /s strips the outer quotes from paths under some
-// CircleCI invocations, causing a quoted electron-builder.cmd path to be
+// CI invocations, causing a quoted electron-builder.cmd path to be
 // treated as part of the executable name.
 const builder = path.join(rootDirectory, 'node_modules', 'electron-builder', 'cli.js');
 const builderArguments = [

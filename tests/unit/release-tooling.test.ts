@@ -1,6 +1,6 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -11,10 +11,7 @@ import { isRecoverableDmgDetachFailure } from '../../scripts/release-utils.mjs';
 
 const scratchDirectories: string[] = [];
 const { load: loadYaml } = createRequire(import.meta.url)('js-yaml') as {
-  load: (source: string) => {
-    workflows: { ci: { jobs: unknown[] }; release: { jobs: Record<string, unknown>[] } };
-    jobs: Record<string, unknown>;
-  };
+  load: (source: string) => unknown;
 };
 
 function scratch(): string {
@@ -34,49 +31,37 @@ afterEach(() => {
 });
 
 describe('release tooling', () => {
-  it('keeps the complete CircleCI platform, release, and hardening contract', () => {
-    const workflow = readFileSync(path.resolve(process.cwd(), '.circleci', 'config.yml'), 'utf8');
+  it('keeps the complete GitHub Actions platform, release, and hardening contract', () => {
+    const workflow = readFileSync(path.resolve(process.cwd(), '.github', 'workflows', 'release.yml'), 'utf8');
+    const parsed = loadYaml(workflow) as { jobs: Record<string, unknown> };
 
-    expect(workflow).toContain('image: cimg/node:22.13.0');
-    expect(workflow).toContain("image: ubuntu-2404:current");
-    expect(workflow).toContain('resource_class: medium');
-    expect(workflow).not.toContain('resource_class: xlarge');
-    expect(workflow).toContain('executor: win/server-2022');
-    expect(workflow).toContain("$nodeRoot = 'C:\\tools\\node-v22.13.0'");
-    expect(workflow).toContain('test "$(node --version)" = "v22.13.0"');
-    expect(workflow).not.toContain('choco install');
-    expect(workflow).toContain('https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe');
-    expect(workflow).toContain('Get-FileHash -LiteralPath $Destination -Algorithm SHA256');
-    expect(workflow).toContain('67b5635e80ea51072b87941312d00ec8927c4db9ba18938f7ad2d27b328b95fb');
-    expect(workflow).toContain('$attempt -le 4');
-    expect(workflow).toContain('$installer.ExitCode -notin @(0, 3010)');
-    expect(workflow).toContain("struct.calcsize('P') == 8");
-    expect(workflow).toContain('Python 3.12.10 x64 verification failed.');
-    expect(workflow).toContain("npm_config_msvs_version='2022'");
-    expect(workflow).toContain('resource_class: m4pro.medium');
-    const parsed = loadYaml(workflow);
-    expect(parsed.workflows.ci.jobs).toEqual(['quality']);
-    expect(Object.keys(parsed.jobs).some((job) => job.startsWith('package_smoke_'))).toBe(false);
-    expect(parsed.workflows.release.jobs.map((job) => Object.keys(job)[0])).toEqual([
-      'release_macos', 'release_macos', 'release_windows', 'release_linux', 'release_metadata',
-    ]);
-    expect(workflow).toContain('npm run smoke:packaged -- --platform darwin --arch arm64');
-    expect(workflow).toContain('npm run smoke:packaged -- --platform win32 --arch x64');
-    expect(workflow).toContain('xvfb-run -a npm run smoke:packaged -- --platform linux --arch x64');
-    expect(workflow).toContain('https://archive.ubuntu.com/ubuntu');
-    expect(workflow).toContain('Acquire::Retries "4";');
-    expect(workflow).toContain('15m npx playwright install-deps chromium');
-    expect(workflow).toContain('Electron Forge did not produce a Linux executable after two attempts.');
-    expect(workflow).toContain('Electron Forge did not produce a Linux RPM after two attempts.');
-    expect(workflow).toContain('if [[ "$EXPECTED_MACHO_ARCH" == "x64" ]]; then EXPECTED_MACHO_ARCH="x86_64"; fi');
-    expect(workflow).toContain('[[ " $MACHO_ARCHS " == *" $EXPECTED_MACHO_ARCH "* ]]');
+    expect(Object.keys(parsed.jobs)).toEqual(['checks', 'macos', 'windows', 'linux', 'draft-release']);
+    expect(workflow).toContain("NODE_VERSION: '22.13.0'");
+    expect(workflow).toContain('runs-on: ubuntu-24.04');
+    expect(workflow).toContain('runner: macos-15');
+    expect(workflow).toContain('runner: macos-15-intel');
+    expect(workflow).toContain('runs-on: windows-2022');
+    expect(workflow).toContain("python-version: '3.12.10'");
+    expect(workflow).toContain('architecture: x64');
+    expect(workflow).toContain('cache: npm');
+    expect(workflow).toContain('Cache Electron downloads');
+    expect(workflow).not.toContain('node_modules\n');
+    expect(workflow).toContain('npm run typecheck');
+    expect(workflow).toContain('npm run lint');
+    expect(workflow).toContain('npm test');
+    expect(workflow).not.toContain('test:e2e');
+    expect(workflow).not.toContain('test:integ');
+    expect(workflow).not.toContain('smoke:packaged');
+    expect(workflow).not.toContain('playwright install-deps');
+    expect(workflow).not.toContain('xvfb');
+    expect(workflow.match(/npm run package --/gu)).toHaveLength(3);
+    expect(workflow).toContain('--skip-package --platform=darwin');
+    expect(workflow).toContain('--skip-package --platform=linux');
     expect(workflow).toContain('[[ "$SIGNING_IDENTITIES" == *"$MACOS_SIGN_IDENTITY"* ]]');
-    expect(workflow).not.toMatch(/\| grep -[^\n]*q/u);
-    expect(workflow).toContain('node scripts/make-macos-dmg.mjs --arch << parameters.arch >>');
+    expect(workflow).toContain('node scripts/make-macos-dmg.mjs --arch ${{ matrix.arch }}');
     expect(workflow).toContain('--targets=@electron-forge/maker-zip');
     expect(workflow).toContain('hdiutil verify "$DMG_PATH"');
-    expect(workflow).toContain('sudo chmod 4755 out/MongoG-linux-x64/chrome-sandbox');
-    expect(workflow).toContain('./node_modules/.bin/electron-forge package --platform=win32 --arch=x64');
+    expect(workflow).toContain("$signature.Status -ne 'NotSigned'");
     expect(workflow).not.toContain('--no-sandbox');
 
     const forgeConfig = readFileSync(path.resolve(process.cwd(), 'forge.config.mts'), 'utf8');
@@ -120,31 +105,34 @@ describe('release tooling', () => {
     expect(packageVerifier).not.toContain('must not contain app-update.yml');
   });
 
-  it('stores version-tag release artifacts directly in CircleCI', () => {
-    const workflow = readFileSync(path.resolve(process.cwd(), '.circleci', 'config.yml'), 'utf8');
+  it('creates tag-only GitHub Actions artifacts and a protected draft release', () => {
+    const workflow = readFileSync(path.resolve(process.cwd(), '.github', 'workflows', 'release.yml'), 'utf8');
 
-    expect(workflow).toContain('run_release:');
+    expect(existsSync(path.resolve(process.cwd(), '.circleci', 'config.yml'))).toBe(false);
+    expect(workflow).toContain("- 'v*.*.*'");
+    expect(workflow).toContain('workflow_dispatch:');
     expect(workflow).toContain('release_tag:');
-    expect(workflow).toContain('pipeline.git.tag matches /^v[0-9]+\\.[0-9]+\\.[0-9]+$/');
-    expect(workflow).toContain('MONGOG_RELEASE=1 MONGOG_SIGN_RELEASE=1 npm run package -- --platform=darwin');
-    expect(workflow).toContain('MONGOG_RELEASE=1 npm run package -- --platform=win32');
-    expect(workflow).toContain('MONGOG_RELEASE=1 npm run make:windows:nsis');
+    expect(workflow.match(/git show-ref --verify --quiet/g)).toHaveLength(5);
+    expect(workflow).toContain('git rev-parse "${RELEASE_TAG}^{commit}"');
+    expect(workflow).not.toContain('pull_request:');
+    expect(workflow).not.toContain('branches:');
+    expect(workflow).toContain('group: release-${{ inputs.release_tag || github.ref_name }}');
+    expect(workflow).toContain('cancel-in-progress: false');
+    expect(workflow).toContain('environment: release');
+    expect(workflow).toContain('permissions:\n  contents: read');
+    expect(workflow).toContain('permissions:\n      contents: write');
+    expect(workflow).toContain('actions/upload-artifact@v4');
+    expect(workflow).toContain('actions/download-artifact@v5');
+    expect(workflow).toContain('merge-multiple: true');
+    expect(workflow).toContain('compression-level: 0');
+    expect(workflow).toContain('--unsigned-windows');
+    expect(workflow).toContain('node scripts/generate-update-manifests.mjs');
+    expect(workflow).toContain('gh release create "$RELEASE_TAG"');
+    expect(workflow).toContain('--verify-tag --draft --generate-notes');
+    expect(workflow).toContain('gh release upload "$RELEASE_TAG" release-artifacts/* --clobber');
+    expect(workflow).toContain('Refusing to replace assets on published release');
     expect(workflow).not.toContain('WINDOWS_CERTIFICATE_PFX_BASE64');
     expect(workflow).not.toContain('WINDOWS_CERTIFICATE_PASSWORD');
-    expect(workflow).toContain("Get-AuthenticodeSignature");
-    expect(workflow).toContain("$signature.Status -ne 'NotSigned'");
-    expect(workflow).toContain('--unsigned-windows');
-    expect(workflow).toContain("cat \"$PACKAGE_TYPE_PATH\"");
-    expect(workflow).toContain('xcrun notarytool submit "$DMG_PATH"');
-    expect(workflow).toContain('xcrun stapler validate "$APP_PATH"');
-    expect(workflow).toContain('destination: release-macos-<< parameters.arch >>');
-    expect(workflow).toContain('name: release-metadata');
-    expect(workflow).toContain('npm run generate:update-manifests');
-    expect(workflow.match(/persist_to_workspace:/gu)).toHaveLength(3);
-    expect(workflow.match(/filters: pipeline\.parameters\.run_release or \(pipeline\.git\.tag matches/g)).toHaveLength(5);
-    expect(workflow).not.toContain('publish_release:');
-    expect(workflow).not.toContain('GH_TOKEN');
-    expect(workflow).toContain('context: release');
   });
 
   it('retries only the known idempotent macOS DMG detach failure', () => {
@@ -201,7 +189,7 @@ describe('release tooling', () => {
     expect(invalid.stderr).toContain('Unexpected positional arguments');
   });
 
-  it('accepts the CircleCI tag fallback', () => {
+  it('accepts the GitHub Actions tag fallback', () => {
     execFileSync(
       process.execPath,
       [script('validate-release-environment.mjs'), '--platform', 'linux'],
@@ -210,7 +198,7 @@ describe('release tooling', () => {
           ...process.env,
           MONGOG_RELEASE: '1',
           RELEASE_TAG: '',
-          CIRCLE_TAG: `v${packageMetadata.version}`,
+          GITHUB_REF_NAME: `v${packageMetadata.version}`,
         },
       },
     );

@@ -1,0 +1,386 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing vX.Y.Z tag to build
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.release_tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '22.13.0'
+  RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+  NODE_OPTIONS: --max-old-space-size=8192
+
+jobs:
+  checks:
+    name: Unit, typecheck, and lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
+          fetch-depth: 0
+      - name: Verify checked-out tag
+        run: |
+          git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "${RELEASE_TAG}^{commit}")"
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+      - name: Validate release tag
+        run: MONGOG_RELEASE=1 node scripts/validate-release-environment.mjs --platform linux --tag "$RELEASE_TAG"
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests
+        run: npm test
+
+  macos:
+    name: macOS ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    environment: release
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x64
+            runner: macos-15-intel
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
+          fetch-depth: 0
+      - name: Verify checked-out tag
+        run: |
+          git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "${RELEASE_TAG}^{commit}")"
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Cache Electron downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json', 'forge.config.mts', 'electron-builder.yml') }}
+          restore-keys: electron-${{ runner.os }}-${{ runner.arch }}-
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+      - name: Validate signed release tag
+        env:
+          MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: MONGOG_RELEASE=1 MONGOG_SIGN_RELEASE=1 node scripts/validate-release-environment.mjs --platform darwin --tag "$RELEASE_TAG"
+      - name: Prepare ephemeral Apple signing keychain
+        env:
+          MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+        run: |
+          SIGNING_DIRECTORY="$(mktemp -d "$RUNNER_TEMP/mongog-signing.XXXXXX")"
+          node scripts/materialize-signing-assets.mjs --platform darwin --directory "$SIGNING_DIRECTORY"
+          SIGNING_KEYCHAIN="$SIGNING_DIRECTORY/mongog-signing.keychain-db"
+          security create-keychain -p "$MACOS_CERTIFICATE_PASSWORD" "$SIGNING_KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$SIGNING_KEYCHAIN"
+          security unlock-keychain -p "$MACOS_CERTIFICATE_PASSWORD" "$SIGNING_KEYCHAIN"
+          security import "$SIGNING_DIRECTORY/mongog-release-certificate.p12" \
+            -k "$SIGNING_KEYCHAIN" -P "$MACOS_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple: -s \
+            -k "$MACOS_CERTIFICATE_PASSWORD" "$SIGNING_KEYCHAIN"
+          security list-keychains -d user -s "$SIGNING_KEYCHAIN"
+          SIGNING_IDENTITIES="$(security find-identity -v "$SIGNING_KEYCHAIN")"
+          [[ "$SIGNING_IDENTITIES" == *"$MACOS_SIGN_IDENTITY"* ]]
+          echo "SIGNING_DIRECTORY=$SIGNING_DIRECTORY" >> "$GITHUB_ENV"
+          echo "MACOS_KEYCHAIN=$SIGNING_KEYCHAIN" >> "$GITHUB_ENV"
+          echo "APPLE_API_KEY_PATH=$SIGNING_DIRECTORY/apple-api-key.p8" >> "$GITHUB_ENV"
+      - name: Build, sign, and notarize production package once
+        env:
+          MONGOG_RELEASE: '1'
+          MONGOG_SIGN_RELEASE: '1'
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: npm run package -- --platform=darwin --arch=${{ matrix.arch }}
+      - name: Make macOS ZIP from production package
+        env:
+          MONGOG_RELEASE: '1'
+          MONGOG_SIGN_RELEASE: '1'
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: npm run make -- --skip-package --platform=darwin --arch=${{ matrix.arch }} --targets=@electron-forge/maker-zip
+      - name: Make, notarize, staple, and verify macOS DMG
+        env:
+          MONGOG_RELEASE: '1'
+          MONGOG_SIGN_RELEASE: '1'
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          node scripts/make-macos-dmg.mjs --arch ${{ matrix.arch }}
+          DMG_PATH="$(find out/make -type f -name '*.dmg' -print -quit)"
+          test -n "$DMG_PATH"
+          xcrun notarytool submit "$DMG_PATH" \
+            --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY_ID" \
+            --issuer "$APPLE_API_ISSUER_ID" --wait
+          xcrun stapler staple "$DMG_PATH"
+          xcrun stapler validate "$DMG_PATH"
+          hdiutil verify "$DMG_PATH"
+      - name: Verify signed package and architecture
+        env:
+          MONGOG_RELEASE: '1'
+          MONGOG_SIGN_RELEASE: '1'
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          npm run verify:package -- --platform darwin --arch ${{ matrix.arch }} --release
+          APP_PATH="out/MongoG-darwin-${{ matrix.arch }}/MongoG.app"
+          codesign --verify --deep --strict --verbose=4 "$APP_PATH"
+          CODESIGN_DETAILS="$(codesign -dv --verbose=4 "$APP_PATH" 2>&1)"
+          [[ "$CODESIGN_DETAILS" == *"Authority=$MACOS_SIGN_IDENTITY"* ]]
+          spctl --assess --type execute --verbose=4 "$APP_PATH"
+          xcrun stapler validate "$APP_PATH"
+          EXPECTED_MACHO_ARCH="${{ matrix.arch }}"
+          if [[ "$EXPECTED_MACHO_ARCH" == "x64" ]]; then EXPECTED_MACHO_ARCH="x86_64"; fi
+          MACHO_ARCHS="$(lipo -archs "$APP_PATH/Contents/MacOS/MongoG")"
+          [[ " $MACHO_ARCHS " == *" $EXPECTED_MACHO_ARCH "* ]]
+      - name: Normalize macOS artifacts
+        run: npm run collect:release -- --platform darwin --arch ${{ matrix.arch }} --output "release-inputs/macos-${{ matrix.arch }}" --clean
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-macos-${{ matrix.arch }}
+          path: release-inputs/macos-${{ matrix.arch }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+      - name: Remove ephemeral signing material
+        if: always()
+        run: |
+          if [[ -n "${MACOS_KEYCHAIN:-}" ]]; then security delete-keychain "$MACOS_KEYCHAIN" || true; fi
+          if [[ -n "${SIGNING_DIRECTORY:-}" ]]; then rm -rf "$SIGNING_DIRECTORY"; fi
+
+  windows:
+    name: Windows x64
+    runs-on: windows-2022
+    timeout-minutes: 45
+    env:
+      npm_config_msvs_version: '2022'
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
+          fetch-depth: 0
+      - name: Verify checked-out tag
+        shell: bash
+        run: |
+          git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "${RELEASE_TAG}^{commit}")"
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Use Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12.10'
+          architecture: x64
+      - name: Cache Electron downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json', 'forge.config.mts', 'electron-builder.yml') }}
+          restore-keys: electron-${{ runner.os }}-${{ runner.arch }}-
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+      - name: Validate unsigned release tag
+        shell: bash
+        run: MONGOG_RELEASE=1 node scripts/validate-release-environment.mjs --platform win32 --tag "$RELEASE_TAG"
+      - name: Build unsigned production package once
+        shell: bash
+        run: MONGOG_RELEASE=1 npm run package -- --platform=win32 --arch=x64
+      - name: Make unsigned NSIS installer
+        shell: bash
+        run: MONGOG_RELEASE=1 npm run make:windows:nsis -- --platform win32 --arch x64
+      - name: Verify Windows artifacts are unsigned
+        shell: powershell
+        run: |
+          $targets = @('out\MongoG-win32-x64\MongoG.exe')
+          $installers = @(Get-ChildItem 'out\make\nsis\MongoG-Setup-*-win-x64.exe')
+          if ($installers.Count -ne 1) { throw "Expected one NSIS installer, found $($installers.Count)." }
+          $targets += $installers[0].FullName
+          foreach ($target in $targets) {
+            $signature = Get-AuthenticodeSignature -LiteralPath $target
+            if ($signature.Status -ne 'NotSigned') {
+              throw "Expected an unsigned Windows artifact: $target ($($signature.Status))"
+            }
+          }
+      - name: Verify production package
+        shell: bash
+        run: MONGOG_RELEASE=1 npm run verify:package -- --platform win32 --arch x64 --release
+      - name: Normalize Windows artifacts
+        shell: bash
+        run: npm run collect:release -- --platform win32 --arch x64 --output release-inputs/windows-x64 --clean --unsigned
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows-x64
+          path: release-inputs/windows-x64
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  linux:
+    name: Linux x64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
+          fetch-depth: 0
+      - name: Verify checked-out tag
+        run: |
+          git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "${RELEASE_TAG}^{commit}")"
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Cache Electron downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json', 'forge.config.mts', 'electron-builder.yml') }}
+          restore-keys: electron-${{ runner.os }}-${{ runner.arch }}-
+      - name: Install RPM packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fakeroot rpm
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+      - name: Validate release tag
+        run: MONGOG_RELEASE=1 node scripts/validate-release-environment.mjs --platform linux --tag "$RELEASE_TAG"
+      - name: Build production package once
+        run: MONGOG_RELEASE=1 npm run package -- --platform=linux --arch=x64
+      - name: Make RPM from production package
+        run: MONGOG_RELEASE=1 npm run make -- --skip-package --platform=linux --arch=x64 --targets=@electron-forge/maker-rpm
+      - name: Verify production package
+        run: MONGOG_RELEASE=1 npm run verify:package -- --platform linux --arch x64 --release
+      - name: Normalize and inspect Linux artifacts
+        run: |
+          PACKAGE_TYPE_PATH="out/MongoG-linux-x64/resources/package-type"
+          test "$(cat "$PACKAGE_TYPE_PATH")" = "rpm"
+          npm run collect:release -- --platform linux --arch x64 --output release-inputs/linux-x64 --clean
+          RPM_PATH="$(compgen -G 'release-inputs/linux-x64/mongog-*.rpm')"
+          rpm -qip "$RPM_PATH"
+          RPM_CONTENTS="$(rpm -qlp "$RPM_PATH")"
+          [[ "$RPM_CONTENTS" == *"/resources/package-type"* ]]
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-x64
+          path: release-inputs/linux-x64
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  draft-release:
+    name: Assemble draft release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    needs:
+      - checks
+      - macos
+      - windows
+      - linux
+    permissions:
+      contents: write
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
+          fetch-depth: 0
+      - name: Verify checked-out tag
+        run: |
+          git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "${RELEASE_TAG}^{commit}")"
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Download platform artifacts
+        uses: actions/download-artifact@v5
+        with:
+          pattern: release-*
+          path: release-artifacts
+          merge-multiple: true
+      - name: Verify release set and generate updater manifests
+        run: |
+          node scripts/verify-release-assets.mjs --directory release-artifacts --tag "$RELEASE_TAG" --unsigned-windows
+          node scripts/generate-update-manifests.mjs --directory release-artifacts --tag "$RELEASE_TAG"
+      - name: Upload complete release bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-bundle-${{ env.RELEASE_TAG }}
+          path: release-artifacts
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - name: Create or update draft GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            IS_DRAFT="$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)"
+            test "$IS_DRAFT" = "true" || {
+              echo "Refusing to replace assets on published release $RELEASE_TAG." >&2
+              exit 1
+            }
+            gh release upload "$RELEASE_TAG" release-artifacts/* --clobber
+          else
+            gh release create "$RELEASE_TAG" release-artifacts/* \
+              --verify-tag --draft --generate-notes --title "MongoG $RELEASE_TAG"
+          fi

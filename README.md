@@ -99,23 +99,22 @@ For its DB path, start mongod externally and also set
 `MONGOG_SMOKE_MONGO_URI`; packaged builds never launch
 `mongodb-memory-server`.
 
-## CircleCI and GitHub releases
+## GitHub Actions releases
 
 Kısa yayın kontrol listesi: [docs/RELEASE.md](docs/RELEASE.md)
 
-CircleCI runs typecheck, lint, and unit/integration tests for every branch and
-pull request, including `main`. Standalone `package-smoke-*` builds are disabled;
-branch pushes no longer create unsigned application archives. Release jobs
-retain packaged E2E, package verification, and production smoke checks.
-Release builds are created only from a version tag matching
-`package.json`, for example `v1.0.0`. Each release job stores its normalized
-installer/portable archives directly in CircleCI Artifacts.
+GitHub Actions creates releases only for a version tag matching `package.json`,
+for example `v1.0.0`, or from a manual workflow run that selects an existing
+tag. Branch and pull-request pushes do not start this workflow. Typecheck, lint,
+and unit tests run in parallel with the four production platform builds;
+integration, packaged E2E, and smoke tests are intentionally excluded from the
+release workflow. Each platform package is built once and shared with the final
+release job through GitHub Actions artifacts.
 
-The Windows toolchain downloads pinned Node.js and the Python 3.12.10 x64
-offline installer directly from their official sites, verifies SHA-256 hashes,
-and retries transient download failures. It does not depend on Chocolatey's
-package feed. Python is installed into `C:\tools\Python312` and its exact version
-and architecture are checked before native dependencies are built.
+The workflow uses GitHub-hosted Node.js 22.13.0 and Python 3.12.10 x64 on
+Windows. npm, Electron, and electron-builder download caches are scoped by
+platform and architecture; native `node_modules` are never shared between
+runners.
 
 macOS release artifacts are signed with Apple Developer ID, notarized by Apple,
 and stapled before upload. Windows publishes an explicitly `UNSIGNED` x64 NSIS
@@ -124,11 +123,10 @@ updates use HTTPS and SHA-512 verification but do not have Authenticode publishe
 verification. Linux publishes only the x64 RPM. Production Electron fuses remain
 hardened on every platform.
 
-Create a restricted CircleCI context named `release`, limit it to the MongoG
-project and release team, and add the Apple variables documented in
-[docs/RELEASE.md](docs/RELEASE.md). `MONGOG_SIGN_RELEASE=1` enables the
-fail-closed macOS signing/notarization path; `MONGOG_RELEASE=1` controls
-production hardening on every platform.
+Create a protected GitHub environment named `release` and add the Apple secrets
+documented in [docs/RELEASE.md](docs/RELEASE.md). `MONGOG_SIGN_RELEASE=1`
+enables the fail-closed macOS signing/notarization path;
+`MONGOG_RELEASE=1` controls production hardening on every platform.
 
 Release sequence:
 
@@ -140,15 +138,12 @@ git tag v1.0.0
 git push origin main v1.0.0
 ```
 
-After a platform job succeeds, download its packages from that job's
-**Artifacts** tab. An existing tag can be rebuilt from CircleCI's **Trigger
-Pipeline** screen by setting `run_release=true` and
-`release_tag=vX.Y.Z`. Enable tag-push triggers in the CircleCI GitHub project
-settings and use the CircleCI job names for required branch-protection checks.
-The dependent `release-metadata` job assembles the six official packages,
-verifies the complete set, writes `SHA256SUMS.txt`, and generates
-`latest-mac.yml`, `latest.yml`, and `latest-linux.yml` from the packages' actual
-SHA-512 hashes.
+The final job assembles the six official packages, verifies the complete set,
+writes `SHA256SUMS.txt`, and generates `latest-mac.yml`, `latest.yml`, and
+`latest-linux.yml` from the packages' actual SHA-512 hashes. It then creates a
+draft GitHub Release and uploads all packages and metadata. A manual run from
+the **Actions → Release → Run workflow** screen can rebuild an existing draft
+tag; published release assets are never replaced automatically.
 
 The app uses `electron-updater` with a generic provider pointed at
 `MONGOG_UPDATE_FEED_URL` (default `https://mongog.com/update`). macOS and
@@ -158,7 +153,7 @@ the background, but installation still requires an explicit **Restart &
 Install** action; NSIS requests elevation only if the existing install location
 requires it. `/api/latest-version` remains reserved for the website UI. A
 release is publishable only after the six official artifacts and all three
-generated manifests from `release-metadata` are deployed together: two macOS
+generated manifests from `Assemble draft release` are deployed together: two macOS
 DMGs, two macOS ZIPs, one explicitly unsigned Windows NSIS EXE and one Linux RPM.
 
 ## Layout

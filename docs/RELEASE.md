@@ -1,7 +1,7 @@
 # MongoG Release Guide
 
-Bu dosya Windows, macOS ve Linux paketlerini CircleCI üzerinden derleyip GitHub
-Releases'a göndermek için kullanılacak kısa kontrol listesidir.
+Bu dosya Windows, macOS ve Linux paketlerini GitHub Actions üzerinden derleyip
+taslak GitHub Release'a göndermek için kullanılacak kısa kontrol listesidir.
 
 > **İmzalama durumu:** macOS paketleri Apple Developer ID ile imzalanır, Apple
 > tarafından notarize edilir ve biletleri pakete zımbalanır. Windows uygulaması
@@ -10,10 +10,10 @@ Releases'a göndermek için kullanılacak kısa kontrol listesidir.
 > ve SHA-512 ile doğrulanır ancak Authenticode yayıncı doğrulaması yapılmaz.
 > Linux resmî yayını yalnız x64 RPM'dir.
 
-## CircleCI `release` context
+## GitHub `release` environment
 
-Context'i yalnız MongoG projesi ve yayın ekibiyle sınırla. Aşağıdaki değişkenler
-gereklidir; değerleri loglara veya repoya yazma:
+Environment'ı yalnız MongoG projesi ve yayın ekibiyle sınırla. Aşağıdaki
+secret'lar gereklidir; değerleri loglara veya repoya yazma:
 
 - `MACOS_CERTIFICATE_P12_BASE64`: Developer ID Application `.p12` dosyasının
   Base64 içeriği.
@@ -23,22 +23,24 @@ gereklidir; değerleri loglara veya repoya yazma:
   içeriği.
 - `APPLE_API_KEY_ID`: App Store Connect API anahtar kimliği.
 - `APPLE_API_ISSUER_ID`: App Store Connect issuer kimliği.
-CI bu materyali geçici keychain/dizinlere açar, ham Base64 değişkenlerini alt
-süreçlerden kaldırır ve iş bitince geçici dosyaları siler. macOS imzalama
+Workflow bu materyali geçici keychain/dizinlere açar, ham Base64 değişkenlerini
+yalnız hazırlık adımlarına verir ve iş bitince geçici dosyaları siler. macOS imzalama
 materyali yoksa production yayımı güvenli biçimde reddedilir. Windows release
-job'u signing context'ine erişmez ve olası CSC değişkenlerini NSIS üretiminden
-önce temizler.
+job'u Apple secret'larına erişmez ve olası CSC değişkenlerini NSIS üretiminden
+önce temizler. Son draft job'u otomatik `GITHUB_TOKEN` ile yalnız
+`contents: write` izni alır.
 
 ## Yeni sürüm yayınlama
 
-Branch ve `main` push'larında yalnız `quality` job'u çalışır; ayrı
-`package-smoke-*` paketleme job'ları kapalıdır. Tag ile çalışan release
-job'larının E2E, paket doğrulama ve production smoke kontrolleri korunur.
+Branch, `main` ve pull request push'larında workflow çalışmaz. Yalnız semantik
+sürüm tag'i veya manuel `release_tag` girişi release'i başlatır. Typecheck, lint
+ve unit testleri dört production build ile paralel çalışır. Integration,
+Playwright E2E ve packaged smoke release süresini uzatmamak için çalıştırılmaz.
 
-Windows toolchain Python'u Chocolatey yerine doğrudan Python.org'un sabit
-3.12.10 x64 offline kurucusundan yükler. Node ve Python indirmeleri sınırlı
-sayıda yeniden denenir, SHA-256 ile doğrulanır ve kurulum hatalarında job durur.
-Python'un sürümü ve 64-bit mimarisi npm bağımlılıkları kurulmadan önce kontrol edilir.
+macOS ARM64/x64, Windows x64 ve Linux x64 paketleri ayrı GitHub-hosted
+runner'larda paralel üretilir. Her production paketi yalnız bir kez oluşturulur;
+ZIP, DMG, NSIS ve RPM adımları mevcut paketi tekrar kullanır. npm, Electron ve
+electron-builder download cache'leri platform ve mimariye göre ayrılır.
 
 Aşağıdaki örnekteki `1.0.0` değerini yayınlanacak sürümle değiştir:
 
@@ -70,47 +72,47 @@ geçemez. Windows güncellemesini etkinleştiren ilk sürüm bir kez manuel kuru
 sonraki sürümler `latest.yml` üzerinden arka planda indirilir ve yalnız kullanıcı
 **Restart & Install** seçtiğinde uygulanır.
 
-## CircleCI'de kontrol ve indirme
+## GitHub Actions'ta kontrol ve indirme
 
-1. CircleCI içindeki `release` workflow'unun tamamlanmasını bekle.
-2. `release` context erişiminin yalnız yetkili proje ve ekiplerle sınırlı
+1. GitHub **Actions → Release** workflow'unun tamamlanmasını bekle.
+2. `release` environment erişiminin yalnız yetkili proje ve ekiplerle sınırlı
    olduğunu doğrula.
-3. macOS arm64/x64, Windows x64 ve Linux x64 job'larının geçtiğini doğrula.
-4. İstediğin job'u açıp **Artifacts** sekmesine gir.
-5. macOS için `release-macos-arm64` veya `release-macos-x64` altındaki imzalı
+3. Unit/typecheck/lint ile macOS arm64/x64, Windows x64 ve Linux x64 job'larının
+   geçtiğini doğrula.
+4. Workflow özetindeki `release-bundle-vX.Y.Z` artifact'ini veya draft release'i aç.
+5. macOS için `release-macos-arm64` ve `release-macos-x64` altındaki imzalı
    `.dmg` ve `.zip` dosyalarını indir.
 6. Windows x64 NSIS dosyasının adında `UNSIGNED` bulunduğunu, Authenticode
    durumunun `NotSigned` olduğunu ve pakette geçerli `resources/app-update.yml`
    bulunduğunu doğrula.
 7. Linux job'unda yalnız `.rpm` bulunduğunu ve paketteki
    `resources/package-type` değerinin `rpm` olduğunu doğrula.
-8. `release-metadata` job'unun altı paketi bir araya getirdiğini,
+8. `Assemble draft release` job'unun altı paketi bir araya getirdiğini,
    `SHA256SUMS.txt` ile `latest-mac.yml`, `latest.yml` ve `latest-linux.yml`
    dosyalarını ürettiğini doğrula.
-9. Altı paketi ve üç updater manifestini web admin paneline birlikte yükle.
+9. Draft GitHub Release notlarını gözden geçirip yayına aç. Altı paketi ve üç
+   updater manifestini web admin paneline birlikte yükle.
    `/update` yayını atomik değiştirilmeden sürümü aktif etme; istemci eksik veya
    eski bir manifest ile yeni paketi eşleştirmemelidir.
 
-İlk kurulumda GitHub bağlantısında tag-push tetiklemesini etkinleştir. CircleCI'de
-`release` adında restricted context oluşturup yukarıdaki Apple imzalama
-değişkenlerini ekle. GitHub token'ı gerekmez.
+İlk kurulumda repository **Settings → Environments** altında `release`
+environment'ını oluşturup yukarıdaki Apple imzalama secret'larını ekle. Actions
+için workflow yazma iznini etkinleştir. Eski CircleCI proje/webhook tetikleyicisini
+ve branch protection içindeki CircleCI required-check kayıtlarını kapat.
 
-Mevcut bir tag'i yeniden derlemek için CircleCI'de **Trigger Pipeline** açıp
-`run_release=true` ve `release_tag=vX.Y.Z` parametrelerini ver. Ayrıntılar için
-ana [README](../README.md#circleci-and-github-releases) belgesine bak.
+Mevcut bir draft tag'i yeniden derlemek için **Actions → Release → Run workflow**
+ekranında `release_tag=vX.Y.Z` ver. Workflow mevcut draft asset'lerini güvenli
+biçimde yeniler; yayımlanmış bir release'i değiştirmeyi reddeder. Ayrıntılar için
+ana [README](../README.md#github-actions-releases) belgesine bak.
 
-## Başarısız E2E job'larını inceleme
+## Başarısız release job'larını inceleme
 
-Release job'ları başarısız olsa da **Artifacts → test-results** altında
-Playwright `trace.zip`, hata bağlamı ve her uygulama açılışına ait
-`electron-N.log` dosyaları saklanır. Kapanış hatalarında bu logdaki
-`before-quit`, `will-quit`, `quit` olaylarını ve ana süreç hatasını kontrol et.
-E2E kapanışı süre sınırına tabidir; süreç ağacı zorla temizlenirse test başarılı
-sayılmaz. Windows geçici dizin temizliği, süreç çıktıktan sonra dosya kilitleri
-için sınırlı sayıda yeniden denenir.
+Başarısız platform job'unda ilgili Forge, signing, notarization veya maker
+adımını aç. Cache anahtarını, runner mimarisini ve tag/package sürüm eşleşmesini
+kontrol et. Platform artifact'i yüklenmediyse `Assemble draft release` job'u
+çalışmaz ve eksik bir draft release yayımlanmaz.
 
-Bir kod düzeltmesini yalnız `main` dalına göndermek, mevcut tag'in yeniden
-çalıştırılmasında kullanılan kodu değiştirmez: release job'ları tag'in commit'ini
-checkout eder. Yeni bir düzeltme yayını için yeni sürüm/tag kullan. Mevcut bir
-tag değiştirilirse eski/yeni commit'lerden üretilen platform paketlerini
-karıştırmadan tüm release workflow'unu yeniden çalıştır.
+Bir kod düzeltmesini yalnız `main` dalına göndermek mevcut tag'in checkout edilen
+kodunu değiştirmez. Yeni bir düzeltme yayını için yeni sürüm/tag kullan. Mevcut
+bir draft tag yeniden derlenirse dört platform job'unun tamamını aynı workflow
+run'ında üret; farklı commit'lerden gelen paketleri karıştırma.
