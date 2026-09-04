@@ -54,6 +54,7 @@ import { ExportDialog } from '../Export/ExportDialog.js';
 import { useExportJobsStore } from '../../stores/exports.js';
 import { useDataTransferStore } from '../../stores/data-transfer.js';
 import { LoadingOverlay } from '../Common/LoadingOverlay.js';
+import { BulkFieldPathCombobox } from './BulkFieldPathCombobox.js';
 
 const s: Record<string, React.CSSProperties> = {
   workspace: { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' },
@@ -184,11 +185,6 @@ const s: Record<string, React.CSSProperties> = {
     display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px',
     background: 'var(--color-panel-raised)', borderBottom: '1px solid var(--color-border)',
     fontSize: 11, flexWrap: 'wrap',
-  },
-  bulkInput: {
-    minWidth: 190, flex: '0 1 360px', border: '1px solid var(--color-border-strong)',
-    borderRadius: 3, background: 'var(--color-input)', color: 'var(--color-text)',
-    padding: '4px 7px', fontSize: 11, outline: 0,
   },
   bulkSelect: {
     border: '1px solid var(--color-border-strong)', borderRadius: 3,
@@ -1688,27 +1684,18 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
               {bulkEditor.mode === 'field' && (
                 <div style={s.bulkControls}>
                   <label htmlFor={`bulk-field-path-${tab.id}`}>Field path</label>
-                  <input
+                  <BulkFieldPathCombobox
                     id={`bulk-field-path-${tab.id}`}
-                    list={`bulk-field-options-${tab.id}`}
-                    aria-label="Bulk update field path"
-                    style={{
-                      ...s.bulkInput,
-                      ...(bulkFieldPathError(bulkEditor.fieldPath) ? { borderColor: theme.colors.danger } : {}),
-                    }}
+                    columns={columns}
                     value={bulkEditor.fieldPath}
                     disabled={editorBusy}
-                    onChange={(event) => setBulkEditor((current) => current ? {
+                    invalid={!!bulkFieldPathError(bulkEditor.fieldPath)}
+                    onChange={(value) => setBulkEditor((current) => current ? {
                       ...current,
-                      fieldPath: event.target.value,
+                      fieldPath: value,
                       validationError: null,
                     } : current)}
                   />
-                  <datalist id={`bulk-field-options-${tab.id}`}>
-                    {columns.filter((column) => column !== '_id').map((column) => (
-                      <option key={column} value={column} />
-                    ))}
-                  </datalist>
                   <label htmlFor={`bulk-field-operation-${tab.id}`}>Operation</label>
                   <select
                     id={`bulk-field-operation-${tab.id}`}

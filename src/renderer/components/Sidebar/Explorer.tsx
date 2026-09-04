@@ -184,7 +184,7 @@ function ExplorerTree({ compactHeader = false }: { compactHeader?: boolean }) {
     setShowNewGroup(false);
   };
 
-  const handleDoubleClick = async (pid: string) => {
+  const handleConnectionToggle = async (pid: string) => {
     setProfileError(null);
     try {
       if (connected[pid]) await disconnect(pid);
@@ -397,7 +397,7 @@ function ExplorerTree({ compactHeader = false }: { compactHeader?: boolean }) {
                       isSelected={selectedProfileId === p.id}
                       isExpanded={expandedProfileIds.has(p.id)}
                       onSelect={() => selectProfile(p.id)}
-                      onConnectionToggle={() => handleDoubleClick(p.id)}
+                      onConnectionToggle={() => handleConnectionToggle(p.id)}
                       onToggle={() => toggleProfile(p.id)}
                       onEdit={() => openConnections({ mode: 'edit', profileId: p.id })}
                       search={normalizedSearch}
@@ -419,7 +419,7 @@ function ExplorerTree({ compactHeader = false }: { compactHeader?: boolean }) {
             isSelected={selectedProfileId === p.id}
             isExpanded={expandedProfileIds.has(p.id)}
             onSelect={() => selectProfile(p.id)}
-            onConnectionToggle={() => handleDoubleClick(p.id)}
+            onConnectionToggle={() => handleConnectionToggle(p.id)}
             onToggle={() => toggleProfile(p.id)}
             onEdit={() => openConnections({ mode: 'edit', profileId: p.id })}
             search={normalizedSearch}
@@ -819,7 +819,6 @@ function ProfileNode({
         style={{ ...s.treeItem, ...(isSelected ? s.treeItemSelected : {}) }}
         onClick={onSelect}
         onContextMenu={showConnectionMenu}
-        onDoubleClick={() => void handleConnectionAction()}
         onKeyDown={(event) => handleTreeKeyDown(event, {
           key: profileKey,
           parentKey,
@@ -837,10 +836,10 @@ function ProfileNode({
         }}
         onDragEnd={onDragEnd}
         title={isConnected
-          ? 'Double-click to disconnect'
+          ? 'Connected. Use Disconnect to close the connection.'
           : idleDisconnect
-            ? `Disconnected after ${formatIdleDuration(idleDisconnect.idleTimeoutMS)} of inactivity. Double-click to reconnect.`
-            : 'Double-click to connect'}
+            ? `Disconnected after ${formatIdleDuration(idleDisconnect.idleTimeoutMS)} of inactivity. Use Connect to reconnect.`
+            : 'Disconnected. Use Connect to open the connection.'}
       >
         <span
           style={{ fontSize: 10, width: 14, textAlign: 'center' }}

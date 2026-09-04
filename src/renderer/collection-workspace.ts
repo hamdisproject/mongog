@@ -75,6 +75,17 @@ export function extractCollectionColumns(
   return ['_id', ...fields];
 }
 
+/** Editable bulk-update field suggestions from the columns currently shown in the table. */
+export function bulkFieldPathSuggestions(columns: string[], query = ''): string[] {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const seen = new Set<string>();
+  return columns.filter((column) => {
+    if (column === '_id' || seen.has(column)) return false;
+    seen.add(column);
+    return !normalizedQuery || column.toLocaleLowerCase().includes(normalizedQuery);
+  });
+}
+
 function arraysEqual(left: string[], right: string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }

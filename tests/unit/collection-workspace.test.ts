@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  bulkFieldPathSuggestions,
   collectionDocumentsOwnerId,
   collectionPageSizeOptions,
   collectionQueryTemplate,
@@ -56,6 +57,14 @@ describe('collection workspace helpers', () => {
   it('discovers a stable top-level schema from a non-empty Documents page', () => {
     expect(extractCollectionColumns([{ sku: 'a', quantity: 1 }, { sku: 'b', note: 'new' }]))
       .toEqual(['_id', 'note', 'quantity', 'sku']);
+  });
+
+  it('suggests visible editable bulk fields in table order and filters them', () => {
+    const columns = ['_id', 'sku', 'Quantity', 'metadata', 'sku'];
+    expect(bulkFieldPathSuggestions(columns)).toEqual(['sku', 'Quantity', 'metadata']);
+    expect(bulkFieldPathSuggestions(columns, 'T')).toEqual(['Quantity', 'metadata']);
+    expect(bulkFieldPathSuggestions(['_id'], '')).toEqual([]);
+    expect(bulkFieldPathSuggestions(columns, 'custom.path')).toEqual([]);
   });
 
   it('uses first-seen field order across heterogeneous documents in document mode', () => {

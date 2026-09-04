@@ -3,10 +3,24 @@ import { useConnectionStore } from '../../src/renderer/stores/connections.js';
 
 describe('renderer connections store collection loading', () => {
   const listCollections = vi.fn();
+  const listDatabases = vi.fn();
+  const connect = vi.fn();
+  const getState = vi.fn();
 
   beforeEach(() => {
     listCollections.mockReset();
-    vi.stubGlobal('window', { mongog: { query: { listCollections } } });
+    listDatabases.mockReset();
+    listDatabases.mockResolvedValue([]);
+    connect.mockReset();
+    connect.mockResolvedValue(undefined);
+    getState.mockReset();
+    getState.mockResolvedValue({ status: 'connected', pid: 123, serverVersion: '8.0.0' });
+    vi.stubGlobal('window', {
+      mongog: {
+        query: { listCollections, listDatabases },
+        connections: { connect, getState },
+      },
+    });
     useConnectionStore.setState({
       connected: {},
       runtimeEpochs: {},
@@ -94,5 +108,17 @@ describe('renderer connections store collection loading', () => {
     expect(useConnectionStore.getState().databases['conn-1']).toBeUndefined();
     expect(useConnectionStore.getState().collections['conn-1:app']).toBeUndefined();
     expect(useConnectionStore.getState().runtimeEpochs['conn-1']).toBe(1);
+  });
+
+  it('expands a profile after an explicit connection succeeds', async () => {
+    await useConnectionStore.getState().connect('conn-1');
+
+    expect(connect).toHaveBeenCalledWith('conn-1');
+    expect(useConnectionStore.getState().connected['conn-1']).toEqual({
+      pid: 123,
+      serverVersion: '8.0.0',
+    });
+    expect(useConnectionStore.getState().expandedProfileIds.has('conn-1')).toBe(true);
+    expect(listDatabases).toHaveBeenCalledWith('conn-1');
   });
 });

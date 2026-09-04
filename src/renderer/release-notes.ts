@@ -19,16 +19,17 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
-    version: '1.2.18',
+    version: '1.2.19',
     releasedAt: '2026-09-04',
-    title: 'Copyable query results and smoother workspace navigation',
-    summary: 'Copy statement and console output in one click, manage documents in bulk, and move through crowded tab bars with a dependable custom scrollbar.',
+    title: 'Explicit connections and discoverable bulk fields',
+    summary: 'Connect only when you intend to, choose bulk-update fields from the table or type a new path, copy results, and navigate crowded workspaces smoothly.',
     sections: [
       {
         kind: 'added',
         items: [
           'Select individual documents or the current page, then update a shared field, unset a field, or edit complete documents in one BSON-aware bulk workflow.',
           'Delete selected documents with a mandatory confirmation and per-document optimistic concurrency checks.',
+          'Choose a visible table column from the bulk-update field dropdown or type a new field path directly in the same editable combobox.',
           'Copy each statement result in the active BSON display format, including the currently loaded document page, scalar values, writes, commands, errors, and stream summaries.',
           'Copy all query console output in the active BSON display format with a one-click action and confirmation toast.',
         ],
@@ -41,6 +42,8 @@ export const RELEASE_NOTES = [
           'Opening or activating a tab automatically reveals it without disturbing pinned and regular tab ordering.',
           'Hovering the tab strip highlights its scrollbar, and vertical mouse-wheel movement scrolls overflowing tabs horizontally.',
           'Visible console output remains selectable as text in addition to the one-click Copy action.',
+          'Connection rows no longer connect or disconnect when clicked or double-clicked; only the explicit Connect and Disconnect controls change connection state.',
+          'Successfully connected profiles now expand automatically and begin loading their databases.',
           'Bulk operations validate every input before writing, continue through stale, missing, or driver failures, and reselect visible failed documents after refresh.',
         ],
       },

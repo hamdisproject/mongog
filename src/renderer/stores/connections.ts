@@ -388,6 +388,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
     const collectionsLoading = Object.fromEntries(
       Object.entries(get().collectionsLoading).filter(([key]) => !key.startsWith(`${profile.id}:`)),
     );
+    const expandedProfileIds = new Set(get().expandedProfileIds);
     useSchemaCache.getState().invalidateConnection(profile.id);
     if (result.connected) {
       const state = await window.mongog.connections.getState(profile.id);
@@ -396,11 +397,22 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
       }
       delete errors[profile.id];
       delete idleDisconnects[profile.id];
+      expandedProfileIds.add(profile.id);
     } else {
       delete connected[profile.id];
       if (result.connectionError) errors[profile.id] = result.connectionError.message;
     }
-    set({ profiles, connected, errors, idleDisconnects, databases, collections, collectionsLoading, selectedProfileId: profile.id });
+    set({
+      profiles,
+      connected,
+      errors,
+      idleDisconnects,
+      databases,
+      collections,
+      collectionsLoading,
+      expandedProfileIds,
+      selectedProfileId: profile.id,
+    });
     if (result.connected) void get().loadDatabases(profile.id);
     return result;
   },
@@ -414,8 +426,10 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
     if (state.status === 'connected') {
       connected[profileId] = { pid: state.pid, serverVersion: state.serverVersion };
       const errors = { ...get().errors };
+      const expandedProfileIds = new Set(get().expandedProfileIds);
+      expandedProfileIds.add(profileId);
       delete errors[profileId];
-      set({ connected, errors, idleDisconnects });
+      set({ connected, errors, idleDisconnects, expandedProfileIds });
       void get().loadDatabases(profileId);
     } else {
       delete connected[profileId];
@@ -479,9 +493,11 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
         serverVersion: state.serverVersion,
       };
       const errors = { ...get().errors };
+      const expandedProfileIds = new Set(get().expandedProfileIds);
+      expandedProfileIds.add(connectionId);
       delete errors[connectionId];
       delete idleDisconnects[connectionId];
-      set({ connected, errors, idleDisconnects });
+      set({ connected, errors, idleDisconnects, expandedProfileIds });
       return;
     }
     if (state.status === 'connecting') {
