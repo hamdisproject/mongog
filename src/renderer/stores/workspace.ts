@@ -101,6 +101,7 @@ interface WorkspaceState {
   detachConnection: (connectionId: string) => void;
   detachSavedItems: (savedItemIds: string[]) => void;
   renameCollectionContext: (connectionId: string, database: string, oldName: string, newName: string) => void;
+  renameDatabaseContext: (connectionId: string, oldName: string, newName: string) => void;
   closeNamespaceTabs: (connectionId: string, database: string, collection?: string) => void;
   closeTab: (id: string) => void;
   closeTabs: (ids: string[]) => void;
@@ -603,6 +604,34 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
         };
       }),
     }));
+  },
+
+  renameDatabaseContext: (connectionId, oldName, newName) => {
+    const current = get();
+    const affected = current.tabs.filter((tab) => (
+      tab.connectionId === connectionId && tab.database === oldName
+    ));
+    for (const tab of affected) cleanupTabResources(tab, current.results[tab.id]);
+    const affectedIds = new Set(affected.map((tab) => tab.id));
+    set((state) => {
+      const results = { ...state.results };
+      for (const id of affectedIds) results[id] = emptyExecution();
+      return {
+        tabs: state.tabs.map((tab) => {
+          if (!affectedIds.has(tab.id)) return tab;
+          return {
+            ...tab,
+            database: newName,
+            title: tab.customTitle
+              ? tab.title
+              : tab.kind === 'collection' && tab.collection
+                ? `${newName}.${tab.collection}`
+                : tab.title.replace(oldName, newName),
+          };
+        }),
+        results,
+      };
+    });
   },
 
   closeNamespaceTabs: (connectionId, database, collection) => {

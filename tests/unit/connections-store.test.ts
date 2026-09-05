@@ -1,11 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnectionStore } from '../../src/renderer/stores/connections.js';
+import { useWorkspaceStore } from '../../src/renderer/stores/workspace.js';
 
 describe('renderer connections store collection loading', () => {
   const listCollections = vi.fn();
   const listDatabases = vi.fn();
   const connect = vi.fn();
   const getState = vi.fn();
+  const createDatabase = vi.fn();
+  const startDatabaseRename = vi.fn();
+  const closeOwner = vi.fn();
 
   beforeEach(() => {
     listCollections.mockReset();
@@ -15,13 +19,26 @@ describe('renderer connections store collection loading', () => {
     connect.mockResolvedValue(undefined);
     getState.mockReset();
     getState.mockResolvedValue({ status: 'connected', pid: 123, serverVersion: '8.0.0' });
+    createDatabase.mockReset();
+    startDatabaseRename.mockReset();
+    closeOwner.mockReset();
+    closeOwner.mockResolvedValue(undefined);
     vi.stubGlobal('window', {
       mongog: {
-        query: { listCollections, listDatabases },
+        query: {
+          listCollections,
+          listDatabases,
+          createDatabase,
+          startDatabaseRename,
+          closeOwner,
+          cancel: vi.fn(),
+        },
         connections: { connect, getState },
+        saved: { list: vi.fn().mockResolvedValue({ folders: [], items: [] }) },
       },
     });
     useConnectionStore.setState({
+      profiles: [],
       connected: {},
       runtimeEpochs: {},
       errors: {},
@@ -32,6 +49,7 @@ describe('renderer connections store collection loading', () => {
       expandedProfileIds: new Set(),
       expandedDatabaseIds: new Set(),
     });
+    useWorkspaceStore.setState({ tabs: [], activeTabId: null, results: {} });
   });
 
   afterEach(() => {
@@ -143,5 +161,89 @@ describe('renderer connections store collection loading', () => {
     });
     expect(useConnectionStore.getState().expandedProfileIds.has('conn-1')).toBe(true);
     expect(listDatabases).toHaveBeenCalledWith('conn-1');
+  });
+
+  it('creates the first collection and expands the new database', async () => {
+    createDatabase.mockResolvedValue({ database: 'new_app', collection: 'items' });
+
+    await useConnectionStore.getState().createDatabase('conn-1', 'new_app', 'items');
+
+    expect(createDatabase).toHaveBeenCalledWith({
+      connectionId: 'conn-1', database: 'new_app', collection: 'items',
+    });
+    expect(useConnectionStore.getState().databases['conn-1']).toEqual([{ name: 'new_app' }]);
+    expect(useConnectionStore.getState().collections['conn-1:new_app']).toEqual([
+      { name: 'items', type: 'collection' },
+    ]);
+    expect(useConnectionStore.getState().expandedDatabaseIds.has('conn-1:new_app')).toBe(true);
+  });
+
+  it('applies a completed rename to profiles, Explorer data, and open tabs', async () => {
+    listDatabases.mockResolvedValue([{ name: 'target' }]);
+    listCollections.mockResolvedValue([{ name: 'items', type: 'collection' }]);
+    const profile = {
+      id: 'conn-1', groupId: null, name: 'Connection', color: null,
+      uriRedacted: 'mongodb://localhost', defaultDatabase: 'source', readOnly: false,
+      options: {}, hasSecret: false, createdAt: 1, updatedAt: 1,
+    };
+    useConnectionStore.setState({
+      profiles: [profile],
+      databases: { 'conn-1': [{ name: 'source' }] },
+      collections: { 'conn-1:source': [{ name: 'items', type: 'collection' }] },
+      expandedDatabaseIds: new Set(['conn-1:source']),
+    });
+    const tabId = useWorkspaceStore.getState().openCollection({
+      connectionId: 'conn-1', database: 'source', collection: 'items',
+    });
+
+    await useConnectionStore.getState().applyDatabaseRenameProgress({
+      jobId: 'rename-1', connectionId: 'conn-1', sourceDatabase: 'source', targetDatabase: 'target',
+      status: 'completed', collectionCount: 1, movedCount: 1,
+      movedCollections: ['items'], remainingCollections: [],
+    });
+
+    expect(useConnectionStore.getState().profiles[0]?.defaultDatabase).toBe('target');
+    expect(useConnectionStore.getState().databases['conn-1']).toEqual([{ name: 'target' }]);
+    expect(useConnectionStore.getState().collections['conn-1:source']).toBeUndefined();
+    expect(useConnectionStore.getState().collections['conn-1:target']).toEqual([
+      { name: 'items', type: 'collection' },
+    ]);
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === tabId)).toMatchObject({
+      database: 'target', title: 'target.items',
+    });
+    expect(closeOwner).toHaveBeenCalledWith('conn-1', tabId);
+  });
+
+  it('refreshes both server namespaces after partial failure without rewriting local context', async () => {
+    listDatabases.mockResolvedValue([{ name: 'source' }, { name: 'target' }]);
+    listCollections.mockImplementation(async (_connectionId: string, database: string) => (
+      database === 'source'
+        ? [{ name: 'remaining', type: 'collection' }]
+        : [{ name: 'moved', type: 'collection' }]
+    ));
+    const profile = {
+      id: 'conn-1', groupId: null, name: 'Connection', color: null,
+      uriRedacted: 'mongodb://localhost', defaultDatabase: 'source', readOnly: false,
+      options: {}, hasSecret: false, createdAt: 1, updatedAt: 1,
+    };
+    useConnectionStore.setState({ profiles: [profile] });
+    const tabId = useWorkspaceStore.getState().openQuery({
+      connectionId: 'conn-1', database: 'source', title: 'source query',
+    });
+
+    await useConnectionStore.getState().applyDatabaseRenameProgress({
+      jobId: 'rename-1', connectionId: 'conn-1', sourceDatabase: 'source', targetDatabase: 'target',
+      status: 'failed', collectionCount: 2, movedCount: 1,
+      movedCollections: ['moved'], remainingCollections: ['remaining'],
+    });
+
+    expect(useConnectionStore.getState().profiles[0]?.defaultDatabase).toBe('source');
+    expect(useConnectionStore.getState().collections['conn-1:source']).toEqual([
+      { name: 'remaining', type: 'collection' },
+    ]);
+    expect(useConnectionStore.getState().collections['conn-1:target']).toEqual([
+      { name: 'moved', type: 'collection' },
+    ]);
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === tabId)?.database).toBe('source');
   });
 });

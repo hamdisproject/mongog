@@ -364,6 +364,39 @@ describe('workspace execution store', () => {
     expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === releaseNotes)?.title).toBe('Release Notes');
   });
 
+  it('moves open tabs to a renamed database, preserves custom titles, and clears runtime results', () => {
+    const collection = useWorkspaceStore.getState().openCollection({
+      connectionId: 'conn-1', database: 'source', collection: 'items',
+    });
+    const query = useWorkspaceStore.getState().openQuery({
+      connectionId: 'conn-1', database: 'source', title: 'source query',
+    });
+    const unaffected = useWorkspaceStore.getState().openQuery({
+      connectionId: 'conn-1', database: 'other', title: 'other query',
+    });
+    useWorkspaceStore.getState().renameTab(query, 'Inventory report');
+    useWorkspaceStore.getState().prepareExecution(collection, 'conn-1', 'run-collection');
+    useWorkspaceStore.getState().prepareExecution(query, 'conn-1', 'run-query');
+
+    useWorkspaceStore.getState().renameDatabaseContext('conn-1', 'source', 'target');
+
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === collection)).toMatchObject({
+      database: 'target',
+      title: 'target.items',
+    });
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === query)).toMatchObject({
+      database: 'target',
+      title: 'Inventory report',
+      customTitle: true,
+    });
+    expect(useWorkspaceStore.getState().tabs.find((tab) => tab.id === unaffected)).toMatchObject({
+      database: 'other',
+      title: 'other query',
+    });
+    expect(useWorkspaceStore.getState().results[collection]?.status).toBe('idle');
+    expect(useWorkspaceStore.getState().results[query]?.status).toBe('idle');
+  });
+
   it('excludes pinned tabs from every bulk-close selection', () => {
     const tabs = [
       { id: 'pinned', kind: 'settings', title: 'Settings', connectionId: null, pinned: true },

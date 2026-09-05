@@ -26,6 +26,8 @@ import { DataTransferView } from './components/DataTransfer/DataTransferView.js'
 import { DataTransferProgressOverlay } from './components/DataTransfer/DataTransferProgressOverlay.js';
 import { useDataTransferStore } from './stores/data-transfer.js';
 import { useUpdatesStore } from './stores/updates.js';
+import { DatabaseRenameProgressOverlay } from './components/Database/DatabaseRenameProgressOverlay.js';
+import { useDatabaseRenameJobsStore } from './stores/database-renames.js';
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -121,6 +123,7 @@ export default function App() {
         );
         useExportJobsStore.getState().failConnection(state.connectionId, message);
         useDataTransferStore.getState().failConnection(state.connectionId, message);
+        useDatabaseRenameJobsStore.getState().failConnection(state.connectionId, message);
         return;
       }
       if (
@@ -139,6 +142,7 @@ export default function App() {
         useWorkspaceStore.getState().failExecutionsForConnection(state.connectionId, message);
         useExportJobsStore.getState().failConnection(state.connectionId, message);
         useDataTransferStore.getState().failConnection(state.connectionId, message);
+        useDatabaseRenameJobsStore.getState().failConnection(state.connectionId, message);
       }
     });
   }, []);
@@ -174,6 +178,11 @@ export default function App() {
 
   useEffect(() => window.mongog.events.onDataJobProgress((event) => {
     useDataTransferStore.getState().applyProgress(event);
+  }), []);
+
+  useEffect(() => window.mongog.events.onDatabaseRenameProgress((event) => {
+    useDatabaseRenameJobsStore.getState().apply(event);
+    void useConnectionStore.getState().applyDatabaseRenameProgress(event);
   }), []);
 
   useEffect(() => {
@@ -217,6 +226,7 @@ export default function App() {
       <CommandPalette />
       <ExportProgressOverlay />
       <DataTransferProgressOverlay />
+      <DatabaseRenameProgressOverlay />
       <div style={{
         flex: 1, minWidth: 0, minHeight: 0, display: 'flex',
         flexDirection: 'column', overflow: 'hidden',

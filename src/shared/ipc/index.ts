@@ -58,6 +58,11 @@ import type {
   CollectionTransferPreview,
   DataJobStartResult,
   DataJobProgressEvent,
+  CreateDatabaseInput,
+  CreateDatabaseResult,
+  StartDatabaseRenameInput,
+  DatabaseRenameStartResult,
+  DatabaseRenameProgressEvent,
 } from '../domain/index.js';
 import {
   AUDIT_CATEGORIES,
@@ -71,6 +76,11 @@ import {
   DATA_EMPTY_CELL_POLICIES,
   CONNECTION_IDLE_TIMEOUT_VALUES,
 } from '../domain/index.js';
+import {
+  collectionNameError,
+  databaseNameError,
+  namespaceLengthError,
+} from '../domain/namespaces.js';
 
 export const IpcChannels = {
   spikePingRuntime: 'mongog:spike:ping-runtime',
@@ -118,6 +128,8 @@ export const IpcChannels = {
   connCollectionDelete: 'mongog:conn:collection:delete',
   connCollectionRename: 'mongog:conn:collection:rename',
   connCollectionDrop: 'mongog:conn:collection:drop',
+  connDatabaseCreate: 'mongog:conn:database:create',
+  connDatabaseRenameStart: 'mongog:conn:database:rename-start',
   connDatabaseDrop: 'mongog:conn:database:drop',
   // ── Phase 4: Schema / completions ──
   connSampleSchema: 'mongog:conn:sample-schema',
@@ -177,6 +189,7 @@ export const IpcEvents = {
   auditChanged: 'mongog:event:audit-changed',
   exportProgress: 'mongog:event:export-progress',
   dataJobProgress: 'mongog:event:data-job-progress',
+  databaseRenameProgress: 'mongog:event:database-rename-progress',
   updateStatus: 'mongog:event:update-status',
 } as const;
 
@@ -829,6 +842,35 @@ export const connCollectionRenameSchema = z.object({
 
 export const connCollectionDropSchema = z.object(namespaceSchema);
 
+const validatedDatabaseNameSchema = z.string().superRefine((value, ctx) => {
+  const message = databaseNameError(value);
+  if (message) ctx.addIssue({ code: 'custom', message });
+});
+
+const validatedCollectionNameSchema = z.string().superRefine((value, ctx) => {
+  const message = collectionNameError(value);
+  if (message) ctx.addIssue({ code: 'custom', message });
+});
+
+export const connDatabaseCreateSchema = z.object({
+  connectionId: z.string().min(1),
+  database: validatedDatabaseNameSchema,
+  collection: validatedCollectionNameSchema,
+}).strict().superRefine((value, ctx) => {
+  const message = namespaceLengthError(value.database, value.collection);
+  if (message) ctx.addIssue({ code: 'custom', path: ['collection'], message });
+}) satisfies z.ZodType<CreateDatabaseInput>;
+
+export const connDatabaseRenameStartSchema = z.object({
+  connectionId: z.string().min(1),
+  database: validatedDatabaseNameSchema,
+  newDatabase: validatedDatabaseNameSchema,
+}).strict().superRefine((value, ctx) => {
+  if (value.database.toLowerCase() === value.newDatabase.toLowerCase()) {
+    ctx.addIssue({ code: 'custom', path: ['newDatabase'], message: 'The new database name must be different.' });
+  }
+}) satisfies z.ZodType<StartDatabaseRenameInput>;
+
 export const connDatabaseDropSchema = z.object({
   connectionId: z.string().min(1),
   database: z.string().min(1).max(255),
@@ -978,6 +1020,7 @@ export interface MongoGDesktopApi {
     onAuditChanged(cb: (event: import('../domain/index.js').AuditChangedEvent) => void): () => void;
     onExportProgress(cb: (event: ExportProgressEvent) => void): () => void;
     onDataJobProgress(cb: (event: DataJobProgressEvent) => void): () => void;
+    onDatabaseRenameProgress(cb: (event: DatabaseRenameProgressEvent) => void): () => void;
     onUpdateStatus(cb: (payload: UpdateStatusPayload) => void): () => void;
   };
   connections: {
@@ -1084,6 +1127,8 @@ export interface MongoGDesktopApi {
       newName: string;
     }): Promise<{ oldName: string; newName: string }>;
     collectionDrop(connectionId: string, database: string, collection: string): Promise<{ dropped: boolean }>;
+    createDatabase(input: CreateDatabaseInput): Promise<CreateDatabaseResult>;
+    startDatabaseRename(input: StartDatabaseRenameInput): Promise<DatabaseRenameStartResult>;
     databaseDrop(connectionId: string, database: string): Promise<{ dropped: boolean }>;
     sampleSchema(
       connectionId: string,

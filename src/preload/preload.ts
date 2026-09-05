@@ -58,6 +58,7 @@ const api: MongoGDesktopApi = {
     onAuditChanged: (cb) => subscribe(IpcEvents.auditChanged, cb),
     onExportProgress: (cb) => subscribe(IpcEvents.exportProgress, cb),
     onDataJobProgress: (cb) => subscribe(IpcEvents.dataJobProgress, cb),
+    onDatabaseRenameProgress: (cb) => subscribe(IpcEvents.databaseRenameProgress, cb),
     onUpdateStatus: (cb) => subscribe(IpcEvents.updateStatus, cb),
   },
   connections: {
@@ -108,6 +109,8 @@ const api: MongoGDesktopApi = {
     collectionRename: (input) => invoke(IpcChannels.connCollectionRename, input),
     collectionDrop: (connectionId, database, collection) =>
       invoke(IpcChannels.connCollectionDrop, { connectionId, database, collection }),
+    createDatabase: (input) => invoke(IpcChannels.connDatabaseCreate, input),
+    startDatabaseRename: (input) => invoke(IpcChannels.connDatabaseRenameStart, input),
     databaseDrop: (connectionId, database) =>
       invoke(IpcChannels.connDatabaseDrop, { connectionId, database }),
     sampleSchema: (connectionId, database, collection, sampleSize) =>

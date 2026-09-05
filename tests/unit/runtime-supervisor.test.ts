@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import { describe, expect, it, vi } from 'vitest';
 import type {
   DataJobProgressEvent,
+  DatabaseRenameProgressEvent,
   EngineEvent,
   ExportProgressEvent,
 } from '../../src/shared/domain/index.js';
@@ -103,7 +104,7 @@ describe('runtime supervisor idle lifecycle', () => {
     expect(supervisor.size).toBe(1);
   });
 
-  it('protects running queries, exports, data transfers and Change Streams', async () => {
+  it('protects running queries, exports, data transfers, database renames and Change Streams', async () => {
     let now = 0;
     const supervisor = new RuntimeSupervisor({ idleTimeoutMS: 100, now: () => now });
     const client = await supervisor.ensure('conn-1', 'mongodb://localhost');
@@ -130,6 +131,12 @@ describe('runtime supervisor idle lifecycle', () => {
     await sweep(supervisor);
     expect(supervisor.size).toBe(1);
     supervisor.trackDataJobProgress(dataJobEvent('completed'));
+
+    supervisor.trackDatabaseRenameProgress(databaseRenameEvent('running'));
+    now = 350;
+    await sweep(supervisor);
+    expect(supervisor.size).toBe(1);
+    supervisor.trackDatabaseRenameProgress(databaseRenameEvent('completed'));
 
     supervisor.setChangeStreamActive('conn-1', 'stream-1', true);
     now = 400;
@@ -231,5 +238,12 @@ function dataJobEvent(status: DataJobProgressEvent['status']): DataJobProgressEv
     updated: 0,
     skipped: 0,
     errors: 0,
+  };
+}
+
+function databaseRenameEvent(status: DatabaseRenameProgressEvent['status']): DatabaseRenameProgressEvent {
+  return {
+    jobId: 'rename-1', connectionId: 'conn-1', sourceDatabase: 'source', targetDatabase: 'target',
+    status, collectionCount: 1, movedCount: status === 'completed' ? 1 : 0,
   };
 }

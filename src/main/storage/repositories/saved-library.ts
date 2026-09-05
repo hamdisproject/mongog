@@ -219,6 +219,13 @@ export class SavedLibraryRepo {
     `).run(newName, Date.now(), connectionId, database, oldName);
   }
 
+  renameDatabaseContext(connectionId: string, oldName: string, newName: string): void {
+    this.db.prepare(`
+      UPDATE saved_items SET database_name = ?, updated_at = ?
+      WHERE connection_id = ? AND database_name = ?
+    `).run(newName, Date.now(), connectionId, oldName);
+  }
+
   private assertItemInput(input: CreateSavedItemInput | UpdateSavedItemInput): void {
     if (input.payload.type !== input.type) {
       throw appError('Validation', 'Saved item type and payload must match.');
@@ -309,4 +316,3 @@ export class SavedLibraryRepo {
     return appError('LocalPersistence', `Failed to ${action}.`);
   }
 }
-

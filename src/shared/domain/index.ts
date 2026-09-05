@@ -88,6 +88,16 @@ export {
   DATA_JOB_PHASES,
 } from './data-transfer.js';
 
+export { PROTECTED_DATABASE_NAMES } from './namespaces.js';
+export type {
+  CreateDatabaseInput,
+  CreateDatabaseResult,
+  StartDatabaseRenameInput,
+  DatabaseRenameStartResult,
+  DatabaseRenameStatus,
+  DatabaseRenameProgressEvent,
+} from './namespaces.js';
+
 export type {
   DataJobKind,
   DataConflictMode,

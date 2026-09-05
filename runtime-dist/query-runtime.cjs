@@ -256899,7 +256899,7 @@ function requireDefinedNames() {
   definedNames = DefinedNames;
   return definedNames;
 }
-var utf8 = {};
+var utf8$1 = {};
 var utils = {};
 var support = {};
 var readable$5 = { exports: {} };
@@ -260113,7 +260113,7 @@ function requireGenericWorker() {
 }
 var hasRequiredUtf8;
 function requireUtf8() {
-  if (hasRequiredUtf8) return utf8;
+  if (hasRequiredUtf8) return utf8$1;
   hasRequiredUtf8 = 1;
   (function(exports2) {
     var utils2 = requireUtils$1();
@@ -260298,8 +260298,8 @@ function requireUtf8() {
       });
     };
     exports2.Utf8EncodeWorker = Utf8EncodeWorker;
-  })(utf8);
-  return utf8;
+  })(utf8$1);
+  return utf8$1;
 }
 var ConvertWorker_1;
 var hasRequiredConvertWorker;
@@ -320770,6 +320770,114 @@ function comparableIndex(index2) {
 function canonical(value) {
   return EJSON.stringify(value, void 0, 0, { relaxed: false });
 }
+const PROTECTED_DATABASE_NAMES = ["admin", "config", "local"];
+const utf8 = new TextEncoder();
+const databaseForbiddenCharacters = /[\s/\\."$*<>:|?\0]/u;
+function databaseNameError(value, options = {}) {
+  if (!value || value !== value.trim()) return "Database name cannot be empty or have leading/trailing whitespace.";
+  if (utf8.encode(value).byteLength >= 64) return "Database name must be shorter than 64 UTF-8 bytes.";
+  if (databaseForbiddenCharacters.test(value)) return "Database name contains a character MongoDB does not allow.";
+  if (!options.allowProtected && PROTECTED_DATABASE_NAMES.includes(value.toLowerCase())) {
+    return `Database name "${value}" is reserved by MongoDB.`;
+  }
+  return null;
+}
+function collectionNameError(value) {
+  if (!value || value !== value.trim()) return "Collection name cannot be empty or have leading/trailing whitespace.";
+  if (value.includes("\0")) return "Collection name cannot contain a null character.";
+  if (value.includes("$")) return 'Collection name cannot contain "$".';
+  if (value.startsWith("system.")) return "Collection name uses MongoDB's reserved system namespace.";
+  return null;
+}
+function namespaceLengthError(database, collection2) {
+  return utf8.encode(`${database}.${collection2}`).byteLength > 255 ? "Database and collection name together must not exceed 255 UTF-8 bytes." : null;
+}
+async function createDatabase(client2, database, collection2) {
+  assertDatabaseName(database);
+  assertCollectionNamespace(database, collection2);
+  const names = await listDatabaseNames(client2);
+  if (names.some((name) => sameDatabaseName(name, database))) {
+    throw appError("Validation", `Database "${database}" already exists.`);
+  }
+  await client2.db(database).createCollection(collection2);
+  return { database, collection: collection2 };
+}
+async function preflightDatabaseRename(client2, sourceDatabase, targetDatabase) {
+  assertDatabaseName(sourceDatabase);
+  assertDatabaseName(targetDatabase);
+  if (sameDatabaseName(sourceDatabase, targetDatabase)) {
+    throw appError("Validation", "The new database name must be different.");
+  }
+  const hello = await client2.db("admin").command({ hello: 1 }, { timeoutMS: 0 });
+  if (hello.msg === "isdbgrid") {
+    throw appError("Validation", "Database rename is not supported for sharded MongoDB deployments.");
+  }
+  const databaseNames = await listDatabaseNames(client2, { timeoutMS: 0 });
+  if (!databaseNames.includes(sourceDatabase)) {
+    throw appError("NotFound", `Source database "${sourceDatabase}" no longer exists.`);
+  }
+  if (databaseNames.some((name) => sameDatabaseName(name, targetDatabase))) {
+    throw appError("Validation", `Target database "${targetDatabase}" already exists.`);
+  }
+  const cursor = client2.db(sourceDatabase).listCollections({}, { nameOnly: false, timeoutMS: 0 });
+  const collections = [];
+  try {
+    for (; ; ) {
+      const info = await cursor.next();
+      if (!info) break;
+      const name = String(info.name ?? "");
+      const type = String(info.type ?? "collection");
+      const options = info.options ?? {};
+      if (type !== "collection") {
+        throw appError("Validation", `Database rename does not support ${type} namespace "${name}".`);
+      }
+      if (name.startsWith("system.")) {
+        throw appError("Validation", `Database rename does not support system collection "${name}".`);
+      }
+      if (options.timeseries !== void 0) {
+        throw appError("Validation", `Database rename does not support time-series collection "${name}".`);
+      }
+      if (name.startsWith("enxcol_.") || options.encryptedFields !== void 0) {
+        throw appError("Validation", `Database rename does not support Queryable Encryption collection "${name}".`);
+      }
+      assertCollectionNamespace(targetDatabase, name);
+      collections.push(name);
+    }
+  } finally {
+    await cursor.close().catch(() => void 0);
+  }
+  if (collections.length === 0) {
+    throw appError("Validation", `Source database "${sourceDatabase}" has no collections to move.`);
+  }
+  collections.sort((left, right) => left.localeCompare(right));
+  return { collections };
+}
+async function moveDatabaseCollection(client2, sourceDatabase, targetDatabase, collection2) {
+  assertDatabaseName(sourceDatabase);
+  assertDatabaseName(targetDatabase);
+  assertCollectionNamespace(sourceDatabase, collection2);
+  assertCollectionNamespace(targetDatabase, collection2);
+  await client2.db("admin").command({
+    renameCollection: `${sourceDatabase}.${collection2}`,
+    to: `${targetDatabase}.${collection2}`,
+    dropTarget: false
+  }, { timeoutMS: 0 });
+}
+async function listDatabaseNames(client2, options = {}) {
+  const result = await client2.db("admin").command({ listDatabases: 1, nameOnly: true }, options);
+  return (result.databases ?? []).map((item) => String(item.name ?? "")).filter(Boolean);
+}
+function assertDatabaseName(value) {
+  const message = databaseNameError(value);
+  if (message) throw appError("Validation", message);
+}
+function assertCollectionNamespace(database, collection2) {
+  const message = collectionNameError(collection2) ?? namespaceLengthError(database, collection2);
+  if (message) throw appError("Validation", message);
+}
+function sameDatabaseName(left, right) {
+  return left.toLowerCase() === right.toLowerCase();
+}
 const parentPort = process.parentPort;
 const registry = new CursorRegistry();
 registry.startSweeper();
@@ -320986,6 +321094,7 @@ async function handle(req) {
       return;
     }
     case "collection-insert": {
+      assertNoDataTransferLock();
       reply(req.id, await insertCollectionDocument(requireClient(), {
         database: req.database,
         collection: req.collection,
@@ -320994,6 +321103,7 @@ async function handle(req) {
       return;
     }
     case "collection-replace": {
+      assertNoDataTransferLock();
       reply(req.id, await replaceCollectionDocument(requireClient(), {
         database: req.database,
         collection: req.collection,
@@ -321003,6 +321113,7 @@ async function handle(req) {
       return;
     }
     case "collection-bulk-update": {
+      assertNoDataTransferLock();
       reply(req.id, await bulkUpdateCollectionDocuments(requireClient(), {
         database: req.database,
         collection: req.collection,
@@ -321012,6 +321123,7 @@ async function handle(req) {
       return;
     }
     case "collection-bulk-delete": {
+      assertNoDataTransferLock();
       reply(req.id, await bulkDeleteCollectionDocuments(requireClient(), {
         database: req.database,
         collection: req.collection,
@@ -321020,6 +321132,7 @@ async function handle(req) {
       return;
     }
     case "collection-delete": {
+      assertNoDataTransferLock();
       reply(req.id, await deleteCollectionDocument(requireClient(), {
         database: req.database,
         collection: req.collection,
@@ -321028,6 +321141,7 @@ async function handle(req) {
       return;
     }
     case "collection-rename": {
+      assertNoDataTransferLock();
       reply(req.id, await renameCollection(requireClient(), {
         database: req.database,
         collection: req.collection,
@@ -321036,13 +321150,44 @@ async function handle(req) {
       return;
     }
     case "collection-drop": {
+      assertNoDataTransferLock();
       reply(req.id, await dropCollection(requireClient(), {
         database: req.database,
         collection: req.collection
       }));
       return;
     }
+    case "database-create": {
+      assertNoDataTransferLock();
+      reply(req.id, await createDatabase(
+        requireClient(),
+        req.database,
+        req.collection
+      ));
+      return;
+    }
+    case "database-rename-preflight": {
+      assertDataTransferLockOwner(req.jobId);
+      reply(req.id, await preflightDatabaseRename(
+        requireClient(),
+        req.database,
+        req.newDatabase
+      ));
+      return;
+    }
+    case "database-rename-move-collection": {
+      assertDataTransferLockOwner(req.jobId);
+      await moveDatabaseCollection(
+        requireClient(),
+        req.database,
+        req.newDatabase,
+        req.collection
+      );
+      reply(req.id, { moved: true });
+      return;
+    }
     case "database-drop": {
+      assertNoDataTransferLock();
       reply(req.id, await dropDatabase(requireClient(), req.database));
       return;
     }
@@ -321054,6 +321199,7 @@ async function handle(req) {
       return;
     }
     case "index-create": {
+      assertNoDataTransferLock();
       reply(req.id, await createCollectionIndex(requireClient(), {
         database: req.database,
         collection: req.collection,
@@ -321068,6 +321214,7 @@ async function handle(req) {
       return;
     }
     case "index-drop": {
+      assertNoDataTransferLock();
       reply(req.id, await dropCollectionIndex(requireClient(), {
         database: req.database,
         collection: req.collection,
@@ -321131,6 +321278,7 @@ async function handle(req) {
       return;
     }
     case "gridfs-upload": {
+      assertNoDataTransferLock();
       reply(req.id, await uploadGridFsFile(requireClient(), {
         database: req.database,
         bucketName: req.bucketName,
@@ -321149,6 +321297,7 @@ async function handle(req) {
       return;
     }
     case "gridfs-delete": {
+      assertNoDataTransferLock();
       reply(req.id, await deleteGridFsFile(requireClient(), {
         database: req.database,
         bucketName: req.bucketName,
@@ -321330,7 +321479,12 @@ parentPort.on("message", ({ data }) => {
 parentPort.postMessage({ type: "ready", pid: process.pid });
 function assertNoDataTransferLock() {
   if (dataTransferLockId) {
-    throw { category: "Validation", message: "Another large data job is already using this connection." };
+    throw { category: "Validation", message: "A background data or database rename job is already using this connection." };
+  }
+}
+function assertDataTransferLockOwner(jobId) {
+  if (!dataTransferLockId || dataTransferLockId !== jobId) {
+    throw { category: "Validation", message: "Database rename no longer owns the connection job lock." };
   }
 }
 function isTerminalDataJob(status) {

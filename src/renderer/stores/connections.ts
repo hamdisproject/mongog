@@ -6,7 +6,7 @@ import type {
   SaveAndConnectResult,
   TestConnectionResult,
 } from '../../shared/domain/connections.js';
-import type { ConnectionState as RuntimeConnectionState } from '../../shared/domain/index.js';
+import type { ConnectionState as RuntimeConnectionState, DatabaseRenameProgressEvent } from '../../shared/domain/index.js';
 import { useSchemaCache } from './schema-cache.js';
 import { useWorkspaceStore } from './workspace.js';
 import { useSavedLibraryStore } from './saved.js';
@@ -57,6 +57,9 @@ interface ConnectionState {
   loadCollections: (connId: string, dbName: string) => Promise<void>;
   refreshDatabases: (connId: string) => Promise<void>;
   refreshCollections: (connId: string, dbName: string) => Promise<void>;
+  createDatabase: (connId: string, dbName: string, collection: string) => Promise<void>;
+  startDatabaseRename: (connId: string, dbName: string, newDbName: string) => Promise<string>;
+  applyDatabaseRenameProgress: (event: DatabaseRenameProgressEvent) => Promise<void>;
   renameCollection: (connId: string, dbName: string, oldName: string, newName: string) => Promise<void>;
   dropCollection: (connId: string, dbName: string, collection: string) => Promise<void>;
   dropDatabase: (connId: string, dbName: string) => Promise<void>;
@@ -225,6 +228,102 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
         return { collectionsLoading };
       });
     }
+  },
+
+  createDatabase: async (connId, dbName, collection) => {
+    const created = await window.mongog.query.createDatabase({
+      connectionId: connId,
+      database: dbName,
+      collection,
+    });
+    const key = `${connId}:${created.database}`;
+    set((state) => {
+      const databases = state.databases[connId] ?? [];
+      const expandedProfileIds = new Set(state.expandedProfileIds);
+      const expandedDatabaseIds = new Set(state.expandedDatabaseIds);
+      expandedProfileIds.add(connId);
+      expandedDatabaseIds.add(key);
+      return {
+        databases: {
+          ...state.databases,
+          [connId]: databases.some((item) => item.name === created.database)
+            ? databases
+            : [...databases, { name: created.database }].sort((left, right) => left.name.localeCompare(right.name)),
+        },
+        collections: { ...state.collections, [key]: [{ name: created.collection, type: 'collection' }] },
+        expandedProfileIds,
+        expandedDatabaseIds,
+      };
+    });
+  },
+
+  startDatabaseRename: async (connId, dbName, newDbName) => {
+    const result = await window.mongog.query.startDatabaseRename({
+      connectionId: connId,
+      database: dbName,
+      newDatabase: newDbName,
+    });
+    return result.jobId;
+  },
+
+  applyDatabaseRenameProgress: async (event) => {
+    if (event.status !== 'completed' && event.status !== 'failed') return;
+    const oldKey = `${event.connectionId}:${event.sourceDatabase}`;
+    const newKey = `${event.connectionId}:${event.targetDatabase}`;
+    if (event.status === 'completed') {
+      set((state) => {
+        const collections = { ...state.collections };
+        const moved = collections[oldKey] ?? (event.movedCollections ?? []).map((name) => ({ name, type: 'collection' }));
+        delete collections[oldKey];
+        collections[newKey] = moved;
+        const collectionsLoading = { ...state.collectionsLoading };
+        delete collectionsLoading[oldKey];
+        const expandedDatabaseIds = new Set(state.expandedDatabaseIds);
+        expandedDatabaseIds.delete(oldKey);
+        expandedDatabaseIds.add(newKey);
+        return {
+          databases: {
+            ...state.databases,
+            [event.connectionId]: (state.databases[event.connectionId] ?? []).map((item) => (
+              item.name === event.sourceDatabase ? { name: event.targetDatabase } : item
+            )).sort((left, right) => left.name.localeCompare(right.name)),
+          },
+          profiles: state.profiles.map((profile) => (
+            profile.id === event.connectionId && profile.defaultDatabase === event.sourceDatabase
+              ? { ...profile, defaultDatabase: event.targetDatabase }
+              : profile
+          )),
+          collections,
+          collectionsLoading,
+          expandedDatabaseIds,
+        };
+      });
+      useSchemaCache.getState().invalidateConnection(event.connectionId);
+      useWorkspaceStore.getState().renameDatabaseContext(
+        event.connectionId,
+        event.sourceDatabase,
+        event.targetDatabase,
+      );
+      await Promise.all([
+        get().refreshDatabases(event.connectionId).catch(() => undefined),
+        get().refreshCollections(event.connectionId, event.targetDatabase).catch(() => undefined),
+        useSavedLibraryStore.getState().load().catch(() => undefined),
+      ]);
+      return;
+    }
+
+    set((state) => {
+      const collections = { ...state.collections };
+      delete collections[oldKey];
+      delete collections[newKey];
+      return { collections };
+    });
+    useSchemaCache.getState().invalidateConnection(event.connectionId);
+    await get().refreshDatabases(event.connectionId).catch(() => undefined);
+    const names = new Set((get().databases[event.connectionId] ?? []).map((item) => item.name));
+    await Promise.all([event.sourceDatabase, event.targetDatabase]
+      .filter((name) => names.has(name))
+      .map((name) => get().refreshCollections(event.connectionId, name).catch(() => undefined)));
   },
 
   renameCollection: async (connId, dbName, oldName, newName) => {

@@ -13,9 +13,11 @@ import { AuditService } from './services/audit-service.js';
 import { DataTransferCoordinator } from './data-transfer/coordinator.js';
 import { createUpdateService, type UpdateService } from './services/update-service.js';
 import { normalizeApplicationSettings } from '../shared/domain/workspace.js';
+import { DatabaseRenameCoordinator } from './database-rename/coordinator.js';
 
 const supervisor = new RuntimeSupervisor({ maxRuntimes: 10 });
 const dataTransfer = new DataTransferCoordinator(supervisor);
+const databaseRenames = new DatabaseRenameCoordinator(supervisor, getDb);
 app.setName('MongoG');
 if (process.platform === 'win32') app.setAppUserModelId('com.mongog.desktop');
 const smokeUserDataPath = process.env.MONGOG_SMOKE === '1'
@@ -125,6 +127,7 @@ void app.whenReady().then(async () => {
       secretStore: secretVault,
       audit,
       dataTransfer,
+      databaseRenames,
       updates: updateService,
     },
     validateSender,
@@ -153,6 +156,12 @@ void app.whenReady().then(async () => {
     audit?.handleDataTransferEvent(event);
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IpcEvents.dataJobProgress, event);
+    }
+  });
+  databaseRenames.on('progress', (event) => {
+    audit?.handleDatabaseRenameEvent(event);
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send(IpcEvents.databaseRenameProgress, event);
     }
   });
   supervisor.on('runtime-connecting', (connectionId) => {
@@ -187,6 +196,7 @@ void app.whenReady().then(async () => {
     audit?.failQueriesForConnection(connectionId, 'Query runtime exited before execution completed.');
     audit?.failExportsForConnection(connectionId, 'Query runtime exited before export completed.');
     audit?.failDataTransfersForConnection(connectionId, 'Query runtime exited before data transfer completed.');
+    audit?.failDatabaseRenamesForConnection(connectionId, 'Query runtime exited before database rename completed.');
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IpcEvents.connectionState, {
         connectionId,
@@ -231,6 +241,10 @@ void app.whenReady().then(async () => {
       connectionId,
       'Connection runtime restarted to cancel a query.',
     );
+    audit?.failDatabaseRenamesForConnection(
+      connectionId,
+      'Connection runtime restarted before database rename completed.',
+    );
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IpcEvents.connectionState, {
         connectionId,
@@ -245,6 +259,7 @@ void app.whenReady().then(async () => {
     audit?.failQueriesForConnection(connectionId, 'Query runtime was force-killed before execution completed.');
     audit?.failExportsForConnection(connectionId, 'Query runtime was force-killed before export completed.');
     audit?.failDataTransfersForConnection(connectionId, 'Query runtime was force-killed before data transfer completed.');
+    audit?.failDatabaseRenamesForConnection(connectionId, 'Query runtime was force-killed before database rename completed.');
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IpcEvents.connectionState, {
         connectionId,
@@ -289,6 +304,7 @@ app.once('will-quit', () => {
   }
   void supervisor.disposeAll();
   dataTransfer.dispose();
+  databaseRenames.dispose();
   audit?.dispose();
   db?.close();
   if (smokeUserDataPath) {

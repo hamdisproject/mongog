@@ -2223,6 +2223,95 @@ async function expectColumnFilterAlignment(shell: Locator, description: string):
   });
 }
 
+test('Explorer creates and renames databases and disables mutations for read-only connections', async () => {
+  test.setTimeout(120_000);
+  const isolated = await mkdtemp(join(tmpdir(), 'mongog-database-ops-e2e-'));
+  const source = 'mongog_e2e_created_database';
+  const target = 'mongog_e2e_renamed_database';
+  try {
+    const page = await launch({ MONGOG_E2E_USER_DATA: isolated });
+    await page.getByRole('button', { name: 'New Connection', exact: true }).click();
+    await page.getByLabel('Connection name').fill('Database Ops E2E');
+    await page.getByLabel('Connection URI').fill(mongoUri);
+    await page.getByLabel('Default database').fill('mongog_e2e');
+    await page.getByRole('button', { name: 'Test, Save & Connect' }).click();
+    await expect(page.getByText('Connection tested, saved, and connected.')).toBeVisible({ timeout: 30_000 });
+
+    const explorer = page.getByRole('navigation', { name: 'Connection explorer' });
+    const profile = explorer.getByRole('treeitem', { name: 'Connection Database Ops E2E' });
+    await profile.click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Create Database…' }).click();
+    const createDialog = page.getByRole('dialog', { name: 'Create database' });
+    await createDialog.getByLabel('Database name').fill(source);
+    await createDialog.getByLabel('Initial collection name').fill('initial');
+    await createDialog.getByRole('button', { name: 'Create', exact: true }).click();
+
+    const profileTree = profile.locator('..');
+    const sourceDatabase = profileTree.getByRole('treeitem', { name: `Database ${source}` });
+    await expect(sourceDatabase).toBeVisible({ timeout: 15_000 });
+    const collection = profileTree.getByTitle(`Open ${source}.initial`);
+    await expect(collection).toBeVisible();
+    await collection.click();
+    const collectionTab = page.locator('[data-tab-kind="collection"][data-tab-active="true"]');
+    await expect(collectionTab).toHaveAttribute('title', `collection: ${source}.initial`);
+
+    const mongoClient = new MongoClient(mongoUri);
+    await mongoClient.connect();
+    try {
+      await mongoClient.db(source).collection('initial').insertOne({ preserved: true });
+    } finally {
+      await mongoClient.close();
+    }
+
+    await sourceDatabase.click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Rename Database…' }).click();
+    const renameDialog = page.getByRole('dialog', { name: 'Rename database' });
+    await expect(renameDialog).toContainText('no atomic database rename');
+    await expect(renameDialog).toContainText('cursors and change streams will be invalidated');
+    await renameDialog.getByLabel('New database name').fill(target);
+    await renameDialog.getByLabel(`Type "${source}" to confirm`).fill(source);
+    await renameDialog.getByRole('button', { name: 'Rename database', exact: true }).click();
+
+    const renameJobs = page.getByLabel('Database rename jobs');
+    await expect(renameJobs.getByText('completed', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(profileTree.getByRole('treeitem', { name: `Database ${target}` })).toBeVisible();
+    await expect(profileTree.getByRole('treeitem', { name: `Database ${source}` })).toHaveCount(0);
+    await expect(collectionTab).toHaveAttribute('title', `collection: ${target}.initial`);
+
+    const verify = new MongoClient(mongoUri);
+    await verify.connect();
+    try {
+      expect(await verify.db(target).collection('initial').findOne({ preserved: true })).toBeTruthy();
+      const names = (await verify.db('admin').admin().listDatabases({ nameOnly: true })).databases
+        .map((item) => item.name);
+      expect(names).toContain(target);
+      expect(names).not.toContain(source);
+    } finally {
+      await verify.close();
+    }
+
+    await page.getByRole('button', { name: 'New connection', exact: true }).click();
+    await page.getByLabel('Connection name').fill('Read Only Database Ops');
+    await page.getByLabel('Connection URI').fill(mongoUri);
+    await page.getByLabel('Default database').fill('mongog_e2e');
+    await page.getByLabel('Protect this connection as read-only').check();
+    await page.getByRole('button', { name: 'Test, Save & Connect' }).click();
+    await expect(page.getByText('Connection tested, saved, and connected.')).toBeVisible({ timeout: 30_000 });
+    const readOnlyProfile = explorer.getByRole('treeitem', { name: 'Connection Read Only Database Ops' });
+    await readOnlyProfile.click({ button: 'right' });
+    await expect(page.getByRole('menuitem', { name: 'Create Database…' })).toBeDisabled();
+    await page.keyboard.press('Escape');
+    await readOnlyProfile.press('ArrowRight');
+    const readOnlyDatabase = readOnlyProfile.locator('..').getByRole('treeitem', { name: 'Database mongog_e2e' });
+    await expect(readOnlyDatabase).toBeVisible({ timeout: 15_000 });
+    await readOnlyDatabase.click({ button: 'right' });
+    await expect(page.getByRole('menuitem', { name: 'Rename Database…' })).toBeDisabled();
+    await expect(page.getByRole('menuitem', { name: 'Drop Database…' })).toBeDisabled();
+  } finally {
+    try { await closeApplication(); } finally { await removeElectronUserData(isolated); }
+  }
+});
+
 test('quitting with a pending window-state save exits cleanly', async () => {
   const page = await launch();
   await expect(page.getByRole('button', { name: 'Open application settings' })).toBeVisible();

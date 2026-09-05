@@ -65,6 +65,11 @@ import { FileImportManager, type RuntimeFileDataset } from './data-transfer/file
 import { writeTransferBatch, type TransferWriteRequest } from './data-transfer/write.js';
 import { finalizeTransferIndexes, prepareTransferTarget } from './data-transfer/metadata.js';
 import type { DataMetadataSelection } from '../shared/domain/index.js';
+import {
+  createDatabase,
+  moveDatabaseCollection,
+  preflightDatabaseRename,
+} from './database/operations.js';
 
 interface RuntimeRequest {
   id: number;
@@ -305,6 +310,7 @@ async function handle(req: RuntimeRequest): Promise<void> {
       return;
     }
     case 'collection-insert': {
+      assertNoDataTransferLock();
       reply(req.id, await insertCollectionDocument(requireClient(), {
         database: req.database as string,
         collection: req.collection as string,
@@ -313,6 +319,7 @@ async function handle(req: RuntimeRequest): Promise<void> {
       return;
     }
     case 'collection-replace': {
+      assertNoDataTransferLock();
       reply(req.id, await replaceCollectionDocument(requireClient(), {
         database: req.database as string,
         collection: req.collection as string,
@@ -322,6 +329,7 @@ async function handle(req: RuntimeRequest): Promise<void> {
       return;
     }
     case 'collection-bulk-update': {
+      assertNoDataTransferLock();
       reply(req.id, await bulkUpdateCollectionDocuments(requireClient(), {
         database: req.database as string,
         collection: req.collection as string,
@@ -331,6 +339,7 @@ async function handle(req: RuntimeRequest): Promise<void> {
       return;
     }
     case 'collection-bulk-delete': {
+      assertNoDataTransferLock();
       reply(req.id, await bulkDeleteCollectionDocuments(requireClient(), {
         database: req.database as string,
         collection: req.collection as string,
@@ -339,6 +348,7 @@ async function handle(req: RuntimeRequest): Promise<void> {
       return;
     }
     case 'collection-delete': {
+      assertNoDataTransferLock();
       reply(req.id, await deleteCollectionDocument(requireClient(), {
         database: req.database as string,
         collection: req.collection as string,
@@ -347,6 +357,7 @@ async function handle(req: RuntimeRequest): Promise<void> {
       return;
     }
     case 'collection-rename': {
+      assertNoDataTransferLock();
       reply(req.id, await renameCollection(requireClient(), {
         database: req.database as string,
         collection: req.collection as string,
@@ -355,13 +366,44 @@ async function handle(req: RuntimeRequest): Promise<void> {
       return;
     }
     case 'collection-drop': {
+      assertNoDataTransferLock();
       reply(req.id, await dropCollection(requireClient(), {
         database: req.database as string,
         collection: req.collection as string,
       }));
       return;
     }
+    case 'database-create': {
+      assertNoDataTransferLock();
+      reply(req.id, await createDatabase(
+        requireClient(),
+        req.database as string,
+        req.collection as string,
+      ));
+      return;
+    }
+    case 'database-rename-preflight': {
+      assertDataTransferLockOwner(req.jobId as string);
+      reply(req.id, await preflightDatabaseRename(
+        requireClient(),
+        req.database as string,
+        req.newDatabase as string,
+      ));
+      return;
+    }
+    case 'database-rename-move-collection': {
+      assertDataTransferLockOwner(req.jobId as string);
+      await moveDatabaseCollection(
+        requireClient(),
+        req.database as string,
+        req.newDatabase as string,
+        req.collection as string,
+      );
+      reply(req.id, { moved: true });
+      return;
+    }
     case 'database-drop': {
+      assertNoDataTransferLock();
       reply(req.id, await dropDatabase(requireClient(), req.database as string));
       return;
     }
@@ -373,6 +415,7 @@ async function handle(req: RuntimeRequest): Promise<void> {
       return;
     }
     case 'index-create': {
+      assertNoDataTransferLock();
       reply(req.id, await createCollectionIndex(requireClient(), {
         database: req.database as string,
         collection: req.collection as string,
@@ -391,6 +434,7 @@ async function handle(req: RuntimeRequest): Promise<void> {
       return;
     }
     case 'index-drop': {
+      assertNoDataTransferLock();
       reply(req.id, await dropCollectionIndex(requireClient(), {
         database: req.database as string,
         collection: req.collection as string,
@@ -454,6 +498,7 @@ async function handle(req: RuntimeRequest): Promise<void> {
       return;
     }
     case 'gridfs-upload': {
+      assertNoDataTransferLock();
       reply(req.id, await uploadGridFsFile(requireClient(), {
         database: req.database as string,
         bucketName: req.bucketName as string,
@@ -472,6 +517,7 @@ async function handle(req: RuntimeRequest): Promise<void> {
       return;
     }
     case 'gridfs-delete': {
+      assertNoDataTransferLock();
       reply(req.id, await deleteGridFsFile(requireClient(), {
         database: req.database as string,
         bucketName: req.bucketName as string,
@@ -657,7 +703,13 @@ parentPort.postMessage({ type: 'ready', pid: process.pid });
 
 function assertNoDataTransferLock(): void {
   if (dataTransferLockId) {
-    throw { category: 'Validation', message: 'Another large data job is already using this connection.' };
+    throw { category: 'Validation', message: 'A background data or database rename job is already using this connection.' };
+  }
+}
+
+function assertDataTransferLockOwner(jobId: string): void {
+  if (!dataTransferLockId || dataTransferLockId !== jobId) {
+    throw { category: 'Validation', message: 'Database rename no longer owns the connection job lock.' };
   }
 }
 

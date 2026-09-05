@@ -326,6 +326,41 @@ describe('Database', () => {
   });
 
   describe('saved library', () => {
+    it('renames saved/default database references transactionally without rewriting history or audit records', () => {
+      const db = Database.openOrCreate(dbPath);
+      db.profiles.insert({
+        id: 'c1', groupId: null, name: 'Connection', color: null,
+        uriRedacted: 'mongodb://localhost', defaultDatabase: 'source',
+        readOnly: false, options: {}, hasSecret: false, createdAt: 1, updatedAt: 1,
+      });
+      const saved = db.saved.createItem({
+        name: 'Inventory', type: 'query', folderId: null, connectionId: 'c1',
+        database: 'source', collection: 'items', tags: [],
+        payload: { type: 'query', source: 'db.items.find({})', language: 'typescript', mode: 'query' },
+      });
+      db.history.insert({
+        id: 'history-1', executedAt: 10, connectionId: 'c1', database: 'source',
+        script: 'db.items.find({})', durationMs: 1, status: 'success', favourite: false,
+      });
+      db.audit.begin({
+        id: 'audit-1', startedAt: 10, connectionId: 'c1', connectionName: 'Connection',
+        database: 'source', category: 'documents', action: 'documents.find', origin: 'user',
+        operationClass: 'read', summary: 'Historical query',
+      });
+
+      db.transaction(() => {
+        db.saved.renameDatabaseContext('c1', 'source', 'target');
+        const profile = db.profiles.byId('c1')!;
+        db.profiles.update({ ...profile, defaultDatabase: 'target', updatedAt: 20 });
+      })();
+
+      expect(db.saved.itemById(saved.id)?.database).toBe('target');
+      expect(db.profiles.byId('c1')?.defaultDatabase).toBe('target');
+      expect(db.history.byId('history-1')?.database).toBe('source');
+      expect(db.audit.list({}, 10, 0).entries[0]?.database).toBe('source');
+      db.close();
+    });
+
     it('creates nested folders, moves a tree across connections, and removes it recursively', () => {
       const db = Database.openOrCreate(dbPath);
       db.profiles.insert({
