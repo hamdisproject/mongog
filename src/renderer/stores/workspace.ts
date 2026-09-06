@@ -20,6 +20,8 @@ import {
   collectionQueryTemplate,
   emptyDocumentCriteriaState,
   renameCollectionQueryTemplate,
+  renameSqlQueryTemplate,
+  sqlQueryTemplate,
   type CollectionViewMode,
 } from '../collection-workspace.js';
 import { useSettingsStore } from './settings.js';
@@ -80,6 +82,7 @@ interface WorkspaceState {
 
   createTab: (kind: WorkspaceTab['kind'], connectionId?: string | null) => string;
   openQuery: (options?: { connectionId?: string | null; database?: string; title?: string; editorContent?: string }) => string;
+  openSql: (options?: { connectionId?: string | null; database?: string; title?: string; editorContent?: string }) => string;
   openCollection: (options: {
     connectionId: string | null;
     database: string;
@@ -134,6 +137,7 @@ let tabCounter = 0;
 
 const RENAMEABLE_TAB_KINDS = new Set<WorkspaceTab['kind']>([
   'query',
+  'sql',
   'collection',
   'admin',
   'change-stream',
@@ -211,7 +215,9 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
         ? 'Welcome'
         : kind === 'query'
           ? 'Untitled'
-          : kind === 'admin'
+          : kind === 'sql'
+            ? 'SQL'
+            : kind === 'admin'
             ? 'Administration'
             : kind === 'change-stream'
               ? 'Change Stream'
@@ -248,6 +254,16 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
 
   openQuery: (options = {}) => {
     const id = get().createTab('query', options.connectionId ?? null);
+    get().updateTab(id, {
+      ...(options.database ? { database: options.database } : {}),
+      ...(options.title ? { title: options.title } : {}),
+      ...(options.editorContent !== undefined ? { editorContent: options.editorContent } : {}),
+    });
+    return id;
+  },
+
+  openSql: (options = {}) => {
+    const id = get().createTab('sql', options.connectionId ?? null);
     get().updateTab(id, {
       ...(options.database ? { database: options.database } : {}),
       ...(options.title ? { title: options.title } : {}),
@@ -335,6 +351,7 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
       collection: item.collection ?? undefined,
       collectionViewMode: template.collectionViewMode,
       editorContent: template.editorContent,
+      sqlEditorContent: template.sqlEditorContent,
       mode: template.mode,
       documentsState: template.documentsState
         ? structuredClone(template.documentsState)
@@ -550,6 +567,14 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
                 ),
               }
             : {}),
+          ...(view === 'sql' && tab.sqlEditorContent === undefined && tab.collection
+            ? {
+                sqlEditorContent: sqlQueryTemplate(
+                  tab.collection,
+                  useSettingsStore.getState().settings.execution.pageSize,
+                ),
+              }
+            : {}),
         };
       }),
     }));
@@ -592,10 +617,12 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
           tab.collection !== oldName
         ) return tab;
         const editorContent = renameCollectionQueryTemplate(tab.editorContent, oldName, newName);
+        const sqlEditorContent = renameSqlQueryTemplate(tab.sqlEditorContent, oldName, newName);
         return {
           ...tab,
           collection: newName,
           ...(editorContent !== undefined ? { editorContent } : {}),
+          ...(sqlEditorContent !== undefined ? { sqlEditorContent } : {}),
           title: tab.customTitle
             ? tab.title
             : tab.kind === 'collection'
@@ -1004,7 +1031,12 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
       ...(tab.kind === 'release-notes' ? { title: 'Release Notes', customTitle: false } : {}),
       pinned: tab.pinned ?? false,
       customTitle: tab.customTitle ?? false,
-      ...(tab.kind === 'collection' && tab.collectionViewMode === undefined
+      ...(tab.kind === 'collection' && (
+        tab.collectionViewMode === undefined ||
+        (tab.collectionViewMode !== 'documents' &&
+          tab.collectionViewMode !== 'query' &&
+          tab.collectionViewMode !== 'sql')
+      )
         ? { collectionViewMode: 'documents' as const }
         : {}),
       ...(tab.kind === 'collection' && tab.documentsState === undefined

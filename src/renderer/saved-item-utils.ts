@@ -60,6 +60,7 @@ export function savedInputForTab(
             }
           : {}),
         ...(tab.editorContent !== undefined ? { editorContent: tab.editorContent } : {}),
+        ...(tab.sqlEditorContent !== undefined ? { sqlEditorContent: tab.sqlEditorContent } : {}),
         ...(tab.mode !== undefined ? { mode: tab.mode } : {}),
       },
     },

@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { Explorer } from './components/Sidebar/Explorer.js';
 import { TabBar } from './components/TabBar/TabBar.js';
 import { QueryWorkspace } from './components/Editor/QueryWorkspace.js';
+import { SqlWorkspace } from './components/Sql/SqlWorkspace.js';
 import { CollectionView } from './components/Results/CollectionView.js';
 import { AdminView } from './components/Admin/AdminView.js';
 import { ChangeStreamView } from './components/Admin/ChangeStreamView.js';
@@ -340,6 +341,7 @@ function workspaceMetadataFingerprint(tabs: WorkspaceTab[], activeTabId: string 
     activeTabId,
     tabs: tabs.map(({
       editorContent: _editorContent,
+      sqlEditorContent: _sqlEditorContent,
       documentsState: _documentsState,
       documentsPageSizeOverride: _documentsPageSizeOverride,
       documentsColumnOrder: _documentsColumnOrder,
@@ -365,6 +367,8 @@ function renderTabContent(activeTabId: string | null, tabs: WorkspaceTab[]) {
       return <WelcomeView />;
     case 'query':
       return <QueryWorkspace />;
+    case 'sql':
+      return <SqlWorkspace />;
     case 'collection':
       return null;
     case 'admin':

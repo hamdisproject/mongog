@@ -174,4 +174,62 @@ describe('workspace execution store', () => {
       editorContent: '// retained\ndb.collection("items").countDocuments({});',
     });
   });
+
+  it('seeds the SQL view once and keeps it separate from the Query source', () => {
+    const tabId = useWorkspaceStore.getState().openCollection({
+      connectionId: 'conn-1', database: 'db', collection: 'items',
+    });
+
+    useWorkspaceStore.getState().setCollectionView(tabId, 'sql');
+    expect(useWorkspaceStore.getState().tabs[0]).toMatchObject({
+      collectionViewMode: 'sql',
+      sqlEditorContent: 'SELECT * FROM items LIMIT 50;\n',
+    });
+
+    useWorkspaceStore.getState().updateTab(tabId, { sqlEditorContent: '-- edited' });
+    useWorkspaceStore.getState().setCollectionView(tabId, 'query');
+    useWorkspaceStore.getState().setCollectionView(tabId, 'sql');
+    expect(useWorkspaceStore.getState().tabs[0]).toMatchObject({
+      sqlEditorContent: '-- edited',
+      editorContent: expect.stringContaining('db.collection("items")'),
+    });
+  });
+
+  it('coerces an unknown restored collection view back to Documents', () => {
+    useWorkspaceStore.getState().restore({
+      tabs: [{
+        id: 'odd-view',
+        kind: 'collection',
+        title: 'db.items',
+        connectionId: 'conn-1',
+        database: 'db',
+        collection: 'items',
+        collectionViewMode: 'visual' as unknown as 'documents',
+      }],
+      activeTabId: 'odd-view',
+    });
+
+    expect(useWorkspaceStore.getState().tabs[0]?.collectionViewMode).toBe('documents');
+  });
+
+  it('restores a collection SQL view with its own source', () => {
+    useWorkspaceStore.getState().restore({
+      tabs: [{
+        id: 'sql-collection',
+        kind: 'collection',
+        title: 'db.items',
+        connectionId: 'conn-1',
+        database: 'db',
+        collection: 'items',
+        collectionViewMode: 'sql',
+        sqlEditorContent: 'SELECT status FROM items LIMIT 10;\n',
+      }],
+      activeTabId: 'sql-collection',
+    });
+
+    expect(useWorkspaceStore.getState().tabs[0]).toMatchObject({
+      collectionViewMode: 'sql',
+      sqlEditorContent: 'SELECT status FROM items LIMIT 10;\n',
+    });
+  });
 });

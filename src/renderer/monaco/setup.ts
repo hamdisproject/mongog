@@ -14,6 +14,7 @@ import editorWorker from 'monaco-editor/editor/editor.worker.js?worker';
 import tsWorker from './query-language-worker.ts?worker';
 import { loadMongoTypeLibs } from './extra-libs.js';
 import { registerSchemaCompletions } from './completions.js';
+import { registerSqlCompletions } from './sql-completions.js';
 import { registerObjectExpressionLanguage } from './object-expression.js';
 
 let bootPromise: Promise<typeof monaco> | null = null;
@@ -58,6 +59,7 @@ async function initializeMonaco(): Promise<typeof monaco> {
 
   await loadMongoTypeLibs();
   registerSchemaCompletions();
+  registerSqlCompletions();
   registerObjectExpressionLanguage();
   return monaco;
 }

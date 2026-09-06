@@ -31,6 +31,7 @@ import {
   emptyDocumentCriteriaState,
   extractCollectionColumns,
   reconcileCollectionColumns,
+  sqlQueryTemplate,
 } from '../../collection-workspace.js';
 import {
   columnFilterHelpText,
@@ -44,6 +45,7 @@ import {
 } from '../../collection-column-sort.js';
 import { theme } from '../../theme.js';
 import { QueryWorkspace } from '../Editor/QueryWorkspace.js';
+import { SqlWorkspace } from '../Sql/SqlWorkspace.js';
 import { CollectionCriteriaEditor } from './CollectionCriteriaEditor.js';
 import { ColumnFilterInput } from './ColumnFilterInput.js';
 import type { CriteriaKind } from '../../monaco/object-expression.js';
@@ -71,6 +73,11 @@ const s: Record<string, React.CSSProperties> = {
     color: theme.colors.textMuted, padding: '0 12px', fontSize: 12, cursor: 'pointer',
   },
   viewButtonActive: { color: theme.colors.text, borderBottomColor: theme.colors.accentHover },
+  betaBadge: {
+    fontSize: 9, lineHeight: '14px', padding: '0 5px', borderRadius: 8,
+    border: `1px solid ${theme.colors.accentHover}`, color: theme.colors.accentHover,
+    textTransform: 'uppercase', letterSpacing: 0.4, flexShrink: 0,
+  },
   surface: { flex: 1, minHeight: 0, overflow: 'hidden' },
   container: { display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' },
   toolbar: {
@@ -268,14 +275,17 @@ export function CollectionView({ tab, active }: { tab: WorkspaceTab; active: boo
     <div style={s.workspace}>
       <div style={s.contextBar}>
         <span style={s.contextNamespace}>{namespace}</span>
-        {(['documents', 'query'] as const).map((candidate) => (
+        {(['documents', 'query', 'sql'] as const).map((candidate) => (
           <button
             key={candidate}
             style={{ ...s.viewButton, ...(view === candidate ? s.viewButtonActive : {}) }}
             aria-pressed={view === candidate}
             onClick={() => setCollectionView(tab.id, candidate)}
           >
-            {candidate === 'documents' ? 'Documents' : 'Query'}
+            {candidate === 'documents' ? 'Documents' : candidate === 'query' ? 'Query' : 'SQL'}
+            {candidate === 'sql' && (
+              <span style={{ ...s.betaBadge, marginLeft: 5 }} aria-hidden="true">beta</span>
+            )}
           </button>
         ))}
       </div>
@@ -287,6 +297,12 @@ export function CollectionView({ tab, active }: { tab: WorkspaceTab; active: boo
       {active && view === 'query' && (
         <div style={{ ...s.surface, display: 'flex', flexDirection: 'column' }}>
           <QueryWorkspace contextLocked />
+        </div>
+      )}
+
+      {active && view === 'sql' && (
+        <div style={{ ...s.surface, display: 'flex', flexDirection: 'column' }}>
+          <SqlWorkspace contextLocked />
         </div>
       )}
     </div>
@@ -1278,6 +1294,18 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
           Delete selected ({selectedRows.length})
         </ToolbarButton>
         <ToolbarButton onClick={openNewDocument} disabled={readOnly || busy || !!bulkEditor}>New</ToolbarButton>
+        <ToolbarButton
+          secondary
+          onClick={() => useWorkspaceStore.getState().openSql({
+            connectionId,
+            database,
+            title: `${database}.${collection} SQL`,
+            editorContent: sqlQueryTemplate(collection, effectivePageSize),
+          })}
+          disabled={busy}
+        >
+          Open in SQL
+        </ToolbarButton>
       </div>
 
       {exportOpen && (

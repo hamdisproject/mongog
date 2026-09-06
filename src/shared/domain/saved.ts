@@ -28,8 +28,10 @@ export interface SavedTabTemplate {
   title: string;
   pinned: boolean;
   customTitle: boolean;
-  collectionViewMode?: 'documents' | 'query';
+  collectionViewMode?: 'documents' | 'query' | 'sql';
   editorContent?: string;
+  /** collection tabs saved while the SQL view is active */
+  sqlEditorContent?: string;
   mode?: 'query' | 'trusted';
   documentsState?: DocumentCriteriaState;
 }

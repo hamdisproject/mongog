@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useConnectionStore } from '../../stores/connections.js';
 import { useSettingsStore } from '../../stores/settings.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
-import { collectionQueryTemplate } from '../../collection-workspace.js';
+import { collectionQueryTemplate, sqlQueryTemplate } from '../../collection-workspace.js';
 import type { ConnectionGroup } from '../../../shared/domain/connections.js';
 import { ActionDialog } from '../Common/ActionDialog.js';
 import { ContextMenu, type ContextMenuItem } from '../Common/ContextMenu.js';
@@ -618,7 +618,7 @@ function ProfileNode({
     createDatabase,
     startDatabaseRename,
   } = useConnectionStore();
-  const { openCollection, openQuery, openAdmin, openChangeStream } = useWorkspaceStore();
+  const { openCollection, openQuery, openSql, openAdmin, openChangeStream } = useWorkspaceStore();
   const openDataTransfer = useDataTransferStore((state) => state.open);
   const [connectionBusy, setConnectionBusy] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
@@ -702,6 +702,10 @@ function ProfileNode({
           onSelect: () => openQuery({ connectionId: profile.id, database, title: `${database} query` }),
         },
         {
+          label: 'New SQL Query',
+          onSelect: () => openSql({ connectionId: profile.id, database, title: `${database} SQL` }),
+        },
+        {
           label: 'Search Database',
           onSelect: () => openAdmin({ connectionId: profile.id, database, section: 'search' }),
         },
@@ -775,6 +779,18 @@ function ProfileNode({
             database,
             title: `${database}.${collection} query`,
             editorContent: collectionQueryTemplate(
+              collection,
+              useSettingsStore.getState().settings.execution.pageSize,
+            ),
+          }),
+        },
+        {
+          label: 'New SQL Query for Collection',
+          onSelect: () => openSql({
+            connectionId: profile.id,
+            database,
+            title: `${database}.${collection} SQL`,
+            editorContent: sqlQueryTemplate(
               collection,
               useSettingsStore.getState().settings.execution.pageSize,
             ),

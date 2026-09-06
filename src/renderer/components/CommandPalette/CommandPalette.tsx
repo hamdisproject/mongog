@@ -23,7 +23,7 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const { isOpen, close, toggle } = useCommandPaletteStore();
   const { profiles, connected, databases, collections, loadDatabases, loadCollections } = useConnectionStore();
-  const { openQuery, openCollection, openAdmin, openConnections, openWelcome } = useWorkspaceStore();
+  const { openQuery, openSql, openCollection, openAdmin, openConnections, openWelcome } = useWorkspaceStore();
   const savedItems = useSavedLibraryStore((state) => state.items);
   const savedFolders = useSavedLibraryStore((state) => state.folders);
   const openSavedItem = useSavedLibraryStore((state) => state.openItem);
@@ -66,6 +66,10 @@ export function CommandPalette() {
       {
         id: 'command:new-query', icon: '>_', label: 'New Query', detail: 'Command', keywords: 'new query script',
         action: closeAfter(() => openQuery()),
+      },
+      {
+        id: 'command:new-sql', icon: 'SQL', label: 'New SQL Query', detail: 'Command', keywords: 'new sql query mongo translate',
+        action: closeAfter(() => openSql()),
       },
       {
         id: 'command:connections', icon: 'C', label: 'Open Connections', detail: 'Command', keywords: 'connections settings',
@@ -144,7 +148,7 @@ export function CommandPalette() {
       });
     }
     return result;
-  }, [profiles, connected, databases, collections, savedItems, savedFolders, openQuery, openCollection, openAdmin, openConnections, openWelcome, openSavedItem, close]);
+  }, [profiles, connected, databases, collections, savedItems, savedFolders, openQuery, openSql, openCollection, openAdmin, openConnections, openWelcome, openSavedItem, close]);
 
   const visibleItems = useMemo(() => {
     const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
