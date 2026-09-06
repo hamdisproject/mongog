@@ -63,12 +63,28 @@ version "undefined"` (known Forge env quirk), run once:
 ## Test
 
 ```bash
-npm test            # unit (200)
-npm run test:integ  # integration against real mongod (38) — first run downloads mongod
-npm run test:e2e    # packaged Electron Welcome/Connections/Collection lifecycle (1)
-npm run test:all
+npm test            # all unit areas; repairs better-sqlite3 for the current Node ABI
+npm run test:integ  # all integration areas; first run downloads real mongod binaries
+npm run test:e2e    # all packaged Electron E2E areas
+npm run test:all    # unit → integration → Electron package → complete E2E (expensive)
 npm run typecheck
 ```
+
+Each layer also has independently runnable area commands:
+
+```bash
+npm run test:unit:main       # also runtime, renderer, analysis, shared, release
+npm run test:integ:engine    # also collections, data, admin
+npm run test:e2e:app         # also connections, query, collections, workflows, updates
+```
+
+Integration processes are created once by Vitest global setup, while each
+suite owns a unique database and only cleans up its own clients/databases. E2E
+uses one replica set per Playwright worker and a unique database plus temporary
+Electron user-data directory per test. Relaunches inside a test intentionally
+reuse that test's directory; teardown always closes Electron before dropping
+the database and removing temporary files. E2E commands require an existing
+package in `out/`, or an explicit `MONGOG_E2E_EXECUTABLE`.
 
 ## Package
 
@@ -105,11 +121,14 @@ Kısa yayın kontrol listesi: [docs/RELEASE.md](docs/RELEASE.md)
 
 GitHub Actions creates releases only for a version tag matching `package.json`,
 for example `v1.0.0`, or from a manual workflow run that selects an existing
-tag. Branch and pull-request pushes do not start this workflow. Typecheck, lint,
-and unit tests run in parallel with the four production platform builds;
-integration, packaged E2E, and smoke tests are intentionally excluded from the
-release workflow. Each platform package is built once and shared with the final
-release job through GitHub Actions artifacts.
+tag. Branch and pull-request pushes do not start this workflow. The separate
+`quality.yml` workflow gates pull requests and `main` pushes with typecheck,
+lint, area-based unit and integration matrices, and six parallel packaged Linux
+E2E jobs. It builds the unsigned Linux test package once and transfers it as a
+tar artifact so executable permissions and symlinks survive. The tag-based
+release workflow remains focused on release tooling: integration, packaged
+E2E, and smoke tests are intentionally excluded there. Each release platform
+package is built once and shared with the final release job through artifacts.
 
 The workflow uses GitHub-hosted Node.js 22.13.0 and Python 3.12.10 x64 on
 Windows. npm, Electron, and electron-builder download caches are scoped by
@@ -166,7 +185,7 @@ src/query-runtime  engine, cursor/stream registry, collection/admin operations
 src/features/script-analysis  TS-AST parse/instrument/context (pure, tested)
 src/shared      domain types, zod IPC schemas, errors, redaction, EJSON
 scripts/        type extraction, spike checks
-tests/          unit + integration + packaged Electron E2E
+tests/          area-based unit + integration + isolated packaged Electron E2E
 docs/adr        13 architecture decision records
 docs/spikes     phase 0 verification report
 ```

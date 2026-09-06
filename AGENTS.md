@@ -25,8 +25,10 @@ Plan ADRs: `docs/adr/0001-0013`.
 
 ```bash
 npm start            # dev (runs extract:types + build:runtime first)
-npm test             # unit
+npm test             # all unit areas; repairs better-sqlite3 Node ABI first
 npm run test:integ   # integration (real mongod via mongodb-memory-server)
+npm run test:e2e     # all packaged Electron E2E areas
+npm run test:all     # unit + integration + package + E2E; intentionally expensive
 npm run typecheck    # must stay clean
 npm run package      # packaged app in out/
 MONGOG_SMOKE=1 MONGOG_SPIKE_MONGO=1 npm start   # headless end-to-end check
@@ -113,10 +115,19 @@ version "undefined"`: `touch ~/.skip-forge-system-check` (Forge's own skip flag)
 ## Testing conventions
 
 - Unit tests never touch the network/processes; registry/policy/analysis are
-  tested with fakes (`tests/unit/`).
-- Integration tests use `tests/integration/helpers/mongo.ts` (standalone +
-  1-node replica set). Replica-set-only features (transactions, change
-  streams) go to the replset suite. First run downloads mongod binaries.
+  tested with fakes in the area folders under `tests/unit/`.
+- Integration tests use `tests/integration/fixtures/global-setup.ts` to share
+  one standalone and one 1-node replica set per Vitest run. Every suite calls
+  `useMongoIntegrationSuite()` for a unique database and cleans only its own
+  clients/databases. Replica-set-only features (transactions, change streams)
+  use the replica-set URI. First run downloads mongod binaries.
+- Packaged E2E tests are grouped under `tests/e2e/{app,connections,query,
+  collections,workflows,updates}`. `MongoGTestContext` owns a unique database
+  and Electron user-data directory per test; use `launch`, `relaunch`, and
+  `close` instead of module-level application state. Teardown order is Electron,
+  database, temporary files.
+- ESLint limits every `tests/**/*.ts` file to 400 non-comment, non-blank lines.
+  Split helpers by behavior instead of creating another shared monolith.
 - When you change engine behavior, add BOTH a unit test (analysis/policy) and
   an integration test (real driver) where applicable.
 

@@ -30,4 +30,10 @@ export default [
       'no-with': 'error',
     },
   },
+  {
+    files: ['tests/**/*.{ts,tsx}'],
+    rules: {
+      'max-lines': ['error', { max: 400, skipBlankLines: true, skipComments: true }],
+    },
+  },
 ];
