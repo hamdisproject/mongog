@@ -190,6 +190,15 @@ docs/adr        13 architecture decision records
 docs/spikes     phase 0 verification report
 ```
 
+## AI contributor docs (P0)
+
+`CLAUDE.md` (shim → `AGENTS.md`) · `docs/architecture.md` ·
+`docs/ipc-howto.md` · `docs/security-model.md` + `SECURITY.md` ·
+`docs/runtime-lifecycle.md` · `docs/debugging.md` · `docs/testing.md` ·
+`docs/packaging.md` · `docs/storage.md` · `docs/data-transfer.md` ·
+`scripts/README.md` — read the relevant file
+before changing its area. Workflow: `CONTRIBUTING.md`.
+
 ## Security notes (Phase 0 defaults)
 
 contextIsolation+sandbox+no nodeIntegration · allowlisted zod-validated IPC ·
