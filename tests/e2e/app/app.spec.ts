@@ -146,3 +146,59 @@ test('quitting with a pending window-state save exits cleanly', async ({ mongog 
   });
   await closeApplication();
 });
+
+test('workspace toolbar shortcuts can all be hidden independently and persist', async ({ mongog }) => {
+  test.setTimeout(120_000);
+  let { page } = await mongog.launch();
+
+  await page.getByTitle('New query tab').click();
+  await page.locator('[title^="New SQL tab"]').click();
+  await page.getByTitle('Import files or copy collections').click();
+  await expect(page.locator('[data-tab-kind="query"]')).toHaveCount(1);
+  await expect(page.locator('[data-tab-kind="sql"]')).toHaveCount(1);
+  await expect(page.locator('[data-tab-kind="data-transfer"]')).toHaveCount(1);
+
+  await page.getByRole('button', { name: 'Open application settings' }).click();
+  const shortcuts = [
+    { setting: 'Show Query shortcut', action: () => page.getByTitle('New query tab') },
+    { setting: 'Show SQL shortcut', action: () => page.locator('[title^="New SQL tab"]') },
+    { setting: 'Show Search shortcut', action: () => page.getByRole('button', { name: 'Open global search' }) },
+    { setting: 'Show Transfer shortcut', action: () => page.getByTitle('Import files or copy collections') },
+  ];
+
+  for (const shortcut of shortcuts) {
+    const setting = page.getByRole('switch', { name: shortcut.setting });
+    await expect(setting).toHaveAttribute('aria-checked', 'true');
+    await setting.click();
+    await expect(setting).toHaveAttribute('aria-checked', 'false');
+    await expect(shortcut.action()).toHaveCount(0);
+    await expect(setting).toBeEnabled();
+    await setting.click();
+    await expect(setting).toHaveAttribute('aria-checked', 'true');
+    await expect(shortcut.action()).toBeVisible();
+    await expect(setting).toBeEnabled();
+    await setting.click();
+    await expect(setting).toHaveAttribute('aria-checked', 'false');
+  }
+
+  await expect(page.getByTestId('workspace-tab-actions')).toHaveCount(0);
+  await expect(page.getByTestId('workspace-tab-viewport')).toBeVisible();
+  await expect(page.locator('[data-tab-kind="query"]')).toHaveCount(1);
+  await expect(page.locator('[data-tab-kind="sql"]')).toHaveCount(1);
+  await expect(page.locator('[data-tab-kind="data-transfer"]')).toHaveCount(1);
+
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+k' : 'Control+k');
+  const palette = page.getByRole('dialog', { name: 'Global quick open' });
+  await expect(palette).toBeVisible();
+  await expect(palette.getByRole('option', { name: /New Query/ })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  await mongog.close();
+  ({ page } = await mongog.launch());
+  await page.getByRole('button', { name: 'Open application settings' }).click();
+  for (const shortcut of shortcuts) {
+    await expect(page.getByRole('switch', { name: shortcut.setting }))
+      .toHaveAttribute('aria-checked', 'false');
+  }
+  await expect(page.getByTestId('workspace-tab-actions')).toHaveCount(0);
+});

@@ -61,6 +61,12 @@ describe('application settings normalization', () => {
       databaseOrder: 'alphabetical',
       collectionOrder: 'alphabetical',
     });
+    expect(DEFAULT_SETTINGS.toolbar).toEqual({
+      query: true,
+      sql: true,
+      search: true,
+      transfer: true,
+    });
     expect(DEFAULT_SETTINGS.connection.idleTimeoutMS).toBe(3_600_000);
     expect(normalizeApplicationSettings({ theme: 'light' }).connection.idleTimeoutMS)
       .toBe(DEFAULT_CONNECTION_IDLE_TIMEOUT_MS);
@@ -110,6 +116,29 @@ describe('application settings normalization', () => {
       ...structuredClone(DEFAULT_SETTINGS),
       catalog: { databaseOrder: 'created', collectionOrder: 'database' },
     }).success).toBe(false);
+  });
+
+  it('normalizes legacy and corrupt toolbar visibility values independently', () => {
+    expect(normalizeApplicationSettings(undefined).toolbar).toEqual(DEFAULT_SETTINGS.toolbar);
+    expect(normalizeApplicationSettings({
+      toolbar: { query: false, sql: 'hidden', search: false },
+    }).toolbar).toEqual({
+      query: false,
+      sql: true,
+      search: false,
+      transfer: true,
+    });
+    expect(applicationSettingsSchema.safeParse({
+      ...structuredClone(DEFAULT_SETTINGS),
+      toolbar: { ...DEFAULT_SETTINGS.toolbar, transfer: 'hidden' },
+    }).success).toBe(false);
+  });
+
+  it('accepts all toolbar shortcuts being hidden', () => {
+    const toolbar = { query: false, sql: false, search: false, transfer: false };
+    const settings = normalizeApplicationSettings({ toolbar });
+    expect(settings.toolbar).toEqual(toolbar);
+    expect(applicationSettingsSchema.safeParse(settings).success).toBe(true);
   });
 
   it.each(['alphabetical', 'document'] as const)('preserves the valid %s table column order', (columnOrder) => {

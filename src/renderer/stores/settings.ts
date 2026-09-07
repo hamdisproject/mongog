@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ApplicationSettings } from '../../shared/domain/index.js';
+import type { ApplicationSettings, ToolbarAction } from '../../shared/domain/index.js';
 import type { BsonDisplayMode } from '../../shared/ejson/index.js';
 import { DEFAULT_SETTINGS, normalizeApplicationSettings } from '../../shared/domain/workspace.js';
 import { applyThemePreference, type ThemePreference } from '../theme.js';
@@ -22,6 +22,7 @@ interface SettingsState {
   setTableColumnOrder: (columnOrder: ApplicationSettings['table']['columnOrder']) => Promise<void>;
   setDatabaseOrder: (databaseOrder: ApplicationSettings['catalog']['databaseOrder']) => Promise<void>;
   setCollectionOrder: (collectionOrder: ApplicationSettings['catalog']['collectionOrder']) => Promise<void>;
+  setToolbarActionVisible: (action: ToolbarAction, visible: boolean) => Promise<void>;
   setConnectionIdleTimeout: (idleTimeoutMS: number) => Promise<void>;
   setPageSize: (pageSize: number) => Promise<void>;
   setAuditSettings: (audit: ApplicationSettings['audit']) => Promise<void>;
@@ -167,6 +168,15 @@ export const useSettingsStore = create<SettingsState>()((set, get) => {
       await persist({
         ...previous,
         catalog: { ...previous.catalog, collectionOrder },
+      });
+    },
+
+    setToolbarActionVisible: async (action, visible) => {
+      const previous = get().settings;
+      if (previous.toolbar[action] === visible) return;
+      await persist({
+        ...previous,
+        toolbar: { ...previous.toolbar, [action]: visible },
       });
     },
 

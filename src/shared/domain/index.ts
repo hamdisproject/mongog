@@ -30,6 +30,7 @@ export type {
   HistoryQuery,
   ApplicationSettings,
   CatalogOrder,
+  ToolbarAction,
   CollectionOpenDisposition,
   TableColumnOrder,
 } from './workspace.js';

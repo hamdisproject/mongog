@@ -412,6 +412,12 @@ export const applicationSettingsSchema = z.object({
     databaseOrder: z.enum(['alphabetical', 'database']),
     collectionOrder: z.enum(['alphabetical', 'database']),
   }),
+  toolbar: z.object({
+    query: z.boolean(),
+    sql: z.boolean(),
+    search: z.boolean(),
+    transfer: z.boolean(),
+  }),
   table: z.object({
     columnOrder: z.enum(['alphabetical', 'document']),
   }),

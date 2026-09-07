@@ -159,6 +159,7 @@ export interface ApplicationSettings {
     databaseOrder: CatalogOrder;
     collectionOrder: CatalogOrder;
   };
+  toolbar: Record<ToolbarAction, boolean>;
   table: { columnOrder: TableColumnOrder };
   ejson: { defaultMode: BsonDisplayMode };
   window?: { bounds?: { x: number; y: number; width: number; height: number } };
@@ -167,6 +168,8 @@ export interface ApplicationSettings {
 export type CollectionOpenDisposition = 'reuse-existing' | 'new-tab';
 
 export type CatalogOrder = 'alphabetical' | 'database';
+
+export type ToolbarAction = 'query' | 'sql' | 'search' | 'transfer';
 
 export type TableColumnOrder = 'alphabetical' | 'document';
 
@@ -205,6 +208,7 @@ export const DEFAULT_SETTINGS: ApplicationSettings = {
     criteriaOpenByDefault: true,
   },
   catalog: { databaseOrder: 'alphabetical', collectionOrder: 'alphabetical' },
+  toolbar: { query: true, sql: true, search: true, transfer: true },
   table: { columnOrder: 'alphabetical' },
   ejson: { defaultMode: 'mongosh' },
 };
@@ -219,6 +223,7 @@ export function normalizeApplicationSettings(value: unknown): ApplicationSetting
   const audit = isRecord(source.audit) ? source.audit : {};
   const collection = isRecord(source.collection) ? source.collection : {};
   const catalog = isRecord(source.catalog) ? source.catalog : {};
+  const toolbar = isRecord(source.toolbar) ? source.toolbar : {};
   const table = isRecord(source.table) ? source.table : {};
   const ejson = isRecord(source.ejson) ? source.ejson : {};
   const mode = ejson.defaultMode;
@@ -274,6 +279,12 @@ export function normalizeApplicationSettings(value: unknown): ApplicationSetting
     catalog: {
       databaseOrder: catalogOrder(catalog.databaseOrder, DEFAULT_SETTINGS.catalog.databaseOrder),
       collectionOrder: catalogOrder(catalog.collectionOrder, DEFAULT_SETTINGS.catalog.collectionOrder),
+    },
+    toolbar: {
+      query: booleanValue(toolbar.query, DEFAULT_SETTINGS.toolbar.query),
+      sql: booleanValue(toolbar.sql, DEFAULT_SETTINGS.toolbar.sql),
+      search: booleanValue(toolbar.search, DEFAULT_SETTINGS.toolbar.search),
+      transfer: booleanValue(toolbar.transfer, DEFAULT_SETTINGS.toolbar.transfer),
     },
     table: {
       columnOrder: table.columnOrder === 'document' || table.columnOrder === 'alphabetical'

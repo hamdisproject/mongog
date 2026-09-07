@@ -175,6 +175,7 @@ describe('settings', () => {
         criteriaOpenByDefault: true,
       },
       catalog: { databaseOrder: 'alphabetical', collectionOrder: 'alphabetical' },
+      toolbar: { query: true, sql: true, search: true, transfer: true },
       table: { columnOrder: 'alphabetical' },
       ejson: { defaultMode: 'relaxed' },
     });

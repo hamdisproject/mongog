@@ -160,6 +160,38 @@ describe('renderer settings store', () => {
     });
   });
 
+  it('persists toolbar action visibility independently and permits hiding all actions', async () => {
+    save.mockResolvedValue(undefined);
+
+    for (const action of ['query', 'sql', 'search', 'transfer'] as const) {
+      await useSettingsStore.getState().setToolbarActionVisible(action, false);
+    }
+
+    expect(useSettingsStore.getState().settings.toolbar).toEqual({
+      query: false,
+      sql: false,
+      search: false,
+      transfer: false,
+    });
+    expect(save).toHaveBeenCalledTimes(4);
+    expect(save.mock.calls[0]?.[0].toolbar).toEqual({
+      query: false,
+      sql: true,
+      search: true,
+      transfer: true,
+    });
+  });
+
+  it('rolls back a failed toolbar visibility change', async () => {
+    save.mockRejectedValue(new Error('settings unavailable'));
+
+    await useSettingsStore.getState().setToolbarActionVisible('query', false);
+
+    expect(useSettingsStore.getState().settings.toolbar).toEqual(DEFAULT_SETTINGS.toolbar);
+    expect(useSettingsStore.getState().saving).toBe(false);
+    expect(useSettingsStore.getState().error).toBe('settings unavailable');
+  });
+
   it('forces auto-run off for Documents', async () => {
     save.mockResolvedValue(undefined);
     useSettingsStore.setState((state) => ({

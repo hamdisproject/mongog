@@ -8,6 +8,7 @@ import type { WorkspaceTab } from '../../../shared/domain/index.js';
 import { ContextMenu, type ContextMenuItem } from '../Common/ContextMenu.js';
 import { useCommandPaletteStore } from '../../stores/command-palette.js';
 import { useDataTransferStore } from '../../stores/data-transfer.js';
+import { useSettingsStore } from '../../stores/settings.js';
 
 const TAB_DRAG_MIME = 'application/x-mongog-workspace-tab';
 
@@ -118,6 +119,7 @@ export function TabBar() {
   } = useWorkspaceStore();
   const openGlobalSearch = useCommandPaletteStore((state) => state.open);
   const openDataTransfer = useDataTransferStore((state) => state.open);
+  const toolbar = useSettingsStore((state) => state.settings.toolbar);
   const [menu, setMenu] = useState<{ tabId: string; x: number; y: number } | null>(null);
   const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
@@ -133,6 +135,7 @@ export function TabBar() {
   const scrollDragRef = useRef<ScrollDrag | null>(null);
   const pinnedCount = tabs.filter((tab) => tab.pinned).length;
   const tabOrder = tabs.map((tab) => `${tab.id}:${tab.pinned ? 'p' : 'u'}`).join('|');
+  const hasToolbarActions = Object.values(toolbar).some(Boolean);
 
   const updateScrollMetrics = useCallback(() => {
     const tabStrip = tabsRef.current;
@@ -278,30 +281,40 @@ export function TabBar() {
 
   return (
     <div className="workspace-tab-bar" style={s.bar} data-testid="workspace-tab-bar">
-      <div style={s.actions} data-testid="workspace-tab-actions">
-        <button type="button" onClick={() => openQuery()} style={s.newBtn} title="New query tab">
-          <span style={{ color: 'var(--color-success)', fontSize: 15 }}>+</span> Query
-        </button>
-        <button type="button" onClick={() => openSql()} style={s.newBtn} title="New SQL tab (SQL is translated to MongoDB)">
-          <span style={{ color: 'var(--color-success)', fontSize: 15 }}>+</span> SQL
-          <span style={s.betaBadge}>beta</span>
-        </button>
-        <button
-          type="button"
-          aria-label="Open global search"
-          onClick={openGlobalSearch}
-          style={s.newBtn}
-          title="Global search (Cmd/Ctrl+K)"
-        >
-          <span style={{ color: 'var(--color-success)', fontSize: 15 }} aria-hidden="true">⌕</span>
-          Search
-          <span style={{ color: 'var(--color-text-faint)', fontSize: 9, marginLeft: 2 }}>⌘/Ctrl K</span>
-        </button>
-        <button type="button" onClick={() => openDataTransfer()} style={s.newBtn} title="Import files or copy collections">
-          <span style={{ color: 'var(--color-success)', fontSize: 14 }} aria-hidden="true">⇥</span>
-          Transfer
-        </button>
-      </div>
+      {hasToolbarActions && (
+        <div style={s.actions} data-testid="workspace-tab-actions">
+          {toolbar.query && (
+            <button type="button" onClick={() => openQuery()} style={s.newBtn} title="New query tab">
+              <span style={{ color: 'var(--color-success)', fontSize: 15 }}>+</span> Query
+            </button>
+          )}
+          {toolbar.sql && (
+            <button type="button" onClick={() => openSql()} style={s.newBtn} title="New SQL tab (SQL is translated to MongoDB)">
+              <span style={{ color: 'var(--color-success)', fontSize: 15 }}>+</span> SQL
+              <span style={s.betaBadge}>beta</span>
+            </button>
+          )}
+          {toolbar.search && (
+            <button
+              type="button"
+              aria-label="Open global search"
+              onClick={openGlobalSearch}
+              style={s.newBtn}
+              title="Global search (Cmd/Ctrl+K)"
+            >
+              <span style={{ color: 'var(--color-success)', fontSize: 15 }} aria-hidden="true">⌕</span>
+              Search
+              <span style={{ color: 'var(--color-text-faint)', fontSize: 9, marginLeft: 2 }}>⌘/Ctrl K</span>
+            </button>
+          )}
+          {toolbar.transfer && (
+            <button type="button" onClick={() => openDataTransfer()} style={s.newBtn} title="Import files or copy collections">
+              <span style={{ color: 'var(--color-success)', fontSize: 14 }} aria-hidden="true">⇥</span>
+              Transfer
+            </button>
+          )}
+        </div>
+      )}
       <div
         ref={viewportRef}
         className="workspace-tab-viewport"

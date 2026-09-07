@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSettingsStore } from '../../stores/settings.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
 import type { BsonDisplayMode } from '../../../shared/ejson/index.js';
+import type { ToolbarAction } from '../../../shared/domain/index.js';
 import { theme, type ThemePreference } from '../../theme.js';
 import { LATEST_RELEASE } from '../../release-notes.js';
 
@@ -111,6 +112,17 @@ const catalogOrderOptions = [
   },
 ];
 
+const toolbarActionOptions: Array<{
+  id: ToolbarAction;
+  label: string;
+  description: string;
+}> = [
+  { id: 'query', label: 'Show Query shortcut', description: 'Show the new Query button in the workspace tab bar.' },
+  { id: 'sql', label: 'Show SQL shortcut', description: 'Show the new SQL button and beta badge in the workspace tab bar.' },
+  { id: 'search', label: 'Show Search shortcut', description: 'Show the global search button. Cmd/Ctrl+K remains available when hidden.' },
+  { id: 'transfer', label: 'Show Transfer shortcut', description: 'Show the file import and collection copy button.' },
+];
+
 const connectionIdleOptions = [
   { value: 15 * 60 * 1000, label: '15 minutes' },
   { value: 30 * 60 * 1000, label: '30 minutes' },
@@ -137,6 +149,7 @@ export function SettingsView() {
     setTableColumnOrder,
     setDatabaseOrder,
     setCollectionOrder,
+    setToolbarActionVisible,
     setConnectionIdleTimeout,
     setPageSize,
     setAuditSettings,
@@ -219,7 +232,7 @@ export function SettingsView() {
         <section style={{ border: `1px solid ${theme.colors.border}`, borderRadius: 7, background: theme.colors.panel, overflow: 'hidden' }}>
           <div style={{ padding: '15px 17px', borderBottom: `1px solid ${theme.colors.border}` }}>
             <h2 style={{ margin: 0, fontSize: 14 }}>Appearance</h2>
-            <div style={{ marginTop: 5, color: theme.colors.textMuted, fontSize: 11 }}>Choose the color theme used across the workspace and editors.</div>
+            <div style={{ marginTop: 5, color: theme.colors.textMuted, fontSize: 11 }}>Choose the color theme and visible workspace shortcuts.</div>
           </div>
 
           <div role="radiogroup" aria-label="Application theme" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12, padding: 16 }}>
@@ -253,6 +266,31 @@ export function SettingsView() {
                 </button>
               );
             })}
+          </div>
+
+          <div style={{ padding: '14px 17px 0', borderTop: `1px solid ${theme.colors.border}` }}>
+            <strong style={{ display: 'block', fontSize: 12 }}>Workspace toolbar</strong>
+            <span style={{ display: 'block', marginTop: 4, color: theme.colors.textMuted, fontSize: 10, lineHeight: 1.45 }}>
+              Choose which shortcuts appear before the open workspace tabs. Hidden actions remain available elsewhere in the application.
+            </span>
+          </div>
+          <div data-testid="workspace-toolbar-settings" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 0, padding: '8px 16px 16px' }}>
+            {toolbarActionOptions.map((option) => (
+              <div key={option.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: 16, padding: '10px 0' }}>
+                <div>
+                  <strong style={{ display: 'block', fontSize: 11 }}>{option.label}</strong>
+                  <span style={{ display: 'block', marginTop: 3, color: theme.colors.textMuted, fontSize: 9, lineHeight: 1.4 }}>
+                    {option.description}
+                  </span>
+                </div>
+                <PreferenceSwitch
+                  label={option.label}
+                  checked={settings.toolbar[option.id]}
+                  disabled={!loaded || saving}
+                  onChange={() => void setToolbarActionVisible(option.id, !settings.toolbar[option.id])}
+                />
+              </div>
+            ))}
           </div>
         </section>
 
