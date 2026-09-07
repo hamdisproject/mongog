@@ -1,7 +1,7 @@
 # BUG-001 — Read-only protection bypassable via computed access / aliasing
 
 - **ID:** BUG-001
-- **Status:** active
+- **Status:** fixed (2026-09-07)
 - **Priority:** high
 - **Area:** query-runtime / security (client-side guard)
 - **Found:** 2026-09-06 (code inspection)
@@ -47,3 +47,14 @@ Either (a) make client-side read-only robust with runtime enforcement, or (b) ma
 
 - `docs/adr/0005-script-execution-model.md`
 - `src/shared/domain/connections.ts:47` (`ConnectionProfile.readOnly`)
+
+## Resolution
+
+- `src/query-runtime/engine/read-only-guard.ts` now recursively wraps real
+  MongoDB driver objects and runtime-inspects commands and aggregation stages.
+- `sandbox.ts` applies it to injected client/db objects, database switching and
+  trusted-module-created clients. Main derives `readOnly` from the saved profile
+  on every execution.
+- Verified by `tests/unit/query-runtime/read-only-guard.test.ts` and real-mongod
+  bypass cases in `tests/integration/engine/policy-errors.test.ts`.
+- Server-side MongoDB roles remain the final authorization boundary.

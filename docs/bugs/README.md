@@ -5,7 +5,7 @@
 
 | ID | Title | Priority | Status | File |
 |----|-------|----------|--------|------|
-| BUG-001 | Read-only protection bypassable via computed access / aliasing | high | active | [BUG-001-readonly-policy-bypass.md](BUG-001-readonly-policy-bypass.md) |
+| BUG-001 | Read-only protection bypassable via computed access / aliasing | high | fixed | [BUG-001-readonly-policy-bypass.md](BUG-001-readonly-policy-bypass.md) |
 | BUG-002 | better-sqlite3 native ABI mismatch breaks unit tests / dev start | medium | active | [BUG-002-better-sqlite3-abi.md](BUG-002-better-sqlite3-abi.md) |
 | BUG-003 | Secure vault fail-closed blocks profiles (macOS ad-hoc sign, Linux basic_text) | high | active | [BUG-003-vault-fail-closed.md](BUG-003-vault-fail-closed.md) |
 | BUG-004 | Monaco 0.56 + TS-pinned type manifest is fragile (stale completions) | medium | active | [BUG-004-monaco-types-fragility.md](BUG-004-monaco-types-fragility.md) |

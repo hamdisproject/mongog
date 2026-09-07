@@ -15,11 +15,13 @@ import type { ConsoleEntry } from '../../shared/domain/index.js';
 import { serializeToEjson } from '../../shared/ejson/index.js';
 import { appError } from '../../shared/errors/index.js';
 import { createAutoAwaitRuntime, type AutoAwaitHooks } from './auto-await.js';
+import { createReadOnlyDriverGuard } from './read-only-guard.js';
 
 export interface SandboxOptions {
   client: mongodb.MongoClient;
   database: string;
   mode: 'query' | 'trusted';
+  readOnly?: boolean;
   capture: (index: number, thunk: () => Promise<unknown>) => Promise<unknown>;
   mark: (index: number) => void;
   onConsole: (entry: ConsoleEntry) => void;
@@ -93,8 +95,11 @@ export function createSandbox(options: SandboxOptions): SandboxHandle {
   type ShellCompatibleDb = mongodb.Db & {
     getSiblingDB(databaseName: string): ShellCompatibleDb;
   };
+  const guarded = options.readOnly ? createReadOnlyDriverGuard(options.client) : null;
+  const sandboxClient = guarded?.client ?? options.client;
+  const sandboxMongoModule = guarded?.mongodb ?? mongodb;
   const shellDb = (databaseName: string): ShellCompatibleDb => {
-    const value = options.client.db(databaseName) as ShellCompatibleDb;
+    const value = sandboxClient.db(databaseName) as ShellCompatibleDb;
     if (!Object.hasOwn(value, 'getSiblingDB')) {
       Object.defineProperty(value, 'getSiblingDB', {
         configurable: false,
@@ -144,7 +149,7 @@ export function createSandbox(options: SandboxOptions): SandboxHandle {
   };
 
   const sandbox: Record<string, unknown> = {
-    mongodb,
+    mongodb: sandboxMongoModule,
     bson,
     ObjectId: shellObjectId,
     ISODate: (value?: unknown) => value === undefined ? new Date() : new Date(String(value)),
@@ -164,7 +169,7 @@ export function createSandbox(options: SandboxOptions): SandboxHandle {
     DBRef: shellDbRef,
     Code: shellCode,
     BSONSymbol: shellBsonSymbol,
-    client: options.client,
+    client: sandboxClient,
     db: currentDb,
     use(name: string) {
       if (typeof name !== 'string' || name.length === 0) {
@@ -184,7 +189,7 @@ export function createSandbox(options: SandboxOptions): SandboxHandle {
   if (options.mode === 'trusted') {
     // Allowlisted module access only (ADR-05). No arbitrary npm installs.
     sandbox.require = (name: string): unknown => {
-      if (name === 'mongodb') return mongodb;
+      if (name === 'mongodb') return sandboxMongoModule;
       if (name === 'bson') return bson;
       throw Object.assign(
         new Error(`Module "${name}" is not available in scripts (allowlist: mongodb, bson).`),

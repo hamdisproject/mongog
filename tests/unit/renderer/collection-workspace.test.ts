@@ -7,8 +7,12 @@ import {
   extractCollectionColumns,
   reconcileCollectionColumns,
   renameCollectionQueryTemplate,
+  renameSqlQueryTemplate,
+  sqlCollectionName,
+  sqlQueryTemplate,
 } from '../../../src/renderer/collection-workspace.js';
 import { parseScript } from '../../../src/features/script-analysis/parse.js';
+import { translateSql } from '../../../src/features/sql-translator/index.js';
 import { workspaceSaveSchema } from '../../../src/shared/ipc/index.js';
 
 describe('collection workspace helpers', () => {
@@ -27,6 +31,19 @@ describe('collection workspace helpers', () => {
       .toBe('db.collection("new/name").find({}).limit(125);\n');
     expect(renameCollectionQueryTemplate(`${source}// edited`, 'old/name', 'new/name'))
       .toBe(`${source}// edited`);
+  });
+
+  it('builds a translatable SQL template and renames only untouched ones', () => {
+    expect(sqlCollectionName('orders')).toBe('orders');
+    expect(sqlCollectionName('my table')).toBe('"my table"');
+    const source = sqlQueryTemplate('my table', 25);
+    expect(source).toBe('SELECT * FROM "my table" LIMIT 25;\n');
+    expect(translateSql(source)).toMatchObject({ collection: 'my table', execution: 'find', limit: 25 });
+    expect(renameSqlQueryTemplate(source, 'my table', 'renamed'))
+      .toBe('SELECT * FROM renamed LIMIT 25;\n');
+    expect(renameSqlQueryTemplate(`${source}-- edited`, 'my table', 'renamed'))
+      .toBe(`${source}-- edited`);
+    expect(renameSqlQueryTemplate(undefined, 'my table', 'renamed')).toBeUndefined();
   });
 
   it('keeps document cursor ownership separate from query ownership', () => {
@@ -142,6 +159,27 @@ describe('collection workspace helpers', () => {
     expect('documentsColumnOrder' in parsed.state.tabs[0]!).toBe(false);
     expect('documentsColumnOrderManual' in parsed.state.tabs[0]!).toBe(false);
     expect('documentsCriteriaOpen' in parsed.state.tabs[0]!).toBe(false);
+  });
+
+  it('accepts a persisted collection SQL view with its own source', () => {
+    const parsed = workspaceSaveSchema.parse({
+      state: {
+        sidebarWidth: 260,
+        tabs: [{
+          id: 'tab-sql',
+          kind: 'collection',
+          title: 'db.items',
+          connectionId: 'conn-1',
+          database: 'db',
+          collection: 'items',
+          collectionViewMode: 'sql',
+          editorContent: 'db.collection("items").find({});',
+          sqlEditorContent: 'SELECT * FROM items LIMIT 50;\n',
+        }],
+        activeTabId: 'tab-sql',
+      },
+    });
+    expect(parsed.state.tabs[0]?.sqlEditorContent).toBe('SELECT * FROM items LIMIT 50;\n');
   });
 
   it('accepts a persisted namespace-locked change stream tab', () => {

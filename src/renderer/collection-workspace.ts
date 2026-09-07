@@ -4,7 +4,7 @@ import type {
   TableColumnOrder,
 } from '../shared/domain/index.js';
 
-export type CollectionViewMode = 'documents' | 'query';
+export type CollectionViewMode = 'documents' | 'query' | 'sql';
 
 export const COLLECTION_PAGE_SIZE_PRESETS = [10, 25, 50, 100, 250, 500] as const;
 
@@ -29,6 +29,16 @@ export function emptyDocumentCriteriaState(): DocumentCriteriaState {
 
 export function collectionQueryTemplate(collection: string, pageSize = 50): string {
   return `db.collection(${JSON.stringify(collection)}).find({}).limit(${pageSize});\n`;
+}
+
+/** Quote a collection name for SQL only when it is not a bare identifier. */
+export function sqlCollectionName(collection: string): string {
+  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(collection)) return collection;
+  return `"${collection.replace(/"/g, '""')}"`;
+}
+
+export function sqlQueryTemplate(collection: string, pageSize = 50): string {
+  return `SELECT * FROM ${sqlCollectionName(collection)} LIMIT ${pageSize};\n`;
 }
 
 /** Build tab-local Documents page-size choices without duplicating the global default. */
@@ -104,6 +114,22 @@ export function renameCollectionQueryTemplate(
   const pageSize = Number(limitSource);
   if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 500) return source;
   return collectionQueryTemplate(newCollection, pageSize);
+}
+
+/** Rename only an untouched generated SQL collection template. */
+export function renameSqlQueryTemplate(
+  source: string | undefined,
+  oldCollection: string,
+  newCollection: string,
+): string | undefined {
+  if (source === undefined) return undefined;
+  const match = /^SELECT \* FROM (.+) LIMIT (\d+);\n$/.exec(source);
+  if (!match) return source;
+  const [, fromPart, limitSource] = match;
+  const pageSize = Number(limitSource);
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 500) return source;
+  if (fromPart !== sqlCollectionName(oldCollection)) return source;
+  return sqlQueryTemplate(newCollection, pageSize);
 }
 
 export function collectionDocumentsOwnerId(tabId: string): string {

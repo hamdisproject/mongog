@@ -43,6 +43,11 @@ const s: Record<string, React.CSSProperties> = {
     maxWidth: 160, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis',
   },
   dirtyDot: { width: 6, height: 6, borderRadius: '50%', background: 'var(--color-warning)', flexShrink: 0 },
+  betaBadge: {
+    fontSize: 9, lineHeight: '14px', padding: '0 5px', borderRadius: 8,
+    border: '1px solid var(--color-accent-hover)', color: 'var(--color-accent-hover)',
+    textTransform: 'uppercase', letterSpacing: 0.4, flexShrink: 0,
+  },
   newBtn: {
     padding: '4px 11px', cursor: 'pointer', color: 'var(--color-text)', fontSize: 12,
     display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
@@ -70,6 +75,7 @@ const s: Record<string, React.CSSProperties> = {
 const kindIcon: Record<string, string> = {
   welcome: '⌂',
   query: '>_',
+  sql: 'SQL',
   collection: '{ }',
   history: '◷',
   'connection-settings': 'C',
@@ -105,6 +111,7 @@ export function TabBar() {
     activeTabId,
     closeTabs,
     openQuery,
+    openSql,
     reorderTab,
     setTabPinned,
     renameTab,
@@ -274,6 +281,10 @@ export function TabBar() {
       <div style={s.actions} data-testid="workspace-tab-actions">
         <button type="button" onClick={() => openQuery()} style={s.newBtn} title="New query tab">
           <span style={{ color: 'var(--color-success)', fontSize: 15 }}>+</span> Query
+        </button>
+        <button type="button" onClick={() => openSql()} style={s.newBtn} title="New SQL tab (SQL is translated to MongoDB)">
+          <span style={{ color: 'var(--color-success)', fontSize: 15 }}>+</span> SQL
+          <span style={s.betaBadge}>beta</span>
         </button>
         <button
           type="button"
@@ -559,6 +570,7 @@ function Tab({
           <span style={{ fontSize: 10, opacity: 0.6 }}>{kindIcon[tab.kind] ?? '?'}</span>
           {tab.pinned && <PinIcon />}
           <span style={s.tabTitle}>{tab.title}</span>
+          {tab.kind === 'sql' && <span style={s.betaBadge} title="SQL support is in beta">beta</span>}
           {tab.dirty && <span style={s.dirtyDot} title="Modified" />}
         </button>
       )}

@@ -69,6 +69,45 @@ const z = 3;
     expect(c.errors[0]!.category).toBe('ReadOnlyProtection');
   });
 
+  it.each([
+    `const op = "insert" + "One"; await db.collection("users")[op]({ bypass: true });`,
+    `const remove = db.collection("users").deleteMany; await remove({ name: "Ada" });`,
+    `const key = "inse" + "rt"; await db.command({ [key]: "users", documents: [{ bypass: true }] });`,
+    `const stage = "$" + "merge"; await db.collection("users").aggregate([{ [stage]: { into: "users_copy" } }]).toArray();`,
+  ])('blocks runtime read-only bypasses without mutating data', async (source) => {
+    const before = await client.db(DATABASE).collection('users').countDocuments({});
+    const c = await run(source, { readOnly: true });
+    expect(c.finished?.status).toBe('failed');
+    expect(c.errors[0]!.category).toBe('ReadOnlyProtection');
+    expect(await client.db(DATABASE).collection('users').countDocuments({})).toBe(before);
+    expect(await client.db(DATABASE).collection('users').countDocuments({ bypass: true })).toBe(0);
+  });
+
+  it('blocks writes from a client created through trusted require', async () => {
+    const source = `
+const { MongoClient } = require("mongodb");
+const host = client.options.hosts[0].toString();
+const extra = new MongoClient("mongodb://" + host);
+try {
+  await extra.connect();
+  const operation = "insert" + "One";
+  await extra.db(${JSON.stringify(DATABASE)}).collection("users")[operation]({ bypass: true });
+} finally {
+  await extra.close();
+}
+`;
+    const c = await run(source, { mode: 'trusted', readOnly: true });
+    expect(c.finished?.status).toBe('failed');
+    expect(c.errors[0]?.category).toBe('ReadOnlyProtection');
+    expect(await client.db(DATABASE).collection('users').countDocuments({ bypass: true })).toBe(0);
+  });
+
+  it('keeps ordinary reads working through the runtime guard', async () => {
+    const c = await run('await db.collection("users").countDocuments({ active: true });', { readOnly: true });
+    expect(c.finished?.status).toBe('completed');
+    expect(c.results[0]?.result.kind).toBe('scalar');
+  });
+
   it('reports syntax errors as InvalidQuerySyntax (no naive splitting)', async () => {
     const c = await run('const = broken;;;');
     expect(c.finished?.status).toBe('failed');

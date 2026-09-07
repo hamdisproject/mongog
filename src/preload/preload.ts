@@ -81,6 +81,7 @@ const api: MongoGDesktopApi = {
   },
   query: {
     execute: (req) => invoke(IpcChannels.connExecute, req),
+    executeSql: (req) => invoke(IpcChannels.connExecuteSql, req),
     cursorFetchNext: (connectionId, cursorId, pageSize, operationId) =>
       invoke(IpcChannels.connCursorFetchNext, { connectionId, cursorId, pageSize, operationId }),
     cursorFetchPrev: (connectionId, cursorId, operationId) =>

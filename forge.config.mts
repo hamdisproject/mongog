@@ -107,6 +107,9 @@ const config: ForgeConfig = {
     // bundle is a separate real file for utilityProcess.fork().
     ignore: (file: string) => {
       if (!file) return false;
+      if (file.startsWith('/node_modules/.vite') || file.startsWith('/node_modules/node-sql-parser')) {
+        return true;
+      }
       return !(
         file.startsWith('/.vite') ||
         file.startsWith('/runtime-dist') ||

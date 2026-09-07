@@ -65,6 +65,17 @@ export type {
 } from './saved.js';
 
 export {
+  MAX_SQL_SOURCE_BYTES,
+  type SqlExecutionKind,
+  type SqlExecuteRequest,
+  type SqlExecuteResult,
+  type SqlPreview,
+  type SqlStatementKind,
+  type SqlTranslation,
+  type SqlTranslationFailure,
+} from './sql.js';
+
+export {
   AUDIT_CATEGORIES,
   AUDIT_STATUSES,
   AUDIT_ORIGINS,

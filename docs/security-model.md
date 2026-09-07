@@ -41,27 +41,27 @@ persistence/`safeStorage` access) — not an OS sandbox.
   (`src/main/window.ts:38-…`): host must be `bundle`, path traversal rejected
   (`..` → 403). Keep `GrantFileProtocolExtraPrivileges` OFF. No remote content.
 
-## 3. Read-only — three layers, one authoritative
+## 3. Read-only — layered in-app enforcement, server-authoritative roles
 
 - Layer 1 (UX): renderer disables mutating buttons for `readOnly` profiles.
 - Layer 2 (enforced): `requireWritableConnection()` in
-  `src/main/ipc/handlers.ts:163-169` blocks CRUD IPC ops for read-only profiles.
-- Layer 3 (best-effort): static AST scan in `src/query-runtime/engine/policy.ts`
-  blocks literal writes in Query Mode.
-- **BUG-001 (active, high)**: the static scan is bypassable via computed access
-  (`coll["ins"+"ertOne"]`), aliasing (`const f = coll.deleteMany`), or computed
-  `command()` keys. The script `execute` path does NOT go through
-  `requireWritableConnection`. Treat UI `readOnly` as accidental-write
-  protection, NOT a security boundary.
-- When touching read-only logic: read `docs/bugs/BUG-001-readonly-policy-bypass.md`
-  first; the sanctioned fix is a runtime `Proxy` guard around
-  `MongoClient/Db/Collection` in `sandbox.ts` + server-side roles as the
-  authoritative control. Never "fix" it by extending the literal-name list.
+  `src/main/ipc/handlers.ts` blocks CRUD IPC ops and derives script/SQL
+  `readOnly` from the saved profile; renderer input cannot downgrade it.
+- Layer 3 (early error): the static AST scan in
+  `src/query-runtime/engine/policy.ts` reports literal writes with source ranges.
+- Layer 4 (runtime enforcement): `read-only-guard.ts` recursively proxies real
+  driver objects in `sandbox.ts`. It covers computed access, aliases,
+  `use()`/`getSiblingDB()`, dynamic commands, `$out`/`$merge`, GridFS and clients
+  created through trusted `require('mongodb')`.
+- BUG-001 is fixed. Keep the static scan and runtime guard together. MongoDB
+  server roles remain the final authorization boundary because Trusted Mode is
+  trusted local code, not an OS sandbox. Use a server `read` role when writes
+  must be impossible regardless of application behavior.
 
 ## 4. Script modes
 
 - Query Mode (default): AST-enforced, no `require`/`process`/timers/`fetch`;
-  read-only write scan (best-effort, see §3).
+  read-only static scan plus runtime driver-object guard (see §3).
 - Trusted Mode: allowlisted `require('mongodb' | 'bson')` only + explicit
   consent UX. Copy must stay: "equivalent to running trusted local code;
   **not a sandbox**". `vm` escape CVEs are mitigated by keeping Electron

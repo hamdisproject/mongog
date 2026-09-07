@@ -54,6 +54,12 @@ Invariants (never break):
 6. Cursors are registered in `src/query-runtime/registry/cursors.ts`; the
    renderer receives a handle + first page, then `fetchNext`/`fetchPrev`.
 
+SQL uses a stricter sibling path. `query.executeSql` accepts raw SQL only; main
+derives `readOnly` from the profile, and the utility process performs the
+authoritative translation. Renderer Web Worker translation is preview-only.
+WHERE-less UPDATE/DELETE confirmation is issued by main as a 60-second,
+single-use token bound to the exact query context. Contract: `docs/sql.md`.
+
 ## IPC contract — where to look (no generated catalog)
 
 - Channel names: `IpcChannels` in `src/shared/ipc/index.ts` (~1240 lines).
@@ -113,9 +119,10 @@ Detail: `docs/runtime-lifecycle.md`.
 |---|---|
 | New IPC channel | `docs/ipc-howto.md`, then `src/shared/ipc/index.ts`, `src/main/ipc/handlers.ts`, `src/preload/preload.ts` |
 | Query/engine bug | `src/query-runtime/engine/execute.ts`, `sandbox.ts`, `policy.ts`, `src/features/script-analysis/parse.ts`, `tests/integration/engine/*` |
+| SQL translator/execution | `docs/sql.md`, `src/features/sql-translator/*`, `src/main/services/sql-confirmations.ts`, `src/main/ipc/handlers.ts`, `tests/{unit,integration,e2e}/*sql*` |
 | Cursor/paging bug | `src/query-runtime/registry/cursors.ts`, `docs/runtime-lifecycle.md`, `docs/bugs/BUG-005-runtime-cap-cursor-ttl.md` |
 | Secret/redaction bug | `docs/security-model.md`, `src/shared/redaction/index.ts`, `src/main/security/secret-vault.ts` |
-| Read-only bypass | `docs/bugs/BUG-001-readonly-policy-bypass.md`, `src/query-runtime/engine/policy.ts`, `sandbox.ts`, `src/main/ipc/handlers.ts:163-169` |
+| Read-only protection | `docs/security-model.md`, `src/query-runtime/engine/read-only-guard.ts`, `policy.ts`, `sandbox.ts`, `src/main/ipc/handlers.ts` |
 | Completions stale | `scripts/extract-mongo-types.mjs`, `src/renderer/monaco/*`, `stores/schema-cache.ts`, `docs/bugs/BUG-004-monaco-types-fragility.md` |
 | Vault locked | `docs/bugs/BUG-003-vault-fail-closed.md`, `src/main/security/secret-vault.ts`, `mac-keychain-secret-store.ts` |
 | Packaged-app failure | `docs/RELEASE.md`, `scripts/verify-packaged-app.mjs`, `scripts/run-packaged-smoke.mjs`, `src/main/smoke.ts` |

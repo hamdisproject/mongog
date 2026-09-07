@@ -21,6 +21,7 @@ import {
   testConnectionSchema,
   connectionDraftRequestSchema,
   connExecuteSchema,
+  connExecuteSqlSchema,
   connCursorFetchNextSchema,
   connCursorFetchPrevSchema,
   connCursorFetchFullSchema,
@@ -117,6 +118,9 @@ import type {
   DataJobStartResult,
   CreateDatabaseResult,
   DatabaseRenameStartResult,
+  SqlPreview,
+  SqlExecuteResult,
+  SqlTranslation,
 } from '../../shared/domain/index.js';
 import type { EjsonEnvelope } from '../../shared/ejson/index.js';
 import { appError } from '../../shared/errors/index.js';
@@ -131,6 +135,7 @@ import { buildExportFilename, exportDialogFilters } from '../export/filename.js'
 import type { DataTransferCoordinator } from '../data-transfer/coordinator.js';
 import type { DatabaseRenameCoordinator } from '../database-rename/coordinator.js';
 import type { UpdateService } from '../services/update-service.js';
+import { SqlConfirmationStore } from '../services/sql-confirmations.js';
 
 export interface HandlerContext {
   supervisor: RuntimeSupervisor;
@@ -150,6 +155,7 @@ const SPIKE_CONNECTION_ID = 'spike';
 export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderValidator): void {
   const { supervisor } = ctx;
   const conn = new ConnectionManager(ctx.getDb(), supervisor, ctx.secretStore);
+  const sqlConfirmations = new SqlConfirmationStore();
   const auditContext = (
     connectionId: string | undefined,
     context: Omit<AuditContext, 'connectionId' | 'connectionName'>,
@@ -367,6 +373,8 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
 
   // ── Phase 2: Connection-aware query execution ──
   registerChannel(IpcChannels.connExecute, connExecuteSchema, async (payload) => {
+    const profile = conn.getProfile(payload.connectionId);
+    if (!profile) throw appError('NotFound', `Connection profile not found: ${payload.connectionId}`);
     const runId = payload.runId ?? randomUUID();
     ctx.audit.beginQuery(auditContext(payload.connectionId, {
       correlationId: runId,
@@ -378,7 +386,87 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
     try {
       const client = supervisor.get(payload.connectionId);
       if (!client) throw appError('UtilityProcessCrash', `Connection ${payload.connectionId} is not running.`);
-      return await client.request<ExecuteResponse>('execute', { request: { ...payload, runId } });
+      return await client.request<ExecuteResponse>('execute', {
+        request: { ...payload, runId, readOnly: profile.readOnly },
+      });
+    } catch (error) {
+      ctx.audit.failQueryStart(runId, error);
+      throw error;
+    }
+  }, validateSender);
+
+  registerChannel(IpcChannels.connExecuteSql, connExecuteSqlSchema, async (payload): Promise<SqlExecuteResult> => {
+    const profile = conn.getProfile(payload.connectionId);
+    if (!profile) throw appError('NotFound', `Connection profile not found: ${payload.connectionId}`);
+    const client = supervisor.get(payload.connectionId);
+    if (!client) throw appError('UtilityProcessCrash', `Connection ${payload.connectionId} is not running.`);
+
+    const translation = await client.request<SqlTranslation>('sql-translate', { source: payload.source });
+    if (translation.database !== undefined && translation.database !== payload.database) {
+      throw appError(
+        'Validation',
+        `SQL targets database "${translation.database}" but the active database is "${payload.database}".`,
+        { hint: `Select "${translation.database}" in the database picker or remove the database qualifier.` },
+      );
+    }
+    if (profile.readOnly && translation.isWrite) {
+      throw appError('ReadOnlyProtection', 'This connection is read-only; INSERT, UPDATE and DELETE are blocked.', {
+        hint: 'Use a MongoDB user with the read role for authoritative server-side protection.',
+      });
+    }
+
+    const settings = normalizeApplicationSettings(ctx.getDb().settings.get() ?? structuredClone(DEFAULT_SETTINGS));
+    const confirmationContext = {
+      connectionId: payload.connectionId,
+      database: payload.database,
+      source: payload.source,
+    };
+    if (
+      translation.isWrite &&
+      translation.fullCollectionTarget &&
+      settings.execution.confirmDestructive &&
+      !sqlConfirmations.consume(payload.confirmationToken, confirmationContext)
+    ) {
+      const { jsSource: _trustedSource, ...preview } = translation;
+      return {
+        status: 'confirmation-required',
+        confirmationToken: sqlConfirmations.issue(confirmationContext),
+        preview: preview as SqlPreview,
+      };
+    }
+
+    const runId = payload.runId ?? randomUUID();
+    ctx.audit.beginQuery(auditContext(payload.connectionId, {
+      correlationId: runId,
+      database: payload.database,
+      collection: translation.collection,
+      category: 'query',
+      action: 'sql.execute',
+      origin: 'user',
+      operationClass: translation.isWrite ? 'write' : 'read',
+      summary: `Execute SQL ${translation.kind.toUpperCase()} on ${payload.database}.${translation.collection}`,
+      detail: {
+        statement: translation.kind,
+        execution: translation.execution,
+        fullCollectionTarget: translation.fullCollectionTarget,
+      },
+    }) as AuditContext & { correlationId: string });
+    try {
+      const response = await client.request<ExecuteResponse>('execute', {
+        request: {
+          connectionId: payload.connectionId,
+          ...(payload.tabId ? { tabId: payload.tabId } : {}),
+          runId,
+          database: payload.database,
+          mode: 'query',
+          source: translation.jsSource,
+          sourceOffset: { line: 0, column: 0 },
+          readOnly: profile.readOnly,
+          ...(payload.pageSize !== undefined ? { pageSize: payload.pageSize } : {}),
+          ...(payload.timeoutMS !== undefined ? { timeoutMS: payload.timeoutMS } : {}),
+        },
+      });
+      return { status: 'started', executionId: response.executionId };
     } catch (error) {
       ctx.audit.failQueryStart(runId, error);
       throw error;

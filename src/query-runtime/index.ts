@@ -52,7 +52,8 @@ import {
   startChangeStream,
   uploadGridFsFile,
 } from './admin/operations.js';
-import { classifyError, serializeError, type AppError } from '../shared/errors/index.js';
+import { appError, classifyError, serializeError, type AppError } from '../shared/errors/index.js';
+import { SqlTranslateError, translateSql } from '../features/sql-translator/index.js';
 import { redactUri } from '../shared/redaction/index.js';
 import type { ExecuteRequest, ExplainVerbosity } from '../shared/domain/index.js';
 import {
@@ -179,6 +180,20 @@ async function handle(req: RuntimeRequest): Promise<void> {
       // Completion is delivered via the streamed 'execution-finished' event;
       // the request itself returns immediately so callers stay responsive.
       exec.promise.catch(() => undefined);
+      return;
+    }
+    case 'sql-translate': {
+      try {
+        reply(req.id, translateSql(req.source as string));
+      } catch (error) {
+        if (error instanceof SqlTranslateError) {
+          throw appError('InvalidQuerySyntax', error.message, {
+            hint: error.hint,
+            ...(error.range ? { statementRange: error.range } : {}),
+          });
+        }
+        throw error;
+      }
       return;
     }
     case 'cancel': {
