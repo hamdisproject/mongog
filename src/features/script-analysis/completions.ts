@@ -104,18 +104,20 @@ export function buildSemanticSuggestions(
 ): SemanticSuggestion[] {
   switch (context.kind) {
     case 'database-name':
-      return uniqueNames(data.databaseNames).map((name) => ({
+      return uniqueNames(data.databaseNames).map((name, index) => ({
         label: name,
         insertText: name,
         kind: 'database',
         detail: 'database',
+        sortText: `a-${index.toString().padStart(6, '0')}`,
       }));
     case 'collection-name':
-      return uniqueNames(data.collectionNames).map((name) => ({
+      return uniqueNames(data.collectionNames).map((name, index) => ({
         label: name,
         insertText: name,
         kind: 'collection',
         detail: 'collection',
+        sortText: `a-${index.toString().padStart(6, '0')}`,
       }));
     case 'document-key':
       if (!supportsSchemaFields(context.docKind)) return [];
@@ -218,5 +220,5 @@ function operatorSuggestions(
 }
 
 function uniqueNames(names: string[] | undefined): string[] {
-  return [...new Set(names ?? [])].sort((left, right) => left.localeCompare(right));
+  return [...new Set(names ?? [])];
 }

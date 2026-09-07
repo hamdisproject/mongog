@@ -14,6 +14,7 @@ import { useDataTransferStore } from '../../stores/data-transfer.js';
 import { CollectionCriteriaEditor } from '../Results/CollectionCriteriaEditor.js';
 import { parseEjson, renderBson } from '../../../shared/ejson/index.js';
 import { useSettingsStore } from '../../stores/settings.js';
+import { orderCatalogNames } from '../../catalog-order.js';
 
 type Mode = 'file-import' | 'connection-copy';
 
@@ -45,6 +46,8 @@ export function DataTransferView() {
   const launchVersion = useDataTransferStore((state) => state.launchVersion);
   const applyProgress = useDataTransferStore((state) => state.applyProgress);
   const bsonMode = useSettingsStore((state) => state.settings.ejson.defaultMode);
+  const databaseOrder = useSettingsStore((state) => state.settings.catalog.databaseOrder);
+  const collectionOrder = useSettingsStore((state) => state.settings.catalog.collectionOrder);
   const connectedProfiles = useMemo(() => profiles.filter((profile) => connected[profile.id]), [profiles, connected]);
   const writableProfiles = useMemo(() => connectedProfiles.filter((profile) => !profile.readOnly), [connectedProfiles]);
 
@@ -63,6 +66,14 @@ export function DataTransferView() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filterError, setFilterError] = useState<string | null>(null);
+  const orderedSourceDatabases = useMemo(
+    () => orderCatalogNames(sourceDatabases, databaseOrder),
+    [sourceDatabases, databaseOrder],
+  );
+  const orderedSourceCollections = useMemo(
+    () => orderCatalogNames(sourceCollections, collectionOrder),
+    [sourceCollections, collectionOrder],
+  );
 
   useEffect(() => {
     const nextMode = launch.mode ?? mode;
@@ -92,9 +103,13 @@ export function DataTransferView() {
     void window.mongog.query.listDatabases(sourceConnectionId).then((values) => {
       const names = values.map((value) => value.name).filter((name) => !['admin', 'config', 'local'].includes(name));
       setSourceDatabases(names);
-      const preferred = launch.sourceDatabase && names.includes(launch.sourceDatabase)
+      const orderedNames = orderCatalogNames(
+        names,
+        useSettingsStore.getState().settings.catalog.databaseOrder,
+      );
+      const preferred = launch.sourceDatabase && orderedNames.includes(launch.sourceDatabase)
         ? launch.sourceDatabase
-        : names[0] ?? '';
+        : orderedNames[0] ?? '';
       setSourceDatabase(preferred);
     }).catch((cause) => setError(errorMessage(cause)));
   }, [sourceConnectionId]);
@@ -305,11 +320,11 @@ export function DataTransferView() {
             </Field>
             <Field label="Source database">
               <select style={styles.input} value={sourceDatabase} onChange={(event) => setSourceDatabase(event.target.value)}>
-                {sourceDatabases.map((database) => <option key={database}>{database}</option>)}
+                {orderedSourceDatabases.map((database) => <option key={database}>{database}</option>)}
               </select>
             </Field>
             <div style={styles.collectionPicker}>
-              {sourceCollections.map((collection) => {
+              {orderedSourceCollections.map((collection) => {
                 const selected = copyDatasets.some((dataset) => dataset.sourceDatabase === sourceDatabase && dataset.sourceCollection === collection);
                 return <button key={collection} type="button" style={styles.collectionRow} disabled={selected} onClick={() => addCollection(collection)}><span>{selected ? '✓' : '+'}</span>{collection}</button>;
               })}

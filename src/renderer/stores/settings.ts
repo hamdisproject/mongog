@@ -20,6 +20,8 @@ interface SettingsState {
     behavior: ApplicationSettings['collection']['explorerOpenBehavior'],
   ) => Promise<void>;
   setTableColumnOrder: (columnOrder: ApplicationSettings['table']['columnOrder']) => Promise<void>;
+  setDatabaseOrder: (databaseOrder: ApplicationSettings['catalog']['databaseOrder']) => Promise<void>;
+  setCollectionOrder: (collectionOrder: ApplicationSettings['catalog']['collectionOrder']) => Promise<void>;
   setConnectionIdleTimeout: (idleTimeoutMS: number) => Promise<void>;
   setPageSize: (pageSize: number) => Promise<void>;
   setAuditSettings: (audit: ApplicationSettings['audit']) => Promise<void>;
@@ -148,6 +150,24 @@ export const useSettingsStore = create<SettingsState>()((set, get) => {
       const previous = get().settings;
       const settings = { ...previous, table: { columnOrder } };
       await persist(settings);
+    },
+
+    setDatabaseOrder: async (databaseOrder) => {
+      const previous = get().settings;
+      if (previous.catalog.databaseOrder === databaseOrder) return;
+      await persist({
+        ...previous,
+        catalog: { ...previous.catalog, databaseOrder },
+      });
+    },
+
+    setCollectionOrder: async (collectionOrder) => {
+      const previous = get().settings;
+      if (previous.catalog.collectionOrder === collectionOrder) return;
+      await persist({
+        ...previous,
+        catalog: { ...previous.catalog, collectionOrder },
+      });
     },
 
     setConnectionIdleTimeout: async (idleTimeoutMS) => {

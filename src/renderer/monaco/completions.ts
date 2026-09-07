@@ -10,6 +10,8 @@ import { useConnectionStore } from '../stores/connections.js';
 import { useEditorContext } from '../stores/editor-context.js';
 import { useSchemaCache } from '../stores/schema-cache.js';
 import { bsonConstructorSuggestions } from './criteria-completions.js';
+import { useSettingsStore } from '../stores/settings.js';
+import { orderCatalogEntries } from '../catalog-order.js';
 
 export function registerSchemaCompletions(): monaco.IDisposable {
   return monaco.languages.registerCompletionItemProvider('typescript', {
@@ -27,15 +29,19 @@ export function registerSchemaCompletions(): monaco.IDisposable {
       if (connectionId && semanticContext.kind === 'database-name') {
         await useConnectionStore.getState().loadDatabases(connectionId);
         if (token.isCancellationRequested) return { suggestions: [] };
-        data.databaseNames = (useConnectionStore.getState().databases[connectionId] ?? [])
+        data.databaseNames = orderCatalogEntries(
+          useConnectionStore.getState().databases[connectionId] ?? [],
+          useSettingsStore.getState().settings.catalog.databaseOrder,
+        )
           .map((candidate) => candidate.name);
       }
 
       if (connectionId && semanticContext.kind === 'collection-name') {
         await useConnectionStore.getState().loadCollections(connectionId, database);
         if (token.isCancellationRequested) return { suggestions: [] };
-        data.collectionNames = (
-          useConnectionStore.getState().collections[`${connectionId}:${database}`] ?? []
+        data.collectionNames = orderCatalogEntries(
+          useConnectionStore.getState().collections[`${connectionId}:${database}`] ?? [],
+          useSettingsStore.getState().settings.catalog.collectionOrder,
         ).map((candidate) => candidate.name);
       }
 

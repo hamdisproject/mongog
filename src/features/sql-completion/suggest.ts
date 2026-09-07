@@ -91,12 +91,12 @@ const TABLE_CLAUSE_KEYWORDS: readonly ClauseKeyword[] = [
 
 /** Collection-name suggestions (also reused for `db.|` qualified roots). */
 export function collectionNameSuggestions(names: string[]): SqlSuggestion[] {
-  return uniqueStrings(names).map((name) => ({
+  return uniqueStrings(names).map((name, index) => ({
     label: name,
     insertText: quoteTableName(name),
     kind: 'table' as const,
     detail: 'collection',
-    sortText: `a-${name}`,
+    sortText: `a-${index.toString().padStart(6, '0')}`,
   }));
 }
 
@@ -107,12 +107,12 @@ function quoteTableName(name: string): string {
 }
 
 export function databaseNameSuggestions(names: string[]): SqlSuggestion[] {
-  return uniqueStrings(names).map((name) => ({
+  return uniqueStrings(names).map((name, index) => ({
     label: name,
     insertText: name,
     kind: 'database' as const,
     detail: 'database',
-    sortText: `b-${name}`,
+    sortText: `b-${index.toString().padStart(6, '0')}`,
   }));
 }
 
@@ -328,5 +328,5 @@ function qualifiedSuggestions(
 }
 
 function uniqueStrings(names: string[]): string[] {
-  return [...new Set(names)].sort((left, right) => left.localeCompare(right));
+  return [...new Set(names)];
 }

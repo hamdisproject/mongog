@@ -174,6 +174,7 @@ describe('settings', () => {
         explorerOpenBehavior: 'reuse-existing',
         criteriaOpenByDefault: true,
       },
+      catalog: { databaseOrder: 'alphabetical', collectionOrder: 'alphabetical' },
       table: { columnOrder: 'alphabetical' },
       ejson: { defaultMode: 'relaxed' },
     });

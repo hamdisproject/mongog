@@ -22,15 +22,19 @@ function contextAt(fixture: string) {
 }
 
 describe('semantic completion suggestions', () => {
-  it('sorts and de-duplicates live database and collection names', () => {
-    expect(buildSemanticSuggestions(
+  it('preserves and de-duplicates live database and collection name order', () => {
+    const databases = buildSemanticSuggestions(
       { kind: 'database-name' },
       { databaseNames: ['zeta', 'admin', 'admin'] },
-    ).map((item) => item.label)).toEqual(['admin', 'zeta']);
-    expect(buildSemanticSuggestions(
+    );
+    expect(databases.map((item) => item.label)).toEqual(['zeta', 'admin']);
+    expect(databases.map((item) => item.sortText)).toEqual(['a-000000', 'a-000001']);
+    const collections = buildSemanticSuggestions(
       { kind: 'collection-name' },
       { collectionNames: ['users', 'orders'] },
-    ).map((item) => item.label)).toEqual(['orders', 'users']);
+    );
+    expect(collections.map((item) => item.label)).toEqual(['users', 'orders']);
+    expect(collections.map((item) => item.sortText)).toEqual(['a-000000', 'a-000001']);
   });
 
   it('offers inferred fields at root document-key positions', () => {

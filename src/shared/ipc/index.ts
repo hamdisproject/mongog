@@ -408,6 +408,10 @@ export const applicationSettingsSchema = z.object({
     explorerOpenBehavior: z.enum(['reuse-existing', 'new-tab']),
     criteriaOpenByDefault: z.boolean(),
   }),
+  catalog: z.object({
+    databaseOrder: z.enum(['alphabetical', 'database']),
+    collectionOrder: z.enum(['alphabetical', 'database']),
+  }),
   table: z.object({
     columnOrder: z.enum(['alphabetical', 'document']),
   }),

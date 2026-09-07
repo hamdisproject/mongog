@@ -6,6 +6,7 @@ import { useWorkspaceStore } from '../../stores/workspace.js';
 import { useConnectionStore } from '../../stores/connections.js';
 import { useEditorContext } from '../../stores/editor-context.js';
 import { useSettingsStore } from '../../stores/settings.js';
+import { orderCatalogEntries } from '../../catalog-order.js';
 import { getMonacoTheme } from '../../theme.js';
 import { SavedActions } from '../Saved/SavedActions.js';
 import { cancelQueryExecution } from '../../query-cancellation.js';
@@ -60,10 +61,14 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
   const { connected, databases, profiles, loadDatabases, connect } = useConnectionStore();
   const globalPageSize = useSettingsStore((state) => state.settings.execution.pageSize);
   const editorFontSize = useSettingsStore((state) => state.settings.editor.fontSize);
+  const databaseOrder = useSettingsStore((state) => state.settings.catalog.databaseOrder);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
   const selectedConnId = activeTab?.connectionId ?? null;
   const selectedDb = activeTab?.database ?? null;
+  const orderedDatabases = selectedConnId
+    ? orderCatalogEntries(databases[selectedConnId] ?? [], databaseOrder)
+    : [];
   const execution = activeTab ? results[activeTab.id] : undefined;
   const querySurfaceActive = activeTab?.kind === 'query' || (
     activeTab?.kind === 'collection' && activeTab.collectionViewMode === 'query'
@@ -318,10 +323,10 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
             title={contextLocked ? 'Database is locked to this collection' : undefined}
           >
             <option value="admin">admin</option>
-            {activeTab?.database && activeTab.database !== 'admin' && !(databases[selectedConnId] ?? []).some((database) => database.name === activeTab.database) && (
+            {activeTab?.database && activeTab.database !== 'admin' && !orderedDatabases.some((database) => database.name === activeTab.database) && (
               <option value={activeTab.database}>{activeTab.database}</option>
             )}
-            {(databases[selectedConnId] ?? [])
+            {orderedDatabases
               .filter((database) => database.name !== 'admin')
               .map((database) => (
                 <option key={database.name} value={database.name}>{database.name}</option>

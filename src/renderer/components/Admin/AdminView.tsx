@@ -10,6 +10,8 @@ import type { EjsonEnvelope } from '../../../shared/ejson/index.js';
 import { useConnectionStore } from '../../stores/connections.js';
 import { useSchemaCache } from '../../stores/schema-cache.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
+import { useSettingsStore } from '../../stores/settings.js';
+import { orderCatalogEntries } from '../../catalog-order.js';
 
 const sections: Array<{ id: AdminSection; label: string }> = [
   { id: 'indexes', label: 'Indexes' },
@@ -46,8 +48,13 @@ export function AdminView({ tab }: { tab: WorkspaceTab }) {
   const collection = tab.collection ?? '';
   const section = tab.adminSection ?? 'indexes';
   const profile = connectionStore.profiles.find((candidate) => candidate.id === connectionId);
-  const databases = connectionStore.databases[connectionId] ?? [];
-  const collections = connectionStore.collections[`${connectionId}:${database}`] ?? [];
+  const databaseOrder = useSettingsStore((state) => state.settings.catalog.databaseOrder);
+  const collectionOrder = useSettingsStore((state) => state.settings.catalog.collectionOrder);
+  const databases = orderCatalogEntries(connectionStore.databases[connectionId] ?? [], databaseOrder);
+  const collections = orderCatalogEntries(
+    connectionStore.collections[`${connectionId}:${database}`] ?? [],
+    collectionOrder,
+  );
 
   useEffect(() => {
     if (!connectionId && connectedIds[0]) {

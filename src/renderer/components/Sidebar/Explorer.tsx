@@ -21,6 +21,7 @@ import {
   effectiveSidebarWidth,
   sidebarMaximumForViewport,
 } from '../../../shared/domain/workspace.js';
+import { orderCatalogEntries } from '../../catalog-order.js';
 
 const s: Record<string, React.CSSProperties> = {
   sidebar: {
@@ -633,7 +634,9 @@ function ProfileNode({
       job.connectionId === profile.id && job.status !== 'completed' && job.status !== 'failed'
     ))
   ));
-  const connDbs = databases[profile.id] ?? [];
+  const databaseOrder = useSettingsStore((state) => state.settings.catalog.databaseOrder);
+  const collectionOrder = useSettingsStore((state) => state.settings.catalog.collectionOrder);
+  const connDbs = orderCatalogEntries(databases[profile.id] ?? [], databaseOrder);
   const profileNameMatches = !!search && profile.name.toLocaleLowerCase().includes(search);
   const visibleDatabases = !search || profileNameMatches
     ? connDbs
@@ -966,7 +969,7 @@ function ProfileNode({
           {isConnected && visibleDatabases.map((db) => {
             const dbKey = `${profile.id}:${db.name}`;
             const dbExpanded = search ? true : expandedDatabaseIds.has(dbKey);
-            const dbCols = collections[dbKey] ?? [];
+            const dbCols = orderCatalogEntries(collections[dbKey] ?? [], collectionOrder);
             const collectionsAreLoading = collectionsLoading[dbKey] === true;
             const databaseMatches = !!search && db.name.toLocaleLowerCase().includes(search);
             const visibleCollections = !search || profileNameMatches || databaseMatches

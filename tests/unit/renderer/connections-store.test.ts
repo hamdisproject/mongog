@@ -8,6 +8,7 @@ describe('renderer connections store collection loading', () => {
   const connect = vi.fn();
   const getState = vi.fn();
   const createDatabase = vi.fn();
+  const collectionRename = vi.fn();
   const startDatabaseRename = vi.fn();
   const closeOwner = vi.fn();
 
@@ -20,6 +21,8 @@ describe('renderer connections store collection loading', () => {
     getState.mockReset();
     getState.mockResolvedValue({ status: 'connected', pid: 123, serverVersion: '8.0.0' });
     createDatabase.mockReset();
+    collectionRename.mockReset();
+    collectionRename.mockResolvedValue(undefined);
     startDatabaseRename.mockReset();
     closeOwner.mockReset();
     closeOwner.mockResolvedValue(undefined);
@@ -29,6 +32,7 @@ describe('renderer connections store collection loading', () => {
           listCollections,
           listDatabases,
           createDatabase,
+          collectionRename,
           startDatabaseRename,
           closeOwner,
           cancel: vi.fn(),
@@ -176,6 +180,35 @@ describe('renderer connections store collection loading', () => {
       { name: 'items', type: 'collection' },
     ]);
     expect(useConnectionStore.getState().expandedDatabaseIds.has('conn-1:new_app')).toBe(true);
+  });
+
+  it('appends newly created databases to the raw server order', async () => {
+    createDatabase.mockResolvedValue({ database: 'alpha', collection: 'items' });
+    useConnectionStore.setState({
+      databases: { 'conn-1': [{ name: 'zeta' }, { name: 'beta' }] },
+    });
+
+    await useConnectionStore.getState().createDatabase('conn-1', 'alpha', 'items');
+
+    expect(useConnectionStore.getState().databases['conn-1']?.map(({ name }) => name))
+      .toEqual(['zeta', 'beta', 'alpha']);
+  });
+
+  it('renames collections without changing their raw position', async () => {
+    useConnectionStore.setState({
+      collections: {
+        'conn-1:app': [
+          { name: 'zeta', type: 'collection' },
+          { name: 'old', type: 'collection' },
+          { name: 'alpha', type: 'collection' },
+        ],
+      },
+    });
+
+    await useConnectionStore.getState().renameCollection('conn-1', 'app', 'old', 'new');
+
+    expect(useConnectionStore.getState().collections['conn-1:app']?.map(({ name }) => name))
+      .toEqual(['zeta', 'new', 'alpha']);
   });
 
   it('applies a completed rename to profiles, Explorer data, and open tabs', async () => {

@@ -155,12 +155,18 @@ export interface ApplicationSettings {
     explorerOpenBehavior: CollectionOpenDisposition;
     criteriaOpenByDefault: boolean;
   };
+  catalog: {
+    databaseOrder: CatalogOrder;
+    collectionOrder: CatalogOrder;
+  };
   table: { columnOrder: TableColumnOrder };
   ejson: { defaultMode: BsonDisplayMode };
   window?: { bounds?: { x: number; y: number; width: number; height: number } };
 }
 
 export type CollectionOpenDisposition = 'reuse-existing' | 'new-tab';
+
+export type CatalogOrder = 'alphabetical' | 'database';
 
 export type TableColumnOrder = 'alphabetical' | 'document';
 
@@ -198,6 +204,7 @@ export const DEFAULT_SETTINGS: ApplicationSettings = {
     explorerOpenBehavior: 'reuse-existing',
     criteriaOpenByDefault: true,
   },
+  catalog: { databaseOrder: 'alphabetical', collectionOrder: 'alphabetical' },
   table: { columnOrder: 'alphabetical' },
   ejson: { defaultMode: 'mongosh' },
 };
@@ -211,6 +218,7 @@ export function normalizeApplicationSettings(value: unknown): ApplicationSetting
   const history = isRecord(source.history) ? source.history : {};
   const audit = isRecord(source.audit) ? source.audit : {};
   const collection = isRecord(source.collection) ? source.collection : {};
+  const catalog = isRecord(source.catalog) ? source.catalog : {};
   const table = isRecord(source.table) ? source.table : {};
   const ejson = isRecord(source.ejson) ? source.ejson : {};
   const mode = ejson.defaultMode;
@@ -263,6 +271,10 @@ export function normalizeApplicationSettings(value: unknown): ApplicationSetting
         ? collection.explorerOpenBehavior
         : DEFAULT_SETTINGS.collection.explorerOpenBehavior,
     },
+    catalog: {
+      databaseOrder: catalogOrder(catalog.databaseOrder, DEFAULT_SETTINGS.catalog.databaseOrder),
+      collectionOrder: catalogOrder(catalog.collectionOrder, DEFAULT_SETTINGS.catalog.collectionOrder),
+    },
     table: {
       columnOrder: table.columnOrder === 'document' || table.columnOrder === 'alphabetical'
         ? table.columnOrder
@@ -275,6 +287,10 @@ export function normalizeApplicationSettings(value: unknown): ApplicationSetting
     },
     window: normalizeWindowSettings(source.window),
   };
+}
+
+function catalogOrder(value: unknown, fallback: CatalogOrder): CatalogOrder {
+  return value === 'alphabetical' || value === 'database' ? value : fallback;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

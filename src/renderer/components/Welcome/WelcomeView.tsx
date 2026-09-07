@@ -5,6 +5,8 @@ import { useWorkspaceStore } from '../../stores/workspace.js';
 import { theme } from '../../theme.js';
 import { MongoGBrand } from '../Brand/MongoGBrand.js';
 import { LATEST_RELEASE } from '../../release-notes.js';
+import { useSettingsStore } from '../../stores/settings.js';
+import { orderCatalogEntries } from '../../catalog-order.js';
 
 const c = theme.colors;
 const card: React.CSSProperties = {
@@ -38,6 +40,7 @@ export function WelcomeView() {
   const openReleaseNotes = useWorkspaceStore((state) => state.openReleaseNotes);
   const createTab = useWorkspaceStore((state) => state.createTab);
   const updateTab = useWorkspaceStore((state) => state.updateTab);
+  const databaseOrder = useSettingsStore((state) => state.settings.catalog.databaseOrder);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const recent = [...profiles].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 6);
@@ -47,7 +50,10 @@ export function WelcomeView() {
     setError(null);
     try {
       if (!connected[profile.id]) await connect(profile.id);
-      const databases = await window.mongog.query.listDatabases(profile.id);
+      const databases = orderCatalogEntries(
+        await window.mongog.query.listDatabases(profile.id),
+        databaseOrder,
+      );
       const database = profile.defaultDatabase
         ?? databases.find((item) => !['admin', 'config', 'local'].includes(item.name))?.name
         ?? 'test';

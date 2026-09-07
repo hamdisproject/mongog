@@ -98,6 +98,19 @@ const tableColumnOrderOptions = [
   },
 ];
 
+const catalogOrderOptions = [
+  {
+    id: 'alphabetical' as const,
+    label: 'Alphabetical',
+    description: 'Sort names alphabetically with natural numeric ordering.',
+  },
+  {
+    id: 'database' as const,
+    label: 'Database order',
+    description: 'Keep the unsorted order returned by MongoDB.',
+  },
+];
+
 const connectionIdleOptions = [
   { value: 15 * 60 * 1000, label: '15 minutes' },
   { value: 30 * 60 * 1000, label: '30 minutes' },
@@ -122,6 +135,8 @@ export function SettingsView() {
     setCollectionDefaults,
     setExplorerCollectionOpenBehavior,
     setTableColumnOrder,
+    setDatabaseOrder,
+    setCollectionOrder,
     setConnectionIdleTimeout,
     setPageSize,
     setAuditSettings,
@@ -327,6 +342,31 @@ export function SettingsView() {
                 </button>
               );
             })}
+          </div>
+
+          <div style={{ padding: '14px 17px 0', borderTop: `1px solid ${theme.colors.border}` }}>
+            <strong style={{ display: 'block', fontSize: 12 }}>Database and collection order</strong>
+            <span style={{ display: 'block', marginTop: 4, color: theme.colors.textMuted, fontSize: 10, lineHeight: 1.45 }}>
+              Applies across Explorer, editors, Administration, Data Transfer, Command Palette, and completions. MongoDB does not provide creation timestamps; Database order preserves its returned order.
+            </span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12, padding: 16 }}>
+            <CatalogOrderSetting
+              label="Database order"
+              subject="databases"
+              testId="database-order-settings"
+              value={settings.catalog.databaseOrder}
+              disabled={!loaded || saving}
+              onChange={(value) => void setDatabaseOrder(value)}
+            />
+            <CatalogOrderSetting
+              label="Collection order"
+              subject="collections"
+              testId="collection-order-settings"
+              value={settings.catalog.collectionOrder}
+              disabled={!loaded || saving}
+              onChange={(value) => void setCollectionOrder(value)}
+            />
           </div>
         </section>
 
@@ -689,6 +729,66 @@ export function SettingsView() {
         </div>
       </div>
     </main>
+  );
+}
+
+function CatalogOrderSetting({
+  label,
+  subject,
+  testId,
+  value,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  subject: 'databases' | 'collections';
+  testId: string;
+  value: 'alphabetical' | 'database';
+  disabled: boolean;
+  onChange: (value: 'alphabetical' | 'database') => void;
+}) {
+  return (
+    <div>
+      <strong style={{ display: 'block', marginBottom: 8, fontSize: 11 }}>{label}</strong>
+      <div
+        data-testid={testId}
+        role="radiogroup"
+        aria-label={label}
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}
+      >
+        {catalogOrderOptions.map((option) => {
+          const selected = value === option.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              aria-label={`${option.label} ${subject}`}
+              disabled={disabled}
+              onClick={() => onChange(option.id)}
+              style={{
+                minWidth: 0,
+                minHeight: 78,
+                border: `1px solid ${selected ? theme.colors.accentHover : theme.colors.borderStrong}`,
+                borderRadius: 6,
+                background: selected ? theme.colors.selected : theme.colors.input,
+                color: theme.colors.text,
+                padding: '10px 11px',
+                textAlign: 'left',
+                cursor: disabled ? 'default' : 'pointer',
+                boxShadow: selected ? `0 0 0 1px ${theme.colors.accentHover}` : 'none',
+              }}
+            >
+              <strong style={{ display: 'block', fontSize: 11 }}>{option.label}</strong>
+              <span style={{ display: 'block', marginTop: 4, color: theme.colors.textMuted, fontSize: 9, lineHeight: 1.4 }}>
+                {option.description}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

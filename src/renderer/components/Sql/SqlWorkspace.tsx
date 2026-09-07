@@ -7,6 +7,7 @@ import { attachQueryWheelZoom } from '../../monaco/query-wheel-zoom.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
 import { useConnectionStore } from '../../stores/connections.js';
 import { useSettingsStore } from '../../stores/settings.js';
+import { orderCatalogEntries } from '../../catalog-order.js';
 import { sqlQueryTemplate } from '../../collection-workspace.js';
 import { getMonacoTheme } from '../../theme.js';
 import { ResultsPanel } from '../Results/ResultsPanel.js';
@@ -114,6 +115,7 @@ export function SqlWorkspace({ contextLocked = false }: { contextLocked?: boolea
   const { connected, databases, profiles, loadDatabases, connect } = useConnectionStore();
   const globalPageSize = useSettingsStore((state) => state.settings.execution.pageSize);
   const editorFontSize = useSettingsStore((state) => state.settings.editor.fontSize);
+  const databaseOrder = useSettingsStore((state) => state.settings.catalog.databaseOrder);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
   const sqlTab = contextLocked
@@ -131,6 +133,9 @@ export function SqlWorkspace({ contextLocked = false }: { contextLocked?: boolea
   const hasStoredContent = sqlTab?.[contentKey] !== undefined;
   const selectedConnId = sqlTab?.connectionId ?? null;
   const selectedDb = sqlTab?.database ?? null;
+  const orderedDatabases = selectedConnId
+    ? orderCatalogEntries(databases[selectedConnId] ?? [], databaseOrder)
+    : [];
   const execution = sqlTab ? results[sqlTab.id] : undefined;
   const isBusy = execution?.status === 'starting' ||
     execution?.status === 'running' ||
@@ -451,10 +456,10 @@ export function SqlWorkspace({ contextLocked = false }: { contextLocked?: boolea
             title={contextLocked ? 'Database is locked to this collection' : undefined}
           >
             <option value="admin">admin</option>
-            {sqlTab.database && sqlTab.database !== 'admin' && !(databases[selectedConnId] ?? []).some((database) => database.name === sqlTab.database) && (
+            {sqlTab.database && sqlTab.database !== 'admin' && !orderedDatabases.some((database) => database.name === sqlTab.database) && (
               <option value={sqlTab.database}>{sqlTab.database}</option>
             )}
-            {(databases[selectedConnId] ?? [])
+            {orderedDatabases
               .filter((database) => database.name !== 'admin')
               .map((database) => (
                 <option key={database.name} value={database.name}>{database.name}</option>

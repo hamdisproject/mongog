@@ -3,6 +3,7 @@ import type { SchemaFieldInfo } from '../../../src/shared/domain/index.js';
 import {
   buildSqlSuggestions,
   collectionNameSuggestions,
+  databaseNameSuggestions,
   normalizeSampledPath,
   type SqlSchemaInput,
 } from '../../../src/features/sql-completion/index.js';
@@ -115,6 +116,16 @@ describe('buildSqlSuggestions table context', () => {
       label: 'my table',
       insertText: '"my table"',
     });
+  });
+
+  it('preserves caller order while removing duplicate catalog names', () => {
+    const collections = collectionNameSuggestions(['item10', 'item2', 'item10']);
+    expect(collections.map((item) => item.label)).toEqual(['item10', 'item2']);
+    expect(collections.map((item) => item.sortText)).toEqual(['a-000000', 'a-000001']);
+
+    const databases = databaseNameSuggestions(['zeta', 'alpha', 'zeta']);
+    expect(databases.map((item) => item.label)).toEqual(['zeta', 'alpha']);
+    expect(databases.map((item) => item.sortText)).toEqual(['b-000000', 'b-000001']);
   });
 });
 

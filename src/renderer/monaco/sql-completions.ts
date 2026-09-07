@@ -8,6 +8,8 @@ import {
 } from '../../features/sql-completion/index.js';
 import { useConnectionStore } from '../stores/connections.js';
 import { useSchemaCache } from '../stores/schema-cache.js';
+import { useSettingsStore } from '../stores/settings.js';
+import { orderCatalogEntries } from '../catalog-order.js';
 import { useWorkspaceStore } from '../stores/workspace.js';
 
 /** Max tables to sample per keystroke; the rest still complete from cache. */
@@ -43,7 +45,11 @@ export function registerSqlCompletions(): monaco.IDisposable {
       }
 
       const connectionStore = useConnectionStore.getState();
-      const databaseNames = (connectionStore.databases[connectionId] ?? [])
+      const settings = useSettingsStore.getState().settings;
+      const databaseNames = orderCatalogEntries(
+        connectionStore.databases[connectionId] ?? [],
+        settings.catalog.databaseOrder,
+      )
         .map((candidate) => candidate.name);
 
       // `db.|` completes that database's collections (needs no schema).
@@ -52,7 +58,10 @@ export function registerSqlCompletions(): monaco.IDisposable {
         !context.tables.some((table) => table.alias === root || table.table === root)) {
         await connectionStore.loadCollections(connectionId, root);
         if (token.isCancellationRequested) return { suggestions: [] };
-        const names = (connectionStore.collections[`${connectionId}:${root}`] ?? [])
+        const names = orderCatalogEntries(
+          connectionStore.collections[`${connectionId}:${root}`] ?? [],
+          settings.catalog.collectionOrder,
+        )
           .map((candidate) => candidate.name);
         return {
           suggestions: collectionNameSuggestions(names)
@@ -64,7 +73,10 @@ export function registerSqlCompletions(): monaco.IDisposable {
       if (context.kind === 'table') {
         await connectionStore.loadCollections(connectionId, database);
         if (token.isCancellationRequested) return { suggestions: [] };
-        collectionNames = (connectionStore.collections[`${connectionId}:${database}`] ?? [])
+        collectionNames = orderCatalogEntries(
+          connectionStore.collections[`${connectionId}:${database}`] ?? [],
+          settings.catalog.collectionOrder,
+        )
           .map((candidate) => candidate.name);
       }
 

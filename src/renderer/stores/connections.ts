@@ -248,7 +248,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
           ...state.databases,
           [connId]: databases.some((item) => item.name === created.database)
             ? databases
-            : [...databases, { name: created.database }].sort((left, right) => left.name.localeCompare(right.name)),
+            : [...databases, { name: created.database }],
         },
         collections: { ...state.collections, [key]: [{ name: created.collection, type: 'collection' }] },
         expandedProfileIds,
@@ -286,7 +286,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
             ...state.databases,
             [event.connectionId]: (state.databases[event.connectionId] ?? []).map((item) => (
               item.name === event.sourceDatabase ? { name: event.targetDatabase } : item
-            )).sort((left, right) => left.name.localeCompare(right.name)),
+            )),
           },
           profiles: state.profiles.map((profile) => (
             profile.id === event.connectionId && profile.defaultDatabase === event.sourceDatabase
@@ -339,7 +339,7 @@ export const useConnectionStore = create<ConnectionState>()((set, get) => ({
         ...state.collections,
         [key]: (state.collections[key] ?? []).map((item) => (
           item.name === oldName ? { ...item, name: newName } : item
-        )).sort((left, right) => left.name.localeCompare(right.name)),
+        )),
       },
     }));
     useSchemaCache.getState().invalidate(connId, dbName, oldName);

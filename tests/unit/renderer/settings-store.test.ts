@@ -135,6 +135,31 @@ describe('renderer settings store', () => {
     expect(useSettingsStore.getState().error).toBe('settings unavailable');
   });
 
+  it('persists database and collection orders independently', async () => {
+    save.mockResolvedValue(undefined);
+
+    await useSettingsStore.getState().setDatabaseOrder('database');
+    expect(useSettingsStore.getState().settings.catalog).toEqual({
+      databaseOrder: 'database',
+      collectionOrder: 'alphabetical',
+    });
+
+    await useSettingsStore.getState().setCollectionOrder('database');
+    expect(useSettingsStore.getState().settings.catalog).toEqual({
+      databaseOrder: 'database',
+      collectionOrder: 'database',
+    });
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save.mock.calls[0]?.[0].catalog).toEqual({
+      databaseOrder: 'database',
+      collectionOrder: 'alphabetical',
+    });
+    expect(save.mock.calls[1]?.[0].catalog).toEqual({
+      databaseOrder: 'database',
+      collectionOrder: 'database',
+    });
+  });
+
   it('forces auto-run off for Documents', async () => {
     save.mockResolvedValue(undefined);
     useSettingsStore.setState((state) => ({

@@ -7,6 +7,8 @@ import { theme } from '../../theme.js';
 import { useSavedLibraryStore } from '../../stores/saved.js';
 import { savedFolderPath } from '../../saved-item-utils.js';
 import { SavedItemIcon } from '../Sidebar/SavedTree.js';
+import { useSettingsStore } from '../../stores/settings.js';
+import { orderCatalogEntries } from '../../catalog-order.js';
 
 interface PaletteItem {
   id: string;
@@ -27,6 +29,8 @@ export function CommandPalette() {
   const savedItems = useSavedLibraryStore((state) => state.items);
   const savedFolders = useSavedLibraryStore((state) => state.folders);
   const openSavedItem = useSavedLibraryStore((state) => state.openItem);
+  const databaseOrder = useSettingsStore((state) => state.settings.catalog.databaseOrder);
+  const collectionOrder = useSettingsStore((state) => state.settings.catalog.collectionOrder);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -96,7 +100,7 @@ export function CommandPalette() {
           title: `${profile.name} query`,
         })),
       });
-      for (const database of databases[connectionId] ?? []) {
+      for (const database of orderCatalogEntries(databases[connectionId] ?? [], databaseOrder)) {
         result.push({
           id: `database:${connectionId}:${database.name}`,
           icon: '▣',
@@ -117,7 +121,10 @@ export function CommandPalette() {
           keywords: `${profile.name} ${database.name} global search data documents`,
           action: closeAfter(() => openAdmin({ connectionId, database: database.name, section: 'search' })),
         });
-        for (const collection of collections[`${connectionId}:${database.name}`] ?? []) {
+        for (const collection of orderCatalogEntries(
+          collections[`${connectionId}:${database.name}`] ?? [],
+          collectionOrder,
+        )) {
           result.push({
             id: `collection:${connectionId}:${database.name}:${collection.name}`,
             icon: collection.type === 'view' ? 'V' : '{ }',
@@ -148,7 +155,7 @@ export function CommandPalette() {
       });
     }
     return result;
-  }, [profiles, connected, databases, collections, savedItems, savedFolders, openQuery, openSql, openCollection, openAdmin, openConnections, openWelcome, openSavedItem, close]);
+  }, [profiles, connected, databases, collections, databaseOrder, collectionOrder, savedItems, savedFolders, openQuery, openSql, openCollection, openAdmin, openConnections, openWelcome, openSavedItem, close]);
 
   const visibleItems = useMemo(() => {
     const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);

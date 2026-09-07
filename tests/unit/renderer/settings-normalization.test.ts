@@ -57,6 +57,10 @@ describe('application settings normalization', () => {
     });
     expect(DEFAULT_SETTINGS.execution.pageSize).toBe(50);
     expect(DEFAULT_SETTINGS.table).toEqual({ columnOrder: 'alphabetical' });
+    expect(DEFAULT_SETTINGS.catalog).toEqual({
+      databaseOrder: 'alphabetical',
+      collectionOrder: 'alphabetical',
+    });
     expect(DEFAULT_SETTINGS.connection.idleTimeoutMS).toBe(3_600_000);
     expect(normalizeApplicationSettings({ theme: 'light' }).connection.idleTimeoutMS)
       .toBe(DEFAULT_CONNECTION_IDLE_TIMEOUT_MS);
@@ -73,6 +77,7 @@ describe('application settings normalization', () => {
       execution: { pageSize: -1, confirmDestructive: false },
       history: null,
       table: { columnOrder: 'unknown' },
+      catalog: { databaseOrder: 'unknown', collectionOrder: null },
       ejson: { defaultMode: 'broken' },
     });
     expect(settings.theme).toBe('light');
@@ -87,7 +92,24 @@ describe('application settings normalization', () => {
     expect(settings.audit).toEqual(DEFAULT_SETTINGS.audit);
     expect(settings.collection).toEqual(DEFAULT_SETTINGS.collection);
     expect(settings.table).toEqual(DEFAULT_SETTINGS.table);
+    expect(settings.catalog).toEqual(DEFAULT_SETTINGS.catalog);
     expect(settings.ejson.defaultMode).toBe('mongosh');
+  });
+
+  it.each(['alphabetical', 'database'] as const)('preserves valid %s catalog orders', (order) => {
+    expect(normalizeApplicationSettings({
+      catalog: { databaseOrder: order, collectionOrder: order },
+    }).catalog).toEqual({ databaseOrder: order, collectionOrder: order });
+  });
+
+  it('defaults and rejects unsupported catalog orders independently', () => {
+    expect(normalizeApplicationSettings({
+      catalog: { databaseOrder: 'created', collectionOrder: 'database' },
+    }).catalog).toEqual({ databaseOrder: 'alphabetical', collectionOrder: 'database' });
+    expect(applicationSettingsSchema.safeParse({
+      ...structuredClone(DEFAULT_SETTINGS),
+      catalog: { databaseOrder: 'created', collectionOrder: 'database' },
+    }).success).toBe(false);
   });
 
   it.each(['alphabetical', 'document'] as const)('preserves the valid %s table column order', (columnOrder) => {
