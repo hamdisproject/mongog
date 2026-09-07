@@ -134,7 +134,7 @@ jobs:
         run: mkdir -p out && tar -C out -xzf mongog-linux-x64.tar.gz
       - name: Run functional package
         env:
-          MONGOG_E2E_EXECUTABLE: ${{ github.workspace }}/out/MongoG-linux-x64/mongog
+          MONGOG_E2E_EXECUTABLE: ${{ github.workspace }}/out/MongoG-linux-x64/MongoG
         run: xvfb-run -a npm run test:e2e:${{ matrix.area }}
       - name: Upload failure diagnostics
         if: failure()

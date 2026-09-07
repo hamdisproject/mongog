@@ -62,7 +62,7 @@ describe('collection browser operations', () => {
   it('aborts a delayed find, closes its cursor, and keeps the client usable', async () => {
     const collection = client!.db(DATABASE).collection('cancelled_find');
     await collection.insertMany(Array.from({ length: 20 }, (_, n) => ({ n })));
-    await client!.db('admin').command({
+    const failPoint = await client!.db('admin').command({
       configureFailPoint: 'failCommand',
       mode: { times: 1 },
       data: {
@@ -85,7 +85,11 @@ describe('collection browser operations', () => {
       onCursorRegistered: (id) => { cursorId = id; },
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await client!.db('admin').command({
+      waitForFailPoint: 'failCommand',
+      timesEntered: Number(failPoint.count) + 1,
+      maxTimeMS: 5_000,
+    });
     controller.abort(new MongoGCancellationError('Fetch cancelled'));
     await expect(pending).rejects.toMatchObject({ name: 'MongoGCancelled' });
     expect(cursorId).not.toBeNull();

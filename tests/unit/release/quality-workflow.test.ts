@@ -8,6 +8,9 @@ import { loadYaml } from './helpers/release.js';
 describe('PR quality workflow', () => {
   const workflowPath = path.resolve(process.cwd(), '.github', 'workflows', 'quality.yml');
   const workflow = readFileSync(workflowPath, 'utf8');
+  const packageJson = JSON.parse(readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf8')) as {
+    scripts: Record<string, string>;
+  };
   const parsed = loadYaml(workflow) as { jobs: Record<string, unknown> };
 
   it('runs static, area unit, and area integration checks', () => {
@@ -18,6 +21,8 @@ describe('PR quality workflow', () => {
     expect(workflow).toContain('npm run lint');
     expect(workflow).toContain('area: [main, runtime, renderer, analysis, shared, release, sql]');
     expect(workflow).toContain('npm run test:unit:${{ matrix.area }}');
+    expect(packageJson.scripts['test:unit']).toContain('npm run extract:types --silent');
+    expect(packageJson.scripts['test:unit:analysis']).toContain('npm run extract:types --silent');
     expect(workflow).toContain('area: [engine, collections, data, admin]');
     expect(workflow).toContain('npm run test:integ:${{ matrix.area }}');
     expect(workflow.match(/~\/\.cache\/mongodb-binaries/gu)).toHaveLength(2);
@@ -31,7 +36,7 @@ describe('PR quality workflow', () => {
     expect(workflow).toContain('needs: e2e-package');
     expect(workflow).toContain('area: [app, connections, query, collections, workflows, updates]');
     expect(workflow).toContain('xvfb-run -a npm run test:e2e:${{ matrix.area }}');
-    expect(workflow).toContain('MONGOG_E2E_EXECUTABLE:');
+    expect(workflow).toContain('MONGOG_E2E_EXECUTABLE: ${{ github.workspace }}/out/MongoG-linux-x64/MongoG');
     expect(workflow).toContain('if: failure()');
     expect(workflow).not.toContain('retry');
   });
