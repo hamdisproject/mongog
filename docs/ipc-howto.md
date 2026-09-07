@@ -23,6 +23,9 @@ typed method in `src/preload/preload.ts`. Sender check lives in
      include secrets (run URIs/logs through `src/shared/redaction/index.ts`).
    - For connection-scoped ops, resolve via `ConnectionManager` and add a
      `requireWritableConnection(connectionId)` guard when the op mutates data.
+   - Execution channels must derive `readOnly` from the resolved profile. Never
+     accept `readOnly`, generated code, or a client-selected execution mode from
+     renderer SQL payloads (`query.executeSql` is the reference pattern).
 3. **Preload** in `src/preload/preload.ts`:
    - Add one `invoke(IpcChannels.<x>, payload)` method. Do not expose
      `ipcRenderer` itself. For main→renderer pushes, add an `IpcEvents` entry

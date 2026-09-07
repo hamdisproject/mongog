@@ -123,6 +123,12 @@ describe('suggested inserts round-trip through the translator', () => {
     expect(normalizeSampledPath('items[].sku')).toBe('items.sku');
     const translation = translateSql('SELECT `my col`, `address.city` FROM t WHERE `my col` = 1');
     expect(translation.filter).toEqual({ 'my col': 1 });
-    expect(translation.projection).toEqual({ 'my col': 1, 'address.city': 1, _id: 0 });
+    expect(translation.pipeline).toContainEqual({
+      $project: {
+        _id: 0,
+        'my col': { $ifNull: ['$my col', null] },
+        city: { $ifNull: ['$address.city', null] },
+      },
+    });
   });
 });

@@ -20,8 +20,9 @@ Shared rules first, per-path contracts after. Code:
   `src/query-runtime/admin/operations.ts:265-267`) — IPC carries only ids and
   metadata envelopes.
 - **Mutations respect read-only.** Collection/transfer/rename IPC ops go through
-  `requireWritableConnection()` (`src/main/ipc/handlers.ts:163-169`); scripted
-  writes are best-effort static scan (BUG-001 — `docs/security-model.md` §3).
+  `requireWritableConnection()` (`src/main/ipc/handlers.ts`); script and SQL
+  execution derive profile state in main and use the runtime read-only driver
+  guard (`docs/security-model.md` §3).
 - **Progress is evented, cancellation is explicit.** Long jobs emit
   `DataJobProgressEvent` / `ExportProgressEvent` / `DatabaseRenameProgressEvent`
   (re-emitted by the supervisor) and honor job-cancel channels. Terminal events

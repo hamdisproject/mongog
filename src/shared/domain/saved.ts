@@ -24,7 +24,7 @@ export interface SavedDocumentsPayload {
 }
 
 export interface SavedTabTemplate {
-  kind: 'query' | 'collection';
+  kind: 'query' | 'sql' | 'collection';
   title: string;
   pinned: boolean;
   customTitle: boolean;

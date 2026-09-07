@@ -49,7 +49,7 @@ export function savedInputForTab(
     payload: {
       type,
       template: {
-        kind: tab.kind === 'collection' ? 'collection' : 'query',
+        kind: tab.kind === 'collection' ? 'collection' : tab.kind === 'sql' ? 'sql' : 'query',
         title: tab.title,
         pinned: tab.pinned ?? false,
         customTitle: tab.customTitle ?? false,
@@ -92,4 +92,3 @@ export function savedFolderPath(
   }
   return ['Saved', ...parts].join(' / ');
 }
-

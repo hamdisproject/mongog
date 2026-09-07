@@ -162,7 +162,7 @@ describe('collection workspace helpers', () => {
   });
 
   it('accepts a persisted collection SQL view with its own source', () => {
-    expect(workspaceSaveSchema.safeParse({
+    const parsed = workspaceSaveSchema.parse({
       state: {
         sidebarWidth: 260,
         tabs: [{
@@ -178,7 +178,8 @@ describe('collection workspace helpers', () => {
         }],
         activeTabId: 'tab-sql',
       },
-    }).success).toBe(true);
+    });
+    expect(parsed.state.tabs[0]?.sqlEditorContent).toBe('SELECT * FROM items LIMIT 50;\n');
   });
 
   it('accepts a persisted namespace-locked change stream tab', () => {

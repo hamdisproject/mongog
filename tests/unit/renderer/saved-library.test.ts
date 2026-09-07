@@ -82,4 +82,15 @@ describe('saved library contracts', () => {
     }, 'tab');
     expect(JSON.stringify(input)).not.toContain('documentsCriteriaOpen');
   });
+
+  it('keeps standalone SQL tabs as SQL when saved', () => {
+    const input = savedInputForTab({
+      id: 'sql-1', kind: 'sql', title: 'Revenue SQL', connectionId: 'conn-1',
+      database: 'shop', editorContent: 'SELECT SUM(total) AS total FROM orders',
+    }, 'tab');
+    expect(input).toMatchObject({
+      type: 'tab',
+      payload: { type: 'tab', template: { kind: 'sql', editorContent: 'SELECT SUM(total) AS total FROM orders' } },
+    });
+  });
 });

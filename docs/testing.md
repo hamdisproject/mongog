@@ -13,7 +13,7 @@ launch in an integration test).
 | E2E (packaged) | `playwright.config.ts` (workers: 1, retries: 0, 90 s timeout) | packaged Electron app, one area per spec dir | module-level app state; `mongodb-memory-server` from the packaged binary |
 
 CI (`/.github/workflows/quality.yml`): `static` (typecheck+lint) → `unit` matrix
-(main, runtime, renderer, analysis, shared, release) → `integration` matrix
+(main, runtime, renderer, analysis, shared, release, sql) → `integration` matrix
 (engine, collections, data, admin) → `e2e-package` (one unsigned Linux build,
 shipped as a tar so permissions/symlinks survive) → `e2e` matrix
 (app, connections, query, collections, workflows, updates) with
@@ -22,7 +22,7 @@ shipped as a tar so permissions/symlinks survive) → `e2e` matrix
 ## Unit: area + fakes + 400-line limit
 
 - Area commands: `npm run test:unit:<area>` where area ∈
-  `main, runtime, renderer, analysis, shared, release`. `npm test` runs all unit areas.
+  `main, runtime, renderer, analysis, shared, release, sql`. `npm test` runs all unit areas.
 - Every `test:unit:*` script first runs `test:prepare:node`
   (`npm rebuild better-sqlite3`) — after any `npm install`, run it manually
   before vitest or you get the ABI segfault (`docs/debugging.md` §1).
@@ -67,6 +67,10 @@ Rules:
   `collectEngineEvents`) with `owner: { connectionId: 'test' }` — copy it.
 - Engine behavior change ⇒ BOTH a unit test (analysis/policy with fakes) AND an
   integration test (real driver). Review rejects one-sided engine PRs.
+- SQL changes additionally cover strict AST acceptance/rejection in
+  `tests/unit/sql-translator`, real CRUD/NULL/JOIN behavior in
+  `tests/integration/engine/sql-translation.test.ts`, and the packaged worker,
+  confirmation, read-only and persistence path in `tests/e2e/query/sql.spec.ts`.
 
 ## E2E: `MongoGTestContext` (`tests/e2e/fixtures/mongog-test.ts`)
 

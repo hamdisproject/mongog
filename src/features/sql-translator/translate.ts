@@ -15,11 +15,12 @@
  * pipeline. Writes map to insertOne/insertMany, updateMany ($set) and
  * deleteMany.
  */
-import { Parser } from 'node-sql-parser';
-import { SqlTranslateError, type SqlTranslation } from './types.js';
+import mysqlParser from 'node-sql-parser/build/mysql.js';
+import { MAX_SQL_SOURCE_BYTES, SqlTranslateError, type SqlTranslation } from './types.js';
 
 type AstNode = Record<string, any>;
 
+const { Parser } = mysqlParser;
 const parser = new Parser();
 
 const AGG_FUNCS = new Set(['COUNT', 'SUM', 'AVG', 'MIN', 'MAX']);
@@ -47,18 +48,27 @@ export const SQL_EXPRESSION_FUNCTIONS: readonly string[] = ['CONCAT', 'IFNULL', 
 
 /** Translate one SQL statement into an equivalent MongoDB operation. */
 export function translateSql(input: string): SqlTranslation {
+  if (new TextEncoder().encode(input).byteLength > MAX_SQL_SOURCE_BYTES) {
+    throw new SqlTranslateError(
+      `SQL statements are limited to ${MAX_SQL_SOURCE_BYTES / 1024} KiB.`,
+      'Split large writes into smaller statements and run them separately.',
+    );
+  }
   const sql = input.trim().replace(/;+\s*$/, '');
   if (!sql) {
     throw new SqlTranslateError('Empty SQL statement.', 'Write a SELECT, INSERT, UPDATE or DELETE statement first.');
   }
+  validateNumericLiterals(sql);
   let ast: unknown;
   try {
-    ast = parser.astify(sql, { database: 'MySQL' });
+    ast = parser.astify(sql, { database: 'MySQL', parseOptions: { includeLocations: true } });
   } catch (caught) {
     const message = caught instanceof Error ? caught.message : String(caught);
+    const location = parseErrorRange(caught);
     throw new SqlTranslateError(
       `Could not parse SQL: ${message}`,
       'Only one SELECT, INSERT, UPDATE or DELETE statement is supported. Check commas, quotes and parentheses.',
+      location,
     );
   }
   if (Array.isArray(ast)) {
@@ -71,6 +81,7 @@ export function translateSql(input: string): SqlTranslation {
     throw new SqlTranslateError('Could not parse SQL.', 'Write a SELECT, INSERT, UPDATE or DELETE statement.');
   }
   const node = ast as AstNode;
+  validateStatementShape(node);
   switch (node.type) {
     case 'select':
       return translateSelect(node);
@@ -86,6 +97,223 @@ export function translateSql(input: string): SqlTranslation {
         'Supported statements: SELECT (incl. JOIN, GROUP BY, DISTINCT), INSERT, UPDATE, DELETE.',
       );
   }
+}
+
+function validateStatementShape(node: AstNode): void {
+  const reject = (message: string, hint: string): never => {
+    throw new SqlTranslateError(message, hint, nodeRange(node));
+  };
+
+  if (node.with != null) {
+    reject('Common table expressions (WITH) are not supported.', 'Run the inner SELECT separately or use an explicit INNER/LEFT JOIN.');
+  }
+
+  if (node.type === 'select') {
+    if (node._next != null || node.set_op != null) {
+      reject('UNION and other set operations are not supported.', 'Run each SELECT separately.');
+    }
+    if (node.into?.position != null || node.into?.type != null) {
+      reject('SELECT INTO is not supported.', 'Use plain SELECT; SQL writes support INSERT ... VALUES only.');
+    }
+    if (node.options != null || node.locking_read != null || node.window != null || node.collate != null) {
+      reject('This SELECT modifier is not supported.', 'Remove locking, window, collation, or vendor-specific SELECT modifiers.');
+    }
+    const from = Array.isArray(node.from) ? node.from as AstNode[] : [];
+    const joins = from.slice(1);
+    for (const join of joins) {
+      const kind = String(join.join ?? '').toUpperCase();
+      if (kind !== 'INNER JOIN' && kind !== 'LEFT JOIN') {
+        reject(`Join type "${kind || 'implicit'}" is not supported.`, 'Use INNER JOIN or LEFT JOIN with one equality condition.');
+      }
+    }
+    const columns = Array.isArray(node.columns) ? node.columns as AstNode[] : [];
+    if (joins.length > 0 && columns.some((column) => column.expr?.type === 'column_ref' && column.expr?.column === '*')) {
+      reject('SELECT * is not supported with JOIN.', 'List each required base and joined field explicitly.');
+    }
+    for (const column of columns) {
+      const expr = column.expr as AstNode | undefined;
+      if (expr?.type === 'case') {
+        reject('CASE expressions are not supported.', 'Use a plain field or one of the functions offered by SQL completion.');
+      }
+      if (expr?.type === 'aggr_func') {
+        if (expr.over != null) reject('Windowed aggregates are not supported.', 'Remove the OVER clause.');
+        if (expr.args?.distinct != null || expr.args?.orderby != null || expr.args?.separator != null) {
+          reject('DISTINCT/ordered aggregate arguments are not supported.', 'Use a plain aggregate such as COUNT(field) or SUM(field).');
+        }
+      }
+    }
+    const modifiers = Array.isArray(node.groupby?.modifiers) ? node.groupby.modifiers : [];
+    if (modifiers.some((modifier: unknown) => modifier != null)) {
+      reject('GROUP BY modifiers such as ROLLUP are not supported.', 'Use a plain GROUP BY field list.');
+    }
+    return;
+  }
+
+  if (node.type === 'insert') {
+    const tables = Array.isArray(node.table) ? node.table as AstNode[] : [];
+    if (tables.length !== 1 || tables[0]?.as != null) {
+      reject('INSERT needs exactly one unaliased target collection.', 'Use INSERT INTO collection (columns) VALUES (...).');
+    }
+    if (String(node.prefix ?? '').trim().toLowerCase() !== 'into') {
+      reject('INSERT modifiers such as IGNORE are not supported.', 'Use INSERT INTO ... (columns) VALUES (...).');
+    }
+    if (node.partition != null || node.on_duplicate_update != null) {
+      reject('INSERT partition/upsert modifiers are not supported.', 'Use a plain INSERT ... VALUES statement.');
+    }
+    if (node.values?.type !== 'values') {
+      reject('INSERT SELECT is not supported.', 'Use an explicit VALUES list.');
+    }
+    return;
+  }
+
+  if (node.type === 'update') {
+    const tables = Array.isArray(node.table) ? node.table as AstNode[] : [];
+    if (tables.length !== 1 || tables[0]?.join != null || tables[0]?.as != null) {
+      reject('UPDATE JOIN and multi-table UPDATE are not supported.', 'Update one collection per statement.');
+    }
+    if (node.orderby != null || node.limit != null) {
+      reject('ORDER BY/LIMIT on UPDATE is not supported.', 'Use a WHERE clause; every matching document is updated.');
+    }
+    return;
+  }
+
+  if (node.type === 'delete') {
+    const from = Array.isArray(node.from) ? node.from as AstNode[] : [];
+    if (from.length !== 1 || from.some((entry) => entry.join != null || entry.as != null)) {
+      reject('DELETE JOIN and multi-table DELETE are not supported.', 'Delete from one collection per statement.');
+    }
+    if (node.orderby != null || node.limit != null) {
+      reject('ORDER BY/LIMIT on DELETE is not supported.', 'Use a WHERE clause; every matching document is deleted.');
+    }
+  }
+}
+
+function parseErrorRange(value: unknown): SqlTranslateError['range'] {
+  const location = value && typeof value === 'object'
+    ? (value as { location?: { start?: { line?: number; column?: number }; end?: { line?: number; column?: number } } }).location
+    : undefined;
+  const start = location?.start;
+  const end = location?.end;
+  if (!start?.line || !start.column) return undefined;
+  return {
+    startLine: start.line,
+    startCol: start.column,
+    endLine: end?.line ?? start.line,
+    endCol: Math.max(end?.column ?? start.column + 1, start.column + 1),
+  };
+}
+
+function nodeRange(node: AstNode): SqlTranslateError['range'] {
+  const start = node.loc?.start as { line?: number; column?: number } | undefined;
+  const end = node.loc?.end as { line?: number; column?: number } | undefined;
+  if (!start?.line || !start.column) return undefined;
+  return {
+    startLine: start.line,
+    startCol: start.column,
+    endLine: end?.line ?? start.line,
+    endCol: Math.max(end?.column ?? start.column + 1, start.column + 1),
+  };
+}
+
+/** Validate raw numeric tokens before the parser can round them into JS numbers. */
+function validateNumericLiterals(sql: string): void {
+  let index = 0;
+  while (index < sql.length) {
+    const char = sql[index]!;
+    const next = sql[index + 1];
+    if (char === "'" || char === '"' || char === '`') {
+      index = skipQuoted(sql, index, char);
+      continue;
+    }
+    if (char === '-' && next === '-') {
+      const newline = sql.indexOf('\n', index + 2);
+      index = newline < 0 ? sql.length : newline + 1;
+      continue;
+    }
+    if (char === '/' && next === '*') {
+      const end = sql.indexOf('*/', index + 2);
+      index = end < 0 ? sql.length : end + 2;
+      continue;
+    }
+    const startsNumber = /\d/u.test(char) || (char === '.' && next !== undefined && /\d/u.test(next));
+    const previous = index > 0 ? sql[index - 1]! : '';
+    if (!startsNumber || /[A-Za-z0-9_$]/u.test(previous)) {
+      index += 1;
+      continue;
+    }
+    const match = /^(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/u.exec(sql.slice(index));
+    if (!match) {
+      index += 1;
+      continue;
+    }
+    const raw = match[0];
+    validateNumericToken(raw, sql, index);
+    index += raw.length;
+  }
+}
+
+function skipQuoted(sql: string, start: number, quote: string): number {
+  let index = start + 1;
+  while (index < sql.length) {
+    if (sql[index] === '\\') {
+      index += 2;
+      continue;
+    }
+    if (sql[index] === quote) {
+      if (sql[index + 1] === quote) {
+        index += 2;
+        continue;
+      }
+      return index + 1;
+    }
+    index += 1;
+  }
+  return sql.length;
+}
+
+function validateNumericToken(raw: string, sql: string, offset: number): void {
+  const range = rangeAtOffset(sql, offset, raw.length);
+  const value = Number(raw);
+  if (!Number.isFinite(value)) {
+    throw new SqlTranslateError('Numeric literal is outside the supported finite range.', 'Use a finite number or MQL BSON numeric constructors.', range);
+  }
+  const mantissa = raw.split(/[eE]/u, 1)[0]!.replace('.', '');
+  const significant = mantissa.replace(/^0+/u, '').length || 1;
+  if (!/[.eE]/u.test(raw)) {
+    try {
+      if (BigInt(raw) > BigInt(Number.MAX_SAFE_INTEGER)) {
+        throw new SqlTranslateError(
+          `Integer literal "${raw}" exceeds JavaScript's safe integer range.`,
+          'Use the MQL editor with Long or Decimal128 for exact BSON numbers.',
+          range,
+        );
+      }
+    } catch (caught) {
+      if (caught instanceof SqlTranslateError) throw caught;
+    }
+    if (significant > 15) {
+      throw new SqlTranslateError(
+        `Numeric literal "${raw}" has more than 15 significant digits.`,
+        'Use the MQL editor with Long or Decimal128 for exact BSON numbers.',
+        range,
+      );
+    }
+    return;
+  }
+  if (significant > 15) {
+    throw new SqlTranslateError(
+      `Numeric literal "${raw}" has more than 15 significant digits.`,
+      'Use the MQL editor with Decimal128 for exact decimal values.',
+      range,
+    );
+  }
+}
+
+function rangeAtOffset(sql: string, offset: number, length: number): NonNullable<SqlTranslateError['range']> {
+  const before = sql.slice(0, offset).split('\n');
+  const line = before.length;
+  const column = before[before.length - 1]!.length + 1;
+  return { startLine: line, startCol: column, endLine: line, endCol: column + Math.max(1, length) };
 }
 
 // ── SELECT ────────────────────────────────────────────────────────────────
@@ -126,8 +354,26 @@ function translateSelect(node: AstNode): SqlTranslation {
   }));
   const base = from[0]!;
   const aliasToTable = new Map<string, string>();
+  const relationKeys = new Set<string>();
   for (const entry of from) {
-    aliasToTable.set(entry.alias ?? entry.table, entry.table);
+    const key = entry.alias ?? entry.table;
+    if (relationKeys.has(key)) {
+      throw new SqlTranslateError(
+        `Duplicate table alias "${key}".`,
+        'Give every joined collection a unique alias.',
+        nodeRange(entry as AstNode),
+      );
+    }
+    const existingRelation = aliasToTable.get(key);
+    if (existingRelation !== undefined && existingRelation !== entry.table) {
+      throw new SqlTranslateError(
+        `Ambiguous table name or alias "${key}".`,
+        'Use unique aliases that do not match another collection name.',
+        nodeRange(entry as AstNode),
+      );
+    }
+    relationKeys.add(key);
+    aliasToTable.set(key, entry.table);
     aliasToTable.set(entry.table, entry.table);
   }
   const baseKey = base.alias ?? base.table;
@@ -147,12 +393,12 @@ function translateSelect(node: AstNode): SqlTranslation {
     }
   }
 
-  const database = base.db ?? joins.map((join) => join.db).find((db) => db != null) ?? undefined;
-  for (const entry of from) {
-    if (entry.db != null && database != null && entry.db !== database) {
+  const database = base.db ?? undefined;
+  for (const entry of joins) {
+    if (entry.db != null && entry.db !== database) {
       throw new SqlTranslateError(
         'Querying collections from different databases is not supported.',
-        'Use one database per SQL statement.',
+        'Qualify the base collection with the same database and keep every JOIN in that database.',
       );
     }
   }
@@ -197,6 +443,9 @@ function translateSelect(node: AstNode): SqlTranslation {
     if (expr.type === 'column_ref' && expr.column === '*') {
       hasStar = true;
       const qualifier = expr.table != null ? String(expr.table) : null;
+      if (qualifier != null) {
+        throw new SqlTranslateError('Qualified SELECT * is not supported.', 'Use SELECT * for one collection or list explicit joined fields.');
+      }
       if (qualifier != null && !aliasToTable.has(qualifier)) {
         throw new SqlTranslateError(
           `Unknown table qualifier "${qualifier}".`,
@@ -217,7 +466,7 @@ function translateSelect(node: AstNode): SqlTranslation {
           'Supported aggregates: COUNT, SUM, AVG, MIN, MAX.',
         );
       }
-      const arg = aggArg(expr);
+      const arg = aggArg(expr, aliasToTable, baseKey, qualify);
       const output = asName ?? defaultAggName(func, arg);
       ensureUniqueOutput(output, outputNames);
       aggs.push({ func, arg, output });
@@ -238,7 +487,7 @@ function translateSelect(node: AstNode): SqlTranslation {
       scalarProjects.push({ output, expr: buildScalarExpr(expr, aliasToTable, baseKey, qualify) });
       continue;
     }
-    if (expr.type === 'binary_expr' || expr.type === 'unary_expr' || expr.type === 'case') {
+    if (expr.type === 'binary_expr' || expr.type === 'unary_expr') {
       hasScalarOrExpr = true;
       if (!asName) {
         throw new SqlTranslateError(
@@ -283,9 +532,21 @@ function translateSelect(node: AstNode): SqlTranslation {
   if (distinct && hasAgg) {
     throw new SqlTranslateError('DISTINCT with aggregates is not supported.', 'Use GROUP BY instead of DISTINCT for aggregated queries.');
   }
+  if (distinct && (hasStar || hasScalarOrExpr)) {
+    throw new SqlTranslateError('DISTINCT supports plain fields only.', 'List one or more plain fields after SELECT DISTINCT.');
+  }
+  if ((groupKeyRefs.length > 0 || hasAgg) && hasScalarOrExpr) {
+    throw new SqlTranslateError(
+      'Computed/scalar expressions are not supported in grouped queries.',
+      'Select GROUP BY fields and COUNT/SUM/AVG/MIN/MAX aggregates only.',
+    );
+  }
 
   const grouped = groupKeyRefs.length > 0 || hasAgg || distinct;
-  const needsAggregate = joins.length > 0 || grouped || hasScalarOrExpr || hasRename || havingRaw != null;
+  // An aggregation projection materialises missing BSON fields as SQL NULL.
+  // A find() inclusion projection would silently omit them instead.
+  const needsAggregate = joins.length > 0 || grouped || hasScalarOrExpr || hasRename ||
+    havingRaw != null || !hasStar;
 
   const warnings: string[] = [];
   const whereRaw = (node.where as AstNode | null) ?? null;
@@ -294,7 +555,7 @@ function translateSelect(node: AstNode): SqlTranslation {
     const filter = whereRaw ? buildFilter(whereRaw, aliasToTable, baseKey, null) : {};
     let projection: Record<string, unknown> | undefined;
     if (!hasStar) {
-      projection = {};
+      projection = createRecord();
       for (const col of plainCols) projection[col.field] = 1;
       if (!plainCols.some((col) => col.field === '_id')) projection._id = 0;
     }
@@ -365,10 +626,11 @@ function translateSelect(node: AstNode): SqlTranslation {
     if (hasStar) {
       throw new SqlTranslateError('SELECT DISTINCT * is not supported.', 'List the columns to deduplicate, e.g. SELECT DISTINCT status FROM people');
     }
-    const id: Record<string, unknown> = {};
+    const id = createRecord();
     for (const col of plainCols) id[col.output] = `$${qualify(col.field, col.table)}`;
     pipeline.push({ $group: { _id: id } });
-    const project: Record<string, unknown> = { _id: 0 };
+    const project = createRecord();
+    project._id = 0;
     for (const col of plainCols) project[col.output] = `$_id.${col.output}`;
     pipeline.push({ $project: project });
   } else if (groupKeyRefs.length > 0 || hasAgg) {
@@ -381,52 +643,69 @@ function translateSelect(node: AstNode): SqlTranslation {
         );
       }
     }
-    const group: Record<string, unknown> = { _id: buildGroupId(groupKeys) };
+    const group: Record<string, unknown> = createRecord();
+    group._id = buildGroupId(groupKeys);
     for (const agg of aggs) {
       group[agg.output] = buildAccumulator(agg.func, agg.arg);
       aggAliasOf.set(aggKey(agg.func, agg.arg), agg.output);
     }
     pipeline.push({ $group: group });
-    if (havingRaw) {
-      pipeline.push({ $match: buildHaving(havingRaw, aliasToTable, baseKey, qualify, aggAliasOf, new Set(groupKeys)) });
-    }
-    const project: Record<string, unknown> = { _id: 0 };
+    const project: Record<string, unknown> = createRecord();
+    project._id = 0;
+    const groupAliasOf = new Map<string, string>();
     if (groupKeys.length === 1) {
-      project[outputNameForGroupKey(groupKeys[0]!, plainCols)] = '$_id';
+      const key = groupKeys[0]!;
+      const output = outputNameForGroupKey(key, plainCols);
+      project[output] = '$_id';
+      groupAliasOf.set(key, output);
+      groupAliasOf.set(shortName(key), output);
     } else {
-      for (const key of groupKeys) project[outputNameForGroupKey(key, plainCols)] = `$_id.${sanitizeField(key)}`;
+      for (const key of groupKeys) {
+        const output = outputNameForGroupKey(key, plainCols);
+        project[output] = `$_id.${sanitizeField(key)}`;
+        groupAliasOf.set(key, output);
+        groupAliasOf.set(shortName(key), output);
+      }
     }
     for (const agg of aggs) project[agg.output] = 1;
     pipeline.push({ $project: project });
-  } else if (havingRaw) {
-    pipeline.push({ $match: buildHaving(havingRaw, aliasToTable, baseKey, qualify, aggAliasOf, new Set()) });
+    if (havingRaw) {
+      pipeline.push({
+        $match: buildHaving(havingRaw, aliasToTable, baseKey, qualify, aggAliasOf, groupAliasOf),
+      });
+    }
   }
 
   const groupedQuery = groupKeyRefs.length > 0 || hasAgg || distinct;
   const renameEntries = plainCols.filter((col) => col.output !== qualify(col.field, col.table));
-  if (scalarProjects.length > 0 || renameEntries.length > 0) {
+  if (scalarProjects.length > 0 || renameEntries.length > 0 || (!hasStar && !groupedQuery)) {
     if (groupedQuery) {
-      const addFields: Record<string, unknown> = {};
+      const addFields = createRecord();
       for (const scalar of scalarProjects) addFields[scalar.output] = scalar.expr;
       if (Object.keys(addFields).length > 0) pipeline.push({ $addFields: addFields });
     } else if (hasStar) {
       // SELECT *, a AS alpha ... keeps the whole document and adds renames.
-      const addFields: Record<string, unknown> = {};
-      for (const col of renameEntries) addFields[col.output] = `$${qualify(col.field, col.table)}`;
+      const addFields = createRecord();
+      for (const col of renameEntries) {
+        addFields[col.output] = { $ifNull: [`$${qualify(col.field, col.table)}`, null] };
+      }
       for (const scalar of scalarProjects) addFields[scalar.output] = scalar.expr;
       pipeline.push({ $addFields: addFields });
     } else {
-      const project: Record<string, unknown> = {};
+      const project = createRecord();
+      if (![...plainCols.map((col) => col.output), ...scalarProjects.map((scalar) => scalar.output)].includes('_id')) {
+        project._id = 0;
+      }
       for (const col of plainCols) {
         const source = `$${qualify(col.field, col.table)}`;
-        project[col.output] = col.output === qualify(col.field, col.table) ? 1 : source;
+        project[col.output] = { $ifNull: [source, null] };
       }
       for (const scalar of scalarProjects) project[scalar.output] = scalar.expr;
       pipeline.push({ $project: project });
     }
   } else if (!hasStar && !groupedQuery && joins.length > 0) {
     // JOIN without renames: project only the requested (possibly nested) paths.
-    const project: Record<string, unknown> = {};
+    const project = createRecord();
     for (const col of plainCols) project[qualify(col.field, col.table)] = 1;
     if (Object.keys(project).length > 0) pipeline.push({ $project: project });
   }
@@ -435,7 +714,7 @@ function translateSelect(node: AstNode): SqlTranslation {
     const sort = buildSort(orderByRaw, aliasToTable, baseKey, qualify);
     const outputMap = new Map<string, string>();
     for (const col of plainCols) outputMap.set(qualify(col.field, col.table), col.output);
-    const remapped: Record<string, number> = {};
+    const remapped: Record<string, number> = createRecord();
     for (const [key, dir] of Object.entries(sort)) remapped[outputMap.get(key) ?? key] = dir;
     // ORDER BY runs after the projection stages, so unknown keys sort nothing.
     const knownOutputs = new Set<string>([
@@ -445,8 +724,11 @@ function translateSelect(node: AstNode): SqlTranslation {
       ...(hasStar ? ['*'] : []),
     ]);
     for (const key of Object.keys(remapped)) {
-      if (!knownOutputs.has(key) && !hasStar && !groupedQuery) {
-        warnings.push(`ORDER BY "${key}" is not in the SELECT list; sorting may have no effect after projection.`);
+      if (!knownOutputs.has(key) && !hasStar) {
+        throw new SqlTranslateError(
+          `ORDER BY "${key}" is not available after projection.`,
+          'Order by a selected field, GROUP BY field, or aggregate alias.',
+        );
       }
     }
     pipeline.push({ $sort: remapped });
@@ -482,6 +764,10 @@ function translateInsert(node: AstNode): SqlTranslation {
   if (!columns || columns.length === 0) {
     throw new SqlTranslateError('INSERT needs an explicit column list.', 'Example: INSERT INTO people (user_id, age) VALUES (\'abc\', 55)');
   }
+  const duplicateColumn = columns.find((column, index) => columns.indexOf(column) !== index);
+  if (duplicateColumn !== undefined) {
+    throw new SqlTranslateError(`Duplicate INSERT column "${duplicateColumn}".`, 'List every target field once.');
+  }
   const rows = extractInsertRows(node.values as AstNode | AstNode[] | null);
   if (rows.length === 0) {
     throw new SqlTranslateError('INSERT needs at least one VALUES row.', 'Example: INSERT INTO t (a) VALUES (1), (2)');
@@ -493,7 +779,7 @@ function translateInsert(node: AstNode): SqlTranslation {
         'Give every row the same number of values as columns.',
       );
     }
-    const doc: Record<string, unknown> = {};
+    const doc = createRecord();
     columns.forEach((col, colIndex) => {
       doc[String(col)] = literalValue(row[colIndex] as AstNode);
     });
@@ -522,10 +808,13 @@ function translateUpdate(node: AstNode): SqlTranslation {
   if (!setList || setList.length === 0) {
     throw new SqlTranslateError('UPDATE needs a SET clause.', 'Example: UPDATE people SET age = 56 WHERE user_id = \'abc\'');
   }
-  const update: Record<string, unknown> = {};
+  const update = createRecord();
   for (const item of setList) {
     const column = String(item.column);
     if (!column) throw new SqlTranslateError('UPDATE SET has an empty column.', 'Use SET <field> = <literal value>.');
+    if (Object.hasOwn(update, column)) {
+      throw new SqlTranslateError(`Duplicate UPDATE field "${column}".`, 'Assign every field once in the SET clause.');
+    }
     update[column] = literalValue(item.value as AstNode);
   }
   const whereRaw = (node.where as AstNode | null) ?? null;
@@ -644,7 +933,7 @@ function buildFilter(expr: AstNode, aliases: Map<string, string>, baseKey: strin
   if (expr.type === 'function' && funcName(expr) === 'NOT') {
     const inner = funcArgs(expr)[0] as AstNode;
     if (!inner) throw new SqlTranslateError('NOT needs a condition.', 'Example: WHERE NOT (status = \'A\')');
-    return { $nor: [buildFilter(inner, aliases, baseKey, qualify)] };
+    return buildFilter(negatePredicate(inner), aliases, baseKey, qualify);
   }
   if (expr.type !== 'binary_expr') {
     throw new SqlTranslateError(
@@ -681,7 +970,9 @@ function buildFilter(expr: AstNode, aliases: Map<string, string>, baseKey: strin
       return isNot ? { [field]: { $exists: true, $ne: null } } : { [field]: null };
     }
     if (right?.type === 'bool') {
-      return { [field]: isNot ? { $ne: Boolean(right.value) } : Boolean(right.value) };
+      return isNot
+        ? andFilters(nonNullGuard(field), { [field]: { $ne: Boolean(right.value) } })
+        : { [field]: Boolean(right.value) };
     }
     throw new SqlTranslateError('Unsupported IS comparison.', 'Use IS NULL, IS NOT NULL, IS TRUE or IS FALSE.');
   }
@@ -692,7 +983,9 @@ function buildFilter(expr: AstNode, aliases: Map<string, string>, baseKey: strin
     }
     const field = qualifyField(String(left.column), left.table != null ? String(left.table) : null, aliases, baseKey, qualify);
     const regex = likeToRegex(sqlString(right));
-    return operator === 'LIKE' ? { [field]: { $regex: regex } } : { [field]: { $not: { $regex: regex } } };
+    return operator === 'LIKE'
+      ? { [field]: { $regex: regex } }
+      : andFilters(nonNullGuard(field), { [field]: { $not: { $regex: regex } } });
   }
 
   if (operator === 'IN' || operator === 'NOT IN') {
@@ -701,7 +994,12 @@ function buildFilter(expr: AstNode, aliases: Map<string, string>, baseKey: strin
     }
     const field = qualifyField(String(left.column), left.table != null ? String(left.table) : null, aliases, baseKey, qualify);
     const values = inList(right);
-    return operator === 'IN' ? { [field]: { $in: values } } : { [field]: { $nin: values } };
+    if (values.some((value) => value === null)) {
+      throw new SqlTranslateError('NULL inside IN/NOT IN is not supported.', 'Use IS NULL/IS NOT NULL as a separate predicate.');
+    }
+    return operator === 'IN'
+      ? { [field]: { $in: values } }
+      : andFilters(nonNullGuard(field), { [field]: { $nin: values } });
   }
 
   if (operator === 'BETWEEN' || operator === 'NOT BETWEEN') {
@@ -710,8 +1008,11 @@ function buildFilter(expr: AstNode, aliases: Map<string, string>, baseKey: strin
     }
     const field = qualifyField(String(left.column), left.table != null ? String(left.table) : null, aliases, baseKey, qualify);
     const [low, high] = betweenBounds(right);
-    if (operator === 'BETWEEN') return { [field]: { $gte: low, $lte: high } };
-    return { $or: [{ [field]: { $lt: low } }, { [field]: { $gt: high } }] };
+    if (low === null || high === null) {
+      throw new SqlTranslateError('BETWEEN bounds cannot be NULL.', 'Use concrete lower and upper values.');
+    }
+    if (operator === 'BETWEEN') return andFilters(nonNullGuard(field), { [field]: { $gte: low, $lte: high } });
+    return andFilters(nonNullGuard(field), { $or: [{ [field]: { $lt: low } }, { [field]: { $gt: high } }] });
   }
 
   if (['=', '!=', '<>', '>', '>=', '<', '<='].includes(operator)) {
@@ -719,27 +1020,37 @@ function buildFilter(expr: AstNode, aliases: Map<string, string>, baseKey: strin
     if (left?.type === 'column_ref' && right?.type === 'column_ref') {
       const lField = qualifyField(String(left.column), left.table != null ? String(left.table) : null, aliases, baseKey, qualify);
       const rField = qualifyField(String(right.column), right.table != null ? String(right.table) : null, aliases, baseKey, qualify);
-      return { $expr: { [mongoCmp(operator)]: [`$${lField}`, `$${rField}`] } };
+      return andFilters(
+        nonNullGuard(lField),
+        nonNullGuard(rField),
+        { $expr: { [mongoCmp(operator)]: [`$${lField}`, `$${rField}`] } },
+      );
     }
     if (left?.type !== 'column_ref') {
       throw new SqlTranslateError(`Operator "${operator}" needs a column on the left.`, 'Example: WHERE age > 25');
     }
     const field = qualifyField(String(left.column), left.table != null ? String(left.table) : null, aliases, baseKey, qualify);
     const value = literalValue(right);
+    if (value === null) {
+      throw new SqlTranslateError(
+        `Comparison "${operator} NULL" is not supported; use IS NULL or IS NOT NULL.`,
+        'Use IS NULL or IS NOT NULL; SQL comparisons with NULL are UNKNOWN.',
+      );
+    }
     switch (operator) {
       case '=':
         return { [field]: value };
       case '!=':
       case '<>':
-        return { [field]: { $ne: value } };
+        return andFilters(nonNullGuard(field), { [field]: { $ne: value } });
       case '>':
-        return { [field]: { $gt: value } };
+        return andFilters(nonNullGuard(field), { [field]: { $gt: value } });
       case '>=':
-        return { [field]: { $gte: value } };
+        return andFilters(nonNullGuard(field), { [field]: { $gte: value } });
       case '<':
-        return { [field]: { $lt: value } };
+        return andFilters(nonNullGuard(field), { [field]: { $lt: value } });
       case '<=':
-        return { [field]: { $lte: value } };
+        return andFilters(nonNullGuard(field), { [field]: { $lte: value } });
       default:
         break;
     }
@@ -761,12 +1072,66 @@ function mergeAnd(left: Record<string, unknown>, right: Record<string, unknown>)
     const existing = out[key];
     if (!key.startsWith('$') && isPlainObject(existing) && isPlainObject(value)) {
       // Range merge: age > 25 AND age <= 50 -> { age: { $gt: 25, $lte: 50 } }.
-      out[key] = { ...existing, ...value };
-      continue;
+      const existingKeys = new Set(Object.keys(existing));
+      const compatible = Object.entries(value).every(([operator, operand]) => (
+        !existingKeys.has(operator) || Object.is(existing[operator], operand)
+      ));
+      if (compatible) {
+        out[key] = { ...existing, ...value };
+        continue;
+      }
     }
     return { $and: [left, right] };
   }
   return out;
+}
+
+function nonNullGuard(field: string): Record<string, unknown> {
+  return { [field]: { $exists: true, $ne: null } };
+}
+
+function andFilters(...filters: Array<Record<string, unknown>>): Record<string, unknown> {
+  return filters.reduce((combined, filter) => mergeAnd(combined, filter));
+}
+
+function negatePredicate(expr: AstNode): AstNode {
+  if (expr?.type === 'function' && funcName(expr) === 'NOT') {
+    const nested = funcArgs(expr)[0] as AstNode | undefined;
+    if (!nested) throw new SqlTranslateError('NOT needs a condition.', 'Example: WHERE NOT (status = \'A\')');
+    return nested;
+  }
+  if (expr?.type !== 'binary_expr') {
+    throw new SqlTranslateError('This NOT expression is not supported.', 'Apply NOT to comparisons joined by AND/OR.');
+  }
+  const operator = String(expr.operator).toUpperCase();
+  if (operator === 'AND' || operator === 'OR') {
+    return {
+      ...expr,
+      operator: operator === 'AND' ? 'OR' : 'AND',
+      left: negatePredicate(expr.left as AstNode),
+      right: negatePredicate(expr.right as AstNode),
+    };
+  }
+  const inverse: Record<string, string> = {
+    '=': '!=',
+    '!=': '=',
+    '<>': '=',
+    '>': '<=',
+    '>=': '<',
+    '<': '>=',
+    '<=': '>',
+    LIKE: 'NOT LIKE',
+    'NOT LIKE': 'LIKE',
+    IN: 'NOT IN',
+    'NOT IN': 'IN',
+    BETWEEN: 'NOT BETWEEN',
+    'NOT BETWEEN': 'BETWEEN',
+    IS: 'IS NOT',
+    'IS NOT': 'IS',
+  };
+  const replacement = inverse[operator];
+  if (!replacement) throw new SqlTranslateError(`NOT ${operator} is not supported.`, 'Rewrite the condition with supported comparisons.');
+  return { ...expr, operator: replacement };
 }
 
 function flattenOr(filter: Record<string, unknown>): unknown[] {
@@ -889,11 +1254,22 @@ function literalValue(node: AstNode): unknown {
 
 // ── Aggregates / expressions / sort / limit ───────────────────────────────
 
-function aggArg(expr: AstNode): string | null {
+function aggArg(
+  expr: AstNode,
+  aliases?: Map<string, string>,
+  baseKey?: string,
+  qualify?: Qualifier,
+): string | null {
   const args = expr.args as AstNode | null;
   const inner = args?.expr as AstNode | undefined;
   if (!inner || inner.type === 'star') return null;
-  if (inner.type === 'column_ref') return String(inner.column);
+  if (inner.type === 'column_ref') {
+    const field = String(inner.column);
+    const table = inner.table != null ? String(inner.table) : null;
+    return aliases && baseKey
+      ? qualifyField(field, table, aliases, baseKey, qualify ?? null)
+      : field;
+  }
   throw new SqlTranslateError(
     'Aggregates take a plain column or *.',
     'Example: COUNT(*), SUM(total), AVG(total).',
@@ -913,7 +1289,15 @@ function buildAccumulator(func: string, arg: string | null): Record<string, unkn
   switch (func) {
     case 'COUNT':
       if (arg == null) return { $sum: 1 };
-      return { $sum: { $cond: [{ $ifNull: [`$${arg}`, false] }, 1, 0] } };
+      return {
+        $sum: {
+          $cond: [
+            { $and: [{ $ne: [{ $type: `$${arg}` }, 'missing'] }, { $ne: [`$${arg}`, null] }] },
+            1,
+            0,
+          ],
+        },
+      };
     case 'SUM':
       return { $sum: `$${arg}` };
     case 'AVG':
@@ -930,8 +1314,17 @@ function buildAccumulator(func: string, arg: string | null): Record<string, unkn
 function buildGroupId(keys: string[]): unknown {
   if (keys.length === 0) return null;
   if (keys.length === 1) return `$${keys[0]}`;
-  const id: Record<string, unknown> = {};
-  for (const key of keys) id[sanitizeField(key)] = `$${key}`;
+  const id = createRecord();
+  for (const key of keys) {
+    const safe = sanitizeField(key);
+    if (Object.hasOwn(id, safe)) {
+      throw new SqlTranslateError(
+        `GROUP BY fields collide after normalization at "${safe}".`,
+        'Alias or rename the conflicting fields so each group key is unique.',
+      );
+    }
+    id[safe] = `$${key}`;
+  }
   return id;
 }
 
@@ -965,14 +1358,16 @@ function inferScalarName(expr: AstNode): string {
   return name;
 }
 
-function buildScalarExpr(expr: AstNode, aliases: Map<string, string>, baseKey: string): Record<string, unknown> {
+function buildScalarExpr(
+  expr: AstNode,
+  aliases: Map<string, string>,
+  baseKey: string,
+  qualify: Qualifier,
+): Record<string, unknown> {
   const name = funcName(expr).toUpperCase();
   const builder = SCALAR_FUNCS[name];
   if (!builder) {
-    throw new SqlTranslateError(
-      `Function "${funcName(expr)}" is not supported.`,
-      'Supported functions: UPPER, LOWER, LENGTH, TRIM, LTRIM, RTRIM, YEAR, MONTH, DAY, ABS.',
-    );
+    return buildValueExpr(expr, aliases, baseKey, qualify);
   }
   const args = funcArgs(expr);
   if (args.length !== 1 || (args[0] as AstNode)?.type !== 'column_ref') {
@@ -986,23 +1381,43 @@ function buildScalarExpr(expr: AstNode, aliases: Map<string, string>, baseKey: s
   if (table != null && !aliases.has(table)) {
     throw new SqlTranslateError(`Unknown table qualifier "${table}".`, 'Check the FROM and JOIN aliases.');
   }
-  void baseKey;
-  const path = table != null && table !== baseKey ? `$${table}.${String(col.column)}` : `$${String(col.column)}`;
-  return builder(path);}
+  const path = `$${qualifyField(String(col.column), table, aliases, baseKey, qualify)}`;
+  return builder(path);
+}
 
-function buildValueExpr(expr: AstNode): Record<string, unknown> {
+function buildValueExpr(
+  expr: AstNode,
+  aliases: Map<string, string>,
+  baseKey: string,
+  qualify: Qualifier,
+): Record<string, unknown> {
   if (!expr || typeof expr !== 'object') {
     throw new SqlTranslateError('Unsupported expression.', 'Use fields, literals and simple arithmetic.');
   }
-  if (expr.type === 'column_ref') return `$${String(expr.column)}` as unknown as Record<string, unknown>;
+  if (expr.type === 'column_ref') {
+    const table = expr.table != null ? String(expr.table) : null;
+    return `$${qualifyField(String(expr.column), table, aliases, baseKey, qualify)}` as unknown as Record<string, unknown>;
+  }
   if (isLiteral(expr)) return { $literal: literalValue(expr) };
   if (expr.type === 'function') {
     const upper = funcName(expr).toUpperCase();
     if (upper === 'IFNULL' || upper === 'COALESCE') {
-      return { $ifNull: funcArgs(expr).map((arg) => buildValueExpr(arg as AstNode)) };
+      const args = funcArgs(expr);
+      if (upper === 'IFNULL' && args.length !== 2) {
+        throw new SqlTranslateError('IFNULL needs exactly two arguments.', "Example: IFNULL(field, 'fallback')");
+      }
+      if (upper === 'COALESCE' && args.length < 2) {
+        throw new SqlTranslateError('COALESCE needs at least two arguments.', "Example: COALESCE(field, fallback, 'default')");
+      }
+      return { $ifNull: args.map((arg) => buildValueExpr(arg as AstNode, aliases, baseKey, qualify)) };
     }
     if (upper === 'CONCAT') {
-      return { $concat: funcArgs(expr).map((arg) => buildValueExpr(arg as AstNode)) };
+      const args = funcArgs(expr);
+      if (args.length < 2) throw new SqlTranslateError('CONCAT needs at least two arguments.', "Example: CONCAT(firstName, ' ', lastName)");
+      return { $concat: args.map((arg) => buildValueExpr(arg as AstNode, aliases, baseKey, qualify)) };
+    }
+    if (SCALAR_FUNCS[upper]) {
+      return buildScalarExpr(expr, aliases, baseKey, qualify);
     }
   }
   if (expr.type === 'binary_expr') {
@@ -1010,7 +1425,10 @@ function buildValueExpr(expr: AstNode): Record<string, unknown> {
     const mongoOp = opMap[String(expr.operator)];
     if (mongoOp) {
       return {
-        [mongoOp]: [buildValueExpr(expr.left as AstNode), buildValueExpr(expr.right as AstNode)],
+        [mongoOp]: [
+          buildValueExpr(expr.left as AstNode, aliases, baseKey, qualify),
+          buildValueExpr(expr.right as AstNode, aliases, baseKey, qualify),
+        ],
       };
     }
   }
@@ -1026,17 +1444,24 @@ function buildHaving(
   baseKey: string,
   qualify: Qualifier,
   aggAliases: Map<string, string>,
-  groupKeys: Set<string>,
+  groupAliases: Map<string, string>,
 ): Record<string, unknown> {
-  const rewritten = rewriteHavingRefs(expr, aggAliases, groupKeys);
-  return buildFilter(rewritten, aliases, baseKey, qualify);
+  const rewritten = rewriteHavingRefs(expr, aliases, baseKey, qualify, aggAliases, groupAliases);
+  return buildFilter(rewritten, outputAliases(aggAliases, groupAliases), baseKey, null);
 }
 
-function rewriteHavingRefs(expr: AstNode, aggAliases: Map<string, string>, groupKeys: Set<string>): AstNode {
+function rewriteHavingRefs(
+  expr: AstNode,
+  aliases: Map<string, string>,
+  baseKey: string,
+  qualify: Qualifier,
+  aggAliases: Map<string, string>,
+  groupAliases: Map<string, string>,
+): AstNode {
   if (!expr || typeof expr !== 'object') return expr;
   if (expr.type === 'aggr_func') {
     const func = String(expr.name).toUpperCase();
-    const arg = aggArg(expr);
+    const arg = aggArg(expr, aliases, baseKey, qualify);
     const output = aggAliases.get(aggKey(func, arg));
     if (!output) {
       throw new SqlTranslateError(
@@ -1048,27 +1473,39 @@ function rewriteHavingRefs(expr: AstNode, aggAliases: Map<string, string>, group
   }
   if (expr.type === 'column_ref') {
     const column = String(expr.column);
-    if (!groupKeys.has(column) && ![...aggAliases.values()].includes(column)) {
+    if ([...aggAliases.values()].includes(column)) return { ...expr, table: null };
+    const table = expr.table != null ? String(expr.table) : null;
+    const qualified = table ? qualifyField(column, table, aliases, baseKey, qualify) : column;
+    const output = groupAliases.get(qualified) ?? groupAliases.get(column);
+    if (!output) {
       throw new SqlTranslateError(
         `HAVING cannot use "${column}".`,
         'HAVING supports GROUP BY keys and SELECT aggregates only.',
       );
     }
-    return expr;
+    return { type: 'column_ref', table: null, column: output };
   }
   if (expr.type === 'binary_expr') {
     return {
       ...expr,
-      left: rewriteHavingRefs(expr.left as AstNode, aggAliases, groupKeys),
-      right: rewriteHavingRefs(expr.right as AstNode, aggAliases, groupKeys),
+      left: rewriteHavingRefs(expr.left as AstNode, aliases, baseKey, qualify, aggAliases, groupAliases),
+      right: rewriteHavingRefs(expr.right as AstNode, aliases, baseKey, qualify, aggAliases, groupAliases),
     };
   }
   if (expr.type === 'function' && funcName(expr) === 'NOT') {
-    const args = funcArgs(expr).map((arg) => rewriteHavingRefs(arg as AstNode, aggAliases, groupKeys));
+    const args = funcArgs(expr).map((arg) => (
+      rewriteHavingRefs(arg as AstNode, aliases, baseKey, qualify, aggAliases, groupAliases)
+    ));
     if (Array.isArray(expr.args)) return { ...expr, args };
     return { ...expr, args: { ...(expr.args as object), value: args } };
   }
   return expr;
+}
+
+function outputAliases(aggAliases: Map<string, string>, groupAliases: Map<string, string>): Map<string, string> {
+  const aliases = new Map<string, string>();
+  for (const output of [...aggAliases.values(), ...groupAliases.values()]) aliases.set(output, output);
+  return aliases;
 }
 
 function buildSort(
@@ -1077,7 +1514,7 @@ function buildSort(
   baseKey: string,
   qualify: Qualifier,
 ): Record<string, number> {
-  const sort: Record<string, number> = {};
+  const sort: Record<string, number> = createRecord();
   for (const item of orderBy) {
     const expr = item.expr as AstNode;
     if (expr?.type !== 'column_ref') {
@@ -1087,7 +1524,11 @@ function buildSort(
     const field = qualify
       ? qualify(String(expr.column), table)
       : qualifyField(String(expr.column), table, aliases, baseKey, null);
-    const dir = String(item.type ?? 'ASC').toUpperCase() === 'DESC' ? -1 : 1;
+    const direction = String(item.type ?? 'ASC').toUpperCase();
+    if (direction !== 'ASC' && direction !== 'DESC') {
+      throw new SqlTranslateError(`ORDER BY direction "${direction}" is not supported.`, 'Use ASC or DESC.');
+    }
+    const dir = direction === 'DESC' ? -1 : 1;
     sort[field] = dir;
   }
   if (Object.keys(sort).length === 0) {
@@ -1105,6 +1546,18 @@ function parseLimit(limit: AstNode | null): { limit?: number; skip?: number } {
     }
     return Number(value.value);
   });
+  const count = numbers.length === 1
+    ? numbers[0]
+    : String(limit.seperator ?? '') === ','
+      ? numbers[1]
+      : numbers[0];
+  if (count === 0) {
+    throw new SqlTranslateError(
+      'LIMIT 0 is not supported in SQL beta.',
+      'MongoDB interprets cursor.limit(0) as no limit; use a positive LIMIT.',
+      nodeRange(limit),
+    );
+  }
   const separator = String(limit.seperator ?? '');
   if (numbers.length === 1) return { limit: numbers[0] };
   if (numbers.length === 2) {
@@ -1194,10 +1647,26 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function createRecord<T = unknown>(): Record<string, T> {
+  return Object.create(null) as Record<string, T>;
+}
+
 // ── Codegen ───────────────────────────────────────────────────────────────
 
 function pretty(value: unknown): string {
   return JSON.stringify(value, null, 2);
+}
+
+function renderValue(value: unknown): string {
+  if (!containsPrototypeKey(value)) return pretty(value);
+  return `JSON.parse(${JSON.stringify(JSON.stringify(value))})`;
+}
+
+function containsPrototypeKey(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false;
+  if (Array.isArray(value)) return value.some((entry) => containsPrototypeKey(entry));
+  if (Object.hasOwn(value, '__proto__')) return true;
+  return Object.values(value).some((entry) => containsPrototypeKey(entry));
 }
 
 function collAccess(mode: 'mongosh' | 'js', collection: string, database?: string): string {
@@ -1220,10 +1689,10 @@ function renderFind(
   limit: number | undefined,
   skip: number | undefined,
 ): string {
-  let out = `${collAccess(mode, collection, database)}.find(${pretty(filter)}`;
-  out += projection ? `, ${pretty({ projection })}` : '';
+  let out = `${collAccess(mode, collection, database)}.find(${renderValue(filter)}`;
+  out += projection ? `, ${renderValue({ projection })}` : '';
   out += ')';
-  if (sort) out += `.sort(${pretty(sort)})`;
+  if (sort) out += `.sort(${renderValue(sort)})`;
   if (skip !== undefined) out += `.skip(${skip})`;
   if (limit !== undefined) out += `.limit(${limit})`;
   return `${out};`;
@@ -1235,7 +1704,7 @@ function renderAggregate(
   database: string | undefined,
   pipeline: Array<Record<string, unknown>>,
 ): string {
-  return `${collAccess(mode, collection, database)}.aggregate(${pretty(pipeline)});`;
+  return `${collAccess(mode, collection, database)}.aggregate(${renderValue(pipeline)});`;
 }
 
 function renderWrite(
@@ -1245,7 +1714,7 @@ function renderWrite(
   method: 'insertOne' | 'insertMany' | 'deleteMany',
   payload: unknown,
 ): string {
-  return `${collAccess(mode, collection, database)}.${method}(${pretty(payload)});`;
+  return `${collAccess(mode, collection, database)}.${method}(${renderValue(payload)});`;
 }
 
 function renderUpdate(
@@ -1255,5 +1724,5 @@ function renderUpdate(
   filter: Record<string, unknown>,
   update: Record<string, unknown>,
 ): string {
-  return `${collAccess(mode, collection, database)}.updateMany(${pretty(filter)}, ${pretty({ $set: update })});`;
+  return `${collAccess(mode, collection, database)}.updateMany(${renderValue(filter)}, ${renderValue({ $set: update })});`;
 }

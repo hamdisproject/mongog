@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
-import { extractFile } from '@electron/asar';
+import { extractFile, listPackage } from '@electron/asar';
 import { FuseV1Options, getCurrentFuseWire } from '@electron/fuses';
 import { parseUpdateConfig } from '../src/shared/update-config.mjs';
 import {
@@ -34,6 +34,12 @@ if (packagedMetadata.version !== packageMetadata.version) {
   throw new Error(
     `Packaged version ${String(packagedMetadata.version)} does not match package.json ${packageMetadata.version}.`,
   );
+}
+const asarFiles = listPackage(asarPath);
+for (const forbidden of ['/node_modules/node-sql-parser', '/node_modules/.vite']) {
+  if (asarFiles.some((file) => file === forbidden || file.startsWith(`${forbidden}/`))) {
+    throw new Error(`Build-only SQL/parser dependency leaked into the packaged ASAR: ${forbidden}`);
+  }
 }
 requiredFile(
   path.join(application.resources, 'app.asar.unpacked', 'runtime-dist', 'query-runtime.cjs'),

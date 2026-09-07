@@ -105,6 +105,7 @@ still applies to blocked operations and CPU-bound scripts.
 The editor, saved scripts and history retain exactly the source you wrote. The
 language worker uses a type-only virtual projection with source mappings, so
 completions use resolved values and errors refer to the original code or selected
-range. Formatting and code edits use the original source. Query policy and
-read-only scans also inspect the original AST; automatic await is not a security
-boundary or a replacement for MongoDB authorization.
+range. Formatting and code edits use the original source. Query policy and the
+early read-only scan also inspect the original AST; the runtime driver-object
+guard supplies in-app enforcement. Automatic await is not a security boundary
+or a replacement for MongoDB authorization.

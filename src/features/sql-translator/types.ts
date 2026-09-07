@@ -8,49 +8,29 @@
  * engine, so cursors, paging, read-only policy and redaction keep working.
  */
 
-export type SqlStatementKind = 'select' | 'insert' | 'update' | 'delete';
-
-export type SqlExecutionKind =
-  | 'find'
-  | 'aggregate'
-  | 'insertOne'
-  | 'insertMany'
-  | 'updateMany'
-  | 'deleteMany';
-
-export interface SqlTranslation {
-  kind: SqlStatementKind;
-  execution: SqlExecutionKind;
-  /** Target collection (unquoted table name). */
-  collection: string;
-  /** Present when the SQL names a database explicitly (`FROM db.coll`). */
-  database?: string;
-  isWrite: boolean;
-  /** Read without WHERE, or DELETE/UPDATE without WHERE. */
-  fullCollectionTarget: boolean;
-  filter: Record<string, unknown>;
-  projection?: Record<string, unknown>;
-  sort?: Record<string, number>;
-  limit?: number;
-  skip?: number;
-  pipeline?: Array<Record<string, unknown>>;
-  /** INSERT documents. */
-  documents?: Array<Record<string, unknown>>;
-  /** UPDATE $set payload. */
-  update?: Record<string, unknown>;
-  /** Copy-paste friendly mongosh snippet (`db.getCollection(...)`). */
-  mongosh: string;
-  /** Executable through the MongoG script engine (`db.collection(...)`). */
-  jsSource: string;
-  warnings: string[];
-}
+export {
+  MAX_SQL_SOURCE_BYTES,
+  type SqlExecutionKind,
+  type SqlExecuteRequest,
+  type SqlExecuteResult,
+  type SqlPreview,
+  type SqlStatementKind,
+  type SqlTranslation,
+} from '../../shared/domain/sql.js';
 
 /** Thrown for unsupported SQL or invalid input; `hint` is user-facing. */
 export class SqlTranslateError extends Error {
   readonly hint: string;
-  constructor(message: string, hint: string) {
+  readonly range?: { startLine: number; startCol: number; endLine: number; endCol: number };
+
+  constructor(
+    message: string,
+    hint: string,
+    range?: { startLine: number; startCol: number; endLine: number; endCol: number },
+  ) {
     super(message);
     this.name = 'SqlTranslateError';
     this.hint = hint;
+    this.range = range;
   }
 }

@@ -171,7 +171,7 @@ export class AuditService {
       ...(context.connectionId ? { connectionId: context.connectionId } : {}),
       resultCount: 0,
       affectedCount: 0,
-      write: false,
+      write: context.operationClass === 'write',
     });
   }
 

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type * as Monaco from 'monaco-editor';
-import { SqlTranslateError, translateSql, type SqlTranslation } from '../../../features/sql-translator/index.js';
+import type { SqlTranslation } from '../../../features/sql-translator/index.js';
 import type { WorkspaceTab } from '../../../shared/domain/index.js';
 import { bootMonaco } from '../../monaco/setup.js';
 import { attachQueryWheelZoom } from '../../monaco/query-wheel-zoom.js';
@@ -11,6 +11,7 @@ import { sqlQueryTemplate } from '../../collection-workspace.js';
 import { getMonacoTheme } from '../../theme.js';
 import { ResultsPanel } from '../Results/ResultsPanel.js';
 import { cancelQueryExecution } from '../../query-cancellation.js';
+import { SavedActions } from '../Saved/SavedActions.js';
 
 const s: Record<string, React.CSSProperties> = {
   container: {
@@ -69,15 +70,34 @@ SELECT * FROM mycollection LIMIT 50;
 `;
 
 type TranslationState =
-  | { ok: true; value: SqlTranslation }
-  | { ok: false; message: string; hint: string };
+  | { status: 'pending' }
+  | { status: 'ok'; value: SqlTranslation }
+  | {
+      status: 'error';
+      message: string;
+      hint: string;
+      range?: { startLine: number; startCol: number; endLine: number; endCol: number };
+    };
+
+type TranslationWorkerResponse =
+  | { id: number; ok: true; value: SqlTranslation }
+  | {
+      id: number;
+      ok: false;
+      message: string;
+      hint: string;
+      range?: { startLine: number; startCol: number; endLine: number; endCol: number };
+    };
 
 export function SqlWorkspace({ contextLocked = false }: { contextLocked?: boolean }) {
   const editorHost = useRef<HTMLDivElement>(null);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const runRef = useRef<() => Promise<void>>(async () => undefined);
   const cancelRef = useRef<() => Promise<void>>(async () => undefined);
+  const translationWorkerRef = useRef<Worker | null>(null);
+  const translationRequestRef = useRef(0);
   const [previewOpen, setPreviewOpen] = useState(true);
+  const [translation, setTranslation] = useState<TranslationState>({ status: 'pending' });
   const [localError, setLocalError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -94,7 +114,6 @@ export function SqlWorkspace({ contextLocked = false }: { contextLocked?: boolea
   const { connected, databases, profiles, loadDatabases, connect } = useConnectionStore();
   const globalPageSize = useSettingsStore((state) => state.settings.execution.pageSize);
   const editorFontSize = useSettingsStore((state) => state.settings.editor.fontSize);
-  const confirmDestructive = useSettingsStore((state) => state.settings.execution.confirmDestructive);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
   const sqlTab = contextLocked
@@ -119,15 +138,39 @@ export function SqlWorkspace({ contextLocked = false }: { contextLocked?: boolea
   const selectedIsConnected = !!(selectedConnId && connected[selectedConnId]);
   const profile = profiles.find((candidate) => candidate.id === selectedConnId);
 
-  const translation: TranslationState = useMemo(() => {
-    try {
-      return { ok: true, value: translateSql(sqlSource) };
-    } catch (caught) {
-      if (caught instanceof SqlTranslateError) {
-        return { ok: false, message: caught.message, hint: caught.hint };
-      }
-      return { ok: false, message: String(caught), hint: 'Fix the SQL syntax and try again.' };
-    }
+  useEffect(() => {
+    const worker = new Worker(new URL('../../workers/sql-translation.worker.ts', import.meta.url), { type: 'module' });
+    translationWorkerRef.current = worker;
+    worker.onmessage = (event: MessageEvent<TranslationWorkerResponse>) => {
+      if (event.data.id !== translationRequestRef.current) return;
+      setTranslation(event.data.ok
+        ? { status: 'ok', value: event.data.value }
+        : {
+            status: 'error',
+            message: event.data.message,
+            hint: event.data.hint,
+            ...(event.data.range ? { range: event.data.range } : {}),
+          });
+    };
+    worker.onerror = () => setTranslation({
+      status: 'error',
+      message: 'The SQL translation worker stopped unexpectedly.',
+      hint: 'Edit the statement to retry, or reopen the SQL tab.',
+    });
+    return () => {
+      translationWorkerRef.current = null;
+      worker.terminate();
+    };
+  }, []);
+
+  useEffect(() => {
+    const id = translationRequestRef.current + 1;
+    translationRequestRef.current = id;
+    setTranslation({ status: 'pending' });
+    const timer = window.setTimeout(() => {
+      translationWorkerRef.current?.postMessage({ id, source: sqlSource });
+    }, 200);
+    return () => window.clearTimeout(timer);
   }, [sqlSource]);
 
   useEffect(() => {
@@ -137,8 +180,8 @@ export function SqlWorkspace({ contextLocked = false }: { contextLocked?: boolea
   const handleRun = useCallback(async () => {
     if (!sqlTab || !selectedConnId || !selectedIsConnected) return;
     setLocalError(null);
-    if (!translation.ok) {
-      setLocalError(translation.message);
+    if (translation.status !== 'ok') {
+      if (translation.status === 'error') setLocalError(translation.message);
       return;
     }
     const translated = translation.value;
@@ -151,9 +194,9 @@ export function SqlWorkspace({ contextLocked = false }: { contextLocked?: boolea
     const database = contextLocked
       ? (sqlTab.database ?? 'admin')
       : (translated.database ?? sqlTab.database ?? profile?.defaultDatabase ?? 'admin');
-    if (translated.isWrite && translated.fullCollectionTarget && confirmDestructive) {
-      const target = `${database}.${translated.collection}`;
-      if (!window.confirm(`This SQL targets every document in ${target}. Continue?`)) return;
+    if (contextLocked && translated.database !== undefined && translated.database !== database) {
+      setLocalError(`This collection view is locked to "${database}"; remove the "${translated.database}" qualifier.`);
+      return;
     }
 
     const editor = editorRef.current;
@@ -175,17 +218,33 @@ export function SqlWorkspace({ contextLocked = false }: { contextLocked?: boolea
 
     prepareExecution(tabId, selectedConnId, runId);
     try {
-      const response = await window.mongog.query.execute({
+      const request = {
         connectionId: selectedConnId,
         tabId,
         runId,
         database,
-        mode: 'query',
-        source: translated.jsSource,
-        sourceOffset: { line: 0, column: 0 },
-        readOnly: profile?.readOnly ?? false,
+        source: sqlSource,
         pageSize: globalPageSize,
-      });
+      };
+      let response = await window.mongog.query.executeSql(request);
+      if (response.status === 'confirmation-required') {
+        const target = `${database}.${response.preview.collection}`;
+        const accepted = window.confirm(
+          `${response.preview.kind.toUpperCase()} targets every document in ${target}.\n\n` +
+          'MongoDB multi-document writes are atomic per document, not as one SQL transaction. Continue?',
+        );
+        if (!accepted) {
+          clearResults(tabId);
+          return;
+        }
+        response = await window.mongog.query.executeSql({
+          ...request,
+          confirmationToken: response.confirmationToken,
+        });
+        if (response.status === 'confirmation-required') {
+          throw new Error('The destructive-write confirmation expired. Run the SQL again.');
+        }
+      }
       setExecutionId(tabId, runId, response.executionId);
       const latest = useWorkspaceStore.getState().results[tabId];
       if (latest?.status === 'cancelling') await cancelQueryExecution(tabId);
@@ -200,9 +259,9 @@ export function SqlWorkspace({ contextLocked = false }: { contextLocked?: boolea
     selectedConnId,
     selectedIsConnected,
     translation,
+    sqlSource,
     profile,
     contextLocked,
-    confirmDestructive,
     globalPageSize,
     prepareExecution,
     setExecutionId,
@@ -294,15 +353,15 @@ export function SqlWorkspace({ contextLocked = false }: { contextLocked?: boolea
       if (disposed) return;
       const model = editorRef.current?.getModel();
       if (!model) return;
-      const markers: Monaco.editor.IMarkerData[] = translation.ok
+      const markers: Monaco.editor.IMarkerData[] = translation.status !== 'error'
         ? []
         : [{
           severity: monaco.MarkerSeverity.Error,
           message: `${translation.message}\n${translation.hint}`,
-          startLineNumber: 1,
-          startColumn: 1,
-          endLineNumber: 1,
-          endColumn: 2,
+          startLineNumber: translation.range?.startLine ?? 1,
+          startColumn: translation.range?.startCol ?? 1,
+          endLineNumber: translation.range?.endLine ?? 1,
+          endColumn: translation.range?.endCol ?? 2,
         }];
       monaco.editor.setModelMarkers(model, 'mongog-sql-translation', markers);
     });
@@ -328,7 +387,7 @@ export function SqlWorkspace({ contextLocked = false }: { contextLocked?: boolea
   };
 
   const copyMongosh = async () => {
-    if (!translation.ok) return;
+    if (translation.status !== 'ok') return;
     try {
       await navigator.clipboard.writeText(translation.value.mongosh);
       setCopied(true);
@@ -341,10 +400,10 @@ export function SqlWorkspace({ contextLocked = false }: { contextLocked?: boolea
   if (!sqlTab) return null;
 
   const lockedDbWarning = contextLocked &&
-    translation.ok &&
+    translation.status === 'ok' &&
     translation.value.database !== undefined &&
     translation.value.database !== (sqlTab.database ?? 'admin')
-    ? `SQL names database "${translation.value.database}" but this view is locked to "${sqlTab.database ?? 'admin'}"; running here instead.`
+    ? `SQL names database "${translation.value.database}" but this view is locked to "${sqlTab.database ?? 'admin'}"; execution is blocked.`
     : null;
 
   const showResults = !!execution && (
@@ -355,8 +414,8 @@ export function SqlWorkspace({ contextLocked = false }: { contextLocked?: boolea
     execution.skippedStatements.length > 0 ||
     execution.error !== null
   );
-  const runDisabled = !selectedIsConnected || isBusy || !translation.ok ||
-    ((profile?.readOnly ?? false) && translation.ok && translation.value.isWrite);
+  const runDisabled = !selectedIsConnected || isBusy || translation.status !== 'ok' ||
+    ((profile?.readOnly ?? false) && translation.status === 'ok' && translation.value.isWrite);
 
   return (
     <div data-testid="sql-workspace" style={s.container}>
@@ -425,6 +484,8 @@ export function SqlWorkspace({ contextLocked = false }: { contextLocked?: boolea
           Cancel (Esc)
         </button>
 
+        <SavedActions tab={sqlTab} surface="sql" />
+
         {(execution?.error || localError) && (
           <span style={s.error} title={execution?.error ?? localError ?? ''}>{execution?.error ?? localError}</span>
         )}
@@ -449,14 +510,14 @@ export function SqlWorkspace({ contextLocked = false }: { contextLocked?: boolea
         >
           <span aria-hidden="true">{previewOpen ? '▾' : '▸'}</span>
           <strong>MongoDB translation</strong>
-          {translation.ok && (
+          {translation.status === 'ok' && (
             <span>
               {translation.value.execution} · {translation.value.collection}
               {translation.value.isWrite ? ' · write' : ''}
             </span>
           )}
           <span style={{ flex: 1 }} />
-          {translation.ok && (
+          {translation.status === 'ok' && (
             <button
               type="button"
               style={s.ghostBtn}
@@ -469,16 +530,19 @@ export function SqlWorkspace({ contextLocked = false }: { contextLocked?: boolea
             </button>
           )}
         </div>
-        {previewOpen && translation.ok && (
+        {previewOpen && translation.status === 'ok' && (
           <pre style={s.previewBody}>{translation.value.mongosh}</pre>
         )}
-        {previewOpen && !translation.ok && (
+        {previewOpen && translation.status === 'pending' && (
+          <div style={s.warning} role="status">Translating SQL…</div>
+        )}
+        {previewOpen && translation.status === 'error' && (
           <div style={s.previewError} role="alert">
             {translation.message}
             <span style={s.previewHint}>{translation.hint}</span>
           </div>
         )}
-        {previewOpen && translation.ok && translation.value.warnings.map((warning) => (
+        {previewOpen && translation.status === 'ok' && translation.value.warnings.map((warning) => (
           <div key={warning} style={s.warning} role="note">{warning}</div>
         ))}
         {previewOpen && lockedDbWarning && (

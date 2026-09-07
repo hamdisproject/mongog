@@ -21,6 +21,10 @@ Never weaken a check here to "fix" a build — fix the package instead
 - `rebuildConfig: { force: true }` — Forge ignores the stale `.forge-meta`
   marker left by `npm rebuild better-sqlite3`, otherwise Electron could boot
   with a Node-ABI native binary.
+- SQL translation pins `node-sql-parser` 5.4.0 as a dev dependency and imports
+  only its MySQL build. Vite bundles that code into the renderer worker and the
+  self-contained query runtime. The parser source tree and `node_modules/.vite`
+  cache must not enter ASAR; `verify:package` rejects either path.
 - Makers: macOS ZIP + DMG (APFS, `ULFO`), Linux RPM only, Windows NSIS via
   `scripts/make-windows-nsis.mjs` (explicitly UNSIGNED — SmartScreen warning is
   expected, not a bug).

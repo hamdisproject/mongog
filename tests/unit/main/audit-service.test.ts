@@ -90,6 +90,23 @@ describe('AuditService', () => {
     });
   });
 
+  it('keeps a server-classified SQL write marked as write when it fails before a result', () => {
+    const { db, service } = setup();
+    service.beginQuery({
+      correlationId: 'sql-write-1', connectionName: 'Local', database: 'test', collection: 'items',
+      category: 'query', action: 'sql.execute', origin: 'user', operationClass: 'write',
+      summary: 'Execute SQL UPDATE on test.items', detail: { statement: 'update' },
+    });
+    service.handleEngineEvent('sql-write-1', {
+      type: 'statement-error', index: 0, range: { startLine: 1, startCol: 1, endLine: 1, endCol: 2 }, durationMs: 2,
+      error: { category: 'MongoDBCommand', message: 'write failed' },
+    });
+    service.handleEngineEvent('sql-write-1', { type: 'execution-finished', status: 'failed', durationMs: 3 });
+    expect(db.audit.list({}, 10, 0).entries[0]).toMatchObject({
+      action: 'sql.execute', status: 'error', operationClass: 'write', errorMessage: 'write failed',
+    });
+  });
+
   it('records the hard-cancel target as cancelled and other connection work as interrupted', () => {
     const { db, service } = setup();
     for (const correlationId of ['target-run', 'other-run']) {

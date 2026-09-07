@@ -16,7 +16,7 @@ describe('PR quality workflow', () => {
     expect(workflow).toContain("- main");
     expect(workflow).toContain('npm run typecheck');
     expect(workflow).toContain('npm run lint');
-    expect(workflow).toContain('area: [main, runtime, renderer, analysis, shared, release]');
+    expect(workflow).toContain('area: [main, runtime, renderer, analysis, shared, release, sql]');
     expect(workflow).toContain('npm run test:unit:${{ matrix.area }}');
     expect(workflow).toContain('area: [engine, collections, data, admin]');
     expect(workflow).toContain('npm run test:integ:${{ matrix.area }}');

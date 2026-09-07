@@ -2,13 +2,14 @@
  * Execution policy scans (plan §5 Query Mode, §16 read-only).
  *
  * Query Mode scan: hard restrictions, enforced by refusing to run.
- * Read-only scan: BEST-EFFORT static detection of writes. It is explicitly
- * documented as bypassable (computed member access, aliasing); server-side
- * roles remain the authoritative control.
+ * Read-only scan: early source-ranged detection of obvious writes. The runtime
+ * driver-object proxy is the in-app enforcement for computed access and
+ * aliasing; server-side roles remain the final authorization boundary.
  */
 import ts from 'typescript';
 import type { SourceRange } from '../../shared/errors/index.js';
 import { toRange } from '../../features/script-analysis/parse.js';
+import { READ_ONLY_WRITE_COMMAND_KEYS, READ_ONLY_WRITE_METHODS } from './read-only-guard.js';
 
 export interface PolicyViolation {
   message: string;
@@ -31,46 +32,6 @@ const QUERY_MODE_DENIED_IDENTIFIERS = new Set([
   'setInterval',
   'setImmediate',
   'import',
-]);
-
-/** Known write operation names (best-effort; see header comment). */
-const WRITE_METHODS = new Set([
-  'insertOne',
-  'insertMany',
-  'updateOne',
-  'updateMany',
-  'replaceOne',
-  'findOneAndUpdate',
-  'findOneAndReplace',
-  'findOneAndDelete',
-  'deleteOne',
-  'deleteMany',
-  'bulkWrite',
-  'findAndModify',
-  'createIndex',
-  'createIndexes',
-  'dropIndex',
-  'dropIndexes',
-  'createCollection',
-  'createView',
-  'renameCollection',
-  'initializeOrderedBulkOp',
-  'initializeUnorderedBulkOp',
-]);
-
-const WRITE_COMMAND_KEYS = new Set([
-  'insert',
-  'update',
-  'delete',
-  'createIndexes',
-  'dropIndexes',
-  'drop',
-  'create',
-  'renameCollection',
-  'convertToCapped',
-  'findAndModify',
-  'applyOps',
-  'dropDatabase',
 ]);
 
 export function scanQueryModeViolations(sourceFile: ts.SourceFile): PolicyViolation[] {
@@ -126,7 +87,7 @@ export function scanWriteOperations(sourceFile: ts.SourceFile): PolicyViolation[
   };
 
   const visit = (node: ts.Node): void => {
-    if (ts.isPropertyAccessExpression(node) && WRITE_METHODS.has(node.name.text)) {
+    if (ts.isPropertyAccessExpression(node) && READ_ONLY_WRITE_METHODS.has(node.name.text)) {
       report(node.name, `Read-only connection: write operation "${node.name.text}()" is blocked.`);
     }
     // db.collection("x").aggregate([{ $out: ... }]) / $merge
@@ -149,7 +110,7 @@ export function scanWriteOperations(sourceFile: ts.SourceFile): PolicyViolation[
               const key = ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name)
                 ? prop.name.text
                 : undefined;
-              if (key && WRITE_COMMAND_KEYS.has(key)) {
+              if (key && READ_ONLY_WRITE_COMMAND_KEYS.has(key)) {
                 report(prop.name, `Read-only connection: command "${key}" is blocked.`);
               }
             }

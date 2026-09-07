@@ -123,7 +123,6 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
         mode: activeTab.mode ?? 'query',
         source,
         sourceOffset,
-        readOnly: profile?.readOnly ?? false,
         pageSize: globalPageSize,
       });
       setExecutionId(tabId, runId, response.executionId);
