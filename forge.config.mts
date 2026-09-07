@@ -58,7 +58,7 @@ const packagerIcon = process.platform === 'darwin'
     : 'assets/mongog-icon';
 const extraResources = [
   process.platform === 'win32'
-    ? 'assets/windows/mongog-icon.png'
+    ? 'assets/windows/mongog-icon.ico'
     : 'assets/mongog-icon.png',
   // Packager copies extraResource before applying the app signature. The
   // updater reads this file during download even when setFeedURL is used.

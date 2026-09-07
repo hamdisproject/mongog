@@ -56,9 +56,9 @@ if (platform === 'darwin' || platform === 'linux' || platform === 'win32') {
   parseUpdateConfig(readFileSync(updateConfig, 'utf8'));
 }
 if (platform === 'win32') {
-  const packagedIcon = path.join(application.resources, 'mongog-icon.png');
+  const packagedIcon = path.join(application.resources, 'mongog-icon.ico');
   requiredFile(packagedIcon, 'Packaged Windows runtime icon');
-  const sourceIcon = path.resolve('assets', 'windows', 'mongog-icon.png');
+  const sourceIcon = path.resolve('assets', 'windows', 'mongog-icon.ico');
   if (!readFileSync(packagedIcon).equals(readFileSync(sourceIcon))) {
     throw new Error('Packaged Windows runtime icon is out of sync with the generated Windows icon.');
   }

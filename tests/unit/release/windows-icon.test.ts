@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { alphaBounds, decodeRgbaPng } from '../../../scripts/macos-icon-utils.mjs';
@@ -6,6 +6,28 @@ import { buildIco, readIcoEntries, WINDOWS_ICON_SIZES } from '../../../scripts/w
 
 const windowsAssets = path.resolve(process.cwd(), 'assets', 'windows');
 const iconset = path.join(windowsAssets, 'mongog-icon.iconset');
+
+function greenMarkBounds(image: ReturnType<typeof decodeRgbaPng>) {
+  let left = image.width;
+  let top = image.height;
+  let right = -1;
+  let bottom = -1;
+  for (let y = 0; y < image.height; y += 1) {
+    for (let x = 0; x < image.width; x += 1) {
+      const offset = (y * image.width + x) * 4;
+      const red = image.pixels[offset]!;
+      const green = image.pixels[offset + 1]!;
+      const blue = image.pixels[offset + 2]!;
+      const alpha = image.pixels[offset + 3]!;
+      if (alpha < 64 || green < 80 || green <= red * 1.3 || green <= blue * 1.2) continue;
+      left = Math.min(left, x);
+      top = Math.min(top, y);
+      right = Math.max(right, x);
+      bottom = Math.max(bottom, y);
+    }
+  }
+  return right < left ? null : { left, top, right: right + 1, bottom: bottom + 1 };
+}
 
 describe('Windows application icon', () => {
   it('contains a deterministic 32-bit PNG layer for every Windows DPI size', () => {
@@ -32,7 +54,7 @@ describe('Windows application icon', () => {
     expect(buildIco(sourceEntries).equals(ico)).toBe(true);
   });
 
-  it('keeps every representation centered with a compact macOS-sized footprint', () => {
+  it('keeps every representation centered with a near-full Windows footprint', () => {
     for (const size of WINDOWS_ICON_SIZES) {
       const png = readFileSync(path.join(iconset, `${size}x${size}.png`));
       const image = decodeRgbaPng(png, `${size}x${size}.png`);
@@ -43,20 +65,30 @@ describe('Windows application icon', () => {
 
       const widthRatio = (bounds.right - bounds.left) / size;
       const heightRatio = (bounds.bottom - bounds.top) / size;
-      expect(widthRatio).toBeGreaterThanOrEqual(size === 16 ? 0.75 : 0.78);
-      expect(widthRatio).toBeLessThanOrEqual(size === 16 ? 0.88 : 0.85);
-      expect(heightRatio).toBeGreaterThanOrEqual(size === 16 ? 0.75 : 0.78);
-      expect(heightRatio).toBeLessThanOrEqual(size === 16 ? 0.88 : 0.85);
+      const minimum = size === 16 ? 0.875 : size === 20 ? 0.9 : 0.94;
+      expect(widthRatio).toBeGreaterThanOrEqual(minimum);
+      expect(widthRatio).toBeLessThanOrEqual(1);
+      expect(heightRatio).toBeGreaterThanOrEqual(minimum);
+      expect(heightRatio).toBeLessThanOrEqual(1);
       expect(Math.abs(bounds.left - (size - bounds.right))).toBeLessThanOrEqual(1);
       expect(Math.abs(bounds.top - (size - bounds.bottom))).toBeLessThanOrEqual(1);
     }
   });
 
-  it('uses the 256px Windows layer for the runtime window icon', () => {
-    expect(
-      readFileSync(path.join(windowsAssets, 'mongog-icon.png')).equals(
-        readFileSync(path.join(iconset, '256x256.png')),
-      ),
-    ).toBe(true);
+  it('keeps the green MongoG mark prominent at every DPI tier', () => {
+    for (const size of WINDOWS_ICON_SIZES) {
+      const png = readFileSync(path.join(iconset, `${size}x${size}.png`));
+      const image = decodeRgbaPng(png, `${size}x${size}.png`);
+      const bounds = greenMarkBounds(image);
+      expect(bounds).not.toBeNull();
+      if (!bounds) throw new Error(`${size}x${size}.png has no visible green MongoG mark`);
+
+      expect((bounds.right - bounds.left) / size).toBeGreaterThanOrEqual(0.5);
+      expect((bounds.bottom - bounds.top) / size).toBeGreaterThanOrEqual(0.54);
+    }
+  });
+
+  it('does not retain a single-resolution runtime PNG', () => {
+    expect(existsSync(path.join(windowsAssets, 'mongog-icon.png'))).toBe(false);
   });
 });

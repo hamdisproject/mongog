@@ -45,8 +45,13 @@ describe('release tooling', () => {
     expect(forgeConfig).toContain('rebuildConfig: { force: true }');
     expect(forgeConfig).toContain("['darwin', 'win32', 'linux'].includes(process.platform)");
     expect(forgeConfig).toContain("'assets/windows/mongog-icon'");
-    expect(forgeConfig).toContain("'assets/windows/mongog-icon.png'");
+    expect(forgeConfig).toContain("'assets/windows/mongog-icon.ico'");
+    expect(forgeConfig).not.toContain("'assets/windows/mongog-icon.png'");
     expect(forgeConfig).toContain("icon: path.resolve('assets/legacy/mongog-icon.icns')");
+
+    const windowSource = readFileSync(path.resolve(process.cwd(), 'src', 'main', 'window.ts'), 'utf8');
+    expect(windowSource).toContain("? 'mongog-icon.ico'");
+    expect(windowSource).not.toContain("? 'mongog-icon.png'");
 
     const windowsMaker = readFileSync(script('make-windows-nsis.mjs'), 'utf8');
     expect(windowsMaker).toContain("CSC_IDENTITY_AUTO_DISCOVERY: 'false'");
@@ -74,7 +79,7 @@ describe('release tooling', () => {
     expect(packageVerifier).toContain("platform === 'win32'");
     expect(packageVerifier).toContain("requiredFile(updateConfig, 'Packaged updater configuration')");
     expect(packageVerifier).toContain("requiredFile(packagedIcon, 'Packaged Windows runtime icon')");
-    expect(packageVerifier).toContain("path.resolve('assets', 'windows', 'mongog-icon.png')");
+    expect(packageVerifier).toContain("path.resolve('assets', 'windows', 'mongog-icon.ico')");
     expect(packageVerifier).toContain("requiredFile(packagedIcon, 'Packaged macOS application icon')");
     expect(packageVerifier).toContain("path.resolve('assets', 'legacy', 'mongog-icon.icns')");
     expect(packageVerifier).not.toContain('must not contain app-update.yml');

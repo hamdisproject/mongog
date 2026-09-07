@@ -106,8 +106,10 @@ The Icon Composer `.icon` sources remain in `assets/` as design archives but are
 not shipped or used by Finder and Dock.
 
 Windows packages use `assets/windows/mongog-icon.ico`, which contains native
-16–256 px DPI representations derived from the compact macOS visual. The
-installer, uninstaller, executable, and application window share that icon.
+16–256 px DPI representations built from the full-canvas visual. Windows adds
+its own taskbar padding, so these layers intentionally do not inherit the
+compact macOS envelope. The installer, uninstaller, executable, and application
+window share the same multi-resolution ICO.
 
 Packaged-app self-check:
 `MONGOG_SMOKE=1 out/MongoG-darwin-arm64/MongoG.app/Contents/MacOS/MongoG`.

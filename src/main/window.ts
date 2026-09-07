@@ -132,7 +132,9 @@ export function createMainWindow(options?: CreateWindowOptions): BrowserWindow {
 export function applicationIconPath(): string {
   const iconFilename = process.platform === 'darwin'
     ? 'mongog-icon-macos.png'
-    : 'mongog-icon.png';
+    : process.platform === 'win32'
+      ? 'mongog-icon.ico'
+      : 'mongog-icon.png';
   return app.isPackaged
     ? path.join(process.resourcesPath, iconFilename)
     : path.join(

@@ -67,7 +67,8 @@ sign/notarize path (requires Apple env — `docs/RELEASE.md`).
 - `build/package-type` (`rpm`) ships on Linux only.
 - Icons: default macOS `assets/mongog-icon.icns` (compact, 824 px optical
   envelope in the 1024 px master; `.icon` sources are design archives, not
-  shipped); Windows `assets/windows/mongog-icon.ico` (16–256 px tiers).
+  shipped); Windows `assets/windows/mongog-icon.ico` (near-full-canvas 16–256
+  px tiers used by the executable, application window, and NSIS surfaces).
   `npm run verify:icons` validates bounds/tiers/containers.
 
 ## Verify before calling a package good

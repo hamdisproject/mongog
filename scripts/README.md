@@ -12,7 +12,7 @@ manual checks. Shared CLI parsing + release naming live in `release-utils.mjs`
 | `spike-safestorage.cjs` | `npm run spike:safestorage` | S10 check: `safeStorage` async API + backend status (run under Electron: `electron scripts/spike-safestorage.cjs`) |
 | `spike-runtime-debug.cjs` | manual (`electron …`) | Debug helper for the query runtime outside the full app |
 | `build-macos-icns.mjs` | `npm run build:icons` (auto: prepackage) | Compact macOS ICNS from the padded master |
-| `build-windows-ico.mjs` | `npm run build:icons` (auto: prepackage) | Multi-resolution Windows ICO (16–256 px) |
+| `build-windows-ico.mjs` | `npm run build:icons` (auto: prepackage) | Full-canvas multi-resolution Windows ICO (16–256 px) |
 | `verify-macos-icons.mjs` | `npm run verify:icons` (auto: prepackage) | Optical bounds + container validation for ICNS |
 | `verify-windows-icons.mjs` | `npm run verify:icons` | Tier + container validation for ICO |
 | `verify-packaged-app.mjs` | `npm run verify:package -- --platform … --arch …` | Fuses, asar layout, unpacked natives, `app-update.yml` — rejects bad packages on all platforms |
