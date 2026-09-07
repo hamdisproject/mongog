@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import type { UpdatePhase, UpdateStatusPayload } from '../../shared/ipc/index.js';
+import type { UpdateDelivery, UpdatePhase, UpdateStatusPayload } from '../../shared/ipc/index.js';
 
 interface UpdatesState {
   phase: UpdatePhase;
+  delivery: UpdateDelivery;
   currentVersion: string | null;
   availableVersion: string | null;
   progress: number | null;
@@ -17,6 +18,7 @@ interface UpdatesState {
 
 export const useUpdatesStore = create<UpdatesState>()((set) => ({
   phase: 'idle',
+  delivery: 'in-app',
   currentVersion: null,
   availableVersion: null,
   progress: null,
@@ -27,6 +29,7 @@ export const useUpdatesStore = create<UpdatesState>()((set) => ({
     const retainVersion = payload.phase === 'available' || payload.phase === 'downloading' || payload.phase === 'downloaded';
     set((state) => ({
       phase: payload.phase,
+      delivery: payload.delivery,
       availableVersion: payload.version ?? (retainVersion ? state.availableVersion : null),
       progress: payload.phase === 'downloading' ? (payload.progress ?? state.progress) : null,
       error: payload.error ?? null,
@@ -39,6 +42,7 @@ export const useUpdatesStore = create<UpdatesState>()((set) => ({
       const result = await window.mongog.updates.check();
       set({
         phase: result.phase,
+        delivery: result.delivery,
         availableVersion: result.version ?? null,
         error: result.error ?? null,
         progress: result.progress ?? null,
@@ -68,6 +72,7 @@ export const useUpdatesStore = create<UpdatesState>()((set) => ({
 
   reset: () => set({
     phase: 'idle',
+    delivery: 'in-app',
     currentVersion: null,
     availableVersion: null,
     progress: null,

@@ -10,9 +10,9 @@ describe('UpdateService', () => {
     expect(updater.disableWebInstaller).toBe(true);
   });
 
-  it('configures automatic download without install-on-quit when requested', () => {
-    const { updater } = createService(true);
-    expect(updater.autoDownload).toBe(true);
+  it('keeps package downloads disabled for website delivery', () => {
+    const { updater } = createService('website');
+    expect(updater.autoDownload).toBe(false);
     expect(updater.autoInstallOnAppQuit).toBe(false);
     expect(updater.disableDifferentialDownload).toBe(true);
     expect(updater.disableWebInstaller).toBe(true);
@@ -31,16 +31,16 @@ describe('UpdateService', () => {
     const result = service.check();
     updater.emit('update-available', { version: '2.0.0' });
     await expect(result).resolves.toMatchObject({ phase: 'available', version: '2.0.0' });
-    expect(broadcasts).toContainEqual({ phase: 'available', version: '2.0.0' });
+    expect(broadcasts).toContainEqual({ phase: 'available', delivery: 'in-app', version: '2.0.0' });
   });
 
-  it('maps update-available directly to downloading for automatic downloads', async () => {
-    const { updater, service, broadcasts } = createService(true);
+  it('maps website-delivered updates to available without starting a download', async () => {
+    const { updater, service, broadcasts } = createService('website');
     const result = service.check();
     updater.emit('update-available', { version: '2.0.0' });
-    await expect(result).resolves.toMatchObject({ phase: 'downloading', version: '2.0.0' });
-    expect(broadcasts).toContainEqual({ phase: 'downloading', version: '2.0.0' });
-    expect(broadcasts).not.toContainEqual({ phase: 'available', version: '2.0.0' });
+    await expect(result).resolves.toMatchObject({ phase: 'available', delivery: 'website', version: '2.0.0' });
+    expect(broadcasts).toContainEqual({ phase: 'available', delivery: 'website', version: '2.0.0' });
+    expect(updater.downloadUpdate).not.toHaveBeenCalled();
   });
 
   it('check() maps a thrown error to phase error and broadcasts it', async () => {
@@ -50,7 +50,7 @@ describe('UpdateService', () => {
     });
     const result = await service.check();
     expect(result.phase).toBe('error');
-    expect(broadcasts).toContainEqual({ phase: 'error', error: 'network down' });
+    expect(broadcasts).toContainEqual({ phase: 'error', delivery: 'in-app', error: 'network down' });
   });
 
   it('redacts credentials and tokens before updater errors cross into renderer state', async () => {
@@ -66,6 +66,7 @@ describe('UpdateService', () => {
     );
     expect(broadcasts.at(-1)).toEqual({
       phase: 'error',
+      delivery: 'in-app',
       error: 'GET https://<redacted>:<redacted>@updates.example/latest.yml?token=<redacted> failed',
     });
   });
@@ -80,7 +81,7 @@ describe('UpdateService', () => {
 
     await expect(service.check()).resolves.toMatchObject({ phase: 'error', error: 'feed unavailable' });
     expect(broadcasts.filter((payload) => payload.phase === 'error')).toEqual([
-      { phase: 'error', error: 'feed unavailable' },
+      { phase: 'error', delivery: 'in-app', error: 'feed unavailable' },
     ]);
   });
 
@@ -104,6 +105,35 @@ describe('UpdateService', () => {
     expect(updater.downloadUpdate).not.toHaveBeenCalled();
   });
 
+  it('rejects in-app installation for website delivery without downloading or installing', async () => {
+    const { updater, service } = createService('website');
+    const result = service.check();
+    updater.emit('update-available', { version: '2.0.0' });
+    await result;
+
+    await expect(service.install()).rejects.toThrow('disabled on Windows');
+    expect(updater.downloadUpdate).not.toHaveBeenCalled();
+    expect(updater.quitAndInstall).not.toHaveBeenCalled();
+  });
+
+  it('ignores stale download events for website delivery', async () => {
+    const { updater, service, broadcasts } = createService('website');
+    const result = service.check();
+    updater.emit('update-available', { version: '2.0.0' });
+    await result;
+
+    updater.emit('download-progress', { percent: 100 });
+    updater.emit('update-downloaded', { version: '2.0.0' });
+
+    expect(broadcasts.at(-1)).toMatchObject({
+      phase: 'available',
+      delivery: 'website',
+      version: '2.0.0',
+    });
+    expect(broadcasts.some((payload) => payload.phase === 'downloading')).toBe(false);
+    expect(broadcasts.some((payload) => payload.phase === 'downloaded')).toBe(false);
+  });
+
   it('maps download checksum and network failures to the error phase', async () => {
     const { updater, service, broadcasts } = createService();
     updater.emit('update-available', { version: '2.0.0' });
@@ -113,7 +143,7 @@ describe('UpdateService', () => {
 
     await service.install();
 
-    expect(broadcasts).toContainEqual({ phase: 'error', error: 'sha512 checksum mismatch' });
+    expect(broadcasts).toContainEqual({ phase: 'error', delivery: 'in-app', error: 'sha512 checksum mismatch' });
   });
 
   it('coalesces concurrent checks into one updater request', async () => {

@@ -29,6 +29,7 @@ export const RELEASE_NOTES = [
         items: [
           'macOS ARM64 and x64, Windows x64, and Linux x64 production packages now build in parallel through GitHub Actions.',
           'Each production package is built once, with platform and architecture download caches reducing repeated release work.',
+          'Windows now checks for new versions without downloading or installing them in-app, and links to mongog.com/releases for manual installation.',
         ],
       },
       {

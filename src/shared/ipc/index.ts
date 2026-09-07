@@ -436,8 +436,13 @@ export type UpdatePhase =
   | 'downloaded'
   | 'error';
 
+export type UpdateDelivery = 'in-app' | 'website';
+
+export const MONGOG_RELEASES_URL = 'https://mongog.com/releases';
+
 export interface UpdateStatusPayload {
   phase: UpdatePhase;
+  delivery: UpdateDelivery;
   version?: string;
   progress?: number;
   error?: string;

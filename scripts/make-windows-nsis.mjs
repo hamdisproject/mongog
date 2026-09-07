@@ -47,4 +47,4 @@ const result = spawnSync(process.execPath, builderArguments, {
 if (result.error) throw result.error;
 if (result.status !== 0) throw new Error(`electron-builder failed with exit code ${result.status ?? 'unknown'}.`);
 
-console.log(`Built unsigned MongoG ${packageMetadata.version} NSIS installer with in-app updates enabled.`);
+console.log(`Built unsigned MongoG ${packageMetadata.version} NSIS installer for manual website delivery.`);

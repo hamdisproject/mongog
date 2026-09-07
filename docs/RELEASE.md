@@ -67,10 +67,11 @@ başlatılamaz. Kullanıcı imzalı 1.2.8 DMG'sini indirip uygulamayı bir kez m
 değiştirmelidir; kullanıcı veri dizini silinmez. Kurulu `.app` içine dosya
 ekleme: bu işlem imzayı geçersiz kılar. Mevcut `v1.2.7` etiketi korunur.
 
-Windows'ta updater yapılandırması içermeyen eski sürümler yeni akışa kendiliğinden
-geçemez. Windows güncellemesini etkinleştiren ilk sürüm bir kez manuel kurulmalı;
-sonraki sürümler `latest.yml` üzerinden arka planda indirilir ve yalnız kullanıcı
-**Restart & Install** seçtiğinde uygulanır.
+Windows'ta updater yapılandırması içermeyen eski sürümler yeni sürüm kontrolüne
+kendiliğinden geçemez. İlk uyumlu sürüm bir kez manuel kurulmalıdır. Sonraki
+sürümlerde uygulama `latest.yml` dosyasını yalnız sürüm tespiti için okur;
+kurucuyu indirmez veya çalıştırmaz. Kullanıcı `https://mongog.com/releases`
+sayfasından güncel NSIS kurucusunu indirip kendisi çalıştırır.
 
 ## GitHub Actions'ta kontrol ve indirme
 

@@ -91,7 +91,7 @@ package in `out/`, or an explicit `MONGOG_E2E_EXECUTABLE`.
 ```bash
 npm run package     # → out/MongoG-<platform>-<arch>/ (asar + fuses + unpacked runtime)
 npm run make        # host installers: macOS DMG/ZIP and Linux RPM
-npm run make:windows:nsis # unsigned Windows x64 NSIS release (Windows; in-app updates)
+npm run make:windows:nsis # unsigned Windows x64 NSIS release (Windows; website delivery)
 npm run verify:package -- --platform darwin --arch arm64
 npm run smoke:packaged -- --platform darwin --arch arm64
 npm run build:icons        # builds compact macOS ICNS and multi-resolution Windows ICO
@@ -167,10 +167,9 @@ tag; published release assets are never replaced automatically.
 The app uses `electron-updater` with a generic provider pointed at
 `MONGOG_UPDATE_FEED_URL` (default `https://mongog.com/update`). macOS and
 RPM-based Linux read `/update/latest-mac.yml` or `/update/latest-linux.yml` and
-prompt before downloading. Windows reads `/update/latest.yml` and downloads in
-the background, but installation still requires an explicit **Restart &
-Install** action; NSIS requests elevation only if the existing install location
-requires it. `/api/latest-version` remains reserved for the website UI. A
+prompt before downloading. Windows reads `/update/latest.yml` only to detect a
+new version, then directs the user to `https://mongog.com/releases`; it never
+downloads or installs the package in-app. `/api/latest-version` remains reserved for the website UI. A
 release is publishable only after the six official artifacts and all three
 generated manifests from `Assemble draft release` are deployed together: two macOS
 DMGs, two macOS ZIPs, one explicitly unsigned Windows NSIS EXE and one Linux RPM.

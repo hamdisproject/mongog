@@ -16,6 +16,7 @@ describe('createUpdateService factory', () => {
     const service = await createUpdateService((payload) => broadcasts.push(payload), 'https://x/update', {
       e2eVersion: '9.9.9',
       getCurrentVersion: () => '1.2.6',
+      platform: 'darwin',
     });
     await expect(service.check()).resolves.toMatchObject({
       phase: 'available',
@@ -23,12 +24,12 @@ describe('createUpdateService factory', () => {
       currentVersion: '1.2.6',
     });
     await service.install();
-    expect(broadcasts).toContainEqual({ phase: 'downloading', version: '9.9.9' });
-    expect(broadcasts).toContainEqual({ phase: 'downloaded', version: '9.9.9' });
+    expect(broadcasts).toContainEqual({ phase: 'downloading', delivery: 'in-app', version: '9.9.9' });
+    expect(broadcasts).toContainEqual({ phase: 'downloaded', delivery: 'in-app', version: '9.9.9' });
     expect(service.isSupported).toBe(true);
   });
 
-  it('makes the deterministic Windows updater download automatically but wait for install consent', async () => {
+  it('uses the deterministic Windows updater for version checks without downloading', async () => {
     const broadcasts: UpdateStatusPayload[] = [];
     const service = await createUpdateService((payload) => broadcasts.push(payload), 'https://x/update', {
       e2eVersion: '9.9.9',
@@ -37,13 +38,14 @@ describe('createUpdateService factory', () => {
     });
 
     await expect(service.check()).resolves.toMatchObject({
-      phase: 'downloaded',
+      phase: 'available',
+      delivery: 'website',
       version: '9.9.9',
       currentVersion: '1.2.6',
     });
-    expect(broadcasts).toContainEqual({ phase: 'downloading', version: '9.9.9' });
-    expect(broadcasts).toContainEqual({ phase: 'downloaded', version: '9.9.9' });
-    expect(broadcasts).not.toContainEqual({ phase: 'available', version: '9.9.9' });
+    expect(broadcasts).toContainEqual({ phase: 'available', delivery: 'website', version: '9.9.9' });
+    expect(broadcasts.some((payload) => payload.phase === 'downloading')).toBe(false);
+    expect(broadcasts.some((payload) => payload.phase === 'downloaded')).toBe(false);
   });
 
   it('uses the injected real-updater factory when provided', async () => {

@@ -4,10 +4,12 @@ import { useWorkspaceStore } from '../../stores/workspace.js';
 import { theme } from '../../theme.js';
 import { MongoGBrand } from '../Brand/MongoGBrand.js';
 import { LATEST_RELEASE } from '../../release-notes.js';
+import { MONGOG_RELEASES_URL } from '../../../shared/ipc/index.js';
 
 export function UpdatesView() {
   const {
     phase,
+    delivery,
     currentVersion,
     availableVersion,
     progress,
@@ -58,8 +60,9 @@ export function UpdatesView() {
               </span>
             </div>
             <p style={{ maxWidth: 640, margin: '10px 0 0', color: theme.colors.textMuted, fontSize: 13, lineHeight: 1.6 }}>
-              Check for new MongoG versions and install them here. Downloading and installing requires
-              an internet connection; you will be asked to restart the app once the download finishes.
+              {delivery === 'website'
+                ? 'Check for new MongoG versions here, then download Windows releases from mongog.com.'
+                : 'Check for new MongoG versions and install them here. Downloading and installing requires an internet connection; you will be asked to restart the app once the download finishes.'}
             </p>
           </div>
         </header>
@@ -76,8 +79,8 @@ export function UpdatesView() {
             <h2 style={{ margin: 0, fontSize: 14 }}>Status</h2>
           </div>
           <div style={{ padding: 19 }}>
-            <StatusLine phase={phase} availableVersion={availableVersion} error={error} />
-            {phase === 'downloading' && progress != null && (
+            <StatusLine phase={phase} delivery={delivery} availableVersion={availableVersion} error={error} />
+            {delivery === 'in-app' && phase === 'downloading' && progress != null && (
               <div style={{ marginTop: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: theme.colors.textMuted, fontSize: 10, marginBottom: 5 }}>
                   <span>Downloading update…</span>
@@ -99,7 +102,7 @@ export function UpdatesView() {
                 {phase === 'checking' ? 'Checking…' : 'Check for updates'}
               </button>
 
-              {canUpdate(phase) && availableVersion && (
+              {delivery === 'in-app' && canUpdate(phase) && availableVersion && (
                 <button
                   type="button"
                   onClick={() => void install()}
@@ -108,6 +111,23 @@ export function UpdatesView() {
                 >
                   {downloadLabel}
                 </button>
+              )}
+
+              {delivery === 'website' && phase === 'available' && availableVersion && (
+                <a
+                  href={MONGOG_RELEASES_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    ...buttonStyle({ accent: true }),
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    textDecoration: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  Download from mongog.com
+                </a>
               )}
 
               {availableVersion && phase !== 'downloaded' && phase !== 'downloading' && (
@@ -164,7 +184,17 @@ function canUpdate(phase: string): boolean {
   return phase === 'available' || phase === 'downloaded' || phase === 'downloading';
 }
 
-function StatusLine({ phase, availableVersion, error }: { phase: string; availableVersion: string | null; error: string | null }) {
+function StatusLine({
+  phase,
+  delivery,
+  availableVersion,
+  error,
+}: {
+  phase: string;
+  delivery: 'in-app' | 'website';
+  availableVersion: string | null;
+  error: string | null;
+}) {
   let text: string;
   let color: string = theme.colors.textMuted;
   switch (phase) {
@@ -189,7 +219,9 @@ function StatusLine({ phase, availableVersion, error }: { phase: string; availab
       text = 'Download finished. Restart the app to install.';
       break;
     case 'not-supported':
-      text = 'Automatic updates are not available for this build. Check the website for the latest release.';
+      text = delivery === 'website'
+        ? 'In-app updates are disabled on Windows. Check mongog.com for the latest release.'
+        : 'Automatic updates are not available for this build. Check the website for the latest release.';
       break;
     case 'error':
       color = theme.colors.danger;

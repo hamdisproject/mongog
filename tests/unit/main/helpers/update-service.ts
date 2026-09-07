@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { vi } from 'vitest';
 import { UpdateService, type UpdaterLike } from '../../../../src/main/services/update-service.js';
-import type { UpdateStatusPayload } from '../../../../src/shared/ipc/index.js';
+import type { UpdateDelivery, UpdateStatusPayload } from '../../../../src/shared/ipc/index.js';
 
 export type FakeUpdater = UpdaterLike & {
   listeners: Record<string, Array<(...args: unknown[]) => void>>;
@@ -57,7 +57,7 @@ export function createFakeUpdater(): FakeUpdater {
   };
 }
 
-export function createService(automaticDownload = false) {
+export function createService(delivery: UpdateDelivery = 'in-app') {
   const updater = createFakeUpdater();
   const broadcasts: UpdateStatusPayload[] = [];
   const service = new UpdateService(
@@ -65,7 +65,7 @@ export function createService(automaticDownload = false) {
     (payload) => broadcasts.push(payload),
     () => '1.2.6',
     undefined,
-    automaticDownload,
+    delivery,
   );
   return { updater, service, broadcasts };
 }

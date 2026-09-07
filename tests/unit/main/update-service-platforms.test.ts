@@ -2,7 +2,6 @@ import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createUpdateService } from '../../../src/main/services/update-service.js';
-import type { UpdateStatusPayload } from '../../../src/shared/ipc/index.js';
 import {
   cleanupUpdateScratch,
   configuredResources,
@@ -80,7 +79,7 @@ describe('createUpdateService factory', () => {
     });
   });
 
-  it('initializes the unsigned Windows updater from the pinned generic feed', async () => {
+  it('initializes the unsigned Windows updater for manifest checks only', async () => {
     const resourcesPath = configuredResources();
     const updater = createFakeUpdater();
     const createRealUpdater = vi.fn(async () => updater);
@@ -94,7 +93,16 @@ describe('createUpdateService factory', () => {
 
     expect(service.isSupported).toBe(true);
     expect(createRealUpdater).toHaveBeenCalledOnce();
-    expect(updater.autoDownload).toBe(true);
+    expect(updater.autoDownload).toBe(false);
     expect(updater.autoInstallOnAppQuit).toBe(false);
+
+    const result = service.check();
+    updater.emit('update-available', { version: '2.0.0' });
+    await expect(result).resolves.toMatchObject({
+      phase: 'available',
+      delivery: 'website',
+      version: '2.0.0',
+    });
+    expect(updater.downloadUpdate).not.toHaveBeenCalled();
   });
 });

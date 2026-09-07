@@ -89,12 +89,13 @@ supported DB path for packaged smoke (`docs/debugging.md` §6).
   because the app quits — installation always needs an explicit action.
 - macOS + RPM Linux: read `/update/latest-mac.yml` / `/update/latest-linux.yml`,
   prompt BEFORE downloading (consent-driven).
-- Windows: reads `/update/latest.yml`, downloads in background
-  (`autoDownload`), but applies only on explicit **Restart & Install**
-  (NSIS elevates only if the install location requires it). HTTPS + SHA-512
-  verification, no Authenticode publisher check (unsigned by policy).
+- Windows: reads `/update/latest.yml` only to detect a newer version. It keeps
+  `autoDownload` and install-on-quit disabled, never calls the updater download
+  or install methods, and directs the user to `https://mongog.com/releases`.
+  The manually downloaded NSIS installer remains unsigned by policy.
 - Status mirrors to the renderer via `IpcEvents.updateStatus`
-  (`idle | checking | available | downloading | downloaded | error` phases).
+  (`idle | checking | available | downloading | downloaded | error` phases)
+  together with the trusted `in-app | website` delivery policy.
 - A release is publishable only when six artifacts + three manifests deploy
   together (2 macOS DMG + 2 macOS ZIP + 1 Windows NSIS + 1 RPM;
   `latest-mac.yml`, `latest.yml`, `latest-linux.yml` generated from actual

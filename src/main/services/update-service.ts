@@ -1,4 +1,10 @@
-import type { UpdateStatusPayload, UpdatePhase, UpdateCheckResult } from '../../shared/ipc/index.js';
+import {
+  MONGOG_RELEASES_URL,
+  type UpdateStatusPayload,
+  type UpdatePhase,
+  type UpdateCheckResult,
+  type UpdateDelivery,
+} from '../../shared/ipc/index.js';
 import { serializeError } from '../../shared/errors/index.js';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -40,28 +46,28 @@ export class UpdateService {
   private checkPromise: Promise<UpdateCheckResult> | null = null;
   private listeners: Array<{ event: string; listener: (...args: unknown[]) => void }> = [];
   private lastError: string | null = null;
-  private automaticDownload: boolean;
+  private delivery: UpdateDelivery;
 
   constructor(
     updater: UpdaterLike | undefined,
     broadcast: UpdateBroadcast,
     getCurrentVersion: () => string,
     initializationError?: unknown,
-    automaticDownload = false,
+    delivery: UpdateDelivery = 'in-app',
   ) {
     this.updater = updater;
     this.broadcast = broadcast;
     this.getCurrentVersion = getCurrentVersion;
-    this.automaticDownload = automaticDownload;
+    this.delivery = delivery;
     if (!this.updater && initializationError !== undefined) {
       this.phase = 'error';
       this.lastError = errorMessage(initializationError);
     }
-    // Windows downloads in the background but still requires an explicit
-    // Restart & Install action. macOS and Linux retain consent-driven downloads.
-    // No platform ever installs a downloaded update merely because the app quits.
+    // Every platform requires an explicit user action before a package download.
+    // Windows only checks the manifest and sends the user to the release website;
+    // macOS and Linux retain consent-driven in-app downloads.
     if (this.updater) {
-      this.updater.autoDownload = this.automaticDownload;
+      this.updater.autoDownload = false;
       this.updater.autoInstallOnAppQuit = false;
       this.updater.disableDifferentialDownload = true;
       this.updater.disableWebInstaller = true;
@@ -94,7 +100,7 @@ export class UpdateService {
   private async runCheck(): Promise<UpdateCheckResult> {
     this.phase = 'checking';
     this.lastError = null;
-    this.broadcast({ phase: 'checking' });
+    this.publish({ phase: 'checking' });
     try {
       await this.updater!.checkForUpdates();
       return this.result(this.phase);
@@ -104,7 +110,13 @@ export class UpdateService {
   }
 
   async install(): Promise<void> {
-    if (this.disposed || !this.updater) return;
+    if (this.disposed) return;
+    if (this.delivery === 'website') {
+      throw new Error(
+        `In-app updates are disabled on Windows. Download the latest MongoG release from ${MONGOG_RELEASES_URL}.`,
+      );
+    }
+    if (!this.updater) return;
     if (this.phase === 'downloaded') {
       this.updater.quitAndInstall();
       return;
@@ -114,7 +126,7 @@ export class UpdateService {
     }
     this.phase = 'downloading';
     this.lastError = null;
-    this.broadcast({ phase: 'downloading', version: this.availableVersion ?? undefined });
+    this.publish({ phase: 'downloading', version: this.availableVersion ?? undefined });
     try {
       await this.updater.downloadUpdate();
     } catch (err) {
@@ -127,7 +139,7 @@ export class UpdateService {
     this.phase = 'idle';
     this.availableVersion = null;
     this.lastError = null;
-    this.broadcast({ phase: 'idle' });
+    this.publish({ phase: 'idle' });
   }
 
   dispose(): void {
@@ -141,41 +153,35 @@ export class UpdateService {
   private attachListeners(): void {
     this.listen('checking-for-update', () => {
       this.phase = 'checking';
-      this.broadcast({ phase: 'checking' });
+      this.publish({ phase: 'checking' });
     });
     this.listen('update-available', (...args) => {
       const info = args[0] as { version?: string } | undefined;
       this.availableVersion = info?.version ?? null;
       this.lastError = null;
-      if (this.automaticDownload) {
-        // electron-updater starts the transfer after this event when
-        // autoDownload is enabled. Publish downloading immediately so the
-        // renderer never flashes the manual-download consent prompt.
-        this.phase = 'downloading';
-        this.broadcast({ phase: 'downloading', version: this.availableVersion ?? undefined });
-      } else {
-        this.phase = 'available';
-        this.broadcast({ phase: 'available', version: this.availableVersion ?? undefined });
-      }
+      this.phase = 'available';
+      this.publish({ phase: 'available', version: this.availableVersion ?? undefined });
     });
     this.listen('update-not-available', () => {
       this.availableVersion = null;
       this.phase = 'up-to-date';
       this.lastError = null;
-      this.broadcast({ phase: 'up-to-date' });
+      this.publish({ phase: 'up-to-date' });
     });
     this.listen('download-progress', (...args) => {
+      if (this.delivery === 'website') return;
       const progress = args[0] as { percent?: number } | undefined;
       this.phase = 'downloading';
-      this.broadcast({
+      this.publish({
         phase: 'downloading',
         version: this.availableVersion ?? undefined,
         progress: typeof progress?.percent === 'number' ? progress.percent : undefined,
       });
     });
     this.listen('update-downloaded', () => {
+      if (this.delivery === 'website') return;
       this.phase = 'downloaded';
-      this.broadcast({ phase: 'downloaded', version: this.availableVersion ?? undefined });
+      this.publish({ phase: 'downloaded', version: this.availableVersion ?? undefined });
     });
     this.listen('error', (err: unknown) => {
       this.recordFailure(err);
@@ -190,6 +196,7 @@ export class UpdateService {
   private result(phase: UpdatePhase): UpdateCheckResult {
     return {
       phase,
+      delivery: this.delivery,
       currentVersion: safeVersion(this.getCurrentVersion()),
       version: this.availableVersion ?? undefined,
       ...(phase === 'error' && this.lastError ? { error: this.lastError } : {}),
@@ -206,7 +213,11 @@ export class UpdateService {
     const changed = this.phase !== 'error' || this.lastError !== error;
     this.phase = 'error';
     this.lastError = error;
-    if (changed) this.broadcast({ phase: 'error', error });
+    if (changed) this.publish({ phase: 'error', error });
+  }
+
+  private publish(payload: Omit<UpdateStatusPayload, 'delivery'>): void {
+    this.broadcast({ ...payload, delivery: this.delivery });
   }
 }
 
@@ -232,7 +243,7 @@ export async function createUpdateService(
 ): Promise<UpdateService> {
   const getCurrentVersion = options.getCurrentVersion ?? defaultCurrentVersion;
   const platform = options.platform ?? process.platform;
-  const automaticDownload = platform === 'win32';
+  const delivery: UpdateDelivery = platform === 'win32' ? 'website' : 'in-app';
   try {
     if (options.e2eVersion) {
       return new UpdateService(
@@ -240,14 +251,14 @@ export async function createUpdateService(
         broadcast,
         getCurrentVersion,
         undefined,
-        automaticDownload,
+        delivery,
       );
     }
     if (options.isPackaged === false) {
-      return new UpdateService(undefined, broadcast, getCurrentVersion);
+      return new UpdateService(undefined, broadcast, getCurrentVersion, undefined, delivery);
     }
     if (platform === 'linux' && !isRpmPackage(options.resourcesPath ?? process.resourcesPath)) {
-      return new UpdateService(undefined, broadcast, getCurrentVersion);
+      return new UpdateService(undefined, broadcast, getCurrentVersion, undefined, delivery);
     }
     if (platform === 'darwin' || platform === 'linux' || platform === 'win32') {
       try {
@@ -260,7 +271,7 @@ export async function createUpdateService(
     }
     const createReal = options.createRealUpdater ?? importRealUpdater;
     const updater = await createReal(feedUrl);
-    return new UpdateService(updater, broadcast, getCurrentVersion, undefined, automaticDownload);
+    return new UpdateService(updater, broadcast, getCurrentVersion, undefined, delivery);
   } catch (error) {
     // Keep initialization failures actionable through the existing error phase;
     // they must not take down the app or masquerade as unsupported builds.
@@ -269,6 +280,7 @@ export async function createUpdateService(
       broadcast,
       getCurrentVersion,
       error,
+      delivery,
     );
   }
 }

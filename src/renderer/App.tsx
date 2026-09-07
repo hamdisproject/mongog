@@ -29,6 +29,7 @@ import { useDataTransferStore } from './stores/data-transfer.js';
 import { useUpdatesStore } from './stores/updates.js';
 import { DatabaseRenameProgressOverlay } from './components/Database/DatabaseRenameProgressOverlay.js';
 import { useDatabaseRenameJobsStore } from './stores/database-renames.js';
+import { MONGOG_RELEASES_URL } from '../shared/ipc/index.js';
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -160,7 +161,11 @@ export default function App() {
     const state = useUpdatesStore.getState();
     if (state.phase === 'available' && state.availableVersion && !consentPromptedRef.current) {
       consentPromptedRef.current = true;
-      if (window.confirm(`A new MongoG version (v${state.availableVersion}) is available. Download it now? You can choose when to restart.`)) {
+      if (state.delivery === 'website') {
+        if (window.confirm(`A new MongoG version (v${state.availableVersion}) is available. Open the MongoG releases page to download it?`)) {
+          window.open(MONGOG_RELEASES_URL, '_blank', 'noopener,noreferrer');
+        }
+      } else if (window.confirm(`A new MongoG version (v${state.availableVersion}) is available. Download it now? You can choose when to restart.`)) {
         void useUpdatesStore.getState().install();
       }
     }
