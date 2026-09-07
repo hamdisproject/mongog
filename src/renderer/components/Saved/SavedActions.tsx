@@ -8,7 +8,7 @@ import { SaveItemDialog } from './SaveItemDialog.js';
 
 interface SavedActionsProps {
   tab: WorkspaceTab;
-  surface: 'query' | 'documents';
+  surface: 'query' | 'sql' | 'documents';
   getSelection?: () => string | null;
 }
 
@@ -27,12 +27,14 @@ export function SavedActions({ tab, surface, getSelection }: SavedActionsProps) 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const existing = items.find((item) => item.id === tab.savedItemId);
-  const defaultType: SavedItemType = surface === 'documents' ? 'documents' : 'query';
+  const defaultType: SavedItemType = surface === 'documents' ? 'documents' : surface === 'sql' ? 'tab' : 'query';
 
   const activeSurface = tab.kind !== 'collection' || (
     surface === 'documents'
       ? (tab.collectionViewMode ?? 'documents') === 'documents'
-      : tab.collectionViewMode === 'query'
+      : surface === 'sql'
+        ? tab.collectionViewMode === 'sql'
+        : tab.collectionViewMode === 'query'
   );
 
   const openCreate = (
@@ -100,12 +102,12 @@ export function SavedActions({ tab, surface, getSelection }: SavedActionsProps) 
         },
         { label: 'Save Tab…', onSelect: () => openCreate('tab') },
       );
-    } else {
+    } else if (surface === 'documents') {
       result.push(
         { label: 'Save Document View…', separatorBefore: result.length > 0, onSelect: () => openCreate('documents') },
         { label: 'Save Tab…', onSelect: () => openCreate('tab') },
       );
-    }
+    } else result.push({ label: 'Save SQL Tab…', separatorBefore: result.length > 0, onSelect: () => openCreate('tab') });
     return result;
   }, [existing, surface, getSelection, tab]);
 
@@ -162,4 +164,3 @@ function errorMessage(error: unknown): string {
   if (error && typeof error === 'object' && 'message' in error) return String(error.message);
   return String(error);
 }
-

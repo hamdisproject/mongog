@@ -132730,8 +132730,8 @@ ${lanes.join("\n")}
                   }
                   break;
                 case 219:
-                  const funcName = location.name;
-                  if (funcName) {
+                  const funcName2 = location.name;
+                  if (funcName2) {
                     copySymbol(location.symbol, meaning);
                   }
                   break;
@@ -134168,8 +134168,8 @@ ${lanes.join("\n")}
             tracker
           ) : type === trueType ? factory.createTrue() : type === falseType && factory.createFalse();
           if (enumResult) return enumResult;
-          const literalValue = type.value;
-          return typeof literalValue === "object" ? factory.createBigIntLiteral(literalValue) : typeof literalValue === "string" ? factory.createStringLiteral(literalValue) : literalValue < 0 ? factory.createPrefixUnaryExpression(41, factory.createNumericLiteral(-literalValue)) : factory.createNumericLiteral(literalValue);
+          const literalValue2 = type.value;
+          return typeof literalValue2 === "object" ? factory.createBigIntLiteral(literalValue2) : typeof literalValue2 === "string" ? factory.createStringLiteral(literalValue2) : literalValue2 < 0 ? factory.createPrefixUnaryExpression(41, factory.createNumericLiteral(-literalValue2)) : factory.createNumericLiteral(literalValue2);
         }
         function createLiteralConstValue(node2, tracker) {
           const type = getTypeOfSymbol(getSymbolOfDeclaration(node2));
@@ -177074,13 +177074,13 @@ ${lanes.join("\n")}
         getNewLine: () => sys.newLine,
         getCanonicalFileName: createGetCanonicalFileName(sys.useCaseSensitiveFileNames)
       } : void 0;
-      function createDiagnosticReporter(system, pretty) {
+      function createDiagnosticReporter(system, pretty2) {
         const host = system === sys && sysFormatDiagnosticsHost ? sysFormatDiagnosticsHost : {
           getCurrentDirectory: () => system.getCurrentDirectory(),
           getNewLine: () => system.newLine,
           getCanonicalFileName: createGetCanonicalFileName(system.useCaseSensitiveFileNames)
         };
-        if (!pretty) {
+        if (!pretty2) {
           return (diagnostic) => system.write(formatDiagnostic(diagnostic, host));
         }
         const diagnostics = new Array(1);
@@ -177114,8 +177114,8 @@ ${lanes.join("\n")}
           system.now().toLocaleTimeString("en-US", { timeZone: "UTC" }).replace(" ", " ")
         );
       }
-      function createWatchStatusReporter(system, pretty) {
-        return pretty ? (diagnostic, newLine, options) => {
+      function createWatchStatusReporter(system, pretty2) {
+        return pretty2 ? (diagnostic, newLine, options) => {
           clearScreenIfNotWatchingForFileChanges(system, diagnostic, options);
           let output = `[${formatColorAndReset(
             getLocaleTimeString(system),
@@ -178525,9 +178525,9 @@ ${lanes.join("\n")}
       function getBuildOrderFromAnyBuildOrder(anyBuildOrder) {
         return isCircularBuildOrder(anyBuildOrder) ? anyBuildOrder.buildOrder : anyBuildOrder;
       }
-      function createBuilderStatusReporter(system, pretty) {
+      function createBuilderStatusReporter(system, pretty2) {
         return (diagnostic) => {
-          let output = pretty ? `[${formatColorAndReset(
+          let output = pretty2 ? `[${formatColorAndReset(
             getLocaleTimeString(system),
             "\x1B[90m"
             /* Grey */
@@ -183563,11 +183563,11 @@ ${lanes.join("\n")}
         }
         return void 0;
       }
-      function hasPropertyAccessExpressionWithName(node2, funcName) {
+      function hasPropertyAccessExpressionWithName(node2, funcName2) {
         if (!isPropertyAccessExpression(node2.expression)) {
           return false;
         }
-        return node2.expression.name.text === funcName;
+        return node2.expression.name.text === funcName2;
       }
       function isJumpStatementTarget(node2) {
         var _a;
@@ -198481,7 +198481,7 @@ ${newComment.split("\n").map((c) => ` * ${c}`).join("\n")}
             }
           }
           return result;
-          function escapeRegExp(str) {
+          function escapeRegExp2(str) {
             return str.replace(/[-[\]/{}()*+?.\\^$|]/g, "\\$&");
           }
           function getTodoCommentsRegExp() {
@@ -198489,7 +198489,7 @@ ${newComment.split("\n").map((c) => ` * ${c}`).join("\n")}
             const multiLineCommentStart = /(?:\/\*+\s*)/.source;
             const anyNumberOfSpacesAndAsterisksAtStartOfLine = /(?:^(?:\s|\*)*)/.source;
             const preamble = "(" + anyNumberOfSpacesAndAsterisksAtStartOfLine + "|" + singleLineCommentStart + "|" + multiLineCommentStart + ")";
-            const literals = "(?:" + map2(descriptors, (d) => "(" + escapeRegExp(d.text) + ")").join("|") + ")";
+            const literals = "(?:" + map2(descriptors, (d) => "(" + escapeRegExp2(d.text) + ")").join("|") + ")";
             const endOfLineOrEndOfComment = /(?:$|\*\/)/.source;
             const messageRemainder = /(?:.*?)/.source;
             const messagePortion = "(" + literals + messageRemainder + ")";
@@ -216334,7 +216334,7 @@ ${newComment.split("\n").map((c) => ` * ${c}`).join("\n")}
         return addReplacementSpans(node2.text, node2.getStart(sourceFile) + 1, getStringLiteralCompletionsFromModuleNamesWorker(sourceFile, node2, program, host, preferences));
       }
       function getStringLiteralCompletionsFromModuleNamesWorker(sourceFile, node2, program, host, preferences) {
-        const literalValue = normalizeSlashes(node2.text);
+        const literalValue2 = normalizeSlashes(node2.text);
         const mode = isStringLiteralLike(node2) ? program.getModeForUsageLocation(sourceFile, node2) : void 0;
         const scriptPath = sourceFile.path;
         const scriptDirectory = getDirectoryPath(scriptPath);
@@ -216342,7 +216342,7 @@ ${newComment.split("\n").map((c) => ` * ${c}`).join("\n")}
         const typeChecker = program.getTypeChecker();
         const moduleSpecifierResolutionHost = createModuleSpecifierResolutionHost(program, host);
         const extensionOptions = getExtensionOptions(compilerOptions, 1, sourceFile, typeChecker, preferences, mode);
-        return isPathRelativeToScript(literalValue) || !compilerOptions.baseUrl && !compilerOptions.paths && (isRootedDiskPath(literalValue) || isUrl(literalValue)) ? getCompletionEntriesForRelativeModules(literalValue, scriptDirectory, program, host, moduleSpecifierResolutionHost, scriptPath, extensionOptions) : getCompletionEntriesForNonRelativeModules(literalValue, scriptDirectory, mode, program, host, moduleSpecifierResolutionHost, extensionOptions);
+        return isPathRelativeToScript(literalValue2) || !compilerOptions.baseUrl && !compilerOptions.paths && (isRootedDiskPath(literalValue2) || isUrl(literalValue2)) ? getCompletionEntriesForRelativeModules(literalValue2, scriptDirectory, program, host, moduleSpecifierResolutionHost, scriptPath, extensionOptions) : getCompletionEntriesForNonRelativeModules(literalValue2, scriptDirectory, mode, program, host, moduleSpecifierResolutionHost, extensionOptions);
       }
       function getExtensionOptions(compilerOptions, referenceKind, importingSourceFile, typeChecker, preferences, resolutionMode) {
         return {
@@ -216353,12 +216353,12 @@ ${newComment.split("\n").map((c) => ` * ${c}`).join("\n")}
           resolutionMode
         };
       }
-      function getCompletionEntriesForRelativeModules(literalValue, scriptDirectory, program, host, moduleSpecifierResolutionHost, scriptPath, extensionOptions) {
+      function getCompletionEntriesForRelativeModules(literalValue2, scriptDirectory, program, host, moduleSpecifierResolutionHost, scriptPath, extensionOptions) {
         const compilerOptions = program.getCompilerOptions();
         if (compilerOptions.rootDirs) {
           return getCompletionEntriesForDirectoryFragmentWithRootDirs(
             compilerOptions.rootDirs,
-            literalValue,
+            literalValue2,
             scriptDirectory,
             extensionOptions,
             program,
@@ -216368,7 +216368,7 @@ ${newComment.split("\n").map((c) => ` * ${c}`).join("\n")}
           );
         } else {
           return arrayFrom(getCompletionEntriesForDirectoryFragment(
-            literalValue,
+            literalValue2,
             scriptDirectory,
             extensionOptions,
             program,
@@ -250824,16 +250824,16 @@ function inspectFallback(value) {
     return String(value);
   }
 }
-function renderEjson(value, mode, pretty = true) {
-  return EJSON.stringify(value, void 0, pretty ? 2 : 0, { relaxed: mode === "relaxed" });
+function renderEjson(value, mode, pretty2 = true) {
+  return EJSON.stringify(value, void 0, pretty2 ? 2 : 0, { relaxed: mode === "relaxed" });
 }
-function renderBson(value, mode, pretty = true, purpose = "display") {
-  return mode === "mongosh" ? renderMongosh(value, pretty, purpose) : renderEjson(value, mode, pretty);
+function renderBson(value, mode, pretty2 = true, purpose = "display") {
+  return mode === "mongosh" ? renderMongosh(value, pretty2, purpose) : renderEjson(value, mode, pretty2);
 }
-function renderMongosh(value, pretty = true, purpose = "display") {
-  return formatMongoshValue(value, pretty, 0, purpose);
+function renderMongosh(value, pretty2 = true, purpose = "display") {
+  return formatMongoshValue(value, pretty2, 0, purpose);
 }
-function formatMongoshValue(value, pretty, depth, purpose) {
+function formatMongoshValue(value, pretty2, depth, purpose) {
   if (value === null) return "null";
   if (value === void 0) return "undefined";
   if (typeof value === "string") return JSON.stringify(value);
@@ -250871,25 +250871,25 @@ function formatMongoshValue(value, pretty, depth, purpose) {
   if (value instanceof DBRef) {
     const args = [
       JSON.stringify(value.collection),
-      formatMongoshValue(value.oid, pretty, depth + 1, purpose)
+      formatMongoshValue(value.oid, pretty2, depth + 1, purpose)
     ];
     if (value.db !== void 0 || Object.keys(value.fields).length > 0) {
       args.push(value.db === void 0 ? "undefined" : JSON.stringify(value.db));
     }
     if (Object.keys(value.fields).length > 0) {
-      args.push(formatMongoshValue(value.fields, pretty, depth + 1, purpose));
+      args.push(formatMongoshValue(value.fields, pretty2, depth + 1, purpose));
     }
     return `DBRef(${args.join(", ")})`;
   }
   if (value instanceof Code) {
     const args = [JSON.stringify(String(value.code))];
-    if (value.scope !== null) args.push(formatMongoshValue(value.scope, pretty, depth + 1, purpose));
+    if (value.scope !== null) args.push(formatMongoshValue(value.scope, pretty2, depth + 1, purpose));
     return `Code(${args.join(", ")})`;
   }
   if (value instanceof BSONSymbol) return `BSONSymbol(${JSON.stringify(value.value)})`;
   if (Array.isArray(value)) {
     if (value.length === 0) return "[]";
-    if (!pretty) return `[${value.map((item) => formatMongoshValue(item, false, depth + 1, purpose)).join(", ")}]`;
+    if (!pretty2) return `[${value.map((item) => formatMongoshValue(item, false, depth + 1, purpose)).join(", ")}]`;
     const inner = value.map((item) => `${indent(depth + 1)}${formatMongoshValue(item, true, depth + 1, purpose)}`).join(",\n");
     return `[
 ${inner}
@@ -250898,7 +250898,7 @@ ${indent(depth)}]`;
   if (typeof value === "object") {
     const entries = Object.entries(value);
     if (entries.length === 0) return "{}";
-    if (!pretty) {
+    if (!pretty2) {
       return `{ ${entries.map(([key, nested]) => `${formatKey(key)}: ${formatMongoshValue(nested, false, depth + 1, purpose)}`).join(", ")} }`;
     }
     const inner = entries.map(([key, nested]) => `${indent(depth + 1)}${formatKey(key)}: ${formatMongoshValue(nested, true, depth + 1, purpose)}`).join(",\n");
@@ -251135,6 +251135,166 @@ function createAutoAwaitRuntime(hooks) {
   };
 }
 const parallelMethods = /* @__PURE__ */ new WeakMap();
+const READ_ONLY_WRITE_METHODS = /* @__PURE__ */ new Set([
+  "bulkWrite",
+  "createCollection",
+  "createIndex",
+  "createIndexes",
+  "createSearchIndex",
+  "createSearchIndexes",
+  "createView",
+  "delete",
+  "deleteMany",
+  "deleteOne",
+  "drop",
+  "dropCollection",
+  "dropDatabase",
+  "dropIndex",
+  "dropIndexes",
+  "dropSearchIndex",
+  "findAndModify",
+  "findOneAndDelete",
+  "findOneAndReplace",
+  "findOneAndUpdate",
+  "initializeOrderedBulkOp",
+  "initializeUnorderedBulkOp",
+  "insertMany",
+  "insertOne",
+  "mapReduce",
+  "openUploadStream",
+  "openUploadStreamWithId",
+  "rename",
+  "renameCollection",
+  "removeUser",
+  "replaceOne",
+  "setProfilingLevel",
+  "updateMany",
+  "updateOne",
+  "updateSearchIndex"
+]);
+const READ_ONLY_WRITE_COMMAND_KEYS = /* @__PURE__ */ new Set([
+  "_configsvrAddShard",
+  "applyOps",
+  "collMod",
+  "convertToCapped",
+  "create",
+  "createIndexes",
+  "createRole",
+  "createUser",
+  "delete",
+  "drop",
+  "dropAllRolesFromDatabase",
+  "dropAllUsersFromDatabase",
+  "dropDatabase",
+  "dropIndexes",
+  "dropRole",
+  "dropUser",
+  "findAndModify",
+  "grantPrivilegesToRole",
+  "grantRolesToRole",
+  "grantRolesToUser",
+  "insert",
+  "mapReduce",
+  "profile",
+  "renameCollection",
+  "reIndex",
+  "revokePrivilegesFromRole",
+  "revokeRolesFromRole",
+  "revokeRolesFromUser",
+  "setFeatureCompatibilityVersion",
+  "update",
+  "updateRole",
+  "updateUser"
+]);
+function createReadOnlyDriverGuard(client2) {
+  const cache = /* @__PURE__ */ new WeakMap();
+  const wrapKnown = (value) => {
+    if (!isGuardedDriverObject(value)) return value;
+    const cached = cache.get(value);
+    if (cached) return cached;
+    const proxy = new Proxy(value, {
+      get(target, property) {
+        if (typeof property === "string" && READ_ONLY_WRITE_METHODS.has(property)) {
+          return blockedMethod(property);
+        }
+        const member = Reflect.get(target, property, target);
+        if (typeof member !== "function") return wrapKnown(member);
+        if (property === "command" || property === "runCursorCommand") {
+          return (command2, ...args) => {
+            assertReadOnlyCommand(command2);
+            return wrapResult(Reflect.apply(member, target, [command2, ...args]));
+          };
+        }
+        if (property === "aggregate") {
+          return (pipeline, ...args) => {
+            assertReadOnlyPipeline(pipeline);
+            return wrapResult(Reflect.apply(member, target, [pipeline, ...args]));
+          };
+        }
+        return (...args) => wrapResult(Reflect.apply(member, target, args));
+      }
+    });
+    cache.set(value, proxy);
+    return proxy;
+  };
+  const wrapResult = (value) => {
+    if (value && typeof value === "object" && "then" in value && typeof value.then === "function") {
+      return Promise.resolve(value).then((resolved) => wrapKnown(resolved));
+    }
+    return wrapKnown(value);
+  };
+  const guardConstructor = (constructor) => new Proxy(constructor, {
+    construct(target, args, newTarget) {
+      return wrapKnown(Reflect.construct(target, args, newTarget));
+    },
+    get(target, property, receiver) {
+      const member = Reflect.get(target, property, receiver);
+      if (property === "connect" && typeof member === "function") {
+        return (...args) => wrapResult(Reflect.apply(member, target, args));
+      }
+      return member;
+    }
+  });
+  const guardedModule = {
+    ...mongodb,
+    MongoClient: guardConstructor(libExports.MongoClient),
+    GridFSBucket: guardConstructor(libExports.GridFSBucket)
+  };
+  return {
+    client: wrapKnown(client2),
+    mongodb: guardedModule
+  };
+}
+function isGuardedDriverObject(value) {
+  return value instanceof libExports.MongoClient || value instanceof libExports.Db || value instanceof libExports.Collection || value instanceof libExports.Admin || value instanceof libExports.GridFSBucket;
+}
+function blockedMethod(method2) {
+  return () => {
+    throw appError("ReadOnlyProtection", `Read-only connection: write operation "${method2}()" is blocked.`, {
+      hint: "Use a MongoDB user with the read role for authoritative server-side protection."
+    });
+  };
+}
+function assertReadOnlyCommand(command2) {
+  if (!command2 || typeof command2 !== "object" || Array.isArray(command2)) return;
+  const key = Object.keys(command2).find((candidate) => READ_ONLY_WRITE_COMMAND_KEYS.has(candidate));
+  if (!key) return;
+  throw appError("ReadOnlyProtection", `Read-only connection: command "${key}" is blocked.`, {
+    hint: "Use a MongoDB user with the read role for authoritative server-side protection."
+  });
+}
+function assertReadOnlyPipeline(pipeline) {
+  if (!Array.isArray(pipeline)) return;
+  if (!pipeline.some((stage) => containsWriteStage(stage))) return;
+  throw appError("ReadOnlyProtection", "Read-only connection: aggregation with $out/$merge is blocked.", {
+    hint: "Use a MongoDB user with the read role for authoritative server-side protection."
+  });
+}
+function containsWriteStage(value) {
+  if (!value || typeof value !== "object") return false;
+  if (Array.isArray(value)) return value.some((entry) => containsWriteStage(entry));
+  return Object.entries(value).some(([key, nested]) => key === "$out" || key === "$merge" || containsWriteStage(nested));
+}
 const CONSOLE_ARG_PREVIEW_BYTES = 16 * 1024;
 function shellFactory(constructor, factory) {
   Object.setPrototypeOf(factory, constructor);
@@ -251160,8 +251320,11 @@ const shellCode = shellFactory(Code, (code, scope) => new Code(String(code), sco
 const shellBsonSymbol = shellFactory(BSONSymbol, (value) => new BSONSymbol(String(value)));
 const shellUuid = shellFactory(UUID, (value) => value === void 0 ? new UUID() : new UUID(String(value)));
 function createSandbox(options) {
+  const guarded = options.readOnly ? createReadOnlyDriverGuard(options.client) : null;
+  const sandboxClient = guarded?.client ?? options.client;
+  const sandboxMongoModule = guarded?.mongodb ?? mongodb;
   const shellDb = (databaseName) => {
-    const value = options.client.db(databaseName);
+    const value = sandboxClient.db(databaseName);
     if (!Object.hasOwn(value, "getSiblingDB")) {
       Object.defineProperty(value, "getSiblingDB", {
         configurable: false,
@@ -251208,7 +251371,7 @@ function createSandbox(options) {
     debug: (...v) => emitConsole("log", v)
   };
   const sandbox = {
-    mongodb,
+    mongodb: sandboxMongoModule,
     bson: bson$1,
     ObjectId: shellObjectId,
     ISODate: (value) => value === void 0 ? /* @__PURE__ */ new Date() : new Date(String(value)),
@@ -251228,7 +251391,7 @@ function createSandbox(options) {
     DBRef: shellDbRef,
     Code: shellCode,
     BSONSymbol: shellBsonSymbol,
-    client: options.client,
+    client: sandboxClient,
     db: currentDb,
     use(name) {
       if (typeof name !== "string" || name.length === 0) {
@@ -251246,7 +251409,7 @@ function createSandbox(options) {
   };
   if (options.mode === "trusted") {
     sandbox.require = (name) => {
-      if (name === "mongodb") return mongodb;
+      if (name === "mongodb") return sandboxMongoModule;
       if (name === "bson") return bson$1;
       throw Object.assign(
         new Error(`Module "${name}" is not available in scripts (allowlist: mongodb, bson).`),
@@ -251286,43 +251449,6 @@ const QUERY_MODE_DENIED_IDENTIFIERS = /* @__PURE__ */ new Set([
   "setInterval",
   "setImmediate",
   "import"
-]);
-const WRITE_METHODS = /* @__PURE__ */ new Set([
-  "insertOne",
-  "insertMany",
-  "updateOne",
-  "updateMany",
-  "replaceOne",
-  "findOneAndUpdate",
-  "findOneAndReplace",
-  "findOneAndDelete",
-  "deleteOne",
-  "deleteMany",
-  "bulkWrite",
-  "findAndModify",
-  "createIndex",
-  "createIndexes",
-  "dropIndex",
-  "dropIndexes",
-  "createCollection",
-  "createView",
-  "renameCollection",
-  "initializeOrderedBulkOp",
-  "initializeUnorderedBulkOp"
-]);
-const WRITE_COMMAND_KEYS = /* @__PURE__ */ new Set([
-  "insert",
-  "update",
-  "delete",
-  "createIndexes",
-  "dropIndexes",
-  "drop",
-  "create",
-  "renameCollection",
-  "convertToCapped",
-  "findAndModify",
-  "applyOps",
-  "dropDatabase"
 ]);
 function scanQueryModeViolations(sourceFile) {
   const violations = [];
@@ -251371,7 +251497,7 @@ function scanWriteOperations(sourceFile) {
     });
   };
   const visit = (node2) => {
-    if (ts.isPropertyAccessExpression(node2) && WRITE_METHODS.has(node2.name.text)) {
+    if (ts.isPropertyAccessExpression(node2) && READ_ONLY_WRITE_METHODS.has(node2.name.text)) {
       report(node2.name, `Read-only connection: write operation "${node2.name.text}()" is blocked.`);
     }
     if (ts.isCallExpression(node2)) {
@@ -251390,7 +251516,7 @@ function scanWriteOperations(sourceFile) {
           for (const prop of first.properties) {
             if (ts.isPropertyAssignment(prop)) {
               const key = ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name) ? prop.name.text : void 0;
-              if (key && WRITE_COMMAND_KEYS.has(key)) {
+              if (key && READ_ONLY_WRITE_COMMAND_KEYS.has(key)) {
                 report(prop.name, `Read-only connection: command "${key}" is blocked.`);
               }
             }
@@ -251558,6 +251684,7 @@ class ExecutionEngine {
       client: opts.client,
       database: opts.database,
       mode: opts.mode,
+      readOnly: opts.readOnly,
       capture: (i, t) => capture(i, t),
       mark: (i) => {
         scope.throwIfCancelled();
@@ -252881,6 +253008,8130 @@ function parseObjectId(ejson) {
     throw appError("Validation", "GridFS file id must be an ObjectId.");
   }
   return value;
+}
+const MAX_SQL_SOURCE_BYTES = 256 * 1024;
+class SqlTranslateError extends Error {
+  hint;
+  range;
+  constructor(message, hint, range2) {
+    super(message);
+    this.name = "SqlTranslateError";
+    this.hint = hint;
+    this.range = range2;
+  }
+}
+var mysql = {};
+var BigInteger = { exports: {} };
+var hasRequiredBigInteger;
+function requireBigInteger() {
+  if (hasRequiredBigInteger) return BigInteger.exports;
+  hasRequiredBigInteger = 1;
+  (function(module2) {
+    var bigInt = (function(undefined$1) {
+      var BASE = 1e7, LOG_BASE = 7, MAX_INT = 9007199254740992, MAX_INT_ARR = smallToArray(MAX_INT), DEFAULT_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz";
+      var supportsNativeBigInt = typeof BigInt === "function";
+      function Integer(v, radix, alphabet, caseSensitive) {
+        if (typeof v === "undefined") return Integer[0];
+        if (typeof radix !== "undefined") return +radix === 10 && !alphabet ? parseValue(v) : parseBase(v, radix, alphabet, caseSensitive);
+        return parseValue(v);
+      }
+      function BigInteger2(value, sign) {
+        this.value = value;
+        this.sign = sign;
+        this.isSmall = false;
+      }
+      BigInteger2.prototype = Object.create(Integer.prototype);
+      function SmallInteger(value) {
+        this.value = value;
+        this.sign = value < 0;
+        this.isSmall = true;
+      }
+      SmallInteger.prototype = Object.create(Integer.prototype);
+      function NativeBigInt(value) {
+        this.value = value;
+      }
+      NativeBigInt.prototype = Object.create(Integer.prototype);
+      function isPrecise(n) {
+        return -MAX_INT < n && n < MAX_INT;
+      }
+      function smallToArray(n) {
+        if (n < 1e7)
+          return [n];
+        if (n < 1e14)
+          return [n % 1e7, Math.floor(n / 1e7)];
+        return [n % 1e7, Math.floor(n / 1e7) % 1e7, Math.floor(n / 1e14)];
+      }
+      function arrayToSmall(arr) {
+        trim(arr);
+        var length = arr.length;
+        if (length < 4 && compareAbs(arr, MAX_INT_ARR) < 0) {
+          switch (length) {
+            case 0:
+              return 0;
+            case 1:
+              return arr[0];
+            case 2:
+              return arr[0] + arr[1] * BASE;
+            default:
+              return arr[0] + (arr[1] + arr[2] * BASE) * BASE;
+          }
+        }
+        return arr;
+      }
+      function trim(v) {
+        var i2 = v.length;
+        while (v[--i2] === 0) ;
+        v.length = i2 + 1;
+      }
+      function createArray(length) {
+        var x = new Array(length);
+        var i2 = -1;
+        while (++i2 < length) {
+          x[i2] = 0;
+        }
+        return x;
+      }
+      function truncate(n) {
+        if (n > 0) return Math.floor(n);
+        return Math.ceil(n);
+      }
+      function add(a, b) {
+        var l_a = a.length, l_b = b.length, r = new Array(l_a), carry = 0, base2 = BASE, sum, i2;
+        for (i2 = 0; i2 < l_b; i2++) {
+          sum = a[i2] + b[i2] + carry;
+          carry = sum >= base2 ? 1 : 0;
+          r[i2] = sum - carry * base2;
+        }
+        while (i2 < l_a) {
+          sum = a[i2] + carry;
+          carry = sum === base2 ? 1 : 0;
+          r[i2++] = sum - carry * base2;
+        }
+        if (carry > 0) r.push(carry);
+        return r;
+      }
+      function addAny(a, b) {
+        if (a.length >= b.length) return add(a, b);
+        return add(b, a);
+      }
+      function addSmall(a, carry) {
+        var l = a.length, r = new Array(l), base2 = BASE, sum, i2;
+        for (i2 = 0; i2 < l; i2++) {
+          sum = a[i2] - base2 + carry;
+          carry = Math.floor(sum / base2);
+          r[i2] = sum - carry * base2;
+          carry += 1;
+        }
+        while (carry > 0) {
+          r[i2++] = carry % base2;
+          carry = Math.floor(carry / base2);
+        }
+        return r;
+      }
+      BigInteger2.prototype.add = function(v) {
+        var n = parseValue(v);
+        if (this.sign !== n.sign) {
+          return this.subtract(n.negate());
+        }
+        var a = this.value, b = n.value;
+        if (n.isSmall) {
+          return new BigInteger2(addSmall(a, Math.abs(b)), this.sign);
+        }
+        return new BigInteger2(addAny(a, b), this.sign);
+      };
+      BigInteger2.prototype.plus = BigInteger2.prototype.add;
+      SmallInteger.prototype.add = function(v) {
+        var n = parseValue(v);
+        var a = this.value;
+        if (a < 0 !== n.sign) {
+          return this.subtract(n.negate());
+        }
+        var b = n.value;
+        if (n.isSmall) {
+          if (isPrecise(a + b)) return new SmallInteger(a + b);
+          b = smallToArray(Math.abs(b));
+        }
+        return new BigInteger2(addSmall(b, Math.abs(a)), a < 0);
+      };
+      SmallInteger.prototype.plus = SmallInteger.prototype.add;
+      NativeBigInt.prototype.add = function(v) {
+        return new NativeBigInt(this.value + parseValue(v).value);
+      };
+      NativeBigInt.prototype.plus = NativeBigInt.prototype.add;
+      function subtract(a, b) {
+        var a_l = a.length, b_l = b.length, r = new Array(a_l), borrow = 0, base2 = BASE, i2, difference;
+        for (i2 = 0; i2 < b_l; i2++) {
+          difference = a[i2] - borrow - b[i2];
+          if (difference < 0) {
+            difference += base2;
+            borrow = 1;
+          } else borrow = 0;
+          r[i2] = difference;
+        }
+        for (i2 = b_l; i2 < a_l; i2++) {
+          difference = a[i2] - borrow;
+          if (difference < 0) difference += base2;
+          else {
+            r[i2++] = difference;
+            break;
+          }
+          r[i2] = difference;
+        }
+        for (; i2 < a_l; i2++) {
+          r[i2] = a[i2];
+        }
+        trim(r);
+        return r;
+      }
+      function subtractAny(a, b, sign) {
+        var value;
+        if (compareAbs(a, b) >= 0) {
+          value = subtract(a, b);
+        } else {
+          value = subtract(b, a);
+          sign = !sign;
+        }
+        value = arrayToSmall(value);
+        if (typeof value === "number") {
+          if (sign) value = -value;
+          return new SmallInteger(value);
+        }
+        return new BigInteger2(value, sign);
+      }
+      function subtractSmall(a, b, sign) {
+        var l = a.length, r = new Array(l), carry = -b, base2 = BASE, i2, difference;
+        for (i2 = 0; i2 < l; i2++) {
+          difference = a[i2] + carry;
+          carry = Math.floor(difference / base2);
+          difference %= base2;
+          r[i2] = difference < 0 ? difference + base2 : difference;
+        }
+        r = arrayToSmall(r);
+        if (typeof r === "number") {
+          if (sign) r = -r;
+          return new SmallInteger(r);
+        }
+        return new BigInteger2(r, sign);
+      }
+      BigInteger2.prototype.subtract = function(v) {
+        var n = parseValue(v);
+        if (this.sign !== n.sign) {
+          return this.add(n.negate());
+        }
+        var a = this.value, b = n.value;
+        if (n.isSmall)
+          return subtractSmall(a, Math.abs(b), this.sign);
+        return subtractAny(a, b, this.sign);
+      };
+      BigInteger2.prototype.minus = BigInteger2.prototype.subtract;
+      SmallInteger.prototype.subtract = function(v) {
+        var n = parseValue(v);
+        var a = this.value;
+        if (a < 0 !== n.sign) {
+          return this.add(n.negate());
+        }
+        var b = n.value;
+        if (n.isSmall) {
+          return new SmallInteger(a - b);
+        }
+        return subtractSmall(b, Math.abs(a), a >= 0);
+      };
+      SmallInteger.prototype.minus = SmallInteger.prototype.subtract;
+      NativeBigInt.prototype.subtract = function(v) {
+        return new NativeBigInt(this.value - parseValue(v).value);
+      };
+      NativeBigInt.prototype.minus = NativeBigInt.prototype.subtract;
+      BigInteger2.prototype.negate = function() {
+        return new BigInteger2(this.value, !this.sign);
+      };
+      SmallInteger.prototype.negate = function() {
+        var sign = this.sign;
+        var small = new SmallInteger(-this.value);
+        small.sign = !sign;
+        return small;
+      };
+      NativeBigInt.prototype.negate = function() {
+        return new NativeBigInt(-this.value);
+      };
+      BigInteger2.prototype.abs = function() {
+        return new BigInteger2(this.value, false);
+      };
+      SmallInteger.prototype.abs = function() {
+        return new SmallInteger(Math.abs(this.value));
+      };
+      NativeBigInt.prototype.abs = function() {
+        return new NativeBigInt(this.value >= 0 ? this.value : -this.value);
+      };
+      function multiplyLong(a, b) {
+        var a_l = a.length, b_l = b.length, l = a_l + b_l, r = createArray(l), base2 = BASE, product, carry, i2, a_i, b_j;
+        for (i2 = 0; i2 < a_l; ++i2) {
+          a_i = a[i2];
+          for (var j = 0; j < b_l; ++j) {
+            b_j = b[j];
+            product = a_i * b_j + r[i2 + j];
+            carry = Math.floor(product / base2);
+            r[i2 + j] = product - carry * base2;
+            r[i2 + j + 1] += carry;
+          }
+        }
+        trim(r);
+        return r;
+      }
+      function multiplySmall(a, b) {
+        var l = a.length, r = new Array(l), base2 = BASE, carry = 0, product, i2;
+        for (i2 = 0; i2 < l; i2++) {
+          product = a[i2] * b + carry;
+          carry = Math.floor(product / base2);
+          r[i2] = product - carry * base2;
+        }
+        while (carry > 0) {
+          r[i2++] = carry % base2;
+          carry = Math.floor(carry / base2);
+        }
+        return r;
+      }
+      function shiftLeft(x, n) {
+        var r = [];
+        while (n-- > 0) r.push(0);
+        return r.concat(x);
+      }
+      function multiplyKaratsuba(x, y) {
+        var n = Math.max(x.length, y.length);
+        if (n <= 30) return multiplyLong(x, y);
+        n = Math.ceil(n / 2);
+        var b = x.slice(n), a = x.slice(0, n), d = y.slice(n), c = y.slice(0, n);
+        var ac = multiplyKaratsuba(a, c), bd = multiplyKaratsuba(b, d), abcd = multiplyKaratsuba(addAny(a, b), addAny(c, d));
+        var product = addAny(addAny(ac, shiftLeft(subtract(subtract(abcd, ac), bd), n)), shiftLeft(bd, 2 * n));
+        trim(product);
+        return product;
+      }
+      function useKaratsuba(l1, l2) {
+        return -0.012 * l1 - 0.012 * l2 + 15e-6 * l1 * l2 > 0;
+      }
+      BigInteger2.prototype.multiply = function(v) {
+        var n = parseValue(v), a = this.value, b = n.value, sign = this.sign !== n.sign, abs;
+        if (n.isSmall) {
+          if (b === 0) return Integer[0];
+          if (b === 1) return this;
+          if (b === -1) return this.negate();
+          abs = Math.abs(b);
+          if (abs < BASE) {
+            return new BigInteger2(multiplySmall(a, abs), sign);
+          }
+          b = smallToArray(abs);
+        }
+        if (useKaratsuba(a.length, b.length))
+          return new BigInteger2(multiplyKaratsuba(a, b), sign);
+        return new BigInteger2(multiplyLong(a, b), sign);
+      };
+      BigInteger2.prototype.times = BigInteger2.prototype.multiply;
+      function multiplySmallAndArray(a, b, sign) {
+        if (a < BASE) {
+          return new BigInteger2(multiplySmall(b, a), sign);
+        }
+        return new BigInteger2(multiplyLong(b, smallToArray(a)), sign);
+      }
+      SmallInteger.prototype._multiplyBySmall = function(a) {
+        if (isPrecise(a.value * this.value)) {
+          return new SmallInteger(a.value * this.value);
+        }
+        return multiplySmallAndArray(Math.abs(a.value), smallToArray(Math.abs(this.value)), this.sign !== a.sign);
+      };
+      BigInteger2.prototype._multiplyBySmall = function(a) {
+        if (a.value === 0) return Integer[0];
+        if (a.value === 1) return this;
+        if (a.value === -1) return this.negate();
+        return multiplySmallAndArray(Math.abs(a.value), this.value, this.sign !== a.sign);
+      };
+      SmallInteger.prototype.multiply = function(v) {
+        return parseValue(v)._multiplyBySmall(this);
+      };
+      SmallInteger.prototype.times = SmallInteger.prototype.multiply;
+      NativeBigInt.prototype.multiply = function(v) {
+        return new NativeBigInt(this.value * parseValue(v).value);
+      };
+      NativeBigInt.prototype.times = NativeBigInt.prototype.multiply;
+      function square(a) {
+        var l = a.length, r = createArray(l + l), base2 = BASE, product, carry, i2, a_i, a_j;
+        for (i2 = 0; i2 < l; i2++) {
+          a_i = a[i2];
+          carry = 0 - a_i * a_i;
+          for (var j = i2; j < l; j++) {
+            a_j = a[j];
+            product = 2 * (a_i * a_j) + r[i2 + j] + carry;
+            carry = Math.floor(product / base2);
+            r[i2 + j] = product - carry * base2;
+          }
+          r[i2 + l] = carry;
+        }
+        trim(r);
+        return r;
+      }
+      BigInteger2.prototype.square = function() {
+        return new BigInteger2(square(this.value), false);
+      };
+      SmallInteger.prototype.square = function() {
+        var value = this.value * this.value;
+        if (isPrecise(value)) return new SmallInteger(value);
+        return new BigInteger2(square(smallToArray(Math.abs(this.value))), false);
+      };
+      NativeBigInt.prototype.square = function(v) {
+        return new NativeBigInt(this.value * this.value);
+      };
+      function divMod1(a, b) {
+        var a_l = a.length, b_l = b.length, base2 = BASE, result = createArray(b.length), divisorMostSignificantDigit = b[b_l - 1], lambda = Math.ceil(base2 / (2 * divisorMostSignificantDigit)), remainder = multiplySmall(a, lambda), divisor = multiplySmall(b, lambda), quotientDigit, shift, carry, borrow, i2, l, q;
+        if (remainder.length <= a_l) remainder.push(0);
+        divisor.push(0);
+        divisorMostSignificantDigit = divisor[b_l - 1];
+        for (shift = a_l - b_l; shift >= 0; shift--) {
+          quotientDigit = base2 - 1;
+          if (remainder[shift + b_l] !== divisorMostSignificantDigit) {
+            quotientDigit = Math.floor((remainder[shift + b_l] * base2 + remainder[shift + b_l - 1]) / divisorMostSignificantDigit);
+          }
+          carry = 0;
+          borrow = 0;
+          l = divisor.length;
+          for (i2 = 0; i2 < l; i2++) {
+            carry += quotientDigit * divisor[i2];
+            q = Math.floor(carry / base2);
+            borrow += remainder[shift + i2] - (carry - q * base2);
+            carry = q;
+            if (borrow < 0) {
+              remainder[shift + i2] = borrow + base2;
+              borrow = -1;
+            } else {
+              remainder[shift + i2] = borrow;
+              borrow = 0;
+            }
+          }
+          while (borrow !== 0) {
+            quotientDigit -= 1;
+            carry = 0;
+            for (i2 = 0; i2 < l; i2++) {
+              carry += remainder[shift + i2] - base2 + divisor[i2];
+              if (carry < 0) {
+                remainder[shift + i2] = carry + base2;
+                carry = 0;
+              } else {
+                remainder[shift + i2] = carry;
+                carry = 1;
+              }
+            }
+            borrow += carry;
+          }
+          result[shift] = quotientDigit;
+        }
+        remainder = divModSmall(remainder, lambda)[0];
+        return [arrayToSmall(result), arrayToSmall(remainder)];
+      }
+      function divMod2(a, b) {
+        var a_l = a.length, b_l = b.length, result = [], part = [], base2 = BASE, guess, xlen, highx, highy, check;
+        while (a_l) {
+          part.unshift(a[--a_l]);
+          trim(part);
+          if (compareAbs(part, b) < 0) {
+            result.push(0);
+            continue;
+          }
+          xlen = part.length;
+          highx = part[xlen - 1] * base2 + part[xlen - 2];
+          highy = b[b_l - 1] * base2 + b[b_l - 2];
+          if (xlen > b_l) {
+            highx = (highx + 1) * base2;
+          }
+          guess = Math.ceil(highx / highy);
+          do {
+            check = multiplySmall(b, guess);
+            if (compareAbs(check, part) <= 0) break;
+            guess--;
+          } while (guess);
+          result.push(guess);
+          part = subtract(part, check);
+        }
+        result.reverse();
+        return [arrayToSmall(result), arrayToSmall(part)];
+      }
+      function divModSmall(value, lambda) {
+        var length = value.length, quotient = createArray(length), base2 = BASE, i2, q, remainder, divisor;
+        remainder = 0;
+        for (i2 = length - 1; i2 >= 0; --i2) {
+          divisor = remainder * base2 + value[i2];
+          q = truncate(divisor / lambda);
+          remainder = divisor - q * lambda;
+          quotient[i2] = q | 0;
+        }
+        return [quotient, remainder | 0];
+      }
+      function divModAny(self2, v) {
+        var value, n = parseValue(v);
+        if (supportsNativeBigInt) {
+          return [new NativeBigInt(self2.value / n.value), new NativeBigInt(self2.value % n.value)];
+        }
+        var a = self2.value, b = n.value;
+        var quotient;
+        if (b === 0) throw new Error("Cannot divide by zero");
+        if (self2.isSmall) {
+          if (n.isSmall) {
+            return [new SmallInteger(truncate(a / b)), new SmallInteger(a % b)];
+          }
+          return [Integer[0], self2];
+        }
+        if (n.isSmall) {
+          if (b === 1) return [self2, Integer[0]];
+          if (b == -1) return [self2.negate(), Integer[0]];
+          var abs = Math.abs(b);
+          if (abs < BASE) {
+            value = divModSmall(a, abs);
+            quotient = arrayToSmall(value[0]);
+            var remainder = value[1];
+            if (self2.sign) remainder = -remainder;
+            if (typeof quotient === "number") {
+              if (self2.sign !== n.sign) quotient = -quotient;
+              return [new SmallInteger(quotient), new SmallInteger(remainder)];
+            }
+            return [new BigInteger2(quotient, self2.sign !== n.sign), new SmallInteger(remainder)];
+          }
+          b = smallToArray(abs);
+        }
+        var comparison = compareAbs(a, b);
+        if (comparison === -1) return [Integer[0], self2];
+        if (comparison === 0) return [Integer[self2.sign === n.sign ? 1 : -1], Integer[0]];
+        if (a.length + b.length <= 200)
+          value = divMod1(a, b);
+        else value = divMod2(a, b);
+        quotient = value[0];
+        var qSign = self2.sign !== n.sign, mod = value[1], mSign = self2.sign;
+        if (typeof quotient === "number") {
+          if (qSign) quotient = -quotient;
+          quotient = new SmallInteger(quotient);
+        } else quotient = new BigInteger2(quotient, qSign);
+        if (typeof mod === "number") {
+          if (mSign) mod = -mod;
+          mod = new SmallInteger(mod);
+        } else mod = new BigInteger2(mod, mSign);
+        return [quotient, mod];
+      }
+      BigInteger2.prototype.divmod = function(v) {
+        var result = divModAny(this, v);
+        return {
+          quotient: result[0],
+          remainder: result[1]
+        };
+      };
+      NativeBigInt.prototype.divmod = SmallInteger.prototype.divmod = BigInteger2.prototype.divmod;
+      BigInteger2.prototype.divide = function(v) {
+        return divModAny(this, v)[0];
+      };
+      NativeBigInt.prototype.over = NativeBigInt.prototype.divide = function(v) {
+        return new NativeBigInt(this.value / parseValue(v).value);
+      };
+      SmallInteger.prototype.over = SmallInteger.prototype.divide = BigInteger2.prototype.over = BigInteger2.prototype.divide;
+      BigInteger2.prototype.mod = function(v) {
+        return divModAny(this, v)[1];
+      };
+      NativeBigInt.prototype.mod = NativeBigInt.prototype.remainder = function(v) {
+        return new NativeBigInt(this.value % parseValue(v).value);
+      };
+      SmallInteger.prototype.remainder = SmallInteger.prototype.mod = BigInteger2.prototype.remainder = BigInteger2.prototype.mod;
+      BigInteger2.prototype.pow = function(v) {
+        var n = parseValue(v), a = this.value, b = n.value, value, x, y;
+        if (b === 0) return Integer[1];
+        if (a === 0) return Integer[0];
+        if (a === 1) return Integer[1];
+        if (a === -1) return n.isEven() ? Integer[1] : Integer[-1];
+        if (n.sign) {
+          return Integer[0];
+        }
+        if (!n.isSmall) throw new Error("The exponent " + n.toString() + " is too large.");
+        if (this.isSmall) {
+          if (isPrecise(value = Math.pow(a, b)))
+            return new SmallInteger(truncate(value));
+        }
+        x = this;
+        y = Integer[1];
+        while (true) {
+          if (b & true) {
+            y = y.times(x);
+            --b;
+          }
+          if (b === 0) break;
+          b /= 2;
+          x = x.square();
+        }
+        return y;
+      };
+      SmallInteger.prototype.pow = BigInteger2.prototype.pow;
+      NativeBigInt.prototype.pow = function(v) {
+        var n = parseValue(v);
+        var a = this.value, b = n.value;
+        var _0 = BigInt(0), _1 = BigInt(1), _2 = BigInt(2);
+        if (b === _0) return Integer[1];
+        if (a === _0) return Integer[0];
+        if (a === _1) return Integer[1];
+        if (a === BigInt(-1)) return n.isEven() ? Integer[1] : Integer[-1];
+        if (n.isNegative()) return new NativeBigInt(_0);
+        var x = this;
+        var y = Integer[1];
+        while (true) {
+          if ((b & _1) === _1) {
+            y = y.times(x);
+            --b;
+          }
+          if (b === _0) break;
+          b /= _2;
+          x = x.square();
+        }
+        return y;
+      };
+      BigInteger2.prototype.modPow = function(exp, mod) {
+        exp = parseValue(exp);
+        mod = parseValue(mod);
+        if (mod.isZero()) throw new Error("Cannot take modPow with modulus 0");
+        var r = Integer[1], base2 = this.mod(mod);
+        if (exp.isNegative()) {
+          exp = exp.multiply(Integer[-1]);
+          base2 = base2.modInv(mod);
+        }
+        while (exp.isPositive()) {
+          if (base2.isZero()) return Integer[0];
+          if (exp.isOdd()) r = r.multiply(base2).mod(mod);
+          exp = exp.divide(2);
+          base2 = base2.square().mod(mod);
+        }
+        return r;
+      };
+      NativeBigInt.prototype.modPow = SmallInteger.prototype.modPow = BigInteger2.prototype.modPow;
+      function compareAbs(a, b) {
+        if (a.length !== b.length) {
+          return a.length > b.length ? 1 : -1;
+        }
+        for (var i2 = a.length - 1; i2 >= 0; i2--) {
+          if (a[i2] !== b[i2]) return a[i2] > b[i2] ? 1 : -1;
+        }
+        return 0;
+      }
+      BigInteger2.prototype.compareAbs = function(v) {
+        var n = parseValue(v), a = this.value, b = n.value;
+        if (n.isSmall) return 1;
+        return compareAbs(a, b);
+      };
+      SmallInteger.prototype.compareAbs = function(v) {
+        var n = parseValue(v), a = Math.abs(this.value), b = n.value;
+        if (n.isSmall) {
+          b = Math.abs(b);
+          return a === b ? 0 : a > b ? 1 : -1;
+        }
+        return -1;
+      };
+      NativeBigInt.prototype.compareAbs = function(v) {
+        var a = this.value;
+        var b = parseValue(v).value;
+        a = a >= 0 ? a : -a;
+        b = b >= 0 ? b : -b;
+        return a === b ? 0 : a > b ? 1 : -1;
+      };
+      BigInteger2.prototype.compare = function(v) {
+        if (v === Infinity) {
+          return -1;
+        }
+        if (v === -Infinity) {
+          return 1;
+        }
+        var n = parseValue(v), a = this.value, b = n.value;
+        if (this.sign !== n.sign) {
+          return n.sign ? 1 : -1;
+        }
+        if (n.isSmall) {
+          return this.sign ? -1 : 1;
+        }
+        return compareAbs(a, b) * (this.sign ? -1 : 1);
+      };
+      BigInteger2.prototype.compareTo = BigInteger2.prototype.compare;
+      SmallInteger.prototype.compare = function(v) {
+        if (v === Infinity) {
+          return -1;
+        }
+        if (v === -Infinity) {
+          return 1;
+        }
+        var n = parseValue(v), a = this.value, b = n.value;
+        if (n.isSmall) {
+          return a == b ? 0 : a > b ? 1 : -1;
+        }
+        if (a < 0 !== n.sign) {
+          return a < 0 ? -1 : 1;
+        }
+        return a < 0 ? 1 : -1;
+      };
+      SmallInteger.prototype.compareTo = SmallInteger.prototype.compare;
+      NativeBigInt.prototype.compare = function(v) {
+        if (v === Infinity) {
+          return -1;
+        }
+        if (v === -Infinity) {
+          return 1;
+        }
+        var a = this.value;
+        var b = parseValue(v).value;
+        return a === b ? 0 : a > b ? 1 : -1;
+      };
+      NativeBigInt.prototype.compareTo = NativeBigInt.prototype.compare;
+      BigInteger2.prototype.equals = function(v) {
+        return this.compare(v) === 0;
+      };
+      NativeBigInt.prototype.eq = NativeBigInt.prototype.equals = SmallInteger.prototype.eq = SmallInteger.prototype.equals = BigInteger2.prototype.eq = BigInteger2.prototype.equals;
+      BigInteger2.prototype.notEquals = function(v) {
+        return this.compare(v) !== 0;
+      };
+      NativeBigInt.prototype.neq = NativeBigInt.prototype.notEquals = SmallInteger.prototype.neq = SmallInteger.prototype.notEquals = BigInteger2.prototype.neq = BigInteger2.prototype.notEquals;
+      BigInteger2.prototype.greater = function(v) {
+        return this.compare(v) > 0;
+      };
+      NativeBigInt.prototype.gt = NativeBigInt.prototype.greater = SmallInteger.prototype.gt = SmallInteger.prototype.greater = BigInteger2.prototype.gt = BigInteger2.prototype.greater;
+      BigInteger2.prototype.lesser = function(v) {
+        return this.compare(v) < 0;
+      };
+      NativeBigInt.prototype.lt = NativeBigInt.prototype.lesser = SmallInteger.prototype.lt = SmallInteger.prototype.lesser = BigInteger2.prototype.lt = BigInteger2.prototype.lesser;
+      BigInteger2.prototype.greaterOrEquals = function(v) {
+        return this.compare(v) >= 0;
+      };
+      NativeBigInt.prototype.geq = NativeBigInt.prototype.greaterOrEquals = SmallInteger.prototype.geq = SmallInteger.prototype.greaterOrEquals = BigInteger2.prototype.geq = BigInteger2.prototype.greaterOrEquals;
+      BigInteger2.prototype.lesserOrEquals = function(v) {
+        return this.compare(v) <= 0;
+      };
+      NativeBigInt.prototype.leq = NativeBigInt.prototype.lesserOrEquals = SmallInteger.prototype.leq = SmallInteger.prototype.lesserOrEquals = BigInteger2.prototype.leq = BigInteger2.prototype.lesserOrEquals;
+      BigInteger2.prototype.isEven = function() {
+        return (this.value[0] & 1) === 0;
+      };
+      SmallInteger.prototype.isEven = function() {
+        return (this.value & 1) === 0;
+      };
+      NativeBigInt.prototype.isEven = function() {
+        return (this.value & BigInt(1)) === BigInt(0);
+      };
+      BigInteger2.prototype.isOdd = function() {
+        return (this.value[0] & 1) === 1;
+      };
+      SmallInteger.prototype.isOdd = function() {
+        return (this.value & 1) === 1;
+      };
+      NativeBigInt.prototype.isOdd = function() {
+        return (this.value & BigInt(1)) === BigInt(1);
+      };
+      BigInteger2.prototype.isPositive = function() {
+        return !this.sign;
+      };
+      SmallInteger.prototype.isPositive = function() {
+        return this.value > 0;
+      };
+      NativeBigInt.prototype.isPositive = SmallInteger.prototype.isPositive;
+      BigInteger2.prototype.isNegative = function() {
+        return this.sign;
+      };
+      SmallInteger.prototype.isNegative = function() {
+        return this.value < 0;
+      };
+      NativeBigInt.prototype.isNegative = SmallInteger.prototype.isNegative;
+      BigInteger2.prototype.isUnit = function() {
+        return false;
+      };
+      SmallInteger.prototype.isUnit = function() {
+        return Math.abs(this.value) === 1;
+      };
+      NativeBigInt.prototype.isUnit = function() {
+        return this.abs().value === BigInt(1);
+      };
+      BigInteger2.prototype.isZero = function() {
+        return false;
+      };
+      SmallInteger.prototype.isZero = function() {
+        return this.value === 0;
+      };
+      NativeBigInt.prototype.isZero = function() {
+        return this.value === BigInt(0);
+      };
+      BigInteger2.prototype.isDivisibleBy = function(v) {
+        var n = parseValue(v);
+        if (n.isZero()) return false;
+        if (n.isUnit()) return true;
+        if (n.compareAbs(2) === 0) return this.isEven();
+        return this.mod(n).isZero();
+      };
+      NativeBigInt.prototype.isDivisibleBy = SmallInteger.prototype.isDivisibleBy = BigInteger2.prototype.isDivisibleBy;
+      function isBasicPrime(v) {
+        var n = v.abs();
+        if (n.isUnit()) return false;
+        if (n.equals(2) || n.equals(3) || n.equals(5)) return true;
+        if (n.isEven() || n.isDivisibleBy(3) || n.isDivisibleBy(5)) return false;
+        if (n.lesser(49)) return true;
+      }
+      function millerRabinTest(n, a) {
+        var nPrev = n.prev(), b = nPrev, r = 0, d, i2, x;
+        while (b.isEven()) b = b.divide(2), r++;
+        next: for (i2 = 0; i2 < a.length; i2++) {
+          if (n.lesser(a[i2])) continue;
+          x = bigInt(a[i2]).modPow(b, n);
+          if (x.isUnit() || x.equals(nPrev)) continue;
+          for (d = r - 1; d != 0; d--) {
+            x = x.square().mod(n);
+            if (x.isUnit()) return false;
+            if (x.equals(nPrev)) continue next;
+          }
+          return false;
+        }
+        return true;
+      }
+      BigInteger2.prototype.isPrime = function(strict) {
+        var isPrime = isBasicPrime(this);
+        if (isPrime !== undefined$1) return isPrime;
+        var n = this.abs();
+        var bits = n.bitLength();
+        if (bits <= 64)
+          return millerRabinTest(n, [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37]);
+        var logN = Math.log(2) * bits.toJSNumber();
+        var t = Math.ceil(strict === true ? 2 * Math.pow(logN, 2) : logN);
+        for (var a = [], i2 = 0; i2 < t; i2++) {
+          a.push(bigInt(i2 + 2));
+        }
+        return millerRabinTest(n, a);
+      };
+      NativeBigInt.prototype.isPrime = SmallInteger.prototype.isPrime = BigInteger2.prototype.isPrime;
+      BigInteger2.prototype.isProbablePrime = function(iterations, rng2) {
+        var isPrime = isBasicPrime(this);
+        if (isPrime !== undefined$1) return isPrime;
+        var n = this.abs();
+        var t = iterations === undefined$1 ? 5 : iterations;
+        for (var a = [], i2 = 0; i2 < t; i2++) {
+          a.push(bigInt.randBetween(2, n.minus(2), rng2));
+        }
+        return millerRabinTest(n, a);
+      };
+      NativeBigInt.prototype.isProbablePrime = SmallInteger.prototype.isProbablePrime = BigInteger2.prototype.isProbablePrime;
+      BigInteger2.prototype.modInv = function(n) {
+        var t = bigInt.zero, newT = bigInt.one, r = parseValue(n), newR = this.abs(), q, lastT, lastR;
+        while (!newR.isZero()) {
+          q = r.divide(newR);
+          lastT = t;
+          lastR = r;
+          t = newT;
+          r = newR;
+          newT = lastT.subtract(q.multiply(newT));
+          newR = lastR.subtract(q.multiply(newR));
+        }
+        if (!r.isUnit()) throw new Error(this.toString() + " and " + n.toString() + " are not co-prime");
+        if (t.compare(0) === -1) {
+          t = t.add(n);
+        }
+        if (this.isNegative()) {
+          return t.negate();
+        }
+        return t;
+      };
+      NativeBigInt.prototype.modInv = SmallInteger.prototype.modInv = BigInteger2.prototype.modInv;
+      BigInteger2.prototype.next = function() {
+        var value = this.value;
+        if (this.sign) {
+          return subtractSmall(value, 1, this.sign);
+        }
+        return new BigInteger2(addSmall(value, 1), this.sign);
+      };
+      SmallInteger.prototype.next = function() {
+        var value = this.value;
+        if (value + 1 < MAX_INT) return new SmallInteger(value + 1);
+        return new BigInteger2(MAX_INT_ARR, false);
+      };
+      NativeBigInt.prototype.next = function() {
+        return new NativeBigInt(this.value + BigInt(1));
+      };
+      BigInteger2.prototype.prev = function() {
+        var value = this.value;
+        if (this.sign) {
+          return new BigInteger2(addSmall(value, 1), true);
+        }
+        return subtractSmall(value, 1, this.sign);
+      };
+      SmallInteger.prototype.prev = function() {
+        var value = this.value;
+        if (value - 1 > -MAX_INT) return new SmallInteger(value - 1);
+        return new BigInteger2(MAX_INT_ARR, true);
+      };
+      NativeBigInt.prototype.prev = function() {
+        return new NativeBigInt(this.value - BigInt(1));
+      };
+      var powersOfTwo = [1];
+      while (2 * powersOfTwo[powersOfTwo.length - 1] <= BASE) powersOfTwo.push(2 * powersOfTwo[powersOfTwo.length - 1]);
+      var powers2Length = powersOfTwo.length, highestPower2 = powersOfTwo[powers2Length - 1];
+      function shift_isSmall(n) {
+        return Math.abs(n) <= BASE;
+      }
+      BigInteger2.prototype.shiftLeft = function(v) {
+        var n = parseValue(v).toJSNumber();
+        if (!shift_isSmall(n)) {
+          throw new Error(String(n) + " is too large for shifting.");
+        }
+        if (n < 0) return this.shiftRight(-n);
+        var result = this;
+        if (result.isZero()) return result;
+        while (n >= powers2Length) {
+          result = result.multiply(highestPower2);
+          n -= powers2Length - 1;
+        }
+        return result.multiply(powersOfTwo[n]);
+      };
+      NativeBigInt.prototype.shiftLeft = SmallInteger.prototype.shiftLeft = BigInteger2.prototype.shiftLeft;
+      BigInteger2.prototype.shiftRight = function(v) {
+        var remQuo;
+        var n = parseValue(v).toJSNumber();
+        if (!shift_isSmall(n)) {
+          throw new Error(String(n) + " is too large for shifting.");
+        }
+        if (n < 0) return this.shiftLeft(-n);
+        var result = this;
+        while (n >= powers2Length) {
+          if (result.isZero() || result.isNegative() && result.isUnit()) return result;
+          remQuo = divModAny(result, highestPower2);
+          result = remQuo[1].isNegative() ? remQuo[0].prev() : remQuo[0];
+          n -= powers2Length - 1;
+        }
+        remQuo = divModAny(result, powersOfTwo[n]);
+        return remQuo[1].isNegative() ? remQuo[0].prev() : remQuo[0];
+      };
+      NativeBigInt.prototype.shiftRight = SmallInteger.prototype.shiftRight = BigInteger2.prototype.shiftRight;
+      function bitwise(x, y, fn) {
+        y = parseValue(y);
+        var xSign = x.isNegative(), ySign = y.isNegative();
+        var xRem = xSign ? x.not() : x, yRem = ySign ? y.not() : y;
+        var xDigit = 0, yDigit = 0;
+        var xDivMod = null, yDivMod = null;
+        var result = [];
+        while (!xRem.isZero() || !yRem.isZero()) {
+          xDivMod = divModAny(xRem, highestPower2);
+          xDigit = xDivMod[1].toJSNumber();
+          if (xSign) {
+            xDigit = highestPower2 - 1 - xDigit;
+          }
+          yDivMod = divModAny(yRem, highestPower2);
+          yDigit = yDivMod[1].toJSNumber();
+          if (ySign) {
+            yDigit = highestPower2 - 1 - yDigit;
+          }
+          xRem = xDivMod[0];
+          yRem = yDivMod[0];
+          result.push(fn(xDigit, yDigit));
+        }
+        var sum = fn(xSign ? 1 : 0, ySign ? 1 : 0) !== 0 ? bigInt(-1) : bigInt(0);
+        for (var i2 = result.length - 1; i2 >= 0; i2 -= 1) {
+          sum = sum.multiply(highestPower2).add(bigInt(result[i2]));
+        }
+        return sum;
+      }
+      BigInteger2.prototype.not = function() {
+        return this.negate().prev();
+      };
+      NativeBigInt.prototype.not = SmallInteger.prototype.not = BigInteger2.prototype.not;
+      BigInteger2.prototype.and = function(n) {
+        return bitwise(this, n, function(a, b) {
+          return a & b;
+        });
+      };
+      NativeBigInt.prototype.and = SmallInteger.prototype.and = BigInteger2.prototype.and;
+      BigInteger2.prototype.or = function(n) {
+        return bitwise(this, n, function(a, b) {
+          return a | b;
+        });
+      };
+      NativeBigInt.prototype.or = SmallInteger.prototype.or = BigInteger2.prototype.or;
+      BigInteger2.prototype.xor = function(n) {
+        return bitwise(this, n, function(a, b) {
+          return a ^ b;
+        });
+      };
+      NativeBigInt.prototype.xor = SmallInteger.prototype.xor = BigInteger2.prototype.xor;
+      var LOBMASK_I = 1 << 30, LOBMASK_BI = (BASE & -BASE) * (BASE & -BASE) | LOBMASK_I;
+      function roughLOB(n) {
+        var v = n.value, x = typeof v === "number" ? v | LOBMASK_I : typeof v === "bigint" ? v | BigInt(LOBMASK_I) : v[0] + v[1] * BASE | LOBMASK_BI;
+        return x & -x;
+      }
+      function integerLogarithm(value, base2) {
+        if (base2.compareTo(value) <= 0) {
+          var tmp2 = integerLogarithm(value, base2.square(base2));
+          var p = tmp2.p;
+          var e = tmp2.e;
+          var t = p.multiply(base2);
+          return t.compareTo(value) <= 0 ? { p: t, e: e * 2 + 1 } : { p, e: e * 2 };
+        }
+        return { p: bigInt(1), e: 0 };
+      }
+      BigInteger2.prototype.bitLength = function() {
+        var n = this;
+        if (n.compareTo(bigInt(0)) < 0) {
+          n = n.negate().subtract(bigInt(1));
+        }
+        if (n.compareTo(bigInt(0)) === 0) {
+          return bigInt(0);
+        }
+        return bigInt(integerLogarithm(n, bigInt(2)).e).add(bigInt(1));
+      };
+      NativeBigInt.prototype.bitLength = SmallInteger.prototype.bitLength = BigInteger2.prototype.bitLength;
+      function max2(a, b) {
+        a = parseValue(a);
+        b = parseValue(b);
+        return a.greater(b) ? a : b;
+      }
+      function min(a, b) {
+        a = parseValue(a);
+        b = parseValue(b);
+        return a.lesser(b) ? a : b;
+      }
+      function gcd(a, b) {
+        a = parseValue(a).abs();
+        b = parseValue(b).abs();
+        if (a.equals(b)) return a;
+        if (a.isZero()) return b;
+        if (b.isZero()) return a;
+        var c = Integer[1], d, t;
+        while (a.isEven() && b.isEven()) {
+          d = min(roughLOB(a), roughLOB(b));
+          a = a.divide(d);
+          b = b.divide(d);
+          c = c.multiply(d);
+        }
+        while (a.isEven()) {
+          a = a.divide(roughLOB(a));
+        }
+        do {
+          while (b.isEven()) {
+            b = b.divide(roughLOB(b));
+          }
+          if (a.greater(b)) {
+            t = b;
+            b = a;
+            a = t;
+          }
+          b = b.subtract(a);
+        } while (!b.isZero());
+        return c.isUnit() ? a : a.multiply(c);
+      }
+      function lcm(a, b) {
+        a = parseValue(a).abs();
+        b = parseValue(b).abs();
+        return a.divide(gcd(a, b)).multiply(b);
+      }
+      function randBetween(a, b, rng2) {
+        a = parseValue(a);
+        b = parseValue(b);
+        var usedRNG = rng2 || Math.random;
+        var low = min(a, b), high = max2(a, b);
+        var range2 = high.subtract(low).add(1);
+        if (range2.isSmall) return low.add(Math.floor(usedRNG() * range2));
+        var digits = toBase(range2, BASE).value;
+        var result = [], restricted = true;
+        for (var i2 = 0; i2 < digits.length; i2++) {
+          var top = restricted ? digits[i2] + (i2 + 1 < digits.length ? digits[i2 + 1] / BASE : 0) : BASE;
+          var digit = truncate(usedRNG() * top);
+          result.push(digit);
+          if (digit < digits[i2]) restricted = false;
+        }
+        return low.add(Integer.fromArray(result, BASE, false));
+      }
+      var parseBase = function(text, base2, alphabet, caseSensitive) {
+        alphabet = alphabet || DEFAULT_ALPHABET;
+        text = String(text);
+        if (!caseSensitive) {
+          text = text.toLowerCase();
+          alphabet = alphabet.toLowerCase();
+        }
+        var length = text.length;
+        var i2;
+        var absBase = Math.abs(base2);
+        var alphabetValues = {};
+        for (i2 = 0; i2 < alphabet.length; i2++) {
+          alphabetValues[alphabet[i2]] = i2;
+        }
+        for (i2 = 0; i2 < length; i2++) {
+          var c = text[i2];
+          if (c === "-") continue;
+          if (c in alphabetValues) {
+            if (alphabetValues[c] >= absBase) {
+              if (c === "1" && absBase === 1) continue;
+              throw new Error(c + " is not a valid digit in base " + base2 + ".");
+            }
+          }
+        }
+        base2 = parseValue(base2);
+        var digits = [];
+        var isNegative = text[0] === "-";
+        for (i2 = isNegative ? 1 : 0; i2 < text.length; i2++) {
+          var c = text[i2];
+          if (c in alphabetValues) digits.push(parseValue(alphabetValues[c]));
+          else if (c === "<") {
+            var start = i2;
+            do {
+              i2++;
+            } while (text[i2] !== ">" && i2 < text.length);
+            digits.push(parseValue(text.slice(start + 1, i2)));
+          } else throw new Error(c + " is not a valid character");
+        }
+        return parseBaseFromArray(digits, base2, isNegative);
+      };
+      function parseBaseFromArray(digits, base2, isNegative) {
+        var val = Integer[0], pow = Integer[1], i2;
+        for (i2 = digits.length - 1; i2 >= 0; i2--) {
+          val = val.add(digits[i2].times(pow));
+          pow = pow.times(base2);
+        }
+        return isNegative ? val.negate() : val;
+      }
+      function stringify2(digit, alphabet) {
+        alphabet = alphabet || DEFAULT_ALPHABET;
+        if (digit < alphabet.length) {
+          return alphabet[digit];
+        }
+        return "<" + digit + ">";
+      }
+      function toBase(n, base2) {
+        base2 = bigInt(base2);
+        if (base2.isZero()) {
+          if (n.isZero()) return { value: [0], isNegative: false };
+          throw new Error("Cannot convert nonzero numbers to base 0.");
+        }
+        if (base2.equals(-1)) {
+          if (n.isZero()) return { value: [0], isNegative: false };
+          if (n.isNegative())
+            return {
+              value: [].concat.apply(
+                [],
+                Array.apply(null, Array(-n.toJSNumber())).map(Array.prototype.valueOf, [1, 0])
+              ),
+              isNegative: false
+            };
+          var arr = Array.apply(null, Array(n.toJSNumber() - 1)).map(Array.prototype.valueOf, [0, 1]);
+          arr.unshift([1]);
+          return {
+            value: [].concat.apply([], arr),
+            isNegative: false
+          };
+        }
+        var neg = false;
+        if (n.isNegative() && base2.isPositive()) {
+          neg = true;
+          n = n.abs();
+        }
+        if (base2.isUnit()) {
+          if (n.isZero()) return { value: [0], isNegative: false };
+          return {
+            value: Array.apply(null, Array(n.toJSNumber())).map(Number.prototype.valueOf, 1),
+            isNegative: neg
+          };
+        }
+        var out = [];
+        var left = n, divmod;
+        while (left.isNegative() || left.compareAbs(base2) >= 0) {
+          divmod = left.divmod(base2);
+          left = divmod.quotient;
+          var digit = divmod.remainder;
+          if (digit.isNegative()) {
+            digit = base2.minus(digit).abs();
+            left = left.next();
+          }
+          out.push(digit.toJSNumber());
+        }
+        out.push(left.toJSNumber());
+        return { value: out.reverse(), isNegative: neg };
+      }
+      function toBaseString(n, base2, alphabet) {
+        var arr = toBase(n, base2);
+        return (arr.isNegative ? "-" : "") + arr.value.map(function(x) {
+          return stringify2(x, alphabet);
+        }).join("");
+      }
+      BigInteger2.prototype.toArray = function(radix) {
+        return toBase(this, radix);
+      };
+      SmallInteger.prototype.toArray = function(radix) {
+        return toBase(this, radix);
+      };
+      NativeBigInt.prototype.toArray = function(radix) {
+        return toBase(this, radix);
+      };
+      BigInteger2.prototype.toString = function(radix, alphabet) {
+        if (radix === undefined$1) radix = 10;
+        if (radix !== 10 || alphabet) return toBaseString(this, radix, alphabet);
+        var v = this.value, l = v.length, str = String(v[--l]), zeros = "0000000", digit;
+        while (--l >= 0) {
+          digit = String(v[l]);
+          str += zeros.slice(digit.length) + digit;
+        }
+        var sign = this.sign ? "-" : "";
+        return sign + str;
+      };
+      SmallInteger.prototype.toString = function(radix, alphabet) {
+        if (radix === undefined$1) radix = 10;
+        if (radix != 10 || alphabet) return toBaseString(this, radix, alphabet);
+        return String(this.value);
+      };
+      NativeBigInt.prototype.toString = SmallInteger.prototype.toString;
+      NativeBigInt.prototype.toJSON = BigInteger2.prototype.toJSON = SmallInteger.prototype.toJSON = function() {
+        return this.toString();
+      };
+      BigInteger2.prototype.valueOf = function() {
+        return parseInt(this.toString(), 10);
+      };
+      BigInteger2.prototype.toJSNumber = BigInteger2.prototype.valueOf;
+      SmallInteger.prototype.valueOf = function() {
+        return this.value;
+      };
+      SmallInteger.prototype.toJSNumber = SmallInteger.prototype.valueOf;
+      NativeBigInt.prototype.valueOf = NativeBigInt.prototype.toJSNumber = function() {
+        return parseInt(this.toString(), 10);
+      };
+      function parseStringValue(v) {
+        if (isPrecise(+v)) {
+          var x = +v;
+          if (x === truncate(x))
+            return supportsNativeBigInt ? new NativeBigInt(BigInt(x)) : new SmallInteger(x);
+          throw new Error("Invalid integer: " + v);
+        }
+        var sign = v[0] === "-";
+        if (sign) v = v.slice(1);
+        var split = v.split(/e/i);
+        if (split.length > 2) throw new Error("Invalid integer: " + split.join("e"));
+        if (split.length === 2) {
+          var exp = split[1];
+          if (exp[0] === "+") exp = exp.slice(1);
+          exp = +exp;
+          if (exp !== truncate(exp) || !isPrecise(exp)) throw new Error("Invalid integer: " + exp + " is not a valid exponent.");
+          var text = split[0];
+          var decimalPlace = text.indexOf(".");
+          if (decimalPlace >= 0) {
+            exp -= text.length - decimalPlace - 1;
+            text = text.slice(0, decimalPlace) + text.slice(decimalPlace + 1);
+          }
+          if (exp < 0) throw new Error("Cannot include negative exponent part for integers");
+          text += new Array(exp + 1).join("0");
+          v = text;
+        }
+        var isValid = /^([0-9][0-9]*)$/.test(v);
+        if (!isValid) throw new Error("Invalid integer: " + v);
+        if (supportsNativeBigInt) {
+          return new NativeBigInt(BigInt(sign ? "-" + v : v));
+        }
+        var r = [], max3 = v.length, l = LOG_BASE, min2 = max3 - l;
+        while (max3 > 0) {
+          r.push(+v.slice(min2, max3));
+          min2 -= l;
+          if (min2 < 0) min2 = 0;
+          max3 -= l;
+        }
+        trim(r);
+        return new BigInteger2(r, sign);
+      }
+      function parseNumberValue(v) {
+        if (supportsNativeBigInt) {
+          return new NativeBigInt(BigInt(v));
+        }
+        if (isPrecise(v)) {
+          if (v !== truncate(v)) throw new Error(v + " is not an integer.");
+          return new SmallInteger(v);
+        }
+        return parseStringValue(v.toString());
+      }
+      function parseValue(v) {
+        if (typeof v === "number") {
+          return parseNumberValue(v);
+        }
+        if (typeof v === "string") {
+          return parseStringValue(v);
+        }
+        if (typeof v === "bigint") {
+          return new NativeBigInt(v);
+        }
+        return v;
+      }
+      for (var i = 0; i < 1e3; i++) {
+        Integer[i] = parseValue(i);
+        if (i > 0) Integer[-i] = parseValue(-i);
+      }
+      Integer.one = Integer[1];
+      Integer.zero = Integer[0];
+      Integer.minusOne = Integer[-1];
+      Integer.max = max2;
+      Integer.min = min;
+      Integer.gcd = gcd;
+      Integer.lcm = lcm;
+      Integer.isInstance = function(x) {
+        return x instanceof BigInteger2 || x instanceof SmallInteger || x instanceof NativeBigInt;
+      };
+      Integer.randBetween = randBetween;
+      Integer.fromArray = function(digits, base2, isNegative) {
+        return parseBaseFromArray(digits.map(parseValue), parseValue(base2 || 10), isNegative);
+      };
+      return Integer;
+    })();
+    if (module2.hasOwnProperty("exports")) {
+      module2.exports = bigInt;
+    }
+  })(BigInteger);
+  return BigInteger.exports;
+}
+var hasRequiredMysql;
+function requireMysql() {
+  if (hasRequiredMysql) return mysql;
+  hasRequiredMysql = 1;
+  (function(exports2) {
+    !(function(r, t) {
+      for (var e in t) r[e] = t[e];
+    })(exports2, (function(r) {
+      var t = {};
+      function e(n) {
+        if (t[n]) return t[n].exports;
+        var o = t[n] = { i: n, l: false, exports: {} };
+        return r[n].call(o.exports, o, o.exports, e), o.l = true, o.exports;
+      }
+      return e.m = r, e.c = t, e.d = function(r2, t2, n) {
+        e.o(r2, t2) || Object.defineProperty(r2, t2, { enumerable: true, get: n });
+      }, e.r = function(r2) {
+        "undefined" != typeof Symbol && Symbol.toStringTag && Object.defineProperty(r2, Symbol.toStringTag, { value: "Module" }), Object.defineProperty(r2, "__esModule", { value: true });
+      }, e.t = function(r2, t2) {
+        if (1 & t2 && (r2 = e(r2)), 8 & t2) return r2;
+        if (4 & t2 && "object" == typeof r2 && r2 && r2.__esModule) return r2;
+        var n = /* @__PURE__ */ Object.create(null);
+        if (e.r(n), Object.defineProperty(n, "default", { enumerable: true, value: r2 }), 2 & t2 && "string" != typeof r2) for (var o in r2) e.d(n, o, function(t3) {
+          return r2[t3];
+        }.bind(null, o));
+        return n;
+      }, e.n = function(r2) {
+        var t2 = r2 && r2.__esModule ? function() {
+          return r2.default;
+        } : function() {
+          return r2;
+        };
+        return e.d(t2, "a", t2), t2;
+      }, e.o = function(r2, t2) {
+        return Object.prototype.hasOwnProperty.call(r2, t2);
+      }, e.p = "", e(e.s = 1);
+    })([function(r, t, e) {
+      var n = e(2);
+      function o(r2, t2, e2, n2) {
+        this.message = r2, this.expected = t2, this.found = e2, this.location = n2, this.name = "SyntaxError", "function" == typeof Error.captureStackTrace && Error.captureStackTrace(this, o);
+      }
+      !(function(r2, t2) {
+        function e2() {
+          this.constructor = r2;
+        }
+        e2.prototype = t2.prototype, r2.prototype = new e2();
+      })(o, Error), o.buildMessage = function(r2, t2) {
+        var e2 = { literal: function(r3) {
+          return '"' + o2(r3.text) + '"';
+        }, class: function(r3) {
+          var t3, e3 = "";
+          for (t3 = 0; t3 < r3.parts.length; t3++) e3 += r3.parts[t3] instanceof Array ? s(r3.parts[t3][0]) + "-" + s(r3.parts[t3][1]) : s(r3.parts[t3]);
+          return "[" + (r3.inverted ? "^" : "") + e3 + "]";
+        }, any: function(r3) {
+          return "any character";
+        }, end: function(r3) {
+          return "end of input";
+        }, other: function(r3) {
+          return r3.description;
+        } };
+        function n2(r3) {
+          return r3.charCodeAt(0).toString(16).toUpperCase();
+        }
+        function o2(r3) {
+          return r3.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\0/g, "\\0").replace(/\t/g, "\\t").replace(/\n/g, "\\n").replace(/\r/g, "\\r").replace(/[\x00-\x0F]/g, (function(r4) {
+            return "\\x0" + n2(r4);
+          })).replace(/[\x10-\x1F\x7F-\x9F]/g, (function(r4) {
+            return "\\x" + n2(r4);
+          }));
+        }
+        function s(r3) {
+          return r3.replace(/\\/g, "\\\\").replace(/\]/g, "\\]").replace(/\^/g, "\\^").replace(/-/g, "\\-").replace(/\0/g, "\\0").replace(/\t/g, "\\t").replace(/\n/g, "\\n").replace(/\r/g, "\\r").replace(/[\x00-\x0F]/g, (function(r4) {
+            return "\\x0" + n2(r4);
+          })).replace(/[\x10-\x1F\x7F-\x9F]/g, (function(r4) {
+            return "\\x" + n2(r4);
+          }));
+        }
+        return "Expected " + (function(r3) {
+          var t3, n3, o3, s2 = new Array(r3.length);
+          for (t3 = 0; t3 < r3.length; t3++) s2[t3] = (o3 = r3[t3], e2[o3.type](o3));
+          if (s2.sort(), s2.length > 0) {
+            for (t3 = 1, n3 = 1; t3 < s2.length; t3++) s2[t3 - 1] !== s2[t3] && (s2[n3] = s2[t3], n3++);
+            s2.length = n3;
+          }
+          switch (s2.length) {
+            case 1:
+              return s2[0];
+            case 2:
+              return s2[0] + " or " + s2[1];
+            default:
+              return s2.slice(0, -1).join(", ") + ", or " + s2[s2.length - 1];
+          }
+        })(r2) + " but " + (function(r3) {
+          return r3 ? '"' + o2(r3) + '"' : "end of input";
+        })(t2) + " found.";
+      }, r.exports = { SyntaxError: o, parse: function(r2, t2) {
+        t2 = void 0 !== t2 ? t2 : {};
+        var e2, s = {}, u = { start: cc }, a = cc, i = function(r3, t3) {
+          return pv(r3, t3);
+        }, c = function(r3, t3) {
+          return { ...r3, order_by: t3 && t3.toLowerCase() };
+        }, l = function(r3, t3) {
+          return pv(r3, t3, 1);
+        }, f = nc("IF", true), b = "IDENTIFIED", p = nc("IDENTIFIED", false), v = nc("WITH", true), d = nc("BY", true), y = nc("RANDOM", true), w = nc("PASSWORD", true), L = nc("AS", true), h = function(r3, t3) {
+          return pv(r3, t3);
+        }, C = nc("role", true), m = nc("NONE", true), E = nc("SSL", true), A = nc("X509", true), T = nc("CIPHER", true), _2 = nc("ISSUER", true), g = nc("SUBJECT", true), I = function(r3, t3) {
+          return t3.prefix = r3.toLowerCase(), t3;
+        }, S = nc("REQUIRE", true), N = nc("MAX_QUERIES_PER_HOUR", true), O = nc("MAX_UPDATES_PER_HOUR", true), R = nc("MAX_CONNECTIONS_PER_HOUR", true), j = nc("MAX_USER_CONNECTIONS", true), x = nc("EXPIRE", true), k = nc("DEFAULT", true), U = nc("NEVER", true), D = nc("HISTORY", true), M = nc("REUSE", false), P = nc("CURRENT", true), G = nc("OPTIONAL", true), F = nc("FAILED_LOGIN_ATTEMPTS", true), H = nc("PASSWORD_LOCK_TIME", true), Y = nc("UNBOUNDED", true), B = nc("ACCOUNT", true), $ = nc("LOCK", true), W = nc("UNLOCK", true), q = nc("ATTRIBUTE", true), V = nc("CASCADED", true), X = nc("LOCAL", true), K = nc("CHECK", true), Q = nc("OPTION", false), z = nc("ALGORITHM", true), Z = nc("UNDEFINED", true), J = nc("MERGE", true), rr = nc("TEMPTABLE", true), tr = nc("SQL", true), er = nc("SECURITY", true), nr = nc("DEFINER", true), or = nc("INVOKER", true), sr = function(r3, t3) {
+          return pv(r3, t3);
+        }, ur = nc("AUTO_INCREMENT", true), ar = nc("UNIQUE", true), ir = nc("KEY", true), cr2 = nc("PRIMARY", true), lr = nc("@", false), fr = function() {
+          return fv("=", { type: "origin", value: "definer" }, { type: "function", name: { name: [{ type: "default", value: "current_user" }] }, args: { type: "expr_list", value: [] } });
+        }, br = nc("BEFORE", true), pr = nc("AFTER", true), vr = nc("FOR", true), dr = nc("EACH", true), yr = nc("ROW", true), wr = nc("STATEMENT", true), Lr = nc("FOLLOWS", true), hr = nc("PRECEDES", true), Cr = nc("COLUMN_FORMAT", true), mr = nc("FIXED", true), Er = nc("DYNAMIC", true), Ar = nc("STORAGE", true), Tr = nc("DISK", true), _r = nc("MEMORY", true), gr = nc("GENERATED", true), Ir = nc("ALWAYS", true), Sr = nc("STORED", true), Nr = nc("VIRTUAL", true), Or = nc("if", true), Rr = nc("exists", true), jr = nc("first", true), xr = nc("after", true), kr = nc("LESS", true), Ur = nc("THAN", true), Dr = nc("DROP", true), Mr = nc("TRUNCATE", true), Pr = nc("DISCARD", true), Gr = nc("IMPORT", true), Fr = nc("COALESCE", true), Hr = nc("ANALYZE", true), Yr = nc("TABLESPACE", true), Br = nc("INSTANT", true), $r = nc("INPLACE", true), Wr = nc("COPY", true), qr = nc("SHARED", true), Vr = nc("EXCLUSIVE", true), Xr = nc("CHANGE", true), Kr = nc("FOREIGN", true), Qr = nc("CONSTRAINT", true), zr = nc("NOCHECK", true), Zr = nc("NOT", true), Jr = nc("REPLICATION", true), rt = nc("FOREIGN KEY", true), tt = nc("ENFORCED", true), et = nc("MATCH FULL", true), nt = nc("MATCH PARTIAL", true), ot = nc("MATCH SIMPLE", true), st = nc("RESTRICT", true), ut = nc("CASCADE", true), at = nc("SET NULL", true), it = nc("NO ACTION", true), ct = nc("SET DEFAULT", true), lt = nc("CHARACTER", true), ft = nc("SET", true), bt = nc("CHARSET", true), pt = nc("COLLATE", true), vt = nc("AVG_ROW_LENGTH", true), dt = nc("KEY_BLOCK_SIZE", true), yt = nc("MAX_ROWS", true), wt = nc("MIN_ROWS", true), Lt = nc("STATS_SAMPLE_PAGES", true), ht = nc("CHECKSUM", false), Ct = nc("DELAY_KEY_WRITE", false), mt = /^[01]/, Et = oc(["0", "1"], false, false), At = nc("CONNECTION", true), Tt = nc("ENGINE_ATTRIBUTE", true), _t = nc("SECONDARY_ENGINE_ATTRIBUTE", true), gt = nc("DATA", true), It = nc("INDEX", true), St = nc("DIRECTORY", true), Nt = nc("COMPRESSION", true), Ot = nc("'", false), Rt = nc("ZLIB", true), jt = nc("LZ4", true), xt = nc("ENGINE", true), kt = function(r3, t3, e3) {
+          return { keyword: r3.toLowerCase(), symbol: t3, value: e3.toUpperCase() };
+        }, Ut = nc("ROW_FORMAT", true), Dt = nc("COMPRESSED", true), Mt = nc("REDUNDANT", true), Pt = nc("COMPACT", true), Gt = nc("READ", true), Ft = nc("LOW_PRIORITY", true), Ht = nc("WRITE", true), Yt = function(r3, t3) {
+          return pv(r3, t3);
+        }, Bt = nc("BINARY", true), $t = nc("MASTER", true), Wt = nc("LOGS", true), qt = nc("TRIGGERS", true), Vt = nc("STATUS", true), Xt = nc("PROCESSLIST", true), Kt = nc("PROCEDURE", true), Qt = nc("FUNCTION", true), zt = nc("BINLOG", true), Zt = nc("EVENTS", true), Jt = nc("COLLATION", true), re = nc("DATABASES", true), te = nc("COLUMNS", true), ee = nc("INDEXES", true), ne = nc("EVENT", true), oe = nc("GRANTS", true), se = nc("SERIALIZABLE", true), ue = nc("REPEATABLE", true), ae = nc("COMMITTED", true), ie = nc("UNCOMMITTED", true), ce = function(r3) {
+          return { type: "origin", value: "read " + r3.toLowerCase() };
+        }, le = nc("ISOLATION", true), fe = nc("LEVEL", true), be = nc("ONLY", true), pe = nc("DEFERRABLE", true), ve = nc("commit", true), de = nc("rollback", true), ye = nc("begin", true), we = nc("WORK", true), Le = nc("TRANSACTION", true), he = nc("start", true), Ce = nc("transaction", true), me = nc("FIELDS", true), Ee = nc("TERMINATED", true), Ae = nc("OPTIONALLY", true), Te = nc("ENCLOSED", true), _e = nc("ESCAPED", true), ge = nc("STARTING", true), Ie = nc("LINES", true), Se = nc("LOAD", true), Ne = nc("CONCURRENT", true), Oe = nc("INFILE", true), Re = nc("INTO", true), je = nc("TABLE", true), xe = nc("ROWS", true), ke = nc("VIEW", true), Ue = nc("GRANT", true), De = nc("OPTION", true), Me = function(r3) {
+          return { type: "origin", value: Array.isArray(r3) ? r3[0] : r3 };
+        }, Pe = nc("ROUTINE", true), Ge = nc("EXECUTE", true), Fe = nc("ADMIN", true), He = nc("GRANT", false), Ye = nc("PROXY", false), Be = nc("(", false), $e = nc(")", false), We = /^[0-9]/, qe = oc([["0", "9"]], false, false), Ve = nc("IN", true), Xe = nc("SHARE", true), Ke = nc("MODE", true), Qe = nc("WAIT", true), ze = nc("NOWAIT", true), Ze = nc("SKIP", true), Je = nc("LOCKED", true), rn = nc("NATURAL", true), tn = nc("LANGUAGE", true), en = nc("QUERY", true), nn = nc("EXPANSION", true), on = nc("BOOLEAN", true), sn = nc("MATCH", true), un = nc("AGAINST", false), an = nc("OUTFILE", true), cn = nc("DUMPFILE", true), ln = nc("BTREE", true), fn = nc("HASH", true), bn = nc("PARSER", true), pn = nc("VISIBLE", true), vn = nc("INVISIBLE", true), dn = nc("LATERAL", true), yn = /^[_0-9]/, wn = oc(["_", ["0", "9"]], false, false), Ln = nc("ROLLUP", true), hn = nc("?", false), Cn = nc("=", false), mn = nc("DUPLICATE", true), En = function(r3, t3) {
+          return vv(r3, t3);
+        }, An = function(r3) {
+          return r3[0] + " " + r3[2];
+        }, Tn = nc(">=", false), _n = nc(">", false), gn = nc("<=", false), In = nc("<>", false), Sn = nc("<", false), Nn = nc("!=", false), On = nc("ESCAPE", true), Rn = nc("+", false), jn = nc("-", false), xn = nc("*", false), kn = nc("/", false), Un = nc("%", false), Dn = nc("||", false), Mn = nc("div", true), Pn = nc("mod", true), Gn = nc("&", false), Fn = nc(">>", false), Hn = nc("<<", false), Yn = nc("^", false), Bn = nc("|", false), $n = nc("!", false), Wn = nc("~", false), qn = nc("?|", false), Vn = nc("?&", false), Xn = nc("#-", false), Kn = nc("#>>", false), Qn = nc("#>", false), zn = nc("@>", false), Zn = nc("<@", false), Jn = function(r3) {
+          return true === av[r3.toUpperCase()];
+        }, ro = nc('"', false), to = /^[^"]/, eo = oc(['"'], true, false), no = /^[^']/, oo = oc(["'"], true, false), so = nc("`", false), uo = /^[^`\\]/, ao = oc(["`", "\\"], true, false), io = function(r3, t3) {
+          return r3 + t3.join("");
+        }, co = /^[A-Za-z_\u4E00-\u9FA5\xC0-\u017F]/, lo = oc([["A", "Z"], ["a", "z"], "_", ["一", "龥"], ["À", "ſ"]], false, false), fo = /^[A-Za-z0-9_$\x80-\uFFFF]/, bo = oc([["A", "Z"], ["a", "z"], ["0", "9"], "_", "$", ["", "￿"]], false, false), po = /^[A-Za-z0-9_:\u4E00-\u9FA5\xC0-\u017F]/, vo = oc([["A", "Z"], ["a", "z"], ["0", "9"], "_", ":", ["一", "龥"], ["À", "ſ"]], false, false), yo = nc(":", false), wo = nc("NOW", true), Lo = nc("OVER", true), ho = nc("WINDOW", true), Co = nc("FOLLOWING", true), mo = nc("PRECEDING", true), Eo = nc("SEPARATOR", true), Ao = nc("YEAR_MONTH", true), To = nc("DAY_HOUR", true), _o = nc("DAY_MINUTE", true), go = nc("DAY_SECOND", true), Io = nc("DAY_MICROSECOND", true), So = nc("HOUR_MINUTE", true), No = nc("HOUR_SECOND", true), Oo = nc("HOUR_MICROSECOND", true), Ro = nc("MINUTE_SECOND", true), jo = nc("MINUTE_MICROSECOND", true), xo = nc("SECOND_MICROSECOND", true), ko = nc("TIMEZONE_HOUR", true), Uo = nc("TIMEZONE_MINUTE", true), Do = nc("CENTURY", true), Mo = nc("DAY", true), Po = nc("DATE", true), Go = nc("DECADE", true), Fo = nc("DOW", true), Ho = nc("DOY", true), Yo = nc("EPOCH", true), Bo = nc("HOUR", true), $o = nc("ISODOW", true), Wo = nc("ISOWEEK", true), qo = nc("ISOYEAR", true), Vo = nc("MICROSECONDS", true), Xo = nc("MILLENNIUM", true), Ko = nc("MILLISECONDS", true), Qo = nc("MINUTE", true), zo = nc("MONTH", true), Zo = nc("QUARTER", true), Jo = nc("SECOND", true), rs = nc("TIME", true), ts2 = nc("TIMEZONE", true), es = nc("WEEK", true), ns = nc("YEAR", true), os = nc("DATE_TRUNC", true), ss = nc("BOTH", true), us = nc("LEADING", true), as = nc("TRAILING", true), is = nc("trim", true), cs = nc("convert", true), ls = nc("binary", true), fs = nc("_binary", true), bs = nc("_latin1", true), ps = nc("X", true), vs = /^[0-9A-Fa-f]/, ds = oc([["0", "9"], ["A", "F"], ["a", "f"]], false, false), ys = nc("b", true), ws = nc("0x", true), Ls = nc("N", true), hs = function(r3, t3) {
+          return { type: r3.toLowerCase(), value: t3[1].join("") };
+        }, Cs = /^[^"\\\0-\x1F\x7F]/, ms = oc(['"', "\\", ["\0", ""], ""], true, false), Es = /^[\n]/, As = oc(["\n"], false, false), Ts = /^[^'\\]/, _s = oc(["'", "\\"], true, false), gs = nc("\\'", false), Is = nc('\\"', false), Ss = nc("\\\\", false), Ns = nc("\\/", false), Os = nc("\\b", false), Rs = nc("\\f", false), js = nc("\\n", false), xs = nc("\\r", false), ks = nc("\\t", false), Us = nc("\\u", false), Ds = nc("\\", false), Ms = nc("''", false), Ps = nc('""', false), Gs = nc("``", false), Fs = /^[\n\r]/, Hs = oc(["\n", "\r"], false, false), Ys = nc(".", false), Bs = /^[0-9a-fA-F]/, $s = oc([["0", "9"], ["a", "f"], ["A", "F"]], false, false), Ws = /^[eE]/, qs = oc(["e", "E"], false, false), Vs = /^[+\-]/, Xs = oc(["+", "-"], false, false), Ks = nc("NULL", true), Qs = nc("NOT NULL", true), zs = nc("TRUE", true), Zs = nc("TO", true), Js = nc("FALSE", true), ru = nc("SHOW", true), tu = nc("USE", true), eu = nc("ALTER", true), nu = nc("SELECT", true), ou = nc("UPDATE", true), su = nc("CREATE", true), uu = nc("TEMPORARY", true), au = nc("DELETE", true), iu = nc("INSERT", true), cu = nc("RECURSIVE", true), lu = nc("REPLACE", true), fu = nc("RENAME", true), bu = nc("IGNORE", true), pu = nc("EXPLAIN", true), vu = nc("PARTITION", true), du = nc("FROM", true), yu = nc("TRIGGER", true), wu = nc("TABLES", true), Lu = nc("DATABASE", true), hu = nc("SCHEMA", true), Cu = nc("ON", true), mu = nc("LEFT", true), Eu = nc("RIGHT", true), Au = nc("FULL", true), Tu = nc("INNER", true), _u = nc("CROSS", true), gu = nc("STRAIGHT_JOIN", true), Iu = nc("JOIN", true), Su = nc("OUTER", true), Nu = nc("UNION", true), Ou = nc("MINUS", true), Ru = nc("INTERSECT", true), ju = nc("EXCEPT", true), xu = nc("VALUES", true), ku = nc("USING", true), Uu = nc("WHERE", true), Du = nc("GO", true), Mu = nc("GROUP", true), Pu = nc("ORDER", true), Gu = nc("HAVING", true), Fu = nc("LIMIT", true), Hu = nc("OFFSET", true), Yu = nc("ASC", true), Bu = nc("DESC", true), $u = nc("DESCRIBE", true), Wu = nc("ALL", true), qu = nc("DISTINCT", true), Vu = nc("BETWEEN", true), Xu = nc("IS", true), Ku = nc("LIKE", true), Qu = nc("RLIKE", true), zu = nc("REGEXP", true), Zu = nc("EXISTS", true), Ju = nc("AND", true), ra = nc("OR", true), ta = nc("COUNT", true), ea = nc("GROUP_CONCAT", true), na = nc("MAX", true), oa = nc("MIN", true), sa = nc("SUM", true), ua = nc("AVG", true), aa = nc("EXTRACT", true), ia = nc("CALL", true), ca = nc("CASE", true), la = nc("WHEN", true), fa = nc("THEN", true), ba = nc("ELSE", true), pa = nc("END", true), va = nc("CAST", true), da = nc("VARBINARY", true), ya = nc("BIT", true), wa = nc("CHAR", true), La = nc("VARCHAR", true), ha = nc("NUMERIC", true), Ca = nc("DECIMAL", true), ma = nc("SIGNED", true), Ea = nc("UNSIGNED", true), Aa = nc("INT", true), Ta = nc("ZEROFILL", true), _a = nc("INTEGER", true), ga = nc("JSON", true), Ia = nc("SMALLINT", true), Sa = nc("MEDIUMINT", true), Na = nc("TINYINT", true), Oa = nc("TINYTEXT", true), Ra = nc("TEXT", true), ja = nc("MEDIUMTEXT", true), xa = nc("LONGTEXT", true), ka = nc("BIGINT", true), Ua = nc("ENUM", true), Da = nc("FLOAT", true), Ma = nc("DOUBLE", true), Pa = nc("DATETIME", true), Ga = nc("TIMESTAMP", true), Fa = nc("USER", true), Ha = nc("VECTOR", true), Ya = nc("CURRENT_DATE", true), Ba = nc("INTERVAL", true), $a = nc("MICROSECOND", true), Wa = nc("CURRENT_TIME", true), qa = nc("CURRENT_TIMESTAMP", true), Va = nc("CURRENT_USER", true), Xa = nc("SESSION_USER", true), Ka = nc("SYSTEM_USER", true), Qa = nc("GLOBAL", true), za = nc("SESSION", true), Za = nc("PERSIST", true), Ja = nc("PERSIST_ONLY", true), ri = nc("GEOMETRY", true), ti = nc("POINT", true), ei = nc("LINESTRING", true), ni = nc("POLYGON", true), oi = nc("MULTIPOINT", true), si = nc("MULTILINESTRING", true), ui = nc("MULTIPOLYGON", true), ai = nc("GEOMETRYCOLLECTION", true), ii = nc("@@", false), ci = nc("$", false), li = nc("return", true), fi = nc(":=", false), bi = nc("DUAL", true), pi = nc("ADD", true), vi = nc("COLUMN", true), di = nc("MODIFY", true), yi = nc("FULLTEXT", true), wi = nc("SPATIAL", true), Li = nc("COMMENT", true), hi = nc("REFERENCES", true), Ci = nc("SQL_CALC_FOUND_ROWS", true), mi = nc("SQL_CACHE", true), Ei = nc("SQL_NO_CACHE", true), Ai = nc("SQL_SMALL_RESULT", true), Ti = nc("SQL_BIG_RESULT", true), _i = nc("SQL_BUFFER_RESULT", true), gi = nc(",", false), Ii = nc("[", false), Si = nc("]", false), Ni = nc(";", false), Oi = nc("->", false), Ri = nc("->>", false), ji = nc("&&", false), xi = nc("XOR", true), ki = nc("/*", false), Ui = nc("*/", false), Di = nc("--", false), Mi = nc("#", false), Pi = { type: "any" }, Gi = /^[ \t\n\r]/, Fi = oc([" ", "	", "\n", "\r"], false, false), Hi = function(r3, t3, e3) {
+          return { type: "assign", left: r3, symbol: t3, right: e3 };
+        }, Yi = nc("boolean", true), Bi = nc("blob", true), $i = nc("tinyblob", true), Wi = nc("mediumblob", true), qi = nc("longblob", true), Vi = function(r3, t3) {
+          return { dataType: r3, ...t3 || {} };
+        }, Xi = nc("ARRAY", true), Ki = /^[0-6]/, Qi = oc([["0", "6"]], false, false), zi = 0, Zi = 0, Ji = [{ line: 1, column: 1 }], rc = 0, tc = [], ec = 0;
+        if ("startRule" in t2) {
+          if (!(t2.startRule in u)) throw new Error(`Can't start parsing from rule "` + t2.startRule + '".');
+          a = u[t2.startRule];
+        }
+        function nc(r3, t3) {
+          return { type: "literal", text: r3, ignoreCase: t3 };
+        }
+        function oc(r3, t3, e3) {
+          return { type: "class", parts: r3, inverted: t3, ignoreCase: e3 };
+        }
+        function sc(t3) {
+          var e3, n2 = Ji[t3];
+          if (n2) return n2;
+          for (e3 = t3 - 1; !Ji[e3]; ) e3--;
+          for (n2 = { line: (n2 = Ji[e3]).line, column: n2.column }; e3 < t3; ) 10 === r2.charCodeAt(e3) ? (n2.line++, n2.column = 1) : n2.column++, e3++;
+          return Ji[t3] = n2, n2;
+        }
+        function uc(r3, t3) {
+          var e3 = sc(r3), n2 = sc(t3);
+          return { start: { offset: r3, line: e3.line, column: e3.column }, end: { offset: t3, line: n2.line, column: n2.column } };
+        }
+        function ac(r3) {
+          zi < rc || (zi > rc && (rc = zi, tc = []), tc.push(r3));
+        }
+        function ic(r3, t3, e3) {
+          return new o(o.buildMessage(r3, t3), r3, t3, e3);
+        }
+        function cc() {
+          var r3, t3, e3, n2, o2, u2, a2, i2;
+          if (r3 = zi, (t3 = lc()) !== s) if (Pp() !== s) {
+            for (e3 = [], n2 = zi, (o2 = Pp()) !== s && (u2 = Nb()) !== s && (a2 = Pp()) !== s && (i2 = lc()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Pp()) !== s && (u2 = Nb()) !== s && (a2 = Pp()) !== s && (i2 = lc()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s);
+            e3 !== s ? (Zi = r3, r3 = t3 = (function(r4, t4) {
+              if (!t4 || 0 === t4.length) return r4;
+              delete r4.tableList, delete r4.columnList;
+              let e4 = r4;
+              for (let r5 = 0; r5 < t4.length; r5++) delete t4[r5][3].tableList, delete t4[r5][3].columnList, e4.go_next = t4[r5][3], e4.go = "go", e4 = e4.go_next;
+              return { tableList: Array.from(hv), columnList: yv(Cv), ast: r4 };
+            })(t3, e3)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          else zi = r3, r3 = s;
+          return r3;
+        }
+        function lc() {
+          var r3, t3;
+          return r3 = zi, Pp() !== s && (t3 = (function() {
+            var r4, t4, e3, n2, o2, u2, a2, i2;
+            if (r4 = zi, (t4 = bc()) !== s) {
+              for (e3 = [], n2 = zi, (o2 = Pp()) !== s && (u2 = kp()) !== s && (a2 = Pp()) !== s && (i2 = bc()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Pp()) !== s && (u2 = kp()) !== s && (a2 = Pp()) !== s && (i2 = bc()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s);
+              e3 !== s ? (Zi = r4, t4 = (function(r5, t5) {
+                const e4 = r5 && r5.ast || r5, n3 = t5 && t5.length && t5[0].length >= 4 ? [e4] : e4;
+                for (let r6 = 0; r6 < t5.length; r6++) t5[r6][3] && 0 !== t5[r6][3].length && n3.push(t5[r6][3] && t5[r6][3].ast || t5[r6][3]);
+                return { tableList: Array.from(hv), columnList: yv(Cv), ast: n3 };
+              })(t4, e3), r4 = t4) : (zi = r4, r4 = s);
+            } else zi = r4, r4 = s;
+            return r4;
+          })()) !== s ? (Zi = r3, r3 = t3) : (zi = r3, r3 = s), r3;
+        }
+        function fc() {
+          var t3;
+          return (t3 = (function() {
+            var r3, t4, e3, n2, o2, u2, a2;
+            r3 = zi, (t4 = eb()) !== s && Pp() !== s && (e3 = Lb()) !== s && Pp() !== s ? ((n2 = gc()) === s && (n2 = null), n2 !== s && Pp() !== s && (o2 = yl()) !== s ? (Zi = r3, i2 = t4, c2 = e3, f2 = n2, (b2 = o2) && b2.forEach((r4) => hv.add(`${i2}::${r4.db}::${r4.table}`)), t4 = { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: i2.toLowerCase(), keyword: c2.toLowerCase(), prefix: f2, name: b2 } }, r3 = t4) : (zi = r3, r3 = s)) : (zi = r3, r3 = s);
+            var i2, c2, f2, b2;
+            r3 === s && (r3 = zi, (t4 = eb()) !== s && Pp() !== s && (e3 = vp()) !== s && Pp() !== s ? ((n2 = gc()) === s && (n2 = null), n2 !== s && Pp() !== s && (o2 = yl()) !== s && Pp() !== s ? ((u2 = Pc()) === s && (u2 = null), u2 !== s ? (Zi = r3, t4 = (function(r4, t5, e4, n3, o3) {
+              return { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: r4.toLowerCase(), keyword: t5.toLowerCase(), prefix: e4, name: n3, options: o3 && [{ type: "origin", value: o3 }] } };
+            })(t4, e3, n2, o2, u2), r3 = t4) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3 === s && (r3 = zi, (t4 = eb()) !== s && Pp() !== s && (e3 = mp()) !== s && Pp() !== s && (n2 = of()) !== s && Pp() !== s && (o2 = Ab()) !== s && Pp() !== s && (u2 = Cl()) !== s && Pp() !== s ? ((a2 = (function() {
+              var r4, t5, e4, n3, o3, u3;
+              r4 = zi, (t5 = Oc()) === s && (t5 = Rc());
+              if (t5 !== s) {
+                for (e4 = [], n3 = zi, (o3 = Pp()) !== s ? ((u3 = Oc()) === s && (u3 = Rc()), u3 !== s ? n3 = o3 = [o3, u3] : (zi = n3, n3 = s)) : (zi = n3, n3 = s); n3 !== s; ) e4.push(n3), n3 = zi, (o3 = Pp()) !== s ? ((u3 = Oc()) === s && (u3 = Rc()), u3 !== s ? n3 = o3 = [o3, u3] : (zi = n3, n3 = s)) : (zi = n3, n3 = s);
+                e4 !== s ? (Zi = r4, t5 = l(t5, e4), r4 = t5) : (zi = r4, r4 = s);
+              } else zi = r4, r4 = s;
+              return r4;
+            })()) === s && (a2 = null), a2 !== s && Pp() !== s ? (Zi = r3, t4 = (function(r4, t5, e4, n3, o3) {
+              return { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: r4.toLowerCase(), keyword: t5.toLowerCase(), name: e4, table: n3, options: o3 } };
+            })(t4, e3, n2, u2, a2), r3 = t4) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3 === s && (r3 = zi, (t4 = eb()) !== s && Pp() !== s ? ((e3 = mb()) === s && (e3 = Eb()), e3 !== s && Pp() !== s ? ((n2 = gc()) === s && (n2 = null), n2 !== s && Pp() !== s && (o2 = hf()) !== s ? (Zi = r3, t4 = (function(r4, t5, e4, n3) {
+              return { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: r4.toLowerCase(), keyword: t5.toLowerCase(), prefix: e4, name: n3 } };
+            })(t4, e3, n2, o2), r3 = t4) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3 === s && (r3 = zi, (t4 = eb()) !== s && Pp() !== s && (e3 = hb()) !== s && Pp() !== s ? ((n2 = gc()) === s && (n2 = null), n2 !== s && Pp() !== s && (o2 = Ll()) !== s ? (Zi = r3, t4 = (function(r4, t5, e4, n3) {
+              return { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: r4.toLowerCase(), keyword: t5.toLowerCase(), prefix: e4, name: [{ schema: n3.db, trigger: n3.table }] } };
+            })(t4, e3, n2, o2), r3 = t4) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)))));
+            return r3;
+          })()) === s && (t3 = (function() {
+            var t4;
+            (t4 = (function() {
+              var r3, t5, e3, n2, o2, u2, a2, c2, l2, f2;
+              r3 = zi, (t5 = ub()) !== s && Pp() !== s ? ((e3 = ab()) === s && (e3 = null), e3 !== s && Pp() !== s && Lb() !== s && Pp() !== s ? ((n2 = yc()) === s && (n2 = null), n2 !== s && Pp() !== s && (o2 = Cl()) !== s && Pp() !== s && (u2 = (function r4() {
+                var t6, e4;
+                (t6 = (function() {
+                  var r5, t7;
+                  r5 = zi, Pb() !== s && Pp() !== s && (t7 = yl()) !== s ? (Zi = r5, r5 = { type: "like", table: t7 }) : (zi = r5, r5 = s);
+                  return r5;
+                })()) === s && (t6 = zi, jp() !== s && Pp() !== s && (e4 = r4()) !== s && Pp() !== s && xp() !== s ? (Zi = t6, (n3 = e4).parentheses = true, t6 = n3) : (zi = t6, t6 = s));
+                var n3;
+                return t6;
+              })()) !== s ? (Zi = r3, b2 = t5, p2 = e3, v2 = n2, y2 = u2, (d2 = o2) && hv.add(`create::${d2.db}::${d2.table}`), t5 = { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: b2[0].toLowerCase(), keyword: "table", temporary: p2 && p2[0].toLowerCase(), if_not_exists: v2, table: [d2], like: y2 } }, r3 = t5) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s);
+              var b2, p2, v2, d2, y2;
+              r3 === s && (r3 = zi, (t5 = ub()) !== s && Pp() !== s ? ((e3 = ab()) === s && (e3 = null), e3 !== s && Pp() !== s && Lb() !== s && Pp() !== s ? ((n2 = yc()) === s && (n2 = null), n2 !== s && Pp() !== s && (o2 = Cl()) !== s && Pp() !== s ? ((u2 = (function() {
+                var r4, t6, e4, n3, o3, u3, a3, i2, c3;
+                if (r4 = zi, (t6 = jp()) !== s) if (Pp() !== s) if ((e4 = mc()) !== s) {
+                  for (n3 = [], o3 = zi, (u3 = Pp()) !== s && (a3 = Op()) !== s && (i2 = Pp()) !== s && (c3 = mc()) !== s ? o3 = u3 = [u3, a3, i2, c3] : (zi = o3, o3 = s); o3 !== s; ) n3.push(o3), o3 = zi, (u3 = Pp()) !== s && (a3 = Op()) !== s && (i2 = Pp()) !== s && (c3 = mc()) !== s ? o3 = u3 = [u3, a3, i2, c3] : (zi = o3, o3 = s);
+                  n3 !== s && (o3 = Pp()) !== s && (u3 = xp()) !== s ? (Zi = r4, t6 = sr(e4, n3), r4 = t6) : (zi = r4, r4 = s);
+                } else zi = r4, r4 = s;
+                else zi = r4, r4 = s;
+                else zi = r4, r4 = s;
+                return r4;
+              })()) === s && (u2 = null), u2 !== s && Pp() !== s ? ((a2 = (function() {
+                var r4, t6, e4, n3, o3, u3, a3, c3;
+                if (r4 = zi, (t6 = Hc()) !== s) {
+                  for (e4 = [], n3 = zi, (o3 = Pp()) !== s ? ((u3 = Op()) === s && (u3 = null), u3 !== s && (a3 = Pp()) !== s && (c3 = Hc()) !== s ? n3 = o3 = [o3, u3, a3, c3] : (zi = n3, n3 = s)) : (zi = n3, n3 = s); n3 !== s; ) e4.push(n3), n3 = zi, (o3 = Pp()) !== s ? ((u3 = Op()) === s && (u3 = null), u3 !== s && (a3 = Pp()) !== s && (c3 = Hc()) !== s ? n3 = o3 = [o3, u3, a3, c3] : (zi = n3, n3 = s)) : (zi = n3, n3 = s);
+                  e4 !== s ? (Zi = r4, t6 = i(t6, e4), r4 = t6) : (zi = r4, r4 = s);
+                } else zi = r4, r4 = s;
+                return r4;
+              })()) === s && (a2 = null), a2 !== s && Pp() !== s ? ((c2 = bb()) === s && (c2 = lb()), c2 === s && (c2 = null), c2 !== s && Pp() !== s ? ((l2 = wb()) === s && (l2 = null), l2 !== s && Pp() !== s ? ((f2 = vc()) === s && (f2 = null), f2 !== s ? (Zi = r3, t5 = (function(r4, t6, e4, n3, o3, s2, u3, a3, i2) {
+                return n3 && hv.add(`create::${n3.db}::${n3.table}`), { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: r4[0].toLowerCase(), keyword: "table", temporary: t6 && t6[0].toLowerCase(), if_not_exists: e4, table: [n3], ignore_replace: u3 && u3[0].toLowerCase(), as: a3 && a3[0].toLowerCase(), query_expr: i2 && i2.ast, create_definitions: o3, table_options: s2 } };
+              })(t5, e3, n2, o2, u2, a2, c2, l2, f2), r3 = t5) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s));
+              return r3;
+            })()) === s && (t4 = (function() {
+              var t5, e3, n2, o2, u2, a2, i2, c2, l2, f2, b2;
+              t5 = zi, (e3 = ub()) !== s && Pp() !== s ? ((n2 = Tc()) === s && (n2 = null), n2 !== s && Pp() !== s && hb() !== s && Pp() !== s ? ((o2 = yc()) === s && (o2 = null), o2 !== s && Pp() !== s && (u2 = Cl()) !== s && Pp() !== s && (a2 = (function() {
+                var t6;
+                "before" === r2.substr(zi, 6).toLowerCase() ? (t6 = r2.substr(zi, 6), zi += 6) : (t6 = s, 0 === ec && ac(br));
+                t6 === s && ("after" === r2.substr(zi, 5).toLowerCase() ? (t6 = r2.substr(zi, 5), zi += 5) : (t6 = s, 0 === ec && ac(pr)));
+                return t6;
+              })()) !== s && Pp() !== s && (i2 = (function() {
+                var r3, t6;
+                r3 = zi, (t6 = cb()) === s && (t6 = sb()) === s && (t6 = ib());
+                t6 !== s && (Zi = r3, t6 = { keyword: t6[0].toLowerCase() });
+                return r3 = t6;
+              })()) !== s && Pp() !== s && Ab() !== s && Pp() !== s && (c2 = Cl()) !== s && Pp() !== s && (l2 = (function() {
+                var t6, e4, n3, o3;
+                t6 = zi, "for" === r2.substr(zi, 3).toLowerCase() ? (e4 = r2.substr(zi, 3), zi += 3) : (e4 = s, 0 === ec && ac(vr));
+                e4 !== s && Pp() !== s ? ("each" === r2.substr(zi, 4).toLowerCase() ? (n3 = r2.substr(zi, 4), zi += 4) : (n3 = s, 0 === ec && ac(dr)), n3 === s && (n3 = null), n3 !== s && Pp() !== s ? ("row" === r2.substr(zi, 3).toLowerCase() ? (o3 = r2.substr(zi, 3), zi += 3) : (o3 = s, 0 === ec && ac(yr)), o3 === s && ("statement" === r2.substr(zi, 9).toLowerCase() ? (o3 = r2.substr(zi, 9), zi += 9) : (o3 = s, 0 === ec && ac(wr))), o3 !== s ? (Zi = t6, u3 = e4, i3 = o3, e4 = { keyword: (a3 = n3) ? `${u3.toLowerCase()} ${a3.toLowerCase()}` : u3.toLowerCase(), args: i3.toLowerCase() }, t6 = e4) : (zi = t6, t6 = s)) : (zi = t6, t6 = s)) : (zi = t6, t6 = s);
+                var u3, a3, i3;
+                return t6;
+              })()) !== s && Pp() !== s ? ((f2 = (function() {
+                var t6, e4, n3;
+                t6 = zi, "follows" === r2.substr(zi, 7).toLowerCase() ? (e4 = r2.substr(zi, 7), zi += 7) : (e4 = s, 0 === ec && ac(Lr));
+                e4 === s && ("precedes" === r2.substr(zi, 8).toLowerCase() ? (e4 = r2.substr(zi, 8), zi += 8) : (e4 = s, 0 === ec && ac(hr)));
+                e4 !== s && Pp() !== s && (n3 = lf()) !== s ? (Zi = t6, t6 = e4 = { keyword: e4, trigger: n3 }) : (zi = t6, t6 = s);
+                return t6;
+              })()) === s && (f2 = null), f2 !== s && Pp() !== s && (b2 = (function() {
+                var r3, t6;
+                r3 = zi, yb() !== s && Pp() !== s && (t6 = Nl()) !== s ? (Zi = r3, r3 = { type: "set", expr: t6 }) : (zi = r3, r3 = s);
+                return r3;
+              })()) !== s ? (Zi = t5, p2 = e3, v2 = n2, d2 = o2, y2 = u2, w2 = a2, L2 = i2, h2 = c2, C2 = l2, m2 = f2, E2 = b2, e3 = { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: p2[0].toLowerCase(), definer: v2, keyword: "trigger", for_each: C2, if_not_exists: d2, trigger: y2, time: w2, events: [L2], order: m2, table: h2, execute: E2 } }, t5 = e3) : (zi = t5, t5 = s)) : (zi = t5, t5 = s)) : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              var p2, v2, d2, y2, w2, L2, h2, C2, m2, E2;
+              return t5;
+            })()) === s && (t4 = (function() {
+              var r3, t5, e3, n2, o2, u2, a2, c2, l2, f2, b2, p2;
+              r3 = zi, (t5 = ub()) !== s && Pp() !== s ? ((e3 = _p()) === s && (e3 = Ap()) === s && (e3 = Tp()), e3 === s && (e3 = null), e3 !== s && Pp() !== s && (n2 = mp()) !== s && Pp() !== s && (o2 = lf()) !== s && Pp() !== s ? ((u2 = pl()) === s && (u2 = null), u2 !== s && Pp() !== s && (a2 = Ab()) !== s && Pp() !== s && (c2 = Cl()) !== s && Pp() !== s && jp() !== s && Pp() !== s && (l2 = (function() {
+                var r4, t6, e4, n3, o3, u3, a3, c3;
+                if (r4 = zi, (t6 = dc()) !== s) {
+                  for (e4 = [], n3 = zi, (o3 = Pp()) !== s && (u3 = Op()) !== s && (a3 = Pp()) !== s && (c3 = dc()) !== s ? n3 = o3 = [o3, u3, a3, c3] : (zi = n3, n3 = s); n3 !== s; ) e4.push(n3), n3 = zi, (o3 = Pp()) !== s && (u3 = Op()) !== s && (a3 = Pp()) !== s && (c3 = dc()) !== s ? n3 = o3 = [o3, u3, a3, c3] : (zi = n3, n3 = s);
+                  e4 !== s ? (Zi = r4, t6 = i(t6, e4), r4 = t6) : (zi = r4, r4 = s);
+                } else zi = r4, r4 = s;
+                return r4;
+              })()) !== s && Pp() !== s && xp() !== s && Pp() !== s ? ((f2 = vl()) === s && (f2 = null), f2 !== s && Pp() !== s ? ((b2 = Oc()) === s && (b2 = null), b2 !== s && Pp() !== s ? ((p2 = Rc()) === s && (p2 = null), p2 !== s && Pp() !== s ? (Zi = r3, v2 = t5, d2 = e3, y2 = n2, w2 = o2, L2 = u2, h2 = a2, C2 = c2, m2 = l2, E2 = f2, A2 = b2, T2 = p2, t5 = { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: v2[0].toLowerCase(), index_type: d2 && d2.toLowerCase(), keyword: y2.toLowerCase(), index: w2, on_kw: h2[0].toLowerCase(), table: C2, index_columns: m2, index_using: L2, index_options: E2, algorithm_option: A2, lock_option: T2 } }, r3 = t5) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s);
+              var v2, d2, y2, w2, L2, h2, C2, m2, E2, A2, T2;
+              return r3;
+            })()) === s && (t4 = (function() {
+              var r3, t5, e3, n2, o2, u2;
+              r3 = zi, (t5 = ub()) !== s && Pp() !== s ? ((e3 = mb()) === s && (e3 = Eb()), e3 !== s && Pp() !== s ? ((n2 = yc()) === s && (n2 = null), n2 !== s && Pp() !== s && (o2 = Qp()) !== s && Pp() !== s ? ((u2 = (function() {
+                var r4, t6, e4, n3, o3, u3;
+                if (r4 = zi, (t6 = Fc()) !== s) {
+                  for (e4 = [], n3 = zi, (o3 = Pp()) !== s && (u3 = Fc()) !== s ? n3 = o3 = [o3, u3] : (zi = n3, n3 = s); n3 !== s; ) e4.push(n3), n3 = zi, (o3 = Pp()) !== s && (u3 = Fc()) !== s ? n3 = o3 = [o3, u3] : (zi = n3, n3 = s);
+                  e4 !== s ? (Zi = r4, t6 = l(t6, e4), r4 = t6) : (zi = r4, r4 = s);
+                } else zi = r4, r4 = s;
+                return r4;
+              })()) === s && (u2 = null), u2 !== s ? (Zi = r3, t5 = (function(r4, t6, e4, n3, o3) {
+                const s2 = t6.toLowerCase();
+                return { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: r4[0].toLowerCase(), keyword: s2, if_not_exists: e4, [s2]: { db: n3.schema, schema: n3.name }, create_definitions: o3 } };
+              })(t5, e3, n2, o2, u2), r3 = t5) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s);
+              return r3;
+            })()) === s && (t4 = (function() {
+              var t5, e3, n2, o2, u2, a2, i2, c2, l2, f2, b2, p2, v2, d2, y2, w2, L2, h2, C2, m2, E2;
+              t5 = zi, (e3 = ub()) !== s && Pp() !== s ? (n2 = zi, (o2 = Yb()) !== s && (u2 = Pp()) !== s && (a2 = lb()) !== s ? n2 = o2 = [o2, u2, a2] : (zi = n2, n2 = s), n2 === s && (n2 = null), n2 !== s && (o2 = Pp()) !== s ? (u2 = zi, "algorithm" === r2.substr(zi, 9).toLowerCase() ? (a2 = r2.substr(zi, 9), zi += 9) : (a2 = s, 0 === ec && ac(z)), a2 !== s && (i2 = Pp()) !== s && (c2 = Lp()) !== s && (l2 = Pp()) !== s ? ("undefined" === r2.substr(zi, 9).toLowerCase() ? (f2 = r2.substr(zi, 9), zi += 9) : (f2 = s, 0 === ec && ac(Z)), f2 === s && ("merge" === r2.substr(zi, 5).toLowerCase() ? (f2 = r2.substr(zi, 5), zi += 5) : (f2 = s, 0 === ec && ac(J)), f2 === s && ("temptable" === r2.substr(zi, 9).toLowerCase() ? (f2 = r2.substr(zi, 9), zi += 9) : (f2 = s, 0 === ec && ac(rr)))), f2 !== s ? u2 = a2 = [a2, i2, c2, l2, f2] : (zi = u2, u2 = s)) : (zi = u2, u2 = s), u2 === s && (u2 = null), u2 !== s && (a2 = Pp()) !== s ? ((i2 = Tc()) === s && (i2 = null), i2 !== s && (c2 = Pp()) !== s ? (l2 = zi, "sql" === r2.substr(zi, 3).toLowerCase() ? (f2 = r2.substr(zi, 3), zi += 3) : (f2 = s, 0 === ec && ac(tr)), f2 !== s && (b2 = Pp()) !== s ? ("security" === r2.substr(zi, 8).toLowerCase() ? (p2 = r2.substr(zi, 8), zi += 8) : (p2 = s, 0 === ec && ac(er)), p2 !== s && (v2 = Pp()) !== s ? ("definer" === r2.substr(zi, 7).toLowerCase() ? (d2 = r2.substr(zi, 7), zi += 7) : (d2 = s, 0 === ec && ac(nr)), d2 === s && ("invoker" === r2.substr(zi, 7).toLowerCase() ? (d2 = r2.substr(zi, 7), zi += 7) : (d2 = s, 0 === ec && ac(or))), d2 !== s ? l2 = f2 = [f2, b2, p2, v2, d2] : (zi = l2, l2 = s)) : (zi = l2, l2 = s)) : (zi = l2, l2 = s), l2 === s && (l2 = null), l2 !== s && (f2 = Pp()) !== s && (b2 = vp()) !== s && (p2 = Pp()) !== s && (v2 = Cl()) !== s && (d2 = Pp()) !== s ? (y2 = zi, (w2 = jp()) !== s && (L2 = Pp()) !== s && (h2 = sf()) !== s && (C2 = Pp()) !== s && (m2 = xp()) !== s ? y2 = w2 = [w2, L2, h2, C2, m2] : (zi = y2, y2 = s), y2 === s && (y2 = null), y2 !== s && (w2 = Pp()) !== s && (L2 = wb()) !== s && (h2 = Pp()) !== s && (C2 = ol()) !== s && (m2 = Pp()) !== s ? ((E2 = (function() {
+                var t6, e4, n3, o3, u3;
+                t6 = zi, (e4 = Sb()) !== s && Pp() !== s ? ("cascaded" === r2.substr(zi, 8).toLowerCase() ? (n3 = r2.substr(zi, 8), zi += 8) : (n3 = s, 0 === ec && ac(V)), n3 === s && ("local" === r2.substr(zi, 5).toLowerCase() ? (n3 = r2.substr(zi, 5), zi += 5) : (n3 = s, 0 === ec && ac(X))), n3 !== s && Pp() !== s ? ("check" === r2.substr(zi, 5).toLowerCase() ? (o3 = r2.substr(zi, 5), zi += 5) : (o3 = s, 0 === ec && ac(K)), o3 !== s && Pp() !== s ? ("OPTION" === r2.substr(zi, 6) ? (u3 = "OPTION", zi += 6) : (u3 = s, 0 === ec && ac(Q)), u3 !== s ? (Zi = t6, e4 = `with ${n3.toLowerCase()} check option`, t6 = e4) : (zi = t6, t6 = s)) : (zi = t6, t6 = s)) : (zi = t6, t6 = s)) : (zi = t6, t6 = s);
+                t6 === s && (t6 = zi, (e4 = Sb()) !== s && Pp() !== s ? ("check" === r2.substr(zi, 5).toLowerCase() ? (n3 = r2.substr(zi, 5), zi += 5) : (n3 = s, 0 === ec && ac(K)), n3 !== s && Pp() !== s ? ("OPTION" === r2.substr(zi, 6) ? (o3 = "OPTION", zi += 6) : (o3 = s, 0 === ec && ac(Q)), o3 !== s ? (Zi = t6, t6 = e4 = "with check option") : (zi = t6, t6 = s)) : (zi = t6, t6 = s)) : (zi = t6, t6 = s));
+                return t6;
+              })()) === s && (E2 = null), E2 !== s ? (Zi = t5, A2 = e3, T2 = n2, _3 = u2, g2 = i2, I2 = l2, N2 = y2, O2 = C2, R2 = E2, (S2 = v2).view = S2.table, delete S2.table, e3 = { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: A2[0].toLowerCase(), keyword: "view", replace: T2 && "or replace", algorithm: _3 && _3[4], definer: g2, sql_security: I2 && I2[4], columns: N2 && N2[2], select: O2, view: S2, with: R2 } }, t5 = e3) : (zi = t5, t5 = s)) : (zi = t5, t5 = s)) : (zi = t5, t5 = s)) : (zi = t5, t5 = s)) : (zi = t5, t5 = s)) : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              var A2, T2, _3, g2, I2, S2, N2, O2, R2;
+              return t5;
+            })()) === s && (t4 = (function() {
+              var t5, e3, n2, o2, u2, a2, i2, c2, l2, f2, b2;
+              t5 = zi, (e3 = ub()) !== s && Pp() !== s && cp() !== s && Pp() !== s ? ((n2 = yc()) === s && (n2 = null), n2 !== s && Pp() !== s && (o2 = (function() {
+                var r3, t6, e4, n3, o3, u3, a3, i3;
+                if (r3 = zi, (t6 = wc()) !== s) {
+                  for (e4 = [], n3 = zi, (o3 = Pp()) !== s && (u3 = Op()) !== s && (a3 = Pp()) !== s && (i3 = wc()) !== s ? n3 = o3 = [o3, u3, a3, i3] : (zi = n3, n3 = s); n3 !== s; ) e4.push(n3), n3 = zi, (o3 = Pp()) !== s && (u3 = Op()) !== s && (a3 = Pp()) !== s && (i3 = wc()) !== s ? n3 = o3 = [o3, u3, a3, i3] : (zi = n3, n3 = s);
+                  e4 !== s ? (Zi = r3, t6 = h(t6, e4), r3 = t6) : (zi = r3, r3 = s);
+                } else zi = r3, r3 = s;
+                return r3;
+              })()) !== s && Pp() !== s ? ((u2 = (function() {
+                var t6, e4, n3;
+                t6 = zi, Jf() !== s && Pp() !== s ? ("role" === r2.substr(zi, 4).toLowerCase() ? (e4 = r2.substr(zi, 4), zi += 4) : (e4 = s, 0 === ec && ac(C)), e4 !== s && Pp() !== s && (n3 = Kc()) !== s ? (Zi = t6, t6 = { keyword: "default role", value: n3 }) : (zi = t6, t6 = s)) : (zi = t6, t6 = s);
+                return t6;
+              })()) === s && (u2 = null), u2 !== s && Pp() !== s ? ((a2 = (function() {
+                var t6, e4, n3;
+                t6 = zi, "require" === r2.substr(zi, 7).toLowerCase() ? (e4 = r2.substr(zi, 7), zi += 7) : (e4 = s, 0 === ec && ac(S));
+                e4 !== s && Pp() !== s && (n3 = (function() {
+                  var r3, t7, e5, n4, o3, u3, a3, i3;
+                  if (r3 = zi, (t7 = Lc()) !== s) {
+                    for (e5 = [], n4 = zi, (o3 = Pp()) !== s && (u3 = Hb()) !== s && (a3 = Pp()) !== s && (i3 = Lc()) !== s ? n4 = o3 = [o3, u3, a3, i3] : (zi = n4, n4 = s); n4 !== s; ) e5.push(n4), n4 = zi, (o3 = Pp()) !== s && (u3 = Hb()) !== s && (a3 = Pp()) !== s && (i3 = Lc()) !== s ? n4 = o3 = [o3, u3, a3, i3] : (zi = n4, n4 = s);
+                    e5 !== s ? (Zi = r3, t7 = vv(t7, e5), r3 = t7) : (zi = r3, r3 = s);
+                  } else zi = r3, r3 = s;
+                  return r3;
+                })()) !== s ? (Zi = t6, t6 = e4 = { keyword: "require", value: n3 }) : (zi = t6, t6 = s);
+                return t6;
+              })()) === s && (a2 = null), a2 !== s && Pp() !== s ? ((i2 = (function() {
+                var r3, t6, e4, n3, o3, u3, a3;
+                if (r3 = zi, (t6 = Sb()) !== s) if (Pp() !== s) if ((e4 = hc()) !== s) {
+                  for (n3 = [], o3 = zi, (u3 = Pp()) !== s && (a3 = hc()) !== s ? o3 = u3 = [u3, a3] : (zi = o3, o3 = s); o3 !== s; ) n3.push(o3), o3 = zi, (u3 = Pp()) !== s && (a3 = hc()) !== s ? o3 = u3 = [u3, a3] : (zi = o3, o3 = s);
+                  n3 !== s ? (Zi = r3, t6 = (function(r4, t7) {
+                    const e5 = [r4];
+                    if (t7) for (const r5 of t7) e5.push(r5[1]);
+                    return { keyword: "with", value: e5 };
+                  })(e4, n3), r3 = t6) : (zi = r3, r3 = s);
+                } else zi = r3, r3 = s;
+                else zi = r3, r3 = s;
+                else zi = r3, r3 = s;
+                return r3;
+              })()) === s && (i2 = null), i2 !== s && Pp() !== s ? ((c2 = (function() {
+                var r3, t6, e4, n3, o3, u3;
+                if (r3 = zi, (t6 = Cc()) !== s) {
+                  for (e4 = [], n3 = zi, (o3 = Pp()) !== s && (u3 = Cc()) !== s ? n3 = o3 = [o3, u3] : (zi = n3, n3 = s); n3 !== s; ) e4.push(n3), n3 = zi, (o3 = Pp()) !== s && (u3 = Cc()) !== s ? n3 = o3 = [o3, u3] : (zi = n3, n3 = s);
+                  e4 !== s ? (Zi = r3, t6 = pv(t6, e4, 1), r3 = t6) : (zi = r3, r3 = s);
+                } else zi = r3, r3 = s;
+                return r3;
+              })()) === s && (c2 = null), c2 !== s && Pp() !== s ? ((l2 = (function() {
+                var t6, e4, n3;
+                t6 = zi, "account" === r2.substr(zi, 7).toLowerCase() ? (e4 = r2.substr(zi, 7), zi += 7) : (e4 = s, 0 === ec && ac(B));
+                e4 !== s && Pp() !== s ? ("lock" === r2.substr(zi, 4).toLowerCase() ? (n3 = r2.substr(zi, 4), zi += 4) : (n3 = s, 0 === ec && ac($)), n3 === s && ("unlock" === r2.substr(zi, 6).toLowerCase() ? (n3 = r2.substr(zi, 6), zi += 6) : (n3 = s, 0 === ec && ac(W))), n3 !== s ? (Zi = t6, e4 = (function(r3) {
+                  const t7 = { type: "origin", value: r3.toLowerCase(), prefix: "account" };
+                  return t7;
+                })(n3), t6 = e4) : (zi = t6, t6 = s)) : (zi = t6, t6 = s);
+                return t6;
+              })()) === s && (l2 = null), l2 !== s && Pp() !== s ? ((f2 = Hp()) === s && (f2 = null), f2 !== s && Pp() !== s ? ((b2 = (function() {
+                var t6, e4, n3;
+                t6 = zi, "attribute" === r2.substr(zi, 9).toLowerCase() ? (e4 = r2.substr(zi, 9), zi += 9) : (e4 = s, 0 === ec && ac(q));
+                e4 !== s && Pp() !== s && (n3 = Yf()) !== s ? (Zi = t6, (o3 = n3).prefix = "attribute", t6 = e4 = o3) : (zi = t6, t6 = s);
+                var o3;
+                return t6;
+              })()) === s && (b2 = null), b2 !== s ? (Zi = t5, p2 = e3, v2 = n2, d2 = o2, y2 = u2, w2 = a2, L2 = i2, m2 = c2, E2 = l2, A2 = f2, T2 = b2, e3 = { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: p2[0].toLowerCase(), keyword: "user", if_not_exists: v2, user: d2, default_role: y2, require: w2, resource_options: L2, password_options: m2, lock_option: E2, comment: A2, attribute: T2 } }, t5 = e3) : (zi = t5, t5 = s)) : (zi = t5, t5 = s)) : (zi = t5, t5 = s)) : (zi = t5, t5 = s)) : (zi = t5, t5 = s)) : (zi = t5, t5 = s)) : (zi = t5, t5 = s)) : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              var p2, v2, d2, y2, w2, L2, m2, E2, A2, T2;
+              return t5;
+            })());
+            return t4;
+          })()) === s && (t3 = (function() {
+            var t4, e3, n2, o2;
+            t4 = zi, (e3 = (function() {
+              var t5, e4, n3, o3;
+              t5 = zi, "truncate" === r2.substr(zi, 8).toLowerCase() ? (e4 = r2.substr(zi, 8), zi += 8) : (e4 = s, 0 === ec && ac(Mr));
+              e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "TRUNCATE") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) !== s && Pp() !== s ? ((n2 = Lb()) === s && (n2 = null), n2 !== s && Pp() !== s && (o2 = yl()) !== s ? (Zi = t4, u2 = e3, a2 = n2, (i2 = o2) && i2.forEach((r3) => hv.add(`${u2}::${r3.db}::${r3.table}`)), e3 = { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: u2.toLowerCase(), keyword: a2 && a2.toLowerCase() || "table", name: i2 } }, t4 = e3) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            var u2, a2, i2;
+            return t4;
+          })()) === s && (t3 = (function() {
+            var r3, t4, e3;
+            r3 = zi, (t4 = fb()) !== s && Pp() !== s && Lb() !== s && Pp() !== s && (e3 = (function() {
+              var r4, t5, e4, n3, o2, u2, a2, i2;
+              if (r4 = zi, (t5 = bl2()) !== s) {
+                for (e4 = [], n3 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = bl2()) !== s ? n3 = o2 = [o2, u2, a2, i2] : (zi = n3, n3 = s); n3 !== s; ) e4.push(n3), n3 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = bl2()) !== s ? n3 = o2 = [o2, u2, a2, i2] : (zi = n3, n3 = s);
+                e4 !== s ? (Zi = r4, t5 = sr(t5, e4), r4 = t5) : (zi = r4, r4 = s);
+              } else zi = r4, r4 = s;
+              return r4;
+            })()) !== s ? (Zi = r3, (n2 = e3).forEach((r4) => r4.forEach((r5) => r5.table && hv.add(`rename::${r5.db}::${r5.table}`))), t4 = { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: "rename", table: n2 } }, r3 = t4) : (zi = r3, r3 = s);
+            var n2;
+            return r3;
+          })()) === s && (t3 = (function() {
+            var t4, e3, n2;
+            t4 = zi, (e3 = (function() {
+              var t5, e4, n3, o3;
+              t5 = zi, "call" === r2.substr(zi, 4).toLowerCase() ? (e4 = r2.substr(zi, 4), zi += 4) : (e4 = s, 0 === ec && ac(ia));
+              e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "CALL") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) !== s && Pp() !== s && (n2 = (function() {
+              var r3;
+              (r3 = zp()) === s && (r3 = Zp());
+              return r3;
+            })()) !== s ? (Zi = t4, o2 = n2, e3 = { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: "call", expr: o2 } }, t4 = e3) : (zi = t4, t4 = s);
+            var o2;
+            return t4;
+          })()) === s && (t3 = (function() {
+            var t4, e3, n2;
+            t4 = zi, (e3 = (function() {
+              var t5, e4, n3, o3;
+              t5 = zi, "use" === r2.substr(zi, 3).toLowerCase() ? (e4 = r2.substr(zi, 3), zi += 3) : (e4 = s, 0 === ec && ac(tu));
+              e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? t5 = e4 = [e4, n3] : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) !== s && Pp() !== s && (n2 = lf()) !== s ? (Zi = t4, o2 = n2, hv.add(`use::${o2}::null`), e3 = { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: "use", db: o2 } }, t4 = e3) : (zi = t4, t4 = s);
+            var o2;
+            return t4;
+          })()) === s && (t3 = (function() {
+            var r3, t4, e3, n2;
+            r3 = zi, (t4 = nb()) !== s && Pp() !== s && Lb() !== s && Pp() !== s && (e3 = Cl()) !== s && Pp() !== s && (n2 = (function() {
+              var r4, t5, e4, n3, o3, u3, a2, i2;
+              if (r4 = zi, (t5 = Sc()) !== s) {
+                for (e4 = [], n3 = zi, (o3 = Pp()) !== s && (u3 = Op()) !== s && (a2 = Pp()) !== s && (i2 = Sc()) !== s ? n3 = o3 = [o3, u3, a2, i2] : (zi = n3, n3 = s); n3 !== s; ) e4.push(n3), n3 = zi, (o3 = Pp()) !== s && (u3 = Op()) !== s && (a2 = Pp()) !== s && (i2 = Sc()) !== s ? n3 = o3 = [o3, u3, a2, i2] : (zi = n3, n3 = s);
+                e4 !== s ? (Zi = r4, t5 = sr(t5, e4), r4 = t5) : (zi = r4, r4 = s);
+              } else zi = r4, r4 = s;
+              return r4;
+            })()) !== s ? (Zi = r3, o2 = e3, u2 = n2, hv.add(`alter::${o2.db}::${o2.table}`), t4 = { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: "alter", table: [o2], expr: u2 } }, r3 = t4) : (zi = r3, r3 = s);
+            var o2, u2;
+            return r3;
+          })()) === s && (t3 = (function() {
+            var t4, e3, n2, o2;
+            t4 = zi, (e3 = yb()) !== s && Pp() !== s ? ((n2 = (function() {
+              var t5, e4, n3, o3;
+              t5 = zi, "global" === r2.substr(zi, 6).toLowerCase() ? (e4 = r2.substr(zi, 6), zi += 6) : (e4 = s, 0 === ec && ac(Qa));
+              e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "GLOBAL") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (n2 = (function() {
+              var t5, e4, n3, o3;
+              t5 = zi, "session" === r2.substr(zi, 7).toLowerCase() ? (e4 = r2.substr(zi, 7), zi += 7) : (e4 = s, 0 === ec && ac(za));
+              e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "SESSION") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (n2 = (function() {
+              var t5, e4, n3, o3;
+              t5 = zi, "local" === r2.substr(zi, 5).toLowerCase() ? (e4 = r2.substr(zi, 5), zi += 5) : (e4 = s, 0 === ec && ac(X));
+              e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "LOCAL") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (n2 = (function() {
+              var t5, e4, n3, o3;
+              t5 = zi, "persist" === r2.substr(zi, 7).toLowerCase() ? (e4 = r2.substr(zi, 7), zi += 7) : (e4 = s, 0 === ec && ac(Za));
+              e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "PERSIST") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (n2 = (function() {
+              var t5, e4, n3, o3;
+              t5 = zi, "persist_only" === r2.substr(zi, 12).toLowerCase() ? (e4 = r2.substr(zi, 12), zi += 12) : (e4 = s, 0 === ec && ac(Ja));
+              e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "PERSIST_ONLY") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()), n2 === s && (n2 = null), n2 !== s && Pp() !== s && (o2 = (function() {
+              var r3, t5, e4, n3, o3, u3, a3, i2;
+              if (r3 = zi, (t5 = qp()) !== s) {
+                for (e4 = [], n3 = zi, (o3 = Pp()) !== s && (u3 = Op()) !== s && (a3 = Pp()) !== s && (i2 = qp()) !== s ? n3 = o3 = [o3, u3, a3, i2] : (zi = n3, n3 = s); n3 !== s; ) e4.push(n3), n3 = zi, (o3 = Pp()) !== s && (u3 = Op()) !== s && (a3 = Pp()) !== s && (i2 = qp()) !== s ? n3 = o3 = [o3, u3, a3, i2] : (zi = n3, n3 = s);
+                e4 !== s ? (Zi = r3, t5 = Yt(t5, e4), r3 = t5) : (zi = r3, r3 = s);
+              } else zi = r3, r3 = s;
+              return r3;
+            })()) !== s ? (Zi = t4, u2 = n2, (a2 = o2).keyword = u2, e3 = { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: "set", keyword: u2, expr: a2 } }, t4 = e3) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            var u2, a2;
+            return t4;
+          })()) === s && (t3 = (function() {
+            var t4, e3, n2;
+            t4 = zi, (e3 = (function() {
+              var t5, e4, n3, o3;
+              t5 = zi, "lock" === r2.substr(zi, 4).toLowerCase() ? (e4 = r2.substr(zi, 4), zi += 4) : (e4 = s, 0 === ec && ac($));
+              e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? t5 = e4 = [e4, n3] : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) !== s && Pp() !== s && Cb() !== s && Pp() !== s && (n2 = (function() {
+              var r3, t5, e4, n3, o3, u2, a2, i2;
+              if (r3 = zi, (t5 = Yc()) !== s) {
+                for (e4 = [], n3 = zi, (o3 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = Yc()) !== s ? n3 = o3 = [o3, u2, a2, i2] : (zi = n3, n3 = s); n3 !== s; ) e4.push(n3), n3 = zi, (o3 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = Yc()) !== s ? n3 = o3 = [o3, u2, a2, i2] : (zi = n3, n3 = s);
+                e4 !== s ? (Zi = r3, t5 = Yt(t5, e4), r3 = t5) : (zi = r3, r3 = s);
+              } else zi = r3, r3 = s;
+              return r3;
+            })()) !== s ? (Zi = t4, o2 = n2, e3 = { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: "lock", keyword: "tables", tables: o2 } }, t4 = e3) : (zi = t4, t4 = s);
+            var o2;
+            return t4;
+          })()) === s && (t3 = (function() {
+            var t4, e3;
+            t4 = zi, (e3 = (function() {
+              var t5, e4, n2, o2;
+              t5 = zi, "unlock" === r2.substr(zi, 6).toLowerCase() ? (e4 = r2.substr(zi, 6), zi += 6) : (e4 = s, 0 === ec && ac(W));
+              e4 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t5 = e4 = [e4, n2] : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) !== s && Pp() !== s && Cb() !== s ? (Zi = t4, e3 = { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: "unlock", keyword: "tables" } }, t4 = e3) : (zi = t4, t4 = s);
+            return t4;
+          })()) === s && (t3 = (function() {
+            var t4, e3, n2, o2, u2, a2, i2, c2, l2;
+            t4 = zi, (e3 = tb()) !== s && Pp() !== s ? ("binary" === r2.substr(zi, 6).toLowerCase() ? (n2 = r2.substr(zi, 6), zi += 6) : (n2 = s, 0 === ec && ac(Bt)), n2 === s && ("master" === r2.substr(zi, 6).toLowerCase() ? (n2 = r2.substr(zi, 6), zi += 6) : (n2 = s, 0 === ec && ac($t))), n2 !== s && (o2 = Pp()) !== s ? ("logs" === r2.substr(zi, 4).toLowerCase() ? (u2 = r2.substr(zi, 4), zi += 4) : (u2 = s, 0 === ec && ac(Wt)), u2 !== s ? (Zi = t4, f2 = n2, e3 = { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: "show", suffix: "logs", keyword: f2.toLowerCase() } }, t4 = e3) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            var f2;
+            t4 === s && (t4 = zi, (e3 = tb()) !== s && Pp() !== s && (n2 = Cb()) !== s ? (Zi = t4, hv.add("show::null::null"), e3 = { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: "show", keyword: "tables" } }, t4 = e3) : (zi = t4, t4 = s), t4 === s && (t4 = zi, (e3 = tb()) !== s && Pp() !== s ? ("triggers" === r2.substr(zi, 8).toLowerCase() ? (n2 = r2.substr(zi, 8), zi += 8) : (n2 = s, 0 === ec && ac(qt)), n2 === s && ("status" === r2.substr(zi, 6).toLowerCase() ? (n2 = r2.substr(zi, 6), zi += 6) : (n2 = s, 0 === ec && ac(Vt)), n2 === s && ("processlist" === r2.substr(zi, 11).toLowerCase() ? (n2 = r2.substr(zi, 11), zi += 11) : (n2 = s, 0 === ec && ac(Xt)))), n2 !== s ? (Zi = t4, d2 = n2, e3 = { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: "show", keyword: d2.toLowerCase() } }, t4 = e3) : (zi = t4, t4 = s)) : (zi = t4, t4 = s), t4 === s && (t4 = zi, (e3 = tb()) !== s && Pp() !== s ? ("procedure" === r2.substr(zi, 9).toLowerCase() ? (n2 = r2.substr(zi, 9), zi += 9) : (n2 = s, 0 === ec && ac(Kt)), n2 === s && ("function" === r2.substr(zi, 8).toLowerCase() ? (n2 = r2.substr(zi, 8), zi += 8) : (n2 = s, 0 === ec && ac(Qt))), n2 !== s && (o2 = Pp()) !== s ? ("status" === r2.substr(zi, 6).toLowerCase() ? (u2 = r2.substr(zi, 6), zi += 6) : (u2 = s, 0 === ec && ac(Vt)), u2 !== s ? (Zi = t4, e3 = (function(r3) {
+              return { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: "show", keyword: r3.toLowerCase(), suffix: "status" } };
+            })(n2), t4 = e3) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s), t4 === s && (t4 = zi, (e3 = tb()) !== s && Pp() !== s ? ("binlog" === r2.substr(zi, 6).toLowerCase() ? (n2 = r2.substr(zi, 6), zi += 6) : (n2 = s, 0 === ec && ac(zt)), n2 !== s && (o2 = Pp()) !== s ? ("events" === r2.substr(zi, 6).toLowerCase() ? (u2 = r2.substr(zi, 6), zi += 6) : (u2 = s, 0 === ec && ac(Zt)), u2 !== s && (a2 = Pp()) !== s ? ((i2 = zl()) === s && (i2 = null), i2 !== s && Pp() !== s ? ((c2 = fl()) === s && (c2 = null), c2 !== s && Pp() !== s ? ((l2 = Sl()) === s && (l2 = null), l2 !== s ? (Zi = t4, b2 = i2, p2 = c2, v2 = l2, e3 = { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: "show", suffix: "events", keyword: "binlog", in: b2, from: p2, limit: v2 } }, t4 = e3) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s), t4 === s && (t4 = zi, (e3 = tb()) !== s && Pp() !== s ? (n2 = zi, "character" === r2.substr(zi, 9).toLowerCase() ? (o2 = r2.substr(zi, 9), zi += 9) : (o2 = s, 0 === ec && ac(lt)), o2 !== s && (u2 = Pp()) !== s ? ("set" === r2.substr(zi, 3).toLowerCase() ? (a2 = r2.substr(zi, 3), zi += 3) : (a2 = s, 0 === ec && ac(ft)), a2 !== s ? n2 = o2 = [o2, u2, a2] : (zi = n2, n2 = s)) : (zi = n2, n2 = s), n2 === s && ("collation" === r2.substr(zi, 9).toLowerCase() ? (n2 = r2.substr(zi, 9), zi += 9) : (n2 = s, 0 === ec && ac(Jt)), n2 === s && ("databases" === r2.substr(zi, 9).toLowerCase() ? (n2 = r2.substr(zi, 9), zi += 9) : (n2 = s, 0 === ec && ac(re)))), n2 !== s && (o2 = Pp()) !== s ? ((u2 = Ql()) === s && (u2 = El()), u2 === s && (u2 = null), u2 !== s ? (Zi = t4, e3 = (function(r3, t5) {
+              let e4 = Array.isArray(r3) && r3 || [r3];
+              return { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: "show", suffix: e4[2] && e4[2].toLowerCase(), keyword: e4[0].toLowerCase(), expr: t5 } };
+            })(n2, u2), t4 = e3) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s), t4 === s && (t4 = zi, (e3 = tb()) !== s && Pp() !== s ? ("columns" === r2.substr(zi, 7).toLowerCase() ? (n2 = r2.substr(zi, 7), zi += 7) : (n2 = s, 0 === ec && ac(te)), n2 === s && ("indexes" === r2.substr(zi, 7).toLowerCase() ? (n2 = r2.substr(zi, 7), zi += 7) : (n2 = s, 0 === ec && ac(ee)), n2 === s && ("index" === r2.substr(zi, 5).toLowerCase() ? (n2 = r2.substr(zi, 5), zi += 5) : (n2 = s, 0 === ec && ac(It)))), n2 !== s && (o2 = Pp()) !== s && (u2 = fl()) !== s ? (Zi = t4, e3 = (function(r3, t5) {
+              return { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: "show", keyword: r3.toLowerCase(), from: t5 } };
+            })(n2, u2), t4 = e3) : (zi = t4, t4 = s)) : (zi = t4, t4 = s), t4 === s && (t4 = zi, (e3 = tb()) !== s && Pp() !== s && (n2 = ub()) !== s && (o2 = Pp()) !== s ? ((u2 = vp()) === s && (u2 = Lb()) === s && ("event" === r2.substr(zi, 5).toLowerCase() ? (u2 = r2.substr(zi, 5), zi += 5) : (u2 = s, 0 === ec && ac(ne)), u2 === s && (u2 = hb()) === s && ("procedure" === r2.substr(zi, 9).toLowerCase() ? (u2 = r2.substr(zi, 9), zi += 9) : (u2 = s, 0 === ec && ac(Kt)))), u2 !== s && (a2 = Pp()) !== s && (i2 = Cl()) !== s ? (Zi = t4, e3 = (function(r3, t5) {
+              const e4 = r3.toLowerCase();
+              return { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: "show", keyword: "create", suffix: e4, [e4]: t5 } };
+            })(u2, i2), t4 = e3) : (zi = t4, t4 = s)) : (zi = t4, t4 = s), t4 === s && (t4 = (function() {
+              var t5, e4, n3, o3;
+              t5 = zi, (e4 = tb()) !== s && Pp() !== s ? ("grants" === r2.substr(zi, 6).toLowerCase() ? (n3 = r2.substr(zi, 6), zi += 6) : (n3 = s, 0 === ec && ac(oe)), n3 !== s && Pp() !== s ? ((o3 = (function() {
+                var t6, e5, n4, o4, u4, a3, i3;
+                t6 = zi, "for" === r2.substr(zi, 3).toLowerCase() ? (e5 = r2.substr(zi, 3), zi += 3) : (e5 = s, 0 === ec && ac(vr));
+                e5 !== s && Pp() !== s && (n4 = lf()) !== s && Pp() !== s ? (o4 = zi, (u4 = dp()) !== s && (a3 = Pp()) !== s && (i3 = lf()) !== s ? o4 = u4 = [u4, a3, i3] : (zi = o4, o4 = s), o4 === s && (o4 = null), o4 !== s && (u4 = Pp()) !== s ? ((a3 = (function() {
+                  var r3, t7;
+                  r3 = zi, Ib() !== s && Pp() !== s && (t7 = (function() {
+                    var r4, t8, e6, n5, o5, u5, a4, i4;
+                    if (r4 = zi, (t8 = lf()) !== s) {
+                      for (e6 = [], n5 = zi, (o5 = Pp()) !== s && (u5 = Op()) !== s && (a4 = Pp()) !== s && (i4 = lf()) !== s ? n5 = o5 = [o5, u5, a4, i4] : (zi = n5, n5 = s); n5 !== s; ) e6.push(n5), n5 = zi, (o5 = Pp()) !== s && (u5 = Op()) !== s && (a4 = Pp()) !== s && (i4 = lf()) !== s ? n5 = o5 = [o5, u5, a4, i4] : (zi = n5, n5 = s);
+                      e6 !== s ? (Zi = r4, t8 = Yt(t8, e6), r4 = t8) : (zi = r4, r4 = s);
+                    } else zi = r4, r4 = s;
+                    return r4;
+                  })()) !== s ? (Zi = r3, r3 = t7) : (zi = r3, r3 = s);
+                  return r3;
+                })()) === s && (a3 = null), a3 !== s ? (Zi = t6, l3 = a3, e5 = { user: n4, host: (c3 = o4) && c3[2], role_list: l3 }, t6 = e5) : (zi = t6, t6 = s)) : (zi = t6, t6 = s)) : (zi = t6, t6 = s);
+                var c3, l3;
+                return t6;
+              })()) === s && (o3 = null), o3 !== s ? (Zi = t5, u3 = o3, e4 = { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: "show", keyword: "grants", for: u3 } }, t5 = e4) : (zi = t5, t5 = s)) : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              var u3;
+              return t5;
+            })()))))))));
+            var b2, p2, v2;
+            var d2;
+            return t4;
+          })()) === s && (t3 = (function() {
+            var t4, e3, n2;
+            t4 = zi, (e3 = jb()) === s && (e3 = (function() {
+              var t5, e4, n3, o3;
+              t5 = zi, "describe" === r2.substr(zi, 8).toLowerCase() ? (e4 = r2.substr(zi, 8), zi += 8) : (e4 = s, 0 === ec && ac($u));
+              e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "DESCRIBE") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })());
+            e3 !== s && Pp() !== s && (n2 = lf()) !== s ? (Zi = t4, o2 = n2, e3 = { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: "desc", table: o2 } }, t4 = e3) : (zi = t4, t4 = s);
+            var o2;
+            return t4;
+          })()) === s && (t3 = (function() {
+            var t4, e3, n2, o2, u2, a2, i2, c2, l2;
+            t4 = zi, "grant" === r2.substr(zi, 5).toLowerCase() ? (e3 = r2.substr(zi, 5), zi += 5) : (e3 = s, 0 === ec && ac(Ue));
+            e3 !== s && Pp() !== s && (n2 = (function() {
+              var r3, t5, e4, n3, o3, u3, a3, i3;
+              if (r3 = zi, (t5 = Vc()) !== s) {
+                for (e4 = [], n3 = zi, (o3 = Pp()) !== s && (u3 = Op()) !== s && (a3 = Pp()) !== s && (i3 = Vc()) !== s ? n3 = o3 = [o3, u3, a3, i3] : (zi = n3, n3 = s); n3 !== s; ) e4.push(n3), n3 = zi, (o3 = Pp()) !== s && (u3 = Op()) !== s && (a3 = Pp()) !== s && (i3 = Vc()) !== s ? n3 = o3 = [o3, u3, a3, i3] : (zi = n3, n3 = s);
+                e4 !== s ? (Zi = r3, t5 = h(t5, e4), r3 = t5) : (zi = r3, r3 = s);
+              } else zi = r3, r3 = s;
+              return r3;
+            })()) !== s && Pp() !== s && (o2 = Ab()) !== s && Pp() !== s ? ((u2 = (function() {
+              var t5, e4;
+              t5 = zi, (e4 = Lb()) === s && ("function" === r2.substr(zi, 8).toLowerCase() ? (e4 = r2.substr(zi, 8), zi += 8) : (e4 = s, 0 === ec && ac(Qt)), e4 === s && ("procedure" === r2.substr(zi, 9).toLowerCase() ? (e4 = r2.substr(zi, 9), zi += 9) : (e4 = s, 0 === ec && ac(Kt))));
+              e4 !== s && (Zi = t5, e4 = { type: "origin", value: e4.toUpperCase() });
+              return t5 = e4;
+            })()) === s && (u2 = null), u2 !== s && Pp() !== s && (a2 = (function() {
+              var r3, t5, e4, n3, o3;
+              r3 = zi, t5 = zi, (e4 = lf()) === s && (e4 = Rp());
+              e4 !== s && (n3 = Pp()) !== s && (o3 = Np()) !== s ? t5 = e4 = [e4, n3, o3] : (zi = t5, t5 = s);
+              t5 === s && (t5 = null);
+              t5 !== s && (e4 = Pp()) !== s ? ((n3 = lf()) === s && (n3 = Rp()), n3 !== s ? (Zi = r3, a3 = n3, t5 = { prefix: (u3 = t5) && u3[0], name: a3 }, r3 = t5) : (zi = r3, r3 = s)) : (zi = r3, r3 = s);
+              var u3, a3;
+              return r3;
+            })()) !== s && Pp() !== s && (i2 = rb()) !== s && Pp() !== s && (c2 = Kc()) !== s && Pp() !== s ? ((l2 = (function() {
+              var t5, e4, n3;
+              t5 = zi, Sb() !== s && Pp() !== s ? ("grant" === r2.substr(zi, 5).toLowerCase() ? (e4 = r2.substr(zi, 5), zi += 5) : (e4 = s, 0 === ec && ac(Ue)), e4 !== s && Pp() !== s ? ("option" === r2.substr(zi, 6).toLowerCase() ? (n3 = r2.substr(zi, 6), zi += 6) : (n3 = s, 0 === ec && ac(De)), n3 !== s ? (Zi = t5, t5 = { type: "origin", value: "with grant option" }) : (zi = t5, t5 = s)) : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (l2 = null), l2 !== s ? (Zi = t4, f2 = n2, b2 = u2, p2 = a2, v2 = i2, d2 = c2, y2 = l2, e3 = { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: "grant", keyword: "priv", objects: f2, on: { object_type: b2, priv_level: [p2] }, to_from: v2[0], user_or_roles: d2, with: y2 } }, t4 = e3) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            var f2, b2, p2, v2, d2, y2;
+            t4 === s && (t4 = zi, "GRANT" === r2.substr(zi, 5) ? (e3 = "GRANT", zi += 5) : (e3 = s, 0 === ec && ac(He)), e3 !== s && Pp() !== s ? ("PROXY" === r2.substr(zi, 5) ? (n2 = "PROXY", zi += 5) : (n2 = s, 0 === ec && ac(Ye)), n2 !== s && Pp() !== s && (o2 = Ab()) !== s && Pp() !== s && (u2 = Xc()) !== s && Pp() !== s && (a2 = rb()) !== s && Pp() !== s && (i2 = Kc()) !== s && Pp() !== s ? ((c2 = Qc()) === s && (c2 = null), c2 !== s ? (Zi = t4, e3 = (function(r3, t5, e4, n3) {
+              return { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: "grant", keyword: "proxy", objects: [{ priv: { type: "origin", value: "proxy" } }], on: r3, to_from: t5[0], user_or_roles: e4, with: n3 } };
+            })(u2, a2, i2, c2), t4 = e3) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s), t4 === s && (t4 = zi, "GRANT" === r2.substr(zi, 5) ? (e3 = "GRANT", zi += 5) : (e3 = s, 0 === ec && ac(He)), e3 !== s && Pp() !== s && (n2 = (function() {
+              var r3, t5, e4, n3, o3, u3, a3, i3;
+              if (r3 = zi, (t5 = lf()) !== s) {
+                for (e4 = [], n3 = zi, (o3 = Pp()) !== s && (u3 = Op()) !== s && (a3 = Pp()) !== s && (i3 = lf()) !== s ? n3 = o3 = [o3, u3, a3, i3] : (zi = n3, n3 = s); n3 !== s; ) e4.push(n3), n3 = zi, (o3 = Pp()) !== s && (u3 = Op()) !== s && (a3 = Pp()) !== s && (i3 = lf()) !== s ? n3 = o3 = [o3, u3, a3, i3] : (zi = n3, n3 = s);
+                e4 !== s ? (Zi = r3, t5 = h(t5, e4), r3 = t5) : (zi = r3, r3 = s);
+              } else zi = r3, r3 = s;
+              return r3;
+            })()) !== s && Pp() !== s && (o2 = rb()) !== s && Pp() !== s && (u2 = Kc()) !== s && Pp() !== s ? ((a2 = Qc()) === s && (a2 = null), a2 !== s ? (Zi = t4, e3 = (function(r3, t5, e4, n3) {
+              return { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: "grant", keyword: "role", objects: r3.map((r4) => ({ priv: { type: "string", value: r4 } })), to_from: t5[0], user_or_roles: e4, with: n3 } };
+            })(n2, o2, u2, a2), t4 = e3) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)));
+            return t4;
+          })()) === s && (t3 = (function() {
+            var t4, e3, n2;
+            t4 = zi, (e3 = (function() {
+              var t5, e4, n3, o3;
+              t5 = zi, "explain" === r2.substr(zi, 7).toLowerCase() ? (e4 = r2.substr(zi, 7), zi += 7) : (e4 = s, 0 === ec && ac(pu));
+              e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? t5 = e4 = [e4, n3] : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) !== s && Pp() !== s && (n2 = ol()) !== s ? (Zi = t4, o2 = n2, e3 = { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: "explain", expr: o2 } }, t4 = e3) : (zi = t4, t4 = s);
+            var o2;
+            return t4;
+          })()) === s && (t3 = (function() {
+            var t4, e3, n2, o2;
+            t4 = zi, "commit" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(ve));
+            e3 === s && ("rollback" === r2.substr(zi, 8).toLowerCase() ? (e3 = r2.substr(zi, 8), zi += 8) : (e3 = s, 0 === ec && ac(de)));
+            e3 !== s && (Zi = t4, e3 = { type: "transaction", expr: { action: { type: "origin", value: e3 } } });
+            (t4 = e3) === s && (t4 = zi, "begin" === r2.substr(zi, 5).toLowerCase() ? (e3 = r2.substr(zi, 5), zi += 5) : (e3 = s, 0 === ec && ac(ye)), e3 !== s && Pp() !== s ? ("work" === r2.substr(zi, 4).toLowerCase() ? (n2 = r2.substr(zi, 4), zi += 4) : (n2 = s, 0 === ec && ac(we)), n2 === s && ("transaction" === r2.substr(zi, 11).toLowerCase() ? (n2 = r2.substr(zi, 11), zi += 11) : (n2 = s, 0 === ec && ac(Le))), n2 === s && (n2 = null), n2 !== s && Pp() !== s ? ((o2 = $c()) === s && (o2 = null), o2 !== s ? (Zi = t4, e3 = /* @__PURE__ */ (function(r3, t5) {
+              return { type: "transaction", expr: { action: { type: "origin", value: "begin" }, keyword: r3, modes: t5 } };
+            })(n2, o2), t4 = e3) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s), t4 === s && (t4 = zi, "start" === r2.substr(zi, 5).toLowerCase() ? (e3 = r2.substr(zi, 5), zi += 5) : (e3 = s, 0 === ec && ac(he)), e3 !== s && Pp() !== s ? ("transaction" === r2.substr(zi, 11).toLowerCase() ? (n2 = r2.substr(zi, 11), zi += 11) : (n2 = s, 0 === ec && ac(Ce)), n2 !== s && Pp() !== s ? ((o2 = $c()) === s && (o2 = null), o2 !== s ? (Zi = t4, e3 = /* @__PURE__ */ (function(r3, t5) {
+              return { type: "transaction", expr: { action: { type: "origin", value: "start" }, keyword: r3, modes: t5 } };
+            })(n2, o2), t4 = e3) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)));
+            return t4;
+          })()) === s && (t3 = (function() {
+            var t4, e3, n2, o2, u2, a2, i2, c2, l2, f2, b2, p2, v2, y2, w2, L2, h2, C2, m2, E2, A2, T2, _3, g2, I2;
+            t4 = zi, "load" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(Se));
+            e3 !== s && Pp() !== s ? ("data" === r2.substr(zi, 4).toLowerCase() ? (n2 = r2.substr(zi, 4), zi += 4) : (n2 = s, 0 === ec && ac(gt)), n2 !== s && Pp() !== s ? ("low_priority" === r2.substr(zi, 12).toLowerCase() ? (o2 = r2.substr(zi, 12), zi += 12) : (o2 = s, 0 === ec && ac(Ft)), o2 === s && ("concurrent" === r2.substr(zi, 10).toLowerCase() ? (o2 = r2.substr(zi, 10), zi += 10) : (o2 = s, 0 === ec && ac(Ne))), o2 === s && (o2 = null), o2 !== s && Pp() !== s ? ("local" === r2.substr(zi, 5).toLowerCase() ? (u2 = r2.substr(zi, 5), zi += 5) : (u2 = s, 0 === ec && ac(X)), u2 === s && (u2 = null), u2 !== s && Pp() !== s ? ("infile" === r2.substr(zi, 6).toLowerCase() ? (a2 = r2.substr(zi, 6), zi += 6) : (a2 = s, 0 === ec && ac(Oe)), a2 !== s && Pp() !== s && (i2 = af()) !== s && Pp() !== s ? ((c2 = kl()) === s && (c2 = null), c2 !== s && Pp() !== s ? ("into" === r2.substr(zi, 4).toLowerCase() ? (l2 = r2.substr(zi, 4), zi += 4) : (l2 = s, 0 === ec && ac(Re)), l2 !== s && Pp() !== s ? ("table" === r2.substr(zi, 5).toLowerCase() ? (f2 = r2.substr(zi, 5), zi += 5) : (f2 = s, 0 === ec && ac(je)), f2 !== s && Pp() !== s && (b2 = Cl()) !== s && Pp() !== s ? ((p2 = jl()) === s && (p2 = null), p2 !== s && Pp() !== s ? (v2 = zi, (y2 = Gc()) !== s && (w2 = Pp()) !== s && (L2 = af()) !== s ? v2 = y2 = [y2, w2, L2] : (zi = v2, v2 = s), v2 === s && (v2 = null), v2 !== s && (y2 = Pp()) !== s ? ((w2 = (function() {
+              var t5, e4, n3, o3, u3, a3, i3, c3, l3, f3, b3, p3;
+              t5 = zi, "fields" === r2.substr(zi, 6).toLowerCase() ? (e4 = r2.substr(zi, 6), zi += 6) : (e4 = s, 0 === ec && ac(me));
+              e4 === s && ("columns" === r2.substr(zi, 7).toLowerCase() ? (e4 = r2.substr(zi, 7), zi += 7) : (e4 = s, 0 === ec && ac(te)));
+              e4 !== s && Pp() !== s ? (n3 = zi, "terminated" === r2.substr(zi, 10).toLowerCase() ? (o3 = r2.substr(zi, 10), zi += 10) : (o3 = s, 0 === ec && ac(Ee)), o3 !== s && (u3 = Pp()) !== s ? ("by" === r2.substr(zi, 2).toLowerCase() ? (a3 = r2.substr(zi, 2), zi += 2) : (a3 = s, 0 === ec && ac(d)), a3 !== s && (i3 = Pp()) !== s && (c3 = af()) !== s ? n3 = o3 = [o3, u3, a3, i3, c3] : (zi = n3, n3 = s)) : (zi = n3, n3 = s), n3 === s && (n3 = null), n3 !== s && (o3 = Pp()) !== s ? (u3 = zi, "optionally" === r2.substr(zi, 10).toLowerCase() ? (a3 = r2.substr(zi, 10), zi += 10) : (a3 = s, 0 === ec && ac(Ae)), a3 === s && (a3 = null), a3 !== s && (i3 = Pp()) !== s ? ("enclosed" === r2.substr(zi, 8).toLowerCase() ? (c3 = r2.substr(zi, 8), zi += 8) : (c3 = s, 0 === ec && ac(Te)), c3 !== s && (l3 = Pp()) !== s ? ("by" === r2.substr(zi, 2).toLowerCase() ? (f3 = r2.substr(zi, 2), zi += 2) : (f3 = s, 0 === ec && ac(d)), f3 !== s && (b3 = Pp()) !== s && (p3 = af()) !== s ? u3 = a3 = [a3, i3, c3, l3, f3, b3, p3] : (zi = u3, u3 = s)) : (zi = u3, u3 = s)) : (zi = u3, u3 = s), u3 === s && (u3 = null), u3 !== s && (a3 = Pp()) !== s ? (i3 = zi, "escaped" === r2.substr(zi, 7).toLowerCase() ? (c3 = r2.substr(zi, 7), zi += 7) : (c3 = s, 0 === ec && ac(_e)), c3 !== s && (l3 = Pp()) !== s ? ("by" === r2.substr(zi, 2).toLowerCase() ? (f3 = r2.substr(zi, 2), zi += 2) : (f3 = s, 0 === ec && ac(d)), f3 !== s && (b3 = Pp()) !== s && (p3 = af()) !== s ? i3 = c3 = [c3, l3, f3, b3, p3] : (zi = i3, i3 = s)) : (zi = i3, i3 = s), i3 === s && (i3 = null), i3 !== s ? (Zi = t5, v8 = e4, w3 = u3, L3 = i3, (y3 = n3) && (y3[4].prefix = "TERMINATED BY"), w3 && (w3[6].prefix = (w3[0] && "OPTIONALLY" === w3[0].toUpperCase() ? "OPTIONALLY " : "") + "ENCLOSED BY"), L3 && (L3[4].prefix = "ESCAPED BY"), e4 = { keyword: v8, terminated: y3 && y3[4], enclosed: w3 && w3[6], escaped: L3 && L3[4] }, t5 = e4) : (zi = t5, t5 = s)) : (zi = t5, t5 = s)) : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              var v8, y3, w3, L3;
+              return t5;
+            })()) === s && (w2 = null), w2 !== s && (L2 = Pp()) !== s ? ((h2 = (function() {
+              var t5, e4, n3, o3;
+              t5 = zi, "lines" === r2.substr(zi, 5).toLowerCase() ? (e4 = r2.substr(zi, 5), zi += 5) : (e4 = s, 0 === ec && ac(Ie));
+              e4 !== s && Pp() !== s ? ((n3 = Wc()) === s && (n3 = null), n3 !== s && Pp() !== s ? ((o3 = Wc()) === s && (o3 = null), o3 !== s ? (Zi = t5, e4 = (function(r3, t6, e5) {
+                if (t6 && e5 && t6.type === e5.type) throw new Error("LINES cannot be specified twice");
+                return t6 && Reflect.deleteProperty(t6, "type"), e5 && Reflect.deleteProperty(e5, "type"), { keyword: r3, ...t6 || {}, ...e5 || {} };
+              })(e4, n3, o3), t5 = e4) : (zi = t5, t5 = s)) : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (h2 = null), h2 !== s && Pp() !== s ? (C2 = zi, (m2 = bb()) !== s && (E2 = Pp()) !== s && (A2 = qf()) !== s && (T2 = Pp()) !== s ? ("lines" === r2.substr(zi, 5).toLowerCase() ? (_3 = r2.substr(zi, 5), zi += 5) : (_3 = s, 0 === ec && ac(Ie)), _3 === s && ("rows" === r2.substr(zi, 4).toLowerCase() ? (_3 = r2.substr(zi, 4), zi += 4) : (_3 = s, 0 === ec && ac(xe))), _3 !== s ? C2 = m2 = [m2, E2, A2, T2, _3] : (zi = C2, C2 = s)) : (zi = C2, C2 = s), C2 === s && (C2 = null), C2 !== s && (m2 = Pp()) !== s ? ((E2 = ul()) === s && (E2 = null), E2 !== s && (A2 = Pp()) !== s ? (T2 = zi, (_3 = yb()) !== s && (g2 = Pp()) !== s && (I2 = Nl()) !== s ? T2 = _3 = [_3, g2, I2] : (zi = T2, T2 = s), T2 === s && (T2 = null), T2 !== s ? (Zi = t4, N2 = E2, O2 = T2, e3 = { type: "load_data", mode: o2, local: u2, file: i2, replace_ignore: c2, table: b2, partition: p2, character_set: v2, fields: w2, lines: h2, ignore: (S2 = C2) && { count: S2[2], suffix: S2[4] }, column: N2, set: O2 && O2[2] }, t4 = e3) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            var S2, N2, O2;
+            return t4;
+          })()), t3;
+        }
+        function bc() {
+          var r3;
+          return (r3 = vc()) === s && (r3 = (function() {
+            var r4, t3, e3, n2, o2, u2, a2, i2;
+            r4 = zi, (t3 = Pp()) !== s ? ((e3 = Zc()) === s && (e3 = null), e3 !== s && Pp() !== s && sb() !== s && Pp() !== s && (n2 = yl()) !== s && Pp() !== s && yb() !== s && Pp() !== s && (o2 = Nl()) !== s && Pp() !== s ? ((u2 = El()) === s && (u2 = null), u2 !== s && Pp() !== s ? ((a2 = _l()) === s && (a2 = null), a2 !== s && Pp() !== s ? ((i2 = Sl()) === s && (i2 = null), i2 !== s ? (Zi = r4, t3 = (function(r5, t4, e4, n3, o3, s2) {
+              const u3 = {};
+              return t4 && t4.forEach((r6) => {
+                const { db: t5, as: e5, table: n4, join: o4 } = r6, s3 = o4 ? "select" : "update";
+                t5 && (u3[n4] = t5), n4 && hv.add(`${s3}::${t5}::${n4}`);
+              }), e4 && e4.forEach((r6) => {
+                if (r6.table) {
+                  const t5 = dv(r6.table);
+                  hv.add(`update::${u3[t5] || null}::${t5}`);
+                }
+                Cv.add(`update::${r6.table}::${r6.column}`);
+              }), { tableList: Array.from(hv), columnList: yv(Cv), ast: { with: r5, type: "update", table: t4, set: e4, where: n3, orderby: o3, limit: s2 } };
+            })(e3, n2, o2, u2, a2, i2), r4 = t3) : (zi = r4, r4 = s)) : (zi = r4, r4 = s)) : (zi = r4, r4 = s)) : (zi = r4, r4 = s)) : (zi = r4, r4 = s);
+            return r4;
+          })()) === s && (r3 = (function() {
+            var r4, t3, e3, n2, o2, u2, a2, i2, c2;
+            r4 = zi, (t3 = kl()) !== s && Pp() !== s ? ((e3 = bb()) === s && (e3 = null), e3 !== s && Pp() !== s ? ((n2 = vb()) === s && (n2 = null), n2 !== s && Pp() !== s && (o2 = Cl()) !== s && Pp() !== s ? ((u2 = jl()) === s && (u2 = null), u2 !== s && Pp() !== s && jp() !== s && Pp() !== s && (a2 = sf()) !== s && Pp() !== s && xp() !== s && Pp() !== s && (i2 = Rl()) !== s && Pp() !== s ? ((c2 = xl()) === s && (c2 = null), c2 !== s ? (Zi = r4, t3 = (function(r5, t4, e4, n3, o3, s2, u3, a3) {
+              if (n3 && (hv.add(`insert::${n3.db}::${n3.table}`), n3.as = null), s2) {
+                let r6 = n3 && n3.table || null;
+                Array.isArray(u3.values) && u3.values.forEach((r7, t5) => {
+                  if (r7.value.length != s2.length) throw new Error("Error: column count doesn't match value count at row " + (t5 + 1));
+                }), s2.forEach((t5) => Cv.add(`insert::${r6}::${t5}`));
+              }
+              const i3 = [t4, e4].filter((r6) => r6).map((r6) => r6[0] && r6[0].toLowerCase()).join(" ");
+              return { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: r5, table: [n3], columns: s2, values: u3, partition: o3, prefix: i3, on_duplicate_update: a3 } };
+            })(t3, e3, n2, o2, u2, a2, i2, c2), r4 = t3) : (zi = r4, r4 = s)) : (zi = r4, r4 = s)) : (zi = r4, r4 = s)) : (zi = r4, r4 = s)) : (zi = r4, r4 = s);
+            return r4;
+          })()) === s && (r3 = (function() {
+            var r4, t3, e3, n2, o2, u2, a2, i2;
+            r4 = zi, (t3 = kl()) !== s && Pp() !== s ? ((e3 = bb()) === s && (e3 = null), e3 !== s && Pp() !== s ? ((n2 = vb()) === s && (n2 = null), n2 !== s && Pp() !== s && (o2 = Cl()) !== s && Pp() !== s ? ((u2 = jl()) === s && (u2 = null), u2 !== s && Pp() !== s && (a2 = Rl()) !== s && Pp() !== s ? ((i2 = xl()) === s && (i2 = null), i2 !== s ? (Zi = r4, t3 = (function(r5, t4, e4, n3, o3, s2, u3) {
+              n3 && (hv.add(`insert::${n3.db}::${n3.table}`), Cv.add(`insert::${n3.table}::(.*)`), n3.as = null);
+              const a3 = [t4, e4].filter((r6) => r6).map((r6) => r6[0] && r6[0].toLowerCase()).join(" ");
+              return { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: r5, table: [n3], columns: null, values: s2, partition: o3, prefix: a3, on_duplicate_update: u3 } };
+            })(t3, e3, n2, o2, u2, a2, i2), r4 = t3) : (zi = r4, r4 = s)) : (zi = r4, r4 = s)) : (zi = r4, r4 = s)) : (zi = r4, r4 = s)) : (zi = r4, r4 = s);
+            return r4;
+          })()) === s && (r3 = (function() {
+            var r4, t3, e3, n2, o2, u2, a2, i2;
+            r4 = zi, (t3 = kl()) !== s && Pp() !== s ? ((e3 = bb()) === s && (e3 = null), e3 !== s && Pp() !== s ? ((n2 = vb()) === s && (n2 = null), n2 !== s && Pp() !== s && (o2 = Cl()) !== s && Pp() !== s ? ((u2 = jl()) === s && (u2 = null), u2 !== s && Pp() !== s && yb() !== s && Pp() !== s && (a2 = Nl()) !== s && Pp() !== s ? ((i2 = xl()) === s && (i2 = null), i2 !== s ? (Zi = r4, t3 = (function(r5, t4, e4, n3, o3, s2, u3) {
+              n3 && (hv.add(`insert::${n3.db}::${n3.table}`), Cv.add(`insert::${n3.table}::(.*)`), n3.as = null);
+              const a3 = [t4, e4].filter((r6) => r6).map((r6) => r6[0] && r6[0].toLowerCase()).join(" ");
+              return { tableList: Array.from(hv), columnList: yv(Cv), ast: { type: r5, table: [n3], columns: null, partition: o3, prefix: a3, set: s2, on_duplicate_update: u3 } };
+            })(t3, e3, n2, o2, u2, a2, i2), r4 = t3) : (zi = r4, r4 = s)) : (zi = r4, r4 = s)) : (zi = r4, r4 = s)) : (zi = r4, r4 = s)) : (zi = r4, r4 = s);
+            return r4;
+          })()) === s && (r3 = (function() {
+            var r4, t3, e3, n2, o2, u2, a2, i2;
+            r4 = zi, (t3 = Pp()) !== s ? ((e3 = Zc()) === s && (e3 = null), e3 !== s && Pp() !== s && ib() !== s && Pp() !== s ? ((n2 = yl()) === s && (n2 = null), n2 !== s && Pp() !== s && (o2 = fl()) !== s && Pp() !== s ? ((u2 = El()) === s && (u2 = null), u2 !== s && Pp() !== s ? ((a2 = _l()) === s && (a2 = null), a2 !== s && Pp() !== s ? ((i2 = Sl()) === s && (i2 = null), i2 !== s ? (Zi = r4, t3 = (function(r5, t4, e4, n3, o3, s2) {
+              if (e4) {
+                (Array.isArray(e4) ? e4 : e4.expr).forEach((r6) => {
+                  const { db: t5, as: e5, table: n4, join: o4 } = r6, s3 = o4 ? "select" : "delete";
+                  n4 && hv.add(`${s3}::${t5}::${n4}`), o4 || Cv.add(`delete::${n4}::(.*)`);
+                });
+              }
+              if (null === t4 && 1 === e4.length) {
+                const r6 = e4[0];
+                t4 = [{ db: r6.db, table: r6.table, as: r6.as, addition: true }];
+              }
+              return { tableList: Array.from(hv), columnList: yv(Cv), ast: { with: r5, type: "delete", table: t4, from: e4, where: n3, orderby: o3, limit: s2 } };
+            })(e3, n2, o2, u2, a2, i2), r4 = t3) : (zi = r4, r4 = s)) : (zi = r4, r4 = s)) : (zi = r4, r4 = s)) : (zi = r4, r4 = s)) : (zi = r4, r4 = s)) : (zi = r4, r4 = s);
+            return r4;
+          })()) === s && (r3 = fc()) === s && (r3 = (function() {
+            var r4, t3;
+            r4 = [], t3 = Wp();
+            for (; t3 !== s; ) r4.push(t3), t3 = Wp();
+            return r4;
+          })()), r3;
+        }
+        function pc() {
+          var t3, e3, n2, o2;
+          return t3 = zi, (e3 = (function() {
+            var t4, e4, n3, o3;
+            t4 = zi, "union" === r2.substr(zi, 5).toLowerCase() ? (e4 = r2.substr(zi, 5), zi += 5) : (e4 = s, 0 === ec && ac(Nu));
+            e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? t4 = e4 = [e4, n3] : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()) !== s && Pp() !== s ? ((n2 = xb()) === s && (n2 = kb()), n2 === s && (n2 = null), n2 !== s ? (Zi = t3, t3 = e3 = (o2 = n2) ? "union " + o2.toLowerCase() : "union") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, (e3 = (function() {
+            var t4, e4, n3, o3;
+            t4 = zi, "minus" === r2.substr(zi, 5).toLowerCase() ? (e4 = r2.substr(zi, 5), zi += 5) : (e4 = s, 0 === ec && ac(Ou));
+            e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? t4 = e4 = [e4, n3] : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()) !== s && (Zi = t3, e3 = "minus"), (t3 = e3) === s && (t3 = zi, (e3 = (function() {
+            var t4, e4, n3, o3;
+            t4 = zi, "intersect" === r2.substr(zi, 9).toLowerCase() ? (e4 = r2.substr(zi, 9), zi += 9) : (e4 = s, 0 === ec && ac(Ru));
+            e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? t4 = e4 = [e4, n3] : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()) !== s && (Zi = t3, e3 = "intersect"), (t3 = e3) === s && (t3 = zi, (e3 = (function() {
+            var t4, e4, n3, o3;
+            t4 = zi, "except" === r2.substr(zi, 6).toLowerCase() ? (e4 = r2.substr(zi, 6), zi += 6) : (e4 = s, 0 === ec && ac(ju));
+            e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? t4 = e4 = [e4, n3] : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()) !== s && (Zi = t3, e3 = "except"), t3 = e3))), t3;
+        }
+        function vc() {
+          var r3, t3, e3, n2, o2, u2, a2, i2;
+          if (r3 = zi, (t3 = zc()) !== s) {
+            for (e3 = [], n2 = zi, (o2 = Pp()) !== s && (u2 = pc()) !== s && (a2 = Pp()) !== s && (i2 = zc()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Pp()) !== s && (u2 = pc()) !== s && (a2 = Pp()) !== s && (i2 = zc()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s);
+            e3 !== s && (n2 = Pp()) !== s ? ((o2 = _l()) === s && (o2 = null), o2 !== s && (u2 = Pp()) !== s ? ((a2 = Sl()) === s && (a2 = null), a2 !== s ? (Zi = r3, r3 = t3 = (function(r4, t4, e4, n3) {
+              let o3 = r4;
+              for (let r5 = 0; r5 < t4.length; r5++) o3._next = t4[r5][3], o3.set_op = t4[r5][1], o3 = o3._next;
+              return e4 && (r4._orderby = e4), n3 && (r4._limit = n3), { tableList: Array.from(hv), columnList: yv(Cv), ast: r4 };
+            })(t3, e3, o2, a2)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          return r3;
+        }
+        function dc() {
+          var r3, t3, e3;
+          return r3 = zi, (t3 = Yl()) !== s && Pp() !== s ? ((e3 = Rb()) === s && (e3 = jb()), e3 === s && (e3 = null), e3 !== s ? (Zi = r3, r3 = t3 = c(t3, e3)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3 === s && (r3 = (function() {
+            var r4, t4, e4;
+            r4 = zi, (t4 = of()) !== s && Pp() !== s ? ((e4 = Rb()) === s && (e4 = jb()), e4 === s && (e4 = null), e4 !== s ? (Zi = r4, t4 = c(t4, e4), r4 = t4) : (zi = r4, r4 = s)) : (zi = r4, r4 = s);
+            return r4;
+          })()), r3;
+        }
+        function yc() {
+          var t3, e3;
+          return t3 = zi, "if" === r2.substr(zi, 2).toLowerCase() ? (e3 = r2.substr(zi, 2), zi += 2) : (e3 = s, 0 === ec && ac(f)), e3 !== s && Pp() !== s && Fb() !== s && Pp() !== s && Gb() !== s ? (Zi = t3, t3 = e3 = "IF NOT EXISTS") : (zi = t3, t3 = s), t3;
+        }
+        function wc() {
+          var t3, e3, n2;
+          return t3 = zi, (e3 = Xc()) !== s && Pp() !== s ? ((n2 = (function() {
+            var t4, e4, n3, o2, u2, a2, i2, c2, l2;
+            return t4 = zi, r2.substr(zi, 10) === b ? (e4 = b, zi += 10) : (e4 = s, 0 === ec && ac(p)), e4 !== s && Pp() !== s ? (n3 = zi, "with" === r2.substr(zi, 4).toLowerCase() ? (o2 = r2.substr(zi, 4), zi += 4) : (o2 = s, 0 === ec && ac(v)), o2 !== s && (u2 = Pp()) !== s && (a2 = lf()) !== s ? n3 = o2 = [o2, u2, a2] : (zi = n3, n3 = s), n3 === s && (n3 = null), n3 !== s && (o2 = Pp()) !== s ? ("by" === r2.substr(zi, 2).toLowerCase() ? (u2 = r2.substr(zi, 2), zi += 2) : (u2 = s, 0 === ec && ac(d)), u2 !== s && (a2 = Pp()) !== s ? ("random" === r2.substr(zi, 6).toLowerCase() ? (i2 = r2.substr(zi, 6), zi += 6) : (i2 = s, 0 === ec && ac(y)), i2 !== s && Pp() !== s ? ("password" === r2.substr(zi, 8).toLowerCase() ? (c2 = r2.substr(zi, 8), zi += 8) : (c2 = s, 0 === ec && ac(w)), c2 !== s ? (Zi = t4, t4 = e4 = { keyword: ["identified", (l2 = n3) && l2[0].toLowerCase()].filter((r3) => r3).join(" "), auth_plugin: l2 && l2[2], value: { prefix: "by", type: "origin", value: "random password" } }) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s), t4 === s && (t4 = zi, r2.substr(zi, 10) === b ? (e4 = b, zi += 10) : (e4 = s, 0 === ec && ac(p)), e4 !== s && Pp() !== s ? (n3 = zi, "with" === r2.substr(zi, 4).toLowerCase() ? (o2 = r2.substr(zi, 4), zi += 4) : (o2 = s, 0 === ec && ac(v)), o2 !== s && (u2 = Pp()) !== s && (a2 = lf()) !== s ? n3 = o2 = [o2, u2, a2] : (zi = n3, n3 = s), n3 === s && (n3 = null), n3 !== s && (o2 = Pp()) !== s ? ("by" === r2.substr(zi, 2).toLowerCase() ? (u2 = r2.substr(zi, 2), zi += 2) : (u2 = s, 0 === ec && ac(d)), u2 !== s && (a2 = Pp()) !== s && (i2 = Yf()) !== s ? (Zi = t4, t4 = e4 = (function(r3, t5) {
+              return t5.prefix = "by", { keyword: ["identified", r3 && r3[0].toLowerCase()].filter((r4) => r4).join(" "), auth_plugin: r3 && r3[2], value: t5 };
+            })(n3, i2)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s), t4 === s && (t4 = zi, r2.substr(zi, 10) === b ? (e4 = b, zi += 10) : (e4 = s, 0 === ec && ac(p)), e4 !== s && Pp() !== s ? ("with" === r2.substr(zi, 4).toLowerCase() ? (n3 = r2.substr(zi, 4), zi += 4) : (n3 = s, 0 === ec && ac(v)), n3 !== s && (o2 = Pp()) !== s && (u2 = lf()) !== s && (a2 = Pp()) !== s ? ("as" === r2.substr(zi, 2).toLowerCase() ? (i2 = r2.substr(zi, 2), zi += 2) : (i2 = s, 0 === ec && ac(L)), i2 !== s && Pp() !== s && (c2 = Yf()) !== s ? (Zi = t4, t4 = e4 = (function(r3, t5) {
+              return t5.prefix = "as", { keyword: "identified with", auth_plugin: r3 && r3[2], value: t5 };
+            })(u2, c2)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s))), t4;
+          })()) === s && (n2 = null), n2 !== s ? (Zi = t3, t3 = e3 = { user: e3, auth_option: n2 }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Lc() {
+          var t3, e3, n2;
+          return t3 = zi, "none" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(m)), e3 === s && ("ssl" === r2.substr(zi, 3).toLowerCase() ? (e3 = r2.substr(zi, 3), zi += 3) : (e3 = s, 0 === ec && ac(E)), e3 === s && ("x509" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(A)))), e3 !== s && (Zi = t3, e3 = { type: "origin", value: e3 }), (t3 = e3) === s && (t3 = zi, "cipher" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(T)), e3 === s && ("issuer" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(_2)), e3 === s && ("subject" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(g)))), e3 !== s && Pp() !== s && (n2 = Yf()) !== s ? (Zi = t3, t3 = e3 = I(e3, n2)) : (zi = t3, t3 = s)), t3;
+        }
+        function hc() {
+          var t3, e3, n2;
+          return t3 = zi, "max_queries_per_hour" === r2.substr(zi, 20).toLowerCase() ? (e3 = r2.substr(zi, 20), zi += 20) : (e3 = s, 0 === ec && ac(N)), e3 === s && ("max_updates_per_hour" === r2.substr(zi, 20).toLowerCase() ? (e3 = r2.substr(zi, 20), zi += 20) : (e3 = s, 0 === ec && ac(O)), e3 === s && ("max_connections_per_hour" === r2.substr(zi, 24).toLowerCase() ? (e3 = r2.substr(zi, 24), zi += 24) : (e3 = s, 0 === ec && ac(R)), e3 === s && ("max_user_connections" === r2.substr(zi, 20).toLowerCase() ? (e3 = r2.substr(zi, 20), zi += 20) : (e3 = s, 0 === ec && ac(j))))), e3 !== s && Pp() !== s && (n2 = qf()) !== s ? (Zi = t3, t3 = e3 = I(e3, n2)) : (zi = t3, t3 = s), t3;
+        }
+        function Cc() {
+          var t3, e3, n2, o2, u2, a2;
+          return t3 = zi, "password" === r2.substr(zi, 8).toLowerCase() ? (e3 = r2.substr(zi, 8), zi += 8) : (e3 = s, 0 === ec && ac(w)), e3 !== s && Pp() !== s ? ("expire" === r2.substr(zi, 6).toLowerCase() ? (n2 = r2.substr(zi, 6), zi += 6) : (n2 = s, 0 === ec && ac(x)), n2 !== s && Pp() !== s ? ("default" === r2.substr(zi, 7).toLowerCase() ? (o2 = r2.substr(zi, 7), zi += 7) : (o2 = s, 0 === ec && ac(k)), o2 === s && ("never" === r2.substr(zi, 5).toLowerCase() ? (o2 = r2.substr(zi, 5), zi += 5) : (o2 = s, 0 === ec && ac(U)), o2 === s && (o2 = Pl())), o2 !== s ? (Zi = t3, t3 = e3 = { keyword: "password expire", value: "string" == typeof (a2 = o2) ? { type: "origin", value: a2 } : a2 }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, "password" === r2.substr(zi, 8).toLowerCase() ? (e3 = r2.substr(zi, 8), zi += 8) : (e3 = s, 0 === ec && ac(w)), e3 !== s && Pp() !== s ? ("history" === r2.substr(zi, 7).toLowerCase() ? (n2 = r2.substr(zi, 7), zi += 7) : (n2 = s, 0 === ec && ac(D)), n2 !== s && Pp() !== s ? ("default" === r2.substr(zi, 7).toLowerCase() ? (o2 = r2.substr(zi, 7), zi += 7) : (o2 = s, 0 === ec && ac(k)), o2 === s && (o2 = qf()), o2 !== s ? (Zi = t3, t3 = e3 = /* @__PURE__ */ (function(r3) {
+            return { keyword: "password history", value: "string" == typeof r3 ? { type: "origin", value: r3 } : r3 };
+          })(o2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, "password" === r2.substr(zi, 8).toLowerCase() ? (e3 = r2.substr(zi, 8), zi += 8) : (e3 = s, 0 === ec && ac(w)), e3 !== s && Pp() !== s ? ("REUSE" === r2.substr(zi, 5) ? (n2 = "REUSE", zi += 5) : (n2 = s, 0 === ec && ac(M)), n2 !== s && Pp() !== s && (o2 = Pl()) !== s ? (Zi = t3, t3 = e3 = /* @__PURE__ */ (function(r3) {
+            return { keyword: "password reuse", value: r3 };
+          })(o2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, "password" === r2.substr(zi, 8).toLowerCase() ? (e3 = r2.substr(zi, 8), zi += 8) : (e3 = s, 0 === ec && ac(w)), e3 !== s && Pp() !== s ? ("require" === r2.substr(zi, 7).toLowerCase() ? (n2 = r2.substr(zi, 7), zi += 7) : (n2 = s, 0 === ec && ac(S)), n2 !== s && Pp() !== s ? ("current" === r2.substr(zi, 7).toLowerCase() ? (o2 = r2.substr(zi, 7), zi += 7) : (o2 = s, 0 === ec && ac(P)), o2 !== s && Pp() !== s ? ("default" === r2.substr(zi, 7).toLowerCase() ? (u2 = r2.substr(zi, 7), zi += 7) : (u2 = s, 0 === ec && ac(k)), u2 === s && ("optional" === r2.substr(zi, 8).toLowerCase() ? (u2 = r2.substr(zi, 8), zi += 8) : (u2 = s, 0 === ec && ac(G))), u2 !== s ? (Zi = t3, t3 = e3 = /* @__PURE__ */ (function(r3) {
+            return { keyword: "password require current", value: { type: "origin", value: r3 } };
+          })(u2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, "failed_login_attempts" === r2.substr(zi, 21).toLowerCase() ? (e3 = r2.substr(zi, 21), zi += 21) : (e3 = s, 0 === ec && ac(F)), e3 !== s && Pp() !== s && (n2 = qf()) !== s ? (Zi = t3, t3 = e3 = /* @__PURE__ */ (function(r3) {
+            return { keyword: "failed_login_attempts", value: r3 };
+          })(n2)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, "password_lock_time" === r2.substr(zi, 18).toLowerCase() ? (e3 = r2.substr(zi, 18), zi += 18) : (e3 = s, 0 === ec && ac(H)), e3 !== s && Pp() !== s ? ((n2 = qf()) === s && ("unbounded" === r2.substr(zi, 9).toLowerCase() ? (n2 = r2.substr(zi, 9), zi += 9) : (n2 = s, 0 === ec && ac(Y))), n2 !== s ? (Zi = t3, t3 = e3 = /* @__PURE__ */ (function(r3) {
+            return { keyword: "password_lock_time", value: "string" == typeof r3 ? { type: "origin", value: r3 } : r3 };
+          })(n2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)))))), t3;
+        }
+        function mc() {
+          var r3;
+          return (r3 = kc()) === s && (r3 = Ac()) === s && (r3 = jc()) === s && (r3 = xc()), r3;
+        }
+        function Ec() {
+          var t3, e3, n2, o2, u2;
+          return t3 = zi, (e3 = (function() {
+            var t4, e4;
+            t4 = zi, (e4 = (function() {
+              var t5, e5, n3, o3;
+              t5 = zi, "not null" === r2.substr(zi, 8).toLowerCase() ? (e5 = r2.substr(zi, 8), zi += 8) : (e5 = s, 0 === ec && ac(Qs));
+              e5 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? t5 = e5 = [e5, n3] : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) !== s && (Zi = t4, e4 = { type: "not null", value: "not null" });
+            return t4 = e4;
+          })()) === s && (e3 = Hf()), e3 !== s && (Zi = t3, (u2 = e3) && !u2.value && (u2.value = "null"), e3 = { nullable: u2 }), (t3 = e3) === s && (t3 = zi, (e3 = (function() {
+            var r3, t4;
+            r3 = zi, Jf() !== s && Pp() !== s && (t4 = Yl()) !== s ? (Zi = r3, r3 = { type: "default", value: t4 }) : (zi = r3, r3 = s);
+            return r3;
+          })()) !== s && (Zi = t3, e3 = { default_val: e3 }), (t3 = e3) === s && (t3 = zi, "auto_increment" === r2.substr(zi, 14).toLowerCase() ? (e3 = r2.substr(zi, 14), zi += 14) : (e3 = s, 0 === ec && ac(ur)), e3 !== s && (Zi = t3, e3 = { auto_increment: e3.toLowerCase() }), (t3 = e3) === s && (t3 = zi, "unique" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(ar)), e3 !== s && Pp() !== s ? ("key" === r2.substr(zi, 3).toLowerCase() ? (n2 = r2.substr(zi, 3), zi += 3) : (n2 = s, 0 === ec && ac(ir)), n2 === s && (n2 = null), n2 !== s ? (Zi = t3, t3 = e3 = (function(r3) {
+            const t4 = ["unique"];
+            return r3 && t4.push(r3), { unique: t4.join(" ").toLowerCase("") };
+          })(n2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, "primary" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(cr2)), e3 === s && (e3 = null), e3 !== s && Pp() !== s ? ("key" === r2.substr(zi, 3).toLowerCase() ? (n2 = r2.substr(zi, 3), zi += 3) : (n2 = s, 0 === ec && ac(ir)), n2 !== s ? (Zi = t3, t3 = e3 = (function(r3) {
+            const t4 = [];
+            return r3 && t4.push("primary"), t4.push("key"), { primary_key: t4.join(" ").toLowerCase("") };
+          })(e3)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, (e3 = Hp()) !== s && (Zi = t3, e3 = { comment: e3 }), (t3 = e3) === s && (t3 = zi, (e3 = _c()) !== s && (Zi = t3, e3 = { collate: e3 }), (t3 = e3) === s && (t3 = zi, (e3 = (function() {
+            var t4, e4, n3;
+            t4 = zi, "column_format" === r2.substr(zi, 13).toLowerCase() ? (e4 = r2.substr(zi, 13), zi += 13) : (e4 = s, 0 === ec && ac(Cr));
+            e4 !== s && Pp() !== s ? ("fixed" === r2.substr(zi, 5).toLowerCase() ? (n3 = r2.substr(zi, 5), zi += 5) : (n3 = s, 0 === ec && ac(mr)), n3 === s && ("dynamic" === r2.substr(zi, 7).toLowerCase() ? (n3 = r2.substr(zi, 7), zi += 7) : (n3 = s, 0 === ec && ac(Er)), n3 === s && ("default" === r2.substr(zi, 7).toLowerCase() ? (n3 = r2.substr(zi, 7), zi += 7) : (n3 = s, 0 === ec && ac(k)))), n3 !== s ? (Zi = t4, e4 = { type: "column_format", value: n3.toLowerCase() }, t4 = e4) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()) !== s && (Zi = t3, e3 = { column_format: e3 }), (t3 = e3) === s && (t3 = zi, (e3 = (function() {
+            var t4, e4, n3;
+            t4 = zi, "storage" === r2.substr(zi, 7).toLowerCase() ? (e4 = r2.substr(zi, 7), zi += 7) : (e4 = s, 0 === ec && ac(Ar));
+            e4 !== s && Pp() !== s ? ("disk" === r2.substr(zi, 4).toLowerCase() ? (n3 = r2.substr(zi, 4), zi += 4) : (n3 = s, 0 === ec && ac(Tr)), n3 === s && ("memory" === r2.substr(zi, 6).toLowerCase() ? (n3 = r2.substr(zi, 6), zi += 6) : (n3 = s, 0 === ec && ac(_r))), n3 !== s ? (Zi = t4, e4 = { type: "storage", value: n3.toLowerCase() }, t4 = e4) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()) !== s && (Zi = t3, e3 = { storage: e3 }), (t3 = e3) === s && (t3 = zi, (e3 = Dc()) !== s && (Zi = t3, e3 = { reference_definition: e3 }), (t3 = e3) === s && (t3 = zi, (e3 = (function() {
+            var t4, e4, n3, o3, u3, a2, i2, c2;
+            t4 = zi, (e4 = Uc()) === s && (e4 = null);
+            e4 !== s && Pp() !== s ? ("check" === r2.substr(zi, 5).toLowerCase() ? (n3 = r2.substr(zi, 5), zi += 5) : (n3 = s, 0 === ec && ac(K)), n3 !== s && Pp() !== s && jp() !== s && Pp() !== s && (o3 = Bl()) !== s && Pp() !== s && xp() !== s && Pp() !== s ? (u3 = zi, (a2 = Fb()) === s && (a2 = null), a2 !== s && (i2 = Pp()) !== s ? ("enforced" === r2.substr(zi, 8).toLowerCase() ? (c2 = r2.substr(zi, 8), zi += 8) : (c2 = s, 0 === ec && ac(tt)), c2 !== s ? u3 = a2 = [a2, i2, c2] : (zi = u3, u3 = s)) : (zi = u3, u3 = s), u3 === s && (u3 = null), u3 !== s ? (Zi = t4, e4 = (function(r3, t5, e5, n4) {
+              const o4 = [];
+              return n4 && o4.push(n4[0], n4[2]), { constraint_type: t5.toLowerCase(), keyword: r3 && r3.keyword, constraint: r3 && r3.constraint, definition: [e5], enforced: o4.filter((r4) => r4).join(" ").toLowerCase(), resource: "constraint" };
+            })(e4, n3, o3, u3), t4 = e4) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()) !== s && (Zi = t3, e3 = { check: e3 }), (t3 = e3) === s && (t3 = zi, (e3 = Gc()) !== s && Pp() !== s ? ((n2 = Lp()) === s && (n2 = null), n2 !== s && Pp() !== s && (o2 = af()) !== s ? (Zi = t3, t3 = e3 = /* @__PURE__ */ (function(r3, t4, e4) {
+            return { character_set: { type: r3, value: e4, symbol: t4 } };
+          })(e3, n2, o2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, (e3 = (function() {
+            var t4, e4, n3, o3, u3, a2, i2, c2;
+            t4 = zi, e4 = zi, (n3 = (function() {
+              var t5, e5, n4, o4, u4;
+              t5 = zi, e5 = zi, "generated" === r2.substr(zi, 9).toLowerCase() ? (n4 = r2.substr(zi, 9), zi += 9) : (n4 = s, 0 === ec && ac(gr));
+              n4 !== s && (o4 = Pp()) !== s ? ("always" === r2.substr(zi, 6).toLowerCase() ? (u4 = r2.substr(zi, 6), zi += 6) : (u4 = s, 0 === ec && ac(Ir)), u4 !== s ? e5 = n4 = [n4, o4, u4] : (zi = e5, e5 = s)) : (zi = e5, e5 = s);
+              e5 !== s && (Zi = t5, e5 = e5.join("").toLowerCase());
+              return t5 = e5;
+            })()) === s && (n3 = null);
+            n3 !== s && (o3 = Pp()) !== s ? ("as" === r2.substr(zi, 2).toLowerCase() ? (u3 = r2.substr(zi, 2), zi += 2) : (u3 = s, 0 === ec && ac(L)), u3 !== s ? e4 = n3 = [n3, o3, u3] : (zi = e4, e4 = s)) : (zi = e4, e4 = s);
+            if (e4 !== s) if ((n3 = Pp()) !== s) if ((o3 = jp()) !== s) if ((u3 = Pp()) !== s) if ((a2 = Ff()) === s && (a2 = Yl()), a2 !== s) if (Pp() !== s) if (xp() !== s) if (Pp() !== s) {
+              for (i2 = [], "stored" === r2.substr(zi, 6).toLowerCase() ? (c2 = r2.substr(zi, 6), zi += 6) : (c2 = s, 0 === ec && ac(Sr)), c2 === s && ("virtual" === r2.substr(zi, 7).toLowerCase() ? (c2 = r2.substr(zi, 7), zi += 7) : (c2 = s, 0 === ec && ac(Nr))); c2 !== s; ) i2.push(c2), "stored" === r2.substr(zi, 6).toLowerCase() ? (c2 = r2.substr(zi, 6), zi += 6) : (c2 = s, 0 === ec && ac(Sr)), c2 === s && ("virtual" === r2.substr(zi, 7).toLowerCase() ? (c2 = r2.substr(zi, 7), zi += 7) : (c2 = s, 0 === ec && ac(Nr)));
+              i2 !== s ? (Zi = t4, l2 = i2, e4 = { type: "generated", expr: a2, value: e4.filter((r3) => "string" == typeof r3).join(" ").toLowerCase(), storage_type: l2 && l2[0] && l2[0].toLowerCase() }, t4 = e4) : (zi = t4, t4 = s);
+            } else zi = t4, t4 = s;
+            else zi = t4, t4 = s;
+            else zi = t4, t4 = s;
+            else zi = t4, t4 = s;
+            else zi = t4, t4 = s;
+            else zi = t4, t4 = s;
+            else zi = t4, t4 = s;
+            else zi = t4, t4 = s;
+            var l2;
+            return t4;
+          })()) !== s && (Zi = t3, e3 = { generated: e3 }), t3 = e3)))))))))))), t3;
+        }
+        function Ac() {
+          var r3, t3, e3, n2, o2, u2, a2;
+          return r3 = zi, (t3 = of()) !== s && Pp() !== s && (e3 = ev()) !== s && Pp() !== s ? ((n2 = (function() {
+            var r4, t4, e4, n3, o3, u3;
+            if (r4 = zi, (t4 = Ec()) !== s) if (Pp() !== s) {
+              for (e4 = [], n3 = zi, (o3 = Pp()) !== s && (u3 = Ec()) !== s ? n3 = o3 = [o3, u3] : (zi = n3, n3 = s); n3 !== s; ) e4.push(n3), n3 = zi, (o3 = Pp()) !== s && (u3 = Ec()) !== s ? n3 = o3 = [o3, u3] : (zi = n3, n3 = s);
+              e4 !== s ? (Zi = r4, r4 = t4 = (function(r5, t5) {
+                let e5 = r5;
+                for (let r6 = 0; r6 < t5.length; r6++) e5 = { ...e5, ...t5[r6][1] };
+                return e5;
+              })(t4, e4)) : (zi = r4, r4 = s);
+            } else zi = r4, r4 = s;
+            else zi = r4, r4 = s;
+            return r4;
+          })()) === s && (n2 = null), n2 !== s ? (Zi = r3, o2 = t3, u2 = e3, a2 = n2, Cv.add(`create::${o2.table}::${o2.column}`), r3 = t3 = { column: o2, definition: u2, resource: "column", ...a2 || {} }) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3;
+        }
+        function Tc() {
+          var t3, e3, n2, o2, u2;
+          return t3 = zi, "definer" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(nr)), e3 !== s && Pp() !== s && Lp() !== s && Pp() !== s ? ((n2 = df()) === s && (n2 = Yf()), n2 !== s && Pp() !== s ? (64 === r2.charCodeAt(zi) ? (o2 = "@", zi++) : (o2 = s, 0 === ec && ac(lr)), o2 !== s && Pp() !== s ? ((u2 = df()) === s && (u2 = Yf()), u2 !== s ? (Zi = t3, t3 = e3 = (function(r3, t4) {
+            const e4 = fv("@", r3, t4);
+            return fv("=", { type: "origin", value: "definer" }, e4);
+          })(n2, u2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, "definer" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(nr)), e3 !== s && Pp() !== s && Lp() !== s && Pp() !== s && (n2 = pp()) !== s && Pp() !== s && (o2 = jp()) !== s && Pp() !== s && (u2 = xp()) !== s ? (Zi = t3, t3 = e3 = fr()) : (zi = t3, t3 = s), t3 === s && (t3 = zi, "definer" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(nr)), e3 !== s && Pp() !== s && Lp() !== s && Pp() !== s && (n2 = pp()) !== s ? (Zi = t3, t3 = e3 = fr()) : (zi = t3, t3 = s))), t3;
+        }
+        function _c() {
+          var t3, e3, n2;
+          return t3 = zi, (function() {
+            var t4, e4, n3, o2;
+            t4 = zi, "collate" === r2.substr(zi, 7).toLowerCase() ? (e4 = r2.substr(zi, 7), zi += 7) : (e4 = s, 0 === ec && ac(pt));
+            e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t4, t4 = e4 = "COLLATE") : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })() !== s && Pp() !== s ? ((e3 = Lp()) === s && (e3 = null), e3 !== s && Pp() !== s && (n2 = lf()) !== s ? (Zi = t3, t3 = { type: "collate", keyword: "collate", collate: { name: n2, symbol: e3 } }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function gc() {
+          var t3, e3, n2;
+          return t3 = zi, "if" === r2.substr(zi, 2).toLowerCase() ? (e3 = r2.substr(zi, 2), zi += 2) : (e3 = s, 0 === ec && ac(Or)), e3 !== s && Pp() !== s ? ("exists" === r2.substr(zi, 6).toLowerCase() ? (n2 = r2.substr(zi, 6), zi += 6) : (n2 = s, 0 === ec && ac(Rr)), n2 !== s ? (Zi = t3, t3 = e3 = "if exists") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Ic() {
+          var t3, e3, n2;
+          return t3 = zi, "first" === r2.substr(zi, 5).toLowerCase() ? (e3 = r2.substr(zi, 5), zi += 5) : (e3 = s, 0 === ec && ac(jr)), e3 !== s && (Zi = t3, e3 = { keyword: e3 }), (t3 = e3) === s && (t3 = zi, "after" === r2.substr(zi, 5).toLowerCase() ? (e3 = r2.substr(zi, 5), zi += 5) : (e3 = s, 0 === ec && ac(xr)), e3 !== s && Pp() !== s && (n2 = of()) !== s ? (Zi = t3, t3 = e3 = /* @__PURE__ */ (function(r3, t4) {
+            return { keyword: r3, expr: t4 };
+          })(e3, n2)) : (zi = t3, t3 = s)), t3;
+        }
+        function Sc() {
+          var t3, e3, n2;
+          return (t3 = (function() {
+            var r3, t4;
+            r3 = zi, hp() !== s && Pp() !== s && (t4 = kc()) !== s ? (Zi = r3, r3 = { action: "add", create_definitions: t4, resource: "constraint", type: "alter" }) : (zi = r3, r3 = s);
+            return r3;
+          })()) === s && (t3 = (function() {
+            var t4, e4, n3, o2;
+            t4 = zi, (e4 = eb()) !== s && Pp() !== s ? ("check" === r2.substr(zi, 5).toLowerCase() ? (n3 = r2.substr(zi, 5), zi += 5) : (n3 = s, 0 === ec && ac(K)), n3 !== s && Pp() !== s && (o2 = hf()) !== s ? (Zi = t4, e4 = { action: "drop", constraint: o2, keyword: n3.toLowerCase(), resource: "constraint", type: "alter" }, t4 = e4) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            t4 === s && (t4 = zi, (e4 = eb()) !== s && Pp() !== s ? ("constraint" === r2.substr(zi, 10).toLowerCase() ? (n3 = r2.substr(zi, 10), zi += 10) : (n3 = s, 0 === ec && ac(Qr)), n3 !== s && Pp() !== s && (o2 = hf()) !== s ? (Zi = t4, e4 = (function(r3, t5) {
+              return { action: "drop", constraint: t5, keyword: r3.toLowerCase(), resource: "constraint", type: "alter" };
+            })(n3, o2), t4 = e4) : (zi = t4, t4 = s)) : (zi = t4, t4 = s));
+            return t4;
+          })()) === s && (t3 = (function() {
+            var t4, e4, n3, o2, u2, a2;
+            t4 = zi, (e4 = eb()) !== s && Pp() !== s ? ("primary" === r2.substr(zi, 7).toLowerCase() ? (n3 = r2.substr(zi, 7), zi += 7) : (n3 = s, 0 === ec && ac(cr2)), n3 !== s && (o2 = Pp()) !== s && (u2 = Ep()) !== s ? (Zi = t4, t4 = e4 = { action: "drop", key: "", keyword: "primary key", resource: "key", type: "alter" }) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            t4 === s && (t4 = zi, (e4 = eb()) !== s && Pp() !== s ? (n3 = zi, "foreign" === r2.substr(zi, 7).toLowerCase() ? (o2 = r2.substr(zi, 7), zi += 7) : (o2 = s, 0 === ec && ac(Kr)), o2 === s && (o2 = null), o2 !== s && (u2 = Pp()) !== s && (a2 = Ep()) !== s ? n3 = o2 = [o2, u2, a2] : (zi = n3, n3 = s), n3 === s && (n3 = mp()), n3 !== s && (o2 = Pp()) !== s && (u2 = lf()) !== s ? (Zi = t4, e4 = (function(r3, t5) {
+              const e5 = Array.isArray(r3) ? "key" : "index";
+              return { action: "drop", [e5]: t5, keyword: Array.isArray(r3) ? "" + [r3[0], r3[2]].filter((r4) => r4).join(" ").toLowerCase() : r3.toLowerCase(), resource: e5, type: "alter" };
+            })(n3, u2), t4 = e4) : (zi = t4, t4 = s)) : (zi = t4, t4 = s));
+            return t4;
+          })()) === s && (t3 = (function() {
+            var t4, e4, n3, o2;
+            t4 = zi, Sb() !== s && Pp() !== s ? ("check" === r2.substr(zi, 5).toLowerCase() ? (e4 = r2.substr(zi, 5), zi += 5) : (e4 = s, 0 === ec && ac(K)), e4 !== s && Pp() !== s ? ("check" === r2.substr(zi, 5).toLowerCase() ? (n3 = r2.substr(zi, 5), zi += 5) : (n3 = s, 0 === ec && ac(K)), n3 !== s && Pp() !== s && Ip() !== s && Pp() !== s && (o2 = hf()) !== s ? (Zi = t4, t4 = { action: "with", constraint: o2, keyword: "check check", resource: "constraint", type: "alter" }) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()) === s && (t3 = (function() {
+            var t4, e4, n3;
+            t4 = zi, "nocheck" === r2.substr(zi, 7).toLowerCase() ? (e4 = r2.substr(zi, 7), zi += 7) : (e4 = s, 0 === ec && ac(zr));
+            e4 !== s && Pp() !== s && Ip() !== s && Pp() !== s && (n3 = hf()) !== s ? (Zi = t4, t4 = e4 = { action: "nocheck", constraint: n3, resource: "constraint", type: "alter" }) : (zi = t4, t4 = s);
+            return t4;
+          })()) === s && (t3 = (function() {
+            var r3, t4, e4, n3, o2;
+            r3 = zi, (t4 = hp()) !== s && Pp() !== s && (e4 = Cp()) !== s && Pp() !== s && (n3 = Ac()) !== s && Pp() !== s ? ((o2 = Ic()) === s && (o2 = null), o2 !== s ? (Zi = r3, u2 = e4, a2 = n3, i2 = o2, t4 = { action: "add", ...a2, keyword: u2, suffix: i2, resource: "column", type: "alter" }, r3 = t4) : (zi = r3, r3 = s)) : (zi = r3, r3 = s);
+            var u2, a2, i2;
+            r3 === s && (r3 = zi, (t4 = hp()) !== s && Pp() !== s && (e4 = Ac()) !== s && Pp() !== s ? ((n3 = Ic()) === s && (n3 = null), n3 !== s ? (Zi = r3, t4 = (function(r4, t5) {
+              return { action: "add", ...r4, suffix: t5, resource: "column", type: "alter" };
+            })(e4, n3), r3 = t4) : (zi = r3, r3 = s)) : (zi = r3, r3 = s));
+            return r3;
+          })()) === s && (t3 = (function() {
+            var r3, t4, e4, n3;
+            r3 = zi, (t4 = eb()) !== s && Pp() !== s && (e4 = Cp()) !== s && Pp() !== s && (n3 = of()) !== s ? (Zi = r3, r3 = t4 = { action: "drop", column: n3, keyword: e4, resource: "column", type: "alter" }) : (zi = r3, r3 = s);
+            r3 === s && (r3 = zi, (t4 = eb()) !== s && Pp() !== s && (e4 = of()) !== s ? (Zi = r3, t4 = /* @__PURE__ */ (function(r4) {
+              return { action: "drop", column: r4, resource: "column", type: "alter" };
+            })(e4), r3 = t4) : (zi = r3, r3 = s));
+            return r3;
+          })()) === s && (t3 = (function() {
+            var t4, e4, n3, o2, u2;
+            t4 = zi, (e4 = (function() {
+              var t5, e5, n4, o3;
+              t5 = zi, "modify" === r2.substr(zi, 6).toLowerCase() ? (e5 = r2.substr(zi, 6), zi += 6) : (e5 = s, 0 === ec && ac(di));
+              e5 !== s ? (n4 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n4 = void 0 : (zi = n4, n4 = s), n4 !== s ? (Zi = t5, t5 = e5 = "MODIFY") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) !== s && Pp() !== s ? ((n3 = Cp()) === s && (n3 = null), n3 !== s && Pp() !== s && (o2 = Ac()) !== s && Pp() !== s ? ((u2 = Ic()) === s && (u2 = null), u2 !== s ? (Zi = t4, a2 = o2, i2 = u2, e4 = { action: "modify", keyword: n3, ...a2, suffix: i2, resource: "column", type: "alter" }, t4 = e4) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            var a2, i2;
+            return t4;
+          })()) === s && (t3 = (function() {
+            var r3, t4, e4;
+            r3 = zi, (t4 = hp()) !== s && Pp() !== s && (e4 = jc()) !== s ? (Zi = r3, n3 = e4, t4 = { action: "add", type: "alter", ...n3 }, r3 = t4) : (zi = r3, r3 = s);
+            var n3;
+            return r3;
+          })()) === s && (t3 = (function() {
+            var r3, t4, e4;
+            r3 = zi, (t4 = hp()) !== s && Pp() !== s && (e4 = xc()) !== s ? (Zi = r3, n3 = e4, t4 = { action: "add", type: "alter", ...n3 }, r3 = t4) : (zi = r3, r3 = s);
+            var n3;
+            return r3;
+          })()) === s && (t3 = (function() {
+            var r3, t4, e4, n3, o2;
+            r3 = zi, (t4 = fb()) !== s && Pp() !== s && Cp() !== s && Pp() !== s && (e4 = of()) !== s && Pp() !== s ? ((n3 = rb()) === s && (n3 = wb()), n3 === s && (n3 = null), n3 !== s && Pp() !== s && (o2 = of()) !== s ? (Zi = r3, a2 = o2, t4 = { action: "rename", type: "alter", resource: "column", keyword: "column", old_column: e4, prefix: (u2 = n3) && u2[0].toLowerCase(), column: a2 }, r3 = t4) : (zi = r3, r3 = s)) : (zi = r3, r3 = s);
+            var u2, a2;
+            return r3;
+          })()) === s && (t3 = (function() {
+            var r3, t4, e4, n3;
+            r3 = zi, (t4 = fb()) !== s && Pp() !== s ? ((e4 = rb()) === s && (e4 = wb()), e4 === s && (e4 = null), e4 !== s && Pp() !== s && (n3 = lf()) !== s ? (Zi = r3, u2 = n3, t4 = { action: "rename", type: "alter", resource: "table", keyword: (o2 = e4) && o2[0].toLowerCase(), table: u2 }, r3 = t4) : (zi = r3, r3 = s)) : (zi = r3, r3 = s);
+            var o2, u2;
+            return r3;
+          })()) === s && (t3 = Oc()) === s && (t3 = Rc()) === s && (t3 = (function() {
+            var t4, e4, n3, o2, u2, a2;
+            t4 = zi, "change" === r2.substr(zi, 6).toLowerCase() ? (e4 = r2.substr(zi, 6), zi += 6) : (e4 = s, 0 === ec && ac(Xr));
+            e4 !== s && Pp() !== s ? ((n3 = Cp()) === s && (n3 = null), n3 !== s && Pp() !== s && (o2 = of()) !== s && Pp() !== s && (u2 = Ac()) !== s && Pp() !== s ? ((a2 = Ic()) === s && (a2 = null), a2 !== s ? (Zi = t4, i2 = n3, c2 = u2, l2 = a2, e4 = { action: "change", old_column: o2, ...c2, keyword: i2, resource: "column", type: "alter", suffix: l2 }, t4 = e4) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            var i2, c2, l2;
+            return t4;
+          })()) === s && (t3 = (function() {
+            var t4, e4, n3, o2, u2;
+            t4 = zi, "drop" === r2.substr(zi, 4).toLowerCase() ? (e4 = r2.substr(zi, 4), zi += 4) : (e4 = s, 0 === ec && ac(Dr));
+            e4 === s && ("truncate" === r2.substr(zi, 8).toLowerCase() ? (e4 = r2.substr(zi, 8), zi += 8) : (e4 = s, 0 === ec && ac(Mr)), e4 === s && ("discard" === r2.substr(zi, 7).toLowerCase() ? (e4 = r2.substr(zi, 7), zi += 7) : (e4 = s, 0 === ec && ac(Pr)), e4 === s && ("import" === r2.substr(zi, 6).toLowerCase() ? (e4 = r2.substr(zi, 6), zi += 6) : (e4 = s, 0 === ec && ac(Gr)), e4 === s && ("coalesce" === r2.substr(zi, 8).toLowerCase() ? (e4 = r2.substr(zi, 8), zi += 8) : (e4 = s, 0 === ec && ac(Fr)), e4 === s && ("analyze" === r2.substr(zi, 7).toLowerCase() ? (e4 = r2.substr(zi, 7), zi += 7) : (e4 = s, 0 === ec && ac(Hr)), e4 === s && ("check" === r2.substr(zi, 5).toLowerCase() ? (e4 = r2.substr(zi, 5), zi += 5) : (e4 = s, 0 === ec && ac(K))))))));
+            e4 !== s && Pp() !== s && (n3 = pb()) !== s && Pp() !== s && (o2 = ul()) !== s && Pp() !== s ? ("tablespace" === r2.substr(zi, 10).toLowerCase() ? (u2 = r2.substr(zi, 10), zi += 10) : (u2 = s, 0 === ec && ac(Yr)), u2 === s && (u2 = null), u2 !== s ? (Zi = t4, e4 = (function(r3, t5, e5, n4) {
+              const o3 = { action: r3.toLowerCase(), keyword: t5, resource: "partition", type: "alter", partitions: e5 };
+              return n4 && (o3.suffix = { keyword: n4 }), o3;
+            })(e4, n3, o2, u2), t4 = e4) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            t4 === s && (t4 = zi, (e4 = hp()) !== s && Pp() !== s && (n3 = pb()) !== s && Pp() !== s && (o2 = jp()) !== s && Pp() !== s && (u2 = (function() {
+              var r3, t5, e5, n4, o3, u3, a2, c2;
+              if (r3 = zi, (t5 = Nc()) !== s) {
+                for (e5 = [], n4 = zi, (o3 = Pp()) !== s && (u3 = Op()) !== s && (a2 = Pp()) !== s && (c2 = Nc()) !== s ? n4 = o3 = [o3, u3, a2, c2] : (zi = n4, n4 = s); n4 !== s; ) e5.push(n4), n4 = zi, (o3 = Pp()) !== s && (u3 = Op()) !== s && (a2 = Pp()) !== s && (c2 = Nc()) !== s ? n4 = o3 = [o3, u3, a2, c2] : (zi = n4, n4 = s);
+                e5 !== s ? (Zi = r3, t5 = i(t5, e5), r3 = t5) : (zi = r3, r3 = s);
+              } else zi = r3, r3 = s;
+              return r3;
+            })()) !== s && Pp() !== s && xp() !== s ? (Zi = t4, t4 = e4 = { action: "add", keyword: n3, resource: "partition", type: "alter", partitions: u2 }) : (zi = t4, t4 = s));
+            return t4;
+          })()) === s && (t3 = zi, (e3 = Hc()) !== s && (Zi = t3, (n2 = e3).resource = n2.keyword, n2[n2.keyword] = n2.value, delete n2.value, e3 = { type: "alter", ...n2 }), t3 = e3), t3;
+        }
+        function Nc() {
+          var t3, e3, n2, o2, u2;
+          return t3 = zi, pb() !== s && Pp() !== s && (e3 = af()) !== s && Pp() !== s && gb() !== s && Pp() !== s ? ("less" === r2.substr(zi, 4).toLowerCase() ? (n2 = r2.substr(zi, 4), zi += 4) : (n2 = s, 0 === ec && ac(kr)), n2 !== s && Pp() !== s ? ("than" === r2.substr(zi, 4).toLowerCase() ? (o2 = r2.substr(zi, 4), zi += 4) : (o2 = s, 0 === ec && ac(Ur)), o2 !== s && Pp() !== s && jp() !== s && Pp() !== s && (u2 = qf()) !== s && Pp() !== s && xp() !== s ? (Zi = t3, t3 = { name: e3, value: { type: "less than", expr: u2, parentheses: true } }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Oc() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "algorithm" === r2.substr(zi, 9).toLowerCase() ? (e3 = r2.substr(zi, 9), zi += 9) : (e3 = s, 0 === ec && ac(z)), e3 !== s && Pp() !== s ? ((n2 = Lp()) === s && (n2 = null), n2 !== s && Pp() !== s ? ("default" === r2.substr(zi, 7).toLowerCase() ? (o2 = r2.substr(zi, 7), zi += 7) : (o2 = s, 0 === ec && ac(k)), o2 === s && ("instant" === r2.substr(zi, 7).toLowerCase() ? (o2 = r2.substr(zi, 7), zi += 7) : (o2 = s, 0 === ec && ac(Br)), o2 === s && ("inplace" === r2.substr(zi, 7).toLowerCase() ? (o2 = r2.substr(zi, 7), zi += 7) : (o2 = s, 0 === ec && ac($r)), o2 === s && ("copy" === r2.substr(zi, 4).toLowerCase() ? (o2 = r2.substr(zi, 4), zi += 4) : (o2 = s, 0 === ec && ac(Wr))))), o2 !== s ? (Zi = t3, t3 = e3 = { type: "alter", keyword: "algorithm", resource: "algorithm", symbol: n2, algorithm: o2 }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Rc() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "lock" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac($)), e3 !== s && Pp() !== s ? ((n2 = Lp()) === s && (n2 = null), n2 !== s && Pp() !== s ? ("default" === r2.substr(zi, 7).toLowerCase() ? (o2 = r2.substr(zi, 7), zi += 7) : (o2 = s, 0 === ec && ac(k)), o2 === s && ("none" === r2.substr(zi, 4).toLowerCase() ? (o2 = r2.substr(zi, 4), zi += 4) : (o2 = s, 0 === ec && ac(m)), o2 === s && ("shared" === r2.substr(zi, 6).toLowerCase() ? (o2 = r2.substr(zi, 6), zi += 6) : (o2 = s, 0 === ec && ac(qr)), o2 === s && ("exclusive" === r2.substr(zi, 9).toLowerCase() ? (o2 = r2.substr(zi, 9), zi += 9) : (o2 = s, 0 === ec && ac(Vr))))), o2 !== s ? (Zi = t3, t3 = e3 = { type: "alter", keyword: "lock", resource: "lock", symbol: n2, lock: o2 }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function jc() {
+          var r3, t3, e3, n2, o2, u2, a2, i2;
+          return r3 = zi, (t3 = mp()) === s && (t3 = Ep()), t3 !== s && Pp() !== s ? ((e3 = wf()) === s && (e3 = null), e3 !== s && Pp() !== s ? ((n2 = pl()) === s && (n2 = null), n2 !== s && Pp() !== s && (o2 = el()) !== s && Pp() !== s ? ((u2 = vl()) === s && (u2 = null), u2 !== s && Pp() !== s ? (Zi = r3, a2 = n2, i2 = u2, r3 = t3 = { index: e3, definition: o2, keyword: t3.toLowerCase(), index_type: a2, resource: "index", index_options: i2 }) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3;
+        }
+        function xc() {
+          var r3, t3, e3, n2, o2, u2, a2, i2, c2;
+          return r3 = zi, (t3 = Ap()) === s && (t3 = Tp()), t3 !== s && Pp() !== s ? ((e3 = mp()) === s && (e3 = Ep()), e3 === s && (e3 = null), e3 !== s && Pp() !== s ? ((n2 = wf()) === s && (n2 = null), n2 !== s && Pp() !== s && (o2 = rl()) !== s && Pp() !== s ? ((u2 = vl()) === s && (u2 = null), u2 !== s ? (Zi = r3, a2 = t3, c2 = u2, r3 = t3 = { index: n2, definition: o2, keyword: (i2 = e3) && `${a2.toLowerCase()} ${i2.toLowerCase()}` || a2.toLowerCase(), index_options: c2, resource: "index" }) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3;
+        }
+        function kc() {
+          var t3;
+          return (t3 = (function() {
+            var t4, e3, n2, o2, u2, a2, i2, c2;
+            t4 = zi, (e3 = Uc()) === s && (e3 = null);
+            e3 !== s && Pp() !== s ? (n2 = zi, "primary" === r2.substr(zi, 7).toLowerCase() ? (o2 = r2.substr(zi, 7), zi += 7) : (o2 = s, 0 === ec && ac(cr2)), o2 !== s && (u2 = Pp()) !== s ? ("key" === r2.substr(zi, 3).toLowerCase() ? (a2 = r2.substr(zi, 3), zi += 3) : (a2 = s, 0 === ec && ac(ir)), a2 !== s ? n2 = o2 = [o2, u2, a2] : (zi = n2, n2 = s)) : (zi = n2, n2 = s), n2 !== s && (o2 = Pp()) !== s ? ((u2 = pl()) === s && (u2 = null), u2 !== s && (a2 = Pp()) !== s && (i2 = el()) !== s && Pp() !== s ? ((c2 = vl()) === s && (c2 = null), c2 !== s ? (Zi = t4, f2 = n2, b2 = u2, p2 = i2, v2 = c2, e3 = { constraint: (l2 = e3) && l2.constraint, definition: p2, constraint_type: `${f2[0].toLowerCase()} ${f2[2].toLowerCase()}`, keyword: l2 && l2.keyword, index_type: b2, resource: "constraint", index_options: v2 }, t4 = e3) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            var l2, f2, b2, p2, v2;
+            return t4;
+          })()) === s && (t3 = (function() {
+            var r3, t4, e3, n2, o2, u2, a2, i2;
+            r3 = zi, (t4 = Uc()) === s && (t4 = null);
+            t4 !== s && Pp() !== s && (e3 = _p()) !== s && Pp() !== s ? ((n2 = mp()) === s && (n2 = Ep()), n2 === s && (n2 = null), n2 !== s && Pp() !== s ? ((o2 = wf()) === s && (o2 = null), o2 !== s && Pp() !== s ? ((u2 = pl()) === s && (u2 = null), u2 !== s && Pp() !== s && (a2 = el()) !== s && Pp() !== s ? ((i2 = vl()) === s && (i2 = null), i2 !== s ? (Zi = r3, l2 = e3, f2 = n2, b2 = o2, p2 = u2, v2 = a2, d2 = i2, t4 = { constraint: (c2 = t4) && c2.constraint, definition: v2, constraint_type: f2 && `${l2.toLowerCase()} ${f2.toLowerCase()}` || l2.toLowerCase(), keyword: c2 && c2.keyword, index_type: p2, index: b2, resource: "constraint", index_options: d2 }, r3 = t4) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s);
+            var c2, l2, f2, b2, p2, v2, d2;
+            return r3;
+          })()) === s && (t3 = (function() {
+            var t4, e3, n2, o2, u2, a2;
+            t4 = zi, (e3 = Uc()) === s && (e3 = null);
+            e3 !== s && Pp() !== s ? ("foreign key" === r2.substr(zi, 11).toLowerCase() ? (n2 = r2.substr(zi, 11), zi += 11) : (n2 = s, 0 === ec && ac(rt)), n2 !== s && Pp() !== s ? ((o2 = wf()) === s && (o2 = null), o2 !== s && Pp() !== s && (u2 = rl()) !== s && Pp() !== s ? ((a2 = Dc()) === s && (a2 = null), a2 !== s ? (Zi = t4, c2 = n2, l2 = o2, f2 = u2, b2 = a2, e3 = { constraint: (i2 = e3) && i2.constraint, definition: f2, constraint_type: c2, keyword: i2 && i2.keyword, index: l2, resource: "constraint", reference_definition: b2 }, t4 = e3) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            var i2, c2, l2, f2, b2;
+            return t4;
+          })()) === s && (t3 = (function() {
+            var t4, e3, n2, o2, u2, a2, i2, c2, l2, f2;
+            t4 = zi, (e3 = Uc()) === s && (e3 = null);
+            e3 !== s && Pp() !== s ? ("check" === r2.substr(zi, 5).toLowerCase() ? (n2 = r2.substr(zi, 5), zi += 5) : (n2 = s, 0 === ec && ac(K)), n2 !== s && Pp() !== s ? (o2 = zi, "not" === r2.substr(zi, 3).toLowerCase() ? (u2 = r2.substr(zi, 3), zi += 3) : (u2 = s, 0 === ec && ac(Zr)), u2 !== s && (a2 = Pp()) !== s ? ("for" === r2.substr(zi, 3).toLowerCase() ? (i2 = r2.substr(zi, 3), zi += 3) : (i2 = s, 0 === ec && ac(vr)), i2 !== s && (c2 = Pp()) !== s ? ("replication" === r2.substr(zi, 11).toLowerCase() ? (l2 = r2.substr(zi, 11), zi += 11) : (l2 = s, 0 === ec && ac(Jr)), l2 !== s && (f2 = Pp()) !== s ? o2 = u2 = [u2, a2, i2, c2, l2, f2] : (zi = o2, o2 = s)) : (zi = o2, o2 = s)) : (zi = o2, o2 = s), o2 === s && (o2 = null), o2 !== s && (u2 = jp()) !== s && (a2 = Pp()) !== s && (i2 = Bl()) !== s && (c2 = Pp()) !== s && (l2 = xp()) !== s ? (Zi = t4, b2 = e3, p2 = o2, v2 = i2, e3 = { constraint_type: n2.toLowerCase(), keyword: b2 && b2.keyword, constraint: b2 && b2.constraint, index_type: p2 && { keyword: "not for replication" }, definition: [v2], resource: "constraint" }, t4 = e3) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            var b2, p2, v2;
+            return t4;
+          })()), t3;
+        }
+        function Uc() {
+          var r3, t3, e3, n2;
+          return r3 = zi, (t3 = Ip()) !== s && Pp() !== s ? ((e3 = lf()) === s && (e3 = null), e3 !== s ? (Zi = r3, n2 = e3, r3 = t3 = { keyword: t3.toLowerCase(), constraint: n2 }) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3;
+        }
+        function Dc() {
+          var t3, e3, n2, o2, u2, a2, i2, c2, l2, f2;
+          return t3 = zi, (e3 = Sp()) !== s && Pp() !== s && (n2 = yl()) !== s && Pp() !== s && (o2 = rl()) !== s && Pp() !== s ? ("match full" === r2.substr(zi, 10).toLowerCase() ? (u2 = r2.substr(zi, 10), zi += 10) : (u2 = s, 0 === ec && ac(et)), u2 === s && ("match partial" === r2.substr(zi, 13).toLowerCase() ? (u2 = r2.substr(zi, 13), zi += 13) : (u2 = s, 0 === ec && ac(nt)), u2 === s && ("match simple" === r2.substr(zi, 12).toLowerCase() ? (u2 = r2.substr(zi, 12), zi += 12) : (u2 = s, 0 === ec && ac(ot)))), u2 === s && (u2 = null), u2 !== s && Pp() !== s ? ((a2 = Mc()) === s && (a2 = null), a2 !== s && Pp() !== s ? ((i2 = Mc()) === s && (i2 = null), i2 !== s ? (Zi = t3, c2 = u2, l2 = a2, f2 = i2, t3 = e3 = { definition: o2, table: n2, keyword: e3.toLowerCase(), match: c2 && c2.toLowerCase(), on_action: [l2, f2].filter((r3) => r3) }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, (e3 = Mc()) !== s && (Zi = t3, e3 = { on_action: [e3] }), t3 = e3), t3;
+        }
+        function Mc() {
+          var t3, e3, n2, o2;
+          return t3 = zi, Ab() !== s && Pp() !== s ? ((e3 = ib()) === s && (e3 = sb()), e3 !== s && Pp() !== s && (n2 = (function() {
+            var t4, e4, n3;
+            t4 = zi, (e4 = bp()) !== s && Pp() !== s && jp() !== s && Pp() !== s ? ((n3 = Ml()) === s && (n3 = null), n3 !== s && Pp() !== s && xp() !== s ? (Zi = t4, t4 = e4 = { type: "function", name: { name: [{ type: "origin", value: e4 }] }, args: n3 }) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            t4 === s && (t4 = zi, (e4 = Pc()) === s && ("set null" === r2.substr(zi, 8).toLowerCase() ? (e4 = r2.substr(zi, 8), zi += 8) : (e4 = s, 0 === ec && ac(at)), e4 === s && ("no action" === r2.substr(zi, 9).toLowerCase() ? (e4 = r2.substr(zi, 9), zi += 9) : (e4 = s, 0 === ec && ac(it)), e4 === s && ("set default" === r2.substr(zi, 11).toLowerCase() ? (e4 = r2.substr(zi, 11), zi += 11) : (e4 = s, 0 === ec && ac(ct)), e4 === s && (e4 = bp())))), e4 !== s && (Zi = t4, e4 = { type: "origin", value: e4.toLowerCase() }), t4 = e4);
+            return t4;
+          })()) !== s ? (Zi = t3, o2 = n2, t3 = { type: "on " + e3[0].toLowerCase(), value: o2 }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Pc() {
+          var t3, e3;
+          return t3 = zi, "restrict" === r2.substr(zi, 8).toLowerCase() ? (e3 = r2.substr(zi, 8), zi += 8) : (e3 = s, 0 === ec && ac(st)), e3 === s && ("cascade" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(ut))), e3 !== s && (Zi = t3, e3 = e3.toLowerCase()), t3 = e3;
+        }
+        function Gc() {
+          var t3, e3, n2;
+          return t3 = zi, "character" === r2.substr(zi, 9).toLowerCase() ? (e3 = r2.substr(zi, 9), zi += 9) : (e3 = s, 0 === ec && ac(lt)), e3 !== s && Pp() !== s ? ("set" === r2.substr(zi, 3).toLowerCase() ? (n2 = r2.substr(zi, 3), zi += 3) : (n2 = s, 0 === ec && ac(ft)), n2 !== s ? (Zi = t3, t3 = e3 = "CHARACTER SET") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Fc() {
+          var t3, e3, n2, o2, u2, a2, i2, c2, l2;
+          return t3 = zi, (e3 = Jf()) === s && (e3 = null), e3 !== s && Pp() !== s ? ((n2 = Gc()) === s && ("charset" === r2.substr(zi, 7).toLowerCase() ? (n2 = r2.substr(zi, 7), zi += 7) : (n2 = s, 0 === ec && ac(bt)), n2 === s && ("collate" === r2.substr(zi, 7).toLowerCase() ? (n2 = r2.substr(zi, 7), zi += 7) : (n2 = s, 0 === ec && ac(pt)))), n2 !== s && Pp() !== s ? ((o2 = Lp()) === s && (o2 = null), o2 !== s && Pp() !== s && (u2 = af()) !== s ? (Zi = t3, i2 = n2, c2 = o2, l2 = u2, t3 = e3 = { keyword: (a2 = e3) && `${a2[0].toLowerCase()} ${i2.toLowerCase()}` || i2.toLowerCase(), symbol: c2, value: l2 }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Hc() {
+          var t3, e3, n2, o2, u2, a2, i2, c2, l2;
+          return t3 = zi, "auto_increment" === r2.substr(zi, 14).toLowerCase() ? (e3 = r2.substr(zi, 14), zi += 14) : (e3 = s, 0 === ec && ac(ur)), e3 === s && ("avg_row_length" === r2.substr(zi, 14).toLowerCase() ? (e3 = r2.substr(zi, 14), zi += 14) : (e3 = s, 0 === ec && ac(vt)), e3 === s && ("key_block_size" === r2.substr(zi, 14).toLowerCase() ? (e3 = r2.substr(zi, 14), zi += 14) : (e3 = s, 0 === ec && ac(dt)), e3 === s && ("max_rows" === r2.substr(zi, 8).toLowerCase() ? (e3 = r2.substr(zi, 8), zi += 8) : (e3 = s, 0 === ec && ac(yt)), e3 === s && ("min_rows" === r2.substr(zi, 8).toLowerCase() ? (e3 = r2.substr(zi, 8), zi += 8) : (e3 = s, 0 === ec && ac(wt)), e3 === s && ("stats_sample_pages" === r2.substr(zi, 18).toLowerCase() ? (e3 = r2.substr(zi, 18), zi += 18) : (e3 = s, 0 === ec && ac(Lt))))))), e3 !== s && Pp() !== s ? ((n2 = Lp()) === s && (n2 = null), n2 !== s && Pp() !== s && (o2 = qf()) !== s ? (Zi = t3, c2 = n2, l2 = o2, t3 = e3 = { keyword: e3.toLowerCase(), symbol: c2, value: l2.value }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, "CHECKSUM" === r2.substr(zi, 8) ? (e3 = "CHECKSUM", zi += 8) : (e3 = s, 0 === ec && ac(ht)), e3 === s && ("DELAY_KEY_WRITE" === r2.substr(zi, 15) ? (e3 = "DELAY_KEY_WRITE", zi += 15) : (e3 = s, 0 === ec && ac(Ct))), e3 !== s && Pp() !== s && (n2 = Lp()) !== s && Pp() !== s ? (mt.test(r2.charAt(zi)) ? (o2 = r2.charAt(zi), zi++) : (o2 = s, 0 === ec && ac(Et)), o2 !== s ? (Zi = t3, t3 = e3 = (function(r3, t4, e4) {
+            return { keyword: r3.toLowerCase(), symbol: t4, value: e4 };
+          })(e3, n2, o2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = Fc()) === s && (t3 = zi, (e3 = gp()) === s && ("connection" === r2.substr(zi, 10).toLowerCase() ? (e3 = r2.substr(zi, 10), zi += 10) : (e3 = s, 0 === ec && ac(At)), e3 === s && ("engine_attribute" === r2.substr(zi, 16).toLowerCase() ? (e3 = r2.substr(zi, 16), zi += 16) : (e3 = s, 0 === ec && ac(Tt)), e3 === s && ("secondary_engine_attribute" === r2.substr(zi, 26).toLowerCase() ? (e3 = r2.substr(zi, 26), zi += 26) : (e3 = s, 0 === ec && ac(_t))))), e3 !== s && Pp() !== s ? ((n2 = Lp()) === s && (n2 = null), n2 !== s && Pp() !== s && (o2 = Yf()) !== s ? (Zi = t3, t3 = e3 = (function(r3, t4, e4) {
+            return { keyword: r3.toLowerCase(), symbol: t4, value: `'${e4.value}'` };
+          })(e3, n2, o2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, "data" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(gt)), e3 === s && ("index" === r2.substr(zi, 5).toLowerCase() ? (e3 = r2.substr(zi, 5), zi += 5) : (e3 = s, 0 === ec && ac(It))), e3 !== s && Pp() !== s ? ("directory" === r2.substr(zi, 9).toLowerCase() ? (n2 = r2.substr(zi, 9), zi += 9) : (n2 = s, 0 === ec && ac(St)), n2 !== s && Pp() !== s ? ((o2 = Lp()) === s && (o2 = null), o2 !== s && (u2 = Pp()) !== s && (a2 = Yf()) !== s ? (Zi = t3, t3 = e3 = (function(r3, t4, e4) {
+            return { keyword: r3.toLowerCase() + " directory", symbol: t4, value: `'${e4.value}'` };
+          })(e3, o2, a2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, "compression" === r2.substr(zi, 11).toLowerCase() ? (e3 = r2.substr(zi, 11), zi += 11) : (e3 = s, 0 === ec && ac(Nt)), e3 !== s && Pp() !== s ? ((n2 = Lp()) === s && (n2 = null), n2 !== s && Pp() !== s ? (o2 = zi, 39 === r2.charCodeAt(zi) ? (u2 = "'", zi++) : (u2 = s, 0 === ec && ac(Ot)), u2 !== s ? ("zlib" === r2.substr(zi, 4).toLowerCase() ? (a2 = r2.substr(zi, 4), zi += 4) : (a2 = s, 0 === ec && ac(Rt)), a2 === s && ("lz4" === r2.substr(zi, 3).toLowerCase() ? (a2 = r2.substr(zi, 3), zi += 3) : (a2 = s, 0 === ec && ac(jt)), a2 === s && ("none" === r2.substr(zi, 4).toLowerCase() ? (a2 = r2.substr(zi, 4), zi += 4) : (a2 = s, 0 === ec && ac(m)))), a2 !== s ? (39 === r2.charCodeAt(zi) ? (i2 = "'", zi++) : (i2 = s, 0 === ec && ac(Ot)), i2 !== s ? o2 = u2 = [u2, a2, i2] : (zi = o2, o2 = s)) : (zi = o2, o2 = s)) : (zi = o2, o2 = s), o2 !== s ? (Zi = t3, t3 = e3 = (function(r3, t4, e4) {
+            return { keyword: r3.toLowerCase(), symbol: t4, value: e4.join("").toUpperCase() };
+          })(e3, n2, o2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, "engine" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(xt)), e3 !== s && Pp() !== s ? ((n2 = Lp()) === s && (n2 = null), n2 !== s && Pp() !== s && (o2 = hf()) !== s ? (Zi = t3, t3 = e3 = kt(e3, n2, o2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, "row_format" === r2.substr(zi, 10).toLowerCase() ? (e3 = r2.substr(zi, 10), zi += 10) : (e3 = s, 0 === ec && ac(Ut)), e3 !== s && Pp() !== s ? ((n2 = Lp()) === s && (n2 = null), n2 !== s && Pp() !== s ? ("default" === r2.substr(zi, 7).toLowerCase() ? (o2 = r2.substr(zi, 7), zi += 7) : (o2 = s, 0 === ec && ac(k)), o2 === s && ("dynamic" === r2.substr(zi, 7).toLowerCase() ? (o2 = r2.substr(zi, 7), zi += 7) : (o2 = s, 0 === ec && ac(Er)), o2 === s && ("fixed" === r2.substr(zi, 5).toLowerCase() ? (o2 = r2.substr(zi, 5), zi += 5) : (o2 = s, 0 === ec && ac(mr)), o2 === s && ("compressed" === r2.substr(zi, 10).toLowerCase() ? (o2 = r2.substr(zi, 10), zi += 10) : (o2 = s, 0 === ec && ac(Dt)), o2 === s && ("redundant" === r2.substr(zi, 9).toLowerCase() ? (o2 = r2.substr(zi, 9), zi += 9) : (o2 = s, 0 === ec && ac(Mt)), o2 === s && ("compact" === r2.substr(zi, 7).toLowerCase() ? (o2 = r2.substr(zi, 7), zi += 7) : (o2 = s, 0 === ec && ac(Pt))))))), o2 !== s ? (Zi = t3, t3 = e3 = kt(e3, n2, o2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s))))))), t3;
+        }
+        function Yc() {
+          var t3, e3, n2, o2, u2;
+          return t3 = zi, (e3 = Ll()) !== s && Pp() !== s && (n2 = (function() {
+            var t4, e4, n3;
+            return t4 = zi, "read" === r2.substr(zi, 4).toLowerCase() ? (e4 = r2.substr(zi, 4), zi += 4) : (e4 = s, 0 === ec && ac(Gt)), e4 !== s && Pp() !== s ? ("local" === r2.substr(zi, 5).toLowerCase() ? (n3 = r2.substr(zi, 5), zi += 5) : (n3 = s, 0 === ec && ac(X)), n3 === s && (n3 = null), n3 !== s ? (Zi = t4, t4 = e4 = { type: "read", suffix: n3 && "local" }) : (zi = t4, t4 = s)) : (zi = t4, t4 = s), t4 === s && (t4 = zi, "low_priority" === r2.substr(zi, 12).toLowerCase() ? (e4 = r2.substr(zi, 12), zi += 12) : (e4 = s, 0 === ec && ac(Ft)), e4 === s && (e4 = null), e4 !== s && Pp() !== s ? ("write" === r2.substr(zi, 5).toLowerCase() ? (n3 = r2.substr(zi, 5), zi += 5) : (n3 = s, 0 === ec && ac(Ht)), n3 !== s ? (Zi = t4, t4 = e4 = { type: "write", prefix: e4 && "low_priority" }) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)), t4;
+          })()) !== s ? (Zi = t3, o2 = e3, u2 = n2, hv.add(`lock::${o2.db}::${o2.table}`), t3 = e3 = { table: o2, lock_type: u2 }) : (zi = t3, t3 = s), t3;
+        }
+        function Bc() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "isolation" === r2.substr(zi, 9).toLowerCase() ? (e3 = r2.substr(zi, 9), zi += 9) : (e3 = s, 0 === ec && ac(le)), e3 !== s && Pp() !== s ? ("level" === r2.substr(zi, 5).toLowerCase() ? (n2 = r2.substr(zi, 5), zi += 5) : (n2 = s, 0 === ec && ac(fe)), n2 !== s && Pp() !== s && (o2 = (function() {
+            var t4, e4, n3;
+            return t4 = zi, "serializable" === r2.substr(zi, 12).toLowerCase() ? (e4 = r2.substr(zi, 12), zi += 12) : (e4 = s, 0 === ec && ac(se)), e4 !== s && (Zi = t4, e4 = { type: "origin", value: "serializable" }), (t4 = e4) === s && (t4 = zi, "repeatable" === r2.substr(zi, 10).toLowerCase() ? (e4 = r2.substr(zi, 10), zi += 10) : (e4 = s, 0 === ec && ac(ue)), e4 !== s && Pp() !== s ? ("read" === r2.substr(zi, 4).toLowerCase() ? (n3 = r2.substr(zi, 4), zi += 4) : (n3 = s, 0 === ec && ac(Gt)), n3 !== s ? (Zi = t4, t4 = e4 = { type: "origin", value: "repeatable read" }) : (zi = t4, t4 = s)) : (zi = t4, t4 = s), t4 === s && (t4 = zi, "read" === r2.substr(zi, 4).toLowerCase() ? (e4 = r2.substr(zi, 4), zi += 4) : (e4 = s, 0 === ec && ac(Gt)), e4 !== s && Pp() !== s ? ("committed" === r2.substr(zi, 9).toLowerCase() ? (n3 = r2.substr(zi, 9), zi += 9) : (n3 = s, 0 === ec && ac(ae)), n3 === s && ("uncommitted" === r2.substr(zi, 11).toLowerCase() ? (n3 = r2.substr(zi, 11), zi += 11) : (n3 = s, 0 === ec && ac(ie))), n3 !== s ? (Zi = t4, t4 = e4 = ce(n3)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s))), t4;
+          })()) !== s ? (Zi = t3, t3 = e3 = { type: "origin", value: "isolation level " + o2.value }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, "read" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(Gt)), e3 !== s && Pp() !== s ? ("write" === r2.substr(zi, 5).toLowerCase() ? (n2 = r2.substr(zi, 5), zi += 5) : (n2 = s, 0 === ec && ac(Ht)), n2 === s && ("only" === r2.substr(zi, 4).toLowerCase() ? (n2 = r2.substr(zi, 4), zi += 4) : (n2 = s, 0 === ec && ac(be))), n2 !== s ? (Zi = t3, t3 = e3 = ce(n2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, (e3 = Fb()) === s && (e3 = null), e3 !== s && Pp() !== s ? ("deferrable" === r2.substr(zi, 10).toLowerCase() ? (n2 = r2.substr(zi, 10), zi += 10) : (n2 = s, 0 === ec && ac(pe)), n2 !== s ? (Zi = t3, t3 = e3 = { type: "origin", value: e3 ? "not deferrable" : "deferrable" }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s))), t3;
+        }
+        function $c() {
+          var r3, t3, e3, n2, o2, u2, a2, c2;
+          if (r3 = zi, (t3 = Bc()) !== s) {
+            for (e3 = [], n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (c2 = Bc()) !== s ? n2 = o2 = [o2, u2, a2, c2] : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (c2 = Bc()) !== s ? n2 = o2 = [o2, u2, a2, c2] : (zi = n2, n2 = s);
+            e3 !== s ? (Zi = r3, r3 = t3 = i(t3, e3)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          return r3;
+        }
+        function Wc() {
+          var t3, e3, n2, o2, u2, a2;
+          return t3 = zi, "starting" === r2.substr(zi, 8).toLowerCase() ? (e3 = r2.substr(zi, 8), zi += 8) : (e3 = s, 0 === ec && ac(ge)), e3 === s && ("terminated" === r2.substr(zi, 10).toLowerCase() ? (e3 = r2.substr(zi, 10), zi += 10) : (e3 = s, 0 === ec && ac(Ee))), e3 !== s && Pp() !== s ? ("by" === r2.substr(zi, 2).toLowerCase() ? (n2 = r2.substr(zi, 2), zi += 2) : (n2 = s, 0 === ec && ac(d)), n2 !== s && Pp() !== s && (o2 = af()) !== s ? (Zi = t3, u2 = e3, (a2 = o2).prefix = u2.toUpperCase() + " BY", t3 = e3 = { type: u2.toLowerCase(), [u2.toLowerCase()]: a2 }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function qc() {
+          var t3;
+          return (t3 = (function() {
+            var t4, e3, n2, o2, u2;
+            return t4 = zi, (e3 = xb()) === s && (e3 = nb()) === s && (e3 = zi, (n2 = ub()) !== s && (o2 = Pp()) !== s ? ("view" === r2.substr(zi, 4).toLowerCase() ? (u2 = r2.substr(zi, 4), zi += 4) : (u2 = s, 0 === ec && ac(ke)), u2 !== s ? e3 = n2 = [n2, o2, u2] : (zi = e3, e3 = s)) : (zi = e3, e3 = s), e3 === s && (e3 = ub()) === s && (e3 = ib()) === s && (e3 = eb()) === s && (e3 = zi, "grant" === r2.substr(zi, 5).toLowerCase() ? (n2 = r2.substr(zi, 5), zi += 5) : (n2 = s, 0 === ec && ac(Ue)), n2 !== s && (o2 = Pp()) !== s ? ("option" === r2.substr(zi, 6).toLowerCase() ? (u2 = r2.substr(zi, 6), zi += 6) : (u2 = s, 0 === ec && ac(De)), u2 !== s ? e3 = n2 = [n2, o2, u2] : (zi = e3, e3 = s)) : (zi = e3, e3 = s), e3 === s && (e3 = mp()) === s && (e3 = cb()) === s && (e3 = Sp()) === s && (e3 = ob()) === s && (e3 = zi, (n2 = tb()) !== s && (o2 = Pp()) !== s && (u2 = vp()) !== s ? e3 = n2 = [n2, o2, u2] : (zi = e3, e3 = s), e3 === s && (e3 = hb()) === s && (e3 = sb())))), e3 !== s && (Zi = t4, e3 = Me(e3)), t4 = e3;
+          })()) === s && (t3 = (function() {
+            var t4, e3, n2, o2, u2;
+            return t4 = zi, e3 = zi, (n2 = nb()) !== s && (o2 = Pp()) !== s ? ("routine" === r2.substr(zi, 7).toLowerCase() ? (u2 = r2.substr(zi, 7), zi += 7) : (u2 = s, 0 === ec && ac(Pe)), u2 !== s ? e3 = n2 = [n2, o2, u2] : (zi = e3, e3 = s)) : (zi = e3, e3 = s), e3 === s && ("execute" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(Ge)), e3 === s && (e3 = zi, "grant" === r2.substr(zi, 5).toLowerCase() ? (n2 = r2.substr(zi, 5), zi += 5) : (n2 = s, 0 === ec && ac(Ue)), n2 !== s && (o2 = Pp()) !== s ? ("option" === r2.substr(zi, 6).toLowerCase() ? (u2 = r2.substr(zi, 6), zi += 6) : (u2 = s, 0 === ec && ac(De)), u2 !== s ? e3 = n2 = [n2, o2, u2] : (zi = e3, e3 = s)) : (zi = e3, e3 = s), e3 === s && (e3 = zi, (n2 = ub()) !== s && (o2 = Pp()) !== s ? ("routine" === r2.substr(zi, 7).toLowerCase() ? (u2 = r2.substr(zi, 7), zi += 7) : (u2 = s, 0 === ec && ac(Pe)), u2 !== s ? e3 = n2 = [n2, o2, u2] : (zi = e3, e3 = s)) : (zi = e3, e3 = s)))), e3 !== s && (Zi = t4, e3 = Me(e3)), t4 = e3;
+          })()), t3;
+        }
+        function Vc() {
+          var r3, t3, e3, n2, o2, u2, a2, i2, c2;
+          return r3 = zi, (t3 = qc()) !== s && Pp() !== s ? (e3 = zi, (n2 = jp()) !== s && (o2 = Pp()) !== s && (u2 = Al()) !== s && (a2 = Pp()) !== s && (i2 = xp()) !== s ? e3 = n2 = [n2, o2, u2, a2, i2] : (zi = e3, e3 = s), e3 === s && (e3 = null), e3 !== s ? (Zi = r3, r3 = t3 = { priv: t3, columns: (c2 = e3) && c2[2] }) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3;
+        }
+        function Xc() {
+          var t3, e3, n2, o2, u2, a2, i2;
+          return t3 = zi, (e3 = lf()) !== s && Pp() !== s ? (n2 = zi, 64 === r2.charCodeAt(zi) ? (o2 = "@", zi++) : (o2 = s, 0 === ec && ac(lr)), o2 !== s && (u2 = Pp()) !== s && (a2 = lf()) !== s ? n2 = o2 = [o2, u2, a2] : (zi = n2, n2 = s), n2 === s && (n2 = null), n2 !== s ? (Zi = t3, t3 = e3 = { name: { type: "single_quote_string", value: e3 }, host: (i2 = n2) ? { type: "single_quote_string", value: i2[2] } : null }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Kc() {
+          var r3, t3, e3, n2, o2, u2, a2, i2;
+          if (r3 = zi, (t3 = Xc()) !== s) {
+            for (e3 = [], n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = Xc()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = Xc()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s);
+            e3 !== s ? (Zi = r3, r3 = t3 = h(t3, e3)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          return r3;
+        }
+        function Qc() {
+          var t3, e3, n2;
+          return t3 = zi, Sb() !== s && Pp() !== s ? ("admin" === r2.substr(zi, 5).toLowerCase() ? (e3 = r2.substr(zi, 5), zi += 5) : (e3 = s, 0 === ec && ac(Fe)), e3 !== s && Pp() !== s ? ("option" === r2.substr(zi, 6).toLowerCase() ? (n2 = r2.substr(zi, 6), zi += 6) : (n2 = s, 0 === ec && ac(De)), n2 !== s ? (Zi = t3, t3 = { type: "origin", value: "with admin option" }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function zc() {
+          var t3, e3, n2, o2, u2, a2, i2;
+          return (t3 = ol()) === s && (t3 = zi, e3 = zi, 40 === r2.charCodeAt(zi) ? (n2 = "(", zi++) : (n2 = s, 0 === ec && ac(Be)), n2 !== s && (o2 = Pp()) !== s && (u2 = zc()) !== s && (a2 = Pp()) !== s ? (41 === r2.charCodeAt(zi) ? (i2 = ")", zi++) : (i2 = s, 0 === ec && ac($e)), i2 !== s ? e3 = n2 = [n2, o2, u2, a2, i2] : (zi = e3, e3 = s)) : (zi = e3, e3 = s), e3 !== s && (Zi = t3, e3 = { ...e3[2], parentheses_symbol: true }), t3 = e3), t3;
+        }
+        function Zc() {
+          var t3, e3, n2, o2, u2, a2, i2, c2, l2, f2, b2, p2, v2;
+          if (t3 = zi, Sb() !== s) if (Pp() !== s) if ((e3 = Jc()) !== s) {
+            for (n2 = [], o2 = zi, (u2 = Pp()) !== s && (a2 = Op()) !== s && (i2 = Pp()) !== s && (c2 = Jc()) !== s ? o2 = u2 = [u2, a2, i2, c2] : (zi = o2, o2 = s); o2 !== s; ) n2.push(o2), o2 = zi, (u2 = Pp()) !== s && (a2 = Op()) !== s && (i2 = Pp()) !== s && (c2 = Jc()) !== s ? o2 = u2 = [u2, a2, i2, c2] : (zi = o2, o2 = s);
+            n2 !== s ? (Zi = t3, t3 = sr(e3, n2)) : (zi = t3, t3 = s);
+          } else zi = t3, t3 = s;
+          else zi = t3, t3 = s;
+          else zi = t3, t3 = s;
+          if (t3 === s) if (t3 = zi, Pp() !== s) if (Sb() !== s) if ((e3 = Pp()) !== s) if ((n2 = (function() {
+            var t4, e4, n3, o3;
+            t4 = zi, "recursive" === r2.substr(zi, 9).toLowerCase() ? (e4 = r2.substr(zi, 9), zi += 9) : (e4 = s, 0 === ec && ac(cu));
+            e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? t4 = e4 = [e4, n3] : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()) !== s) if ((o2 = Pp()) !== s) if ((u2 = Jc()) !== s) {
+            for (a2 = [], i2 = zi, (c2 = Pp()) !== s && (l2 = Op()) !== s && (f2 = Pp()) !== s && (b2 = Jc()) !== s ? i2 = c2 = [c2, l2, f2, b2] : (zi = i2, i2 = s); i2 !== s; ) a2.push(i2), i2 = zi, (c2 = Pp()) !== s && (l2 = Op()) !== s && (f2 = Pp()) !== s && (b2 = Jc()) !== s ? i2 = c2 = [c2, l2, f2, b2] : (zi = i2, i2 = s);
+            a2 !== s ? (Zi = t3, v2 = a2, (p2 = u2).recursive = true, t3 = pv(p2, v2)) : (zi = t3, t3 = s);
+          } else zi = t3, t3 = s;
+          else zi = t3, t3 = s;
+          else zi = t3, t3 = s;
+          else zi = t3, t3 = s;
+          else zi = t3, t3 = s;
+          else zi = t3, t3 = s;
+          return t3;
+        }
+        function Jc() {
+          var r3, t3, e3, n2, o2, u2, a2;
+          return r3 = zi, (t3 = Yf()) === s && (t3 = hf()) === s && (t3 = Cl()), t3 !== s && Pp() !== s ? ((e3 = rl()) === s && (e3 = null), e3 !== s && Pp() !== s && wb() !== s && Pp() !== s && jp() !== s && Pp() !== s ? ((n2 = Ul()) === s && (n2 = vc()), n2 !== s && Pp() !== s && xp() !== s ? (Zi = r3, u2 = e3, a2 = n2, "string" == typeof (o2 = t3) && (o2 = { type: "default", value: o2 }), o2.table && (o2 = { type: "default", value: o2.table }), r3 = t3 = { name: o2, stmt: a2, columns: u2 }) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3;
+        }
+        function rl() {
+          var r3, t3;
+          return r3 = zi, jp() !== s && Pp() !== s && (t3 = (function() {
+            var r4;
+            (r4 = Al()) === s && (r4 = (function() {
+              var r5, t4, e3, n2, o2, u2, a2, i2;
+              if (r5 = zi, (t4 = Ff()) !== s) {
+                for (e3 = [], n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = Ff()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = Ff()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s);
+                e3 !== s ? (Zi = r5, t4 = sr(t4, e3), r5 = t4) : (zi = r5, r5 = s);
+              } else zi = r5, r5 = s;
+              return r5;
+            })());
+            return r4;
+          })()) !== s && Pp() !== s && xp() !== s ? (Zi = r3, r3 = t3) : (zi = r3, r3 = s), r3;
+        }
+        function tl() {
+          var t3, e3, n2, o2, u2, a2, i2;
+          if (t3 = zi, (e3 = yf()) !== s) if (Pp() !== s) if ((n2 = jp()) !== s) if (Pp() !== s) {
+            if (o2 = [], We.test(r2.charAt(zi)) ? (u2 = r2.charAt(zi), zi++) : (u2 = s, 0 === ec && ac(qe)), u2 !== s) for (; u2 !== s; ) o2.push(u2), We.test(r2.charAt(zi)) ? (u2 = r2.charAt(zi), zi++) : (u2 = s, 0 === ec && ac(qe));
+            else o2 = s;
+            o2 !== s && (u2 = Pp()) !== s && xp() !== s && Pp() !== s ? ((a2 = Rb()) === s && (a2 = jb()), a2 === s && (a2 = null), a2 !== s ? (Zi = t3, i2 = a2, t3 = e3 = { type: "column_ref", column: e3, suffix: `(${parseInt(o2.join(""), 10)})`, order_by: i2, ...cv() }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s);
+          } else zi = t3, t3 = s;
+          else zi = t3, t3 = s;
+          else zi = t3, t3 = s;
+          else zi = t3, t3 = s;
+          return t3 === s && (t3 = zi, (e3 = yf()) !== s && Pp() !== s ? ((n2 = Rb()) === s && (n2 = jb()), n2 === s && (n2 = null), n2 !== s ? (Zi = t3, t3 = e3 = (function(r3, t4) {
+            return { type: "column_ref", column: r3, order_by: t4, ...cv() };
+          })(e3, n2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)), t3;
+        }
+        function el() {
+          var r3, t3, e3;
+          return r3 = zi, jp() !== s && Pp() !== s ? ((t3 = (function() {
+            var r4, t4, e4, n2, o2, u2, a2, i2;
+            if (r4 = zi, (t4 = tl()) !== s) {
+              for (e4 = [], n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = tl()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s); n2 !== s; ) e4.push(n2), n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = tl()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s);
+              e4 !== s ? (Zi = r4, r4 = t4 = sr(t4, e4)) : (zi = r4, r4 = s);
+            } else zi = r4, r4 = s;
+            return r4;
+          })()) === s && (t3 = Ml()), t3 !== s && Pp() !== s && xp() !== s ? (Zi = r3, r3 = (e3 = t3).type ? e3.value : e3) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3;
+        }
+        function nl2() {
+          var t3, e3, n2, o2;
+          return t3 = zi, (e3 = (function() {
+            var t4, e4, n3, o3, u2, a2;
+            return t4 = zi, e4 = zi, "for" === r2.substr(zi, 3).toLowerCase() ? (n3 = r2.substr(zi, 3), zi += 3) : (n3 = s, 0 === ec && ac(vr)), n3 !== s && (o3 = Pp()) !== s && (u2 = sb()) !== s ? e4 = n3 = [n3, o3, u2] : (zi = e4, e4 = s), e4 !== s && (Zi = t4, e4 = `${(a2 = e4)[0]} ${a2[2][0]}`), t4 = e4;
+          })()) === s && (e3 = (function() {
+            var t4, e4, n3, o3, u2, a2, i2, c2, l2, f2;
+            return t4 = zi, e4 = zi, "lock" === r2.substr(zi, 4).toLowerCase() ? (n3 = r2.substr(zi, 4), zi += 4) : (n3 = s, 0 === ec && ac($)), n3 !== s && (o3 = Pp()) !== s ? ("in" === r2.substr(zi, 2).toLowerCase() ? (u2 = r2.substr(zi, 2), zi += 2) : (u2 = s, 0 === ec && ac(Ve)), u2 !== s && (a2 = Pp()) !== s ? ("share" === r2.substr(zi, 5).toLowerCase() ? (i2 = r2.substr(zi, 5), zi += 5) : (i2 = s, 0 === ec && ac(Xe)), i2 !== s && (c2 = Pp()) !== s ? ("mode" === r2.substr(zi, 4).toLowerCase() ? (l2 = r2.substr(zi, 4), zi += 4) : (l2 = s, 0 === ec && ac(Ke)), l2 !== s ? e4 = n3 = [n3, o3, u2, a2, i2, c2, l2] : (zi = e4, e4 = s)) : (zi = e4, e4 = s)) : (zi = e4, e4 = s)) : (zi = e4, e4 = s), e4 !== s && (Zi = t4, e4 = `${(f2 = e4)[0]} ${f2[2]} ${f2[4]} ${f2[6]}`), t4 = e4;
+          })()), e3 !== s && Pp() !== s ? ((n2 = (function() {
+            var t4, e4, n3, o3, u2, a2, i2;
+            return t4 = zi, e4 = zi, "wait" === r2.substr(zi, 4).toLowerCase() ? (n3 = r2.substr(zi, 4), zi += 4) : (n3 = s, 0 === ec && ac(Qe)), n3 !== s && (o3 = Pp()) !== s && (u2 = qf()) !== s ? e4 = n3 = [n3, o3, u2] : (zi = e4, e4 = s), e4 !== s && (Zi = t4, e4 = `${(a2 = e4)[0]} ${a2[2].value}`), (t4 = e4) === s && ("nowait" === r2.substr(zi, 6).toLowerCase() ? (t4 = r2.substr(zi, 6), zi += 6) : (t4 = s, 0 === ec && ac(ze)), t4 === s && (t4 = zi, e4 = zi, "skip" === r2.substr(zi, 4).toLowerCase() ? (n3 = r2.substr(zi, 4), zi += 4) : (n3 = s, 0 === ec && ac(Ze)), n3 !== s && (o3 = Pp()) !== s ? ("locked" === r2.substr(zi, 6).toLowerCase() ? (u2 = r2.substr(zi, 6), zi += 6) : (u2 = s, 0 === ec && ac(Je)), u2 !== s ? e4 = n3 = [n3, o3, u2] : (zi = e4, e4 = s)) : (zi = e4, e4 = s), e4 !== s && (Zi = t4, e4 = `${(i2 = e4)[0]} ${i2[2]}`), t4 = e4)), t4;
+          })()) === s && (n2 = null), n2 !== s ? (Zi = t3, t3 = e3 = e3 + ((o2 = n2) ? " " + o2 : "")) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function ol() {
+          var t3, e3, n2, o2, u2, a2, i2, c2, l2, f2, b2, p2, v2, d2, y2, w2, L2;
+          return t3 = zi, Pp() !== s ? ((e3 = Zc()) === s && (e3 = null), e3 !== s && Pp() !== s && ob() !== s && Pp() !== s ? ((n2 = (function() {
+            var r3, t4, e4, n3, o3, u3;
+            if (r3 = zi, (t4 = sl()) !== s) {
+              for (e4 = [], n3 = zi, (o3 = Pp()) !== s && (u3 = sl()) !== s ? n3 = o3 = [o3, u3] : (zi = n3, n3 = s); n3 !== s; ) e4.push(n3), n3 = zi, (o3 = Pp()) !== s && (u3 = sl()) !== s ? n3 = o3 = [o3, u3] : (zi = n3, n3 = s);
+              e4 !== s ? (Zi = r3, t4 = (function(r4, t5) {
+                const e5 = [r4];
+                for (let r5 = 0, n4 = t5.length; r5 < n4; ++r5) e5.push(t5[r5][1]);
+                return e5;
+              })(t4, e4), r3 = t4) : (zi = r3, r3 = s);
+            } else zi = r3, r3 = s;
+            return r3;
+          })()) === s && (n2 = null), n2 !== s && Pp() !== s ? ((o2 = kb()) === s && (o2 = null), o2 !== s && Pp() !== s && (u2 = ul()) !== s && Pp() !== s ? ((a2 = ll()) === s && (a2 = null), a2 !== s && Pp() !== s ? ((i2 = fl()) === s && (i2 = null), i2 !== s && Pp() !== s ? ((c2 = ll()) === s && (c2 = null), c2 !== s && Pp() !== s ? ((l2 = El()) === s && (l2 = null), l2 !== s && Pp() !== s ? ((f2 = (function() {
+            var t4, e4, n3, o3;
+            t4 = zi, (e4 = (function() {
+              var t5, e5, n4, o4;
+              t5 = zi, "group" === r2.substr(zi, 5).toLowerCase() ? (e5 = r2.substr(zi, 5), zi += 5) : (e5 = s, 0 === ec && ac(Mu));
+              e5 !== s ? (n4 = zi, ec++, o4 = Cf(), ec--, o4 === s ? n4 = void 0 : (zi = n4, n4 = s), n4 !== s ? t5 = e5 = [e5, n4] : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) !== s && Pp() !== s && Ob() !== s && Pp() !== s && (n3 = Ml()) !== s && Pp() !== s ? ((o3 = (function() {
+              var t5, e5;
+              t5 = zi, Sb() !== s && Pp() !== s ? ("rollup" === r2.substr(zi, 6).toLowerCase() ? (e5 = r2.substr(zi, 6), zi += 6) : (e5 = s, 0 === ec && ac(Ln)), e5 !== s ? (Zi = t5, t5 = { type: "origin", value: "with rollup" }) : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (o3 = null), o3 !== s ? (Zi = t4, u3 = o3, e4 = { columns: n3.value, modifiers: [u3] }, t4 = e4) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            var u3;
+            return t4;
+          })()) === s && (f2 = null), f2 !== s && Pp() !== s ? ((b2 = (function() {
+            var t4, e4;
+            t4 = zi, (function() {
+              var t5, e5, n3, o3;
+              t5 = zi, "having" === r2.substr(zi, 6).toLowerCase() ? (e5 = r2.substr(zi, 6), zi += 6) : (e5 = s, 0 === ec && ac(Gu));
+              e5 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? t5 = e5 = [e5, n3] : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })() !== s && Pp() !== s && (e4 = $l()) !== s ? (Zi = t4, t4 = e4) : (zi = t4, t4 = s);
+            return t4;
+          })()) === s && (b2 = null), b2 !== s && Pp() !== s ? ((p2 = _l()) === s && (p2 = null), p2 !== s && Pp() !== s ? ((v2 = _c()) === s && (v2 = null), v2 !== s && Pp() !== s ? ((d2 = Sl()) === s && (d2 = null), d2 !== s && Pp() !== s ? ((y2 = nl2()) === s && (y2 = null), y2 !== s && Pp() !== s ? ((w2 = (function() {
+            var t4, e4, n3;
+            t4 = zi, "window" === r2.substr(zi, 6).toLowerCase() ? (e4 = r2.substr(zi, 6), zi += 6) : (e4 = s, 0 === ec && ac(ho));
+            e4 !== s && Pp() !== s && (n3 = (function() {
+              var r3, t5, e5, n4, o3, u3, a3, i3;
+              if (r3 = zi, (t5 = gf()) !== s) {
+                for (e5 = [], n4 = zi, (o3 = Pp()) !== s && (u3 = Op()) !== s && (a3 = Pp()) !== s && (i3 = gf()) !== s ? n4 = o3 = [o3, u3, a3, i3] : (zi = n4, n4 = s); n4 !== s; ) e5.push(n4), n4 = zi, (o3 = Pp()) !== s && (u3 = Op()) !== s && (a3 = Pp()) !== s && (i3 = gf()) !== s ? n4 = o3 = [o3, u3, a3, i3] : (zi = n4, n4 = s);
+                e5 !== s ? (Zi = r3, t5 = pv(t5, e5), r3 = t5) : (zi = r3, r3 = s);
+              } else zi = r3, r3 = s;
+              return r3;
+            })()) !== s ? (Zi = t4, t4 = e4 = { keyword: "window", type: "window", expr: n3 }) : (zi = t4, t4 = s);
+            return t4;
+          })()) === s && (w2 = null), w2 !== s && Pp() !== s ? ((L2 = ll()) === s && (L2 = null), L2 !== s ? (Zi = t3, t3 = (function(r3, t4, e4, n3, o3, s2, u3, a3, i3, c3, l3, f3, b3, p3, v8, d3) {
+            if (o3 && u3 || o3 && d3 || u3 && d3 || o3 && u3 && d3) throw new Error("A given SQL statement can contain at most one INTO clause");
+            if (s2) {
+              (Array.isArray(s2) ? s2 : s2.expr).forEach((r4) => r4.table && hv.add(`select::${r4.db}::${r4.table}`));
+            }
+            return { with: r3, type: "select", options: t4, distinct: e4, columns: n3, into: { ...o3 || u3 || d3 || {}, position: (o3 ? "column" : u3 && "from") || d3 && "end" }, from: s2, where: a3, groupby: i3, having: c3, orderby: l3, limit: b3, locking_read: p3 && p3, window: v8, collate: f3, ...cv() };
+          })(e3, n2, o2, u2, a2, i2, c2, l2, f2, b2, p2, v2, d2, y2, w2, L2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function sl() {
+          var t3, e3;
+          return t3 = zi, (e3 = (function() {
+            var t4;
+            "sql_calc_found_rows" === r2.substr(zi, 19).toLowerCase() ? (t4 = r2.substr(zi, 19), zi += 19) : (t4 = s, 0 === ec && ac(Ci));
+            return t4;
+          })()) === s && ((e3 = (function() {
+            var t4;
+            "sql_cache" === r2.substr(zi, 9).toLowerCase() ? (t4 = r2.substr(zi, 9), zi += 9) : (t4 = s, 0 === ec && ac(mi));
+            return t4;
+          })()) === s && (e3 = (function() {
+            var t4;
+            "sql_no_cache" === r2.substr(zi, 12).toLowerCase() ? (t4 = r2.substr(zi, 12), zi += 12) : (t4 = s, 0 === ec && ac(Ei));
+            return t4;
+          })()), e3 === s && (e3 = (function() {
+            var t4;
+            "sql_big_result" === r2.substr(zi, 14).toLowerCase() ? (t4 = r2.substr(zi, 14), zi += 14) : (t4 = s, 0 === ec && ac(Ti));
+            return t4;
+          })()) === s && (e3 = (function() {
+            var t4;
+            "sql_small_result" === r2.substr(zi, 16).toLowerCase() ? (t4 = r2.substr(zi, 16), zi += 16) : (t4 = s, 0 === ec && ac(Ai));
+            return t4;
+          })()) === s && (e3 = (function() {
+            var t4;
+            "sql_buffer_result" === r2.substr(zi, 17).toLowerCase() ? (t4 = r2.substr(zi, 17), zi += 17) : (t4 = s, 0 === ec && ac(_i));
+            return t4;
+          })())), e3 !== s && (Zi = t3, e3 = e3), t3 = e3;
+        }
+        function ul() {
+          var r3, t3, e3, n2, o2, u2, a2, i2;
+          if (r3 = zi, (t3 = xb()) === s && (t3 = zi, (e3 = Rp()) !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = Rp())), t3 !== s) {
+            for (e3 = [], n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = il()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = il()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s);
+            e3 !== s ? (Zi = r3, r3 = t3 = (function(r4, t4) {
+              Cv.add("select::null::(.*)");
+              const e4 = { expr: { type: "column_ref", table: null, column: "*" }, as: null, ...cv() };
+              return t4 && t4.length > 0 ? pv(e4, t4) : [e4];
+            })(0, e3)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          if (r3 === s) if (r3 = zi, (t3 = il()) !== s) {
+            for (e3 = [], n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = il()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = il()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s);
+            e3 !== s ? (Zi = r3, r3 = t3 = sr(t3, e3)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          return r3;
+        }
+        function al() {
+          var t3, e3, n2, o2, u2, a2, i2;
+          return t3 = zi, "match" === r2.substr(zi, 5).toLowerCase() ? (e3 = r2.substr(zi, 5), zi += 5) : (e3 = s, 0 === ec && ac(sn)), e3 !== s && Pp() !== s && jp() !== s && Pp() !== s && (n2 = Al()) !== s && Pp() !== s && xp() !== s && Pp() !== s ? ("AGAINST" === r2.substr(zi, 7) ? (o2 = "AGAINST", zi += 7) : (o2 = s, 0 === ec && ac(un)), o2 !== s && Pp() !== s && jp() !== s && Pp() !== s && (u2 = Yl()) !== s && Pp() !== s ? ((a2 = (function() {
+            var t4, e4, n3, o3, u3, a3, i3;
+            return t4 = zi, Db() !== s && Pp() !== s ? ("natural" === r2.substr(zi, 7).toLowerCase() ? (e4 = r2.substr(zi, 7), zi += 7) : (e4 = s, 0 === ec && ac(rn)), e4 !== s && Pp() !== s ? ("language" === r2.substr(zi, 8).toLowerCase() ? (n3 = r2.substr(zi, 8), zi += 8) : (n3 = s, 0 === ec && ac(tn)), n3 !== s && Pp() !== s ? ("mode" === r2.substr(zi, 4).toLowerCase() ? (o3 = r2.substr(zi, 4), zi += 4) : (o3 = s, 0 === ec && ac(Ke)), o3 !== s && Pp() !== s ? ("with" === r2.substr(zi, 4).toLowerCase() ? (u3 = r2.substr(zi, 4), zi += 4) : (u3 = s, 0 === ec && ac(v)), u3 !== s && Pp() !== s ? ("query" === r2.substr(zi, 5).toLowerCase() ? (a3 = r2.substr(zi, 5), zi += 5) : (a3 = s, 0 === ec && ac(en)), a3 !== s && Pp() !== s ? ("expansion" === r2.substr(zi, 9).toLowerCase() ? (i3 = r2.substr(zi, 9), zi += 9) : (i3 = s, 0 === ec && ac(nn)), i3 !== s ? (Zi = t4, t4 = { type: "origin", value: "IN NATURAL LANGUAGE MODE WITH QUERY EXPANSION" }) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s), t4 === s && (t4 = zi, Db() !== s && Pp() !== s ? ("natural" === r2.substr(zi, 7).toLowerCase() ? (e4 = r2.substr(zi, 7), zi += 7) : (e4 = s, 0 === ec && ac(rn)), e4 !== s && Pp() !== s ? ("language" === r2.substr(zi, 8).toLowerCase() ? (n3 = r2.substr(zi, 8), zi += 8) : (n3 = s, 0 === ec && ac(tn)), n3 !== s && Pp() !== s ? ("mode" === r2.substr(zi, 4).toLowerCase() ? (o3 = r2.substr(zi, 4), zi += 4) : (o3 = s, 0 === ec && ac(Ke)), o3 !== s ? (Zi = t4, t4 = { type: "origin", value: "IN NATURAL LANGUAGE MODE" }) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s), t4 === s && (t4 = zi, Db() !== s && Pp() !== s ? ("boolean" === r2.substr(zi, 7).toLowerCase() ? (e4 = r2.substr(zi, 7), zi += 7) : (e4 = s, 0 === ec && ac(on)), e4 !== s && Pp() !== s ? ("mode" === r2.substr(zi, 4).toLowerCase() ? (n3 = r2.substr(zi, 4), zi += 4) : (n3 = s, 0 === ec && ac(Ke)), n3 !== s ? (Zi = t4, t4 = { type: "origin", value: "IN BOOLEAN MODE" }) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s), t4 === s && (t4 = zi, Sb() !== s && Pp() !== s ? ("query" === r2.substr(zi, 5).toLowerCase() ? (e4 = r2.substr(zi, 5), zi += 5) : (e4 = s, 0 === ec && ac(en)), e4 !== s && Pp() !== s ? ("expansion" === r2.substr(zi, 9).toLowerCase() ? (n3 = r2.substr(zi, 9), zi += 9) : (n3 = s, 0 === ec && ac(nn)), n3 !== s ? (Zi = t4, t4 = { type: "origin", value: "WITH QUERY EXPANSION" }) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)) : (zi = t4, t4 = s)))), t4;
+          })()) === s && (a2 = null), a2 !== s && Pp() !== s && xp() !== s && Pp() !== s ? ((i2 = cl()) === s && (i2 = null), i2 !== s ? (Zi = t3, t3 = e3 = { against: "against", columns: n2, expr: u2, match: "match", mode: a2, type: "fulltext_search", as: i2 }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function il() {
+          var r3, t3, e3, n2, o2, u2, a2, i2;
+          return r3 = zi, (t3 = al()) !== s && (Zi = r3, t3 = (function(r4) {
+            const { as: t4, ...e4 } = r4;
+            return { expr: e4, as: t4 };
+          })(t3)), (r3 = t3) === s && (r3 = zi, (t3 = lf()) !== s && (e3 = Pp()) !== s && (n2 = Np()) !== s && (o2 = Pp()) !== s && (u2 = lf()) !== s && Pp() !== s && Np() !== s && Pp() !== s && Rp() !== s ? (Zi = r3, a2 = t3, i2 = u2, Cv.add(`select::${a2}::${i2}::(.*)`), r3 = t3 = { expr: { type: "column_ref", db: a2, table: i2, column: "*" }, as: null, ...cv() }) : (zi = r3, r3 = s), r3 === s && (r3 = zi, t3 = zi, (e3 = lf()) !== s && (n2 = Pp()) !== s && (o2 = Np()) !== s ? t3 = e3 = [e3, n2, o2] : (zi = t3, t3 = s), t3 === s && (t3 = null), t3 !== s && (e3 = Pp()) !== s && (n2 = Rp()) !== s ? (Zi = r3, r3 = t3 = (function(r4) {
+            const t4 = r4 && r4[0] || null;
+            return Cv.add(`select::${t4}::(.*)`), { expr: { type: "column_ref", table: t4, column: "*" }, as: null, ...cv() };
+          })(t3)) : (zi = r3, r3 = s), r3 === s && (r3 = zi, (t3 = (function() {
+            var r4, t4, e4, n3;
+            r4 = zi, (t4 = rv()) === s && (t4 = tv());
+            t4 !== s && Pp() !== s && (e4 = wp()) !== s && Pp() !== s && (n3 = Yl()) !== s ? (Zi = r4, t4 = Hi(t4, e4, n3), r4 = t4) : (zi = r4, r4 = s);
+            return r4;
+          })()) !== s && (e3 = Pp()) !== s ? ((n2 = cl()) === s && (n2 = null), n2 !== s ? (Zi = r3, r3 = t3 = { expr: t3, as: n2 }) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3 === s && (r3 = zi, (t3 = (function() {
+            var r4, t4, e4, n3, o3, u3, a3, i3;
+            if (r4 = zi, (t4 = Yl()) !== s) {
+              for (e4 = [], n3 = zi, (o3 = Pp()) !== s ? ((u3 = Hb()) === s && (u3 = Yb()) === s && (u3 = Mp()), u3 !== s && (a3 = Pp()) !== s && (i3 = Yl()) !== s ? n3 = o3 = [o3, u3, a3, i3] : (zi = n3, n3 = s)) : (zi = n3, n3 = s); n3 !== s; ) e4.push(n3), n3 = zi, (o3 = Pp()) !== s ? ((u3 = Hb()) === s && (u3 = Yb()) === s && (u3 = Mp()), u3 !== s && (a3 = Pp()) !== s && (i3 = Yl()) !== s ? n3 = o3 = [o3, u3, a3, i3] : (zi = n3, n3 = s)) : (zi = n3, n3 = s);
+              e4 !== s ? (Zi = r4, t4 = (function(r5, t5) {
+                const e5 = r5.ast;
+                if (e5 && "select" === e5.type && (!(r5.parentheses_symbol || r5.parentheses || r5.ast.parentheses || r5.ast.parentheses_symbol) || 1 !== e5.columns.length || "*" === e5.columns[0].expr.column)) throw new Error("invalid column clause with select statement");
+                if (!t5 || 0 === t5.length) return r5;
+                const n4 = t5.length;
+                let o4 = t5[n4 - 1][3];
+                for (let e6 = n4 - 1; e6 >= 0; e6--) {
+                  const n5 = 0 === e6 ? r5 : t5[e6 - 1][3];
+                  o4 = fv(t5[e6][1], n5, o4);
+                }
+                return o4;
+              })(t4, e4), r4 = t4) : (zi = r4, r4 = s);
+            } else zi = r4, r4 = s;
+            return r4;
+          })()) !== s && (e3 = Pp()) !== s ? ((n2 = cl()) === s && (n2 = null), n2 !== s ? (Zi = r3, r3 = t3 = (function(r4, t4) {
+            return "double_quote_string" !== r4.type && "single_quote_string" !== r4.type || Cv.add("select::null::" + r4.value), { expr: r4, as: t4 };
+          })(t3, n2)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s))))), r3;
+        }
+        function cl() {
+          var r3, t3, e3;
+          return r3 = zi, (t3 = wb()) !== s && Pp() !== s && (e3 = (function() {
+            var r4, t4;
+            r4 = zi, (t4 = hf()) !== s ? (Zi = zi, ((function(r5) {
+              if (true === av[r5.toUpperCase()]) throw new Error("Error: " + JSON.stringify(r5) + " is a reserved word, can not as alias clause");
+              return false;
+            })(t4) ? s : void 0) !== s ? (Zi = r4, r4 = t4 = t4) : (zi = r4, r4 = s)) : (zi = r4, r4 = s);
+            r4 === s && (r4 = zi, (t4 = bf()) !== s && (Zi = r4, t4 = t4), r4 = t4);
+            return r4;
+          })()) !== s ? (Zi = r3, r3 = t3 = e3) : (zi = r3, r3 = s), r3 === s && (r3 = zi, (t3 = wb()) === s && (t3 = null), t3 !== s && Pp() !== s && (e3 = lf()) !== s ? (Zi = r3, r3 = t3 = e3) : (zi = r3, r3 = s)), r3;
+        }
+        function ll() {
+          var t3, e3, n2;
+          return t3 = zi, vb() !== s && Pp() !== s && (e3 = (function() {
+            var r3, t4, e4, n3, o2, u2, a2, c2;
+            if (r3 = zi, (t4 = rv()) !== s) {
+              for (e4 = [], n3 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (c2 = rv()) !== s ? n3 = o2 = [o2, u2, a2, c2] : (zi = n3, n3 = s); n3 !== s; ) e4.push(n3), n3 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (c2 = rv()) !== s ? n3 = o2 = [o2, u2, a2, c2] : (zi = n3, n3 = s);
+              e4 !== s ? (Zi = r3, t4 = i(t4, e4), r3 = t4) : (zi = r3, r3 = s);
+            } else zi = r3, r3 = s;
+            return r3;
+          })()) !== s ? (Zi = t3, t3 = { keyword: "var", type: "into", expr: e3 }) : (zi = t3, t3 = s), t3 === s && (t3 = zi, vb() !== s && Pp() !== s ? ("outfile" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(an)), e3 === s && ("dumpfile" === r2.substr(zi, 8).toLowerCase() ? (e3 = r2.substr(zi, 8), zi += 8) : (e3 = s, 0 === ec && ac(cn))), e3 === s && (e3 = null), e3 !== s && Pp() !== s ? ((n2 = Yf()) === s && (n2 = lf()), n2 !== s ? (Zi = t3, t3 = { keyword: e3, type: "into", expr: n2 }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)), t3;
+        }
+        function fl() {
+          var r3, t3;
+          return r3 = zi, db2() !== s && Pp() !== s && (t3 = yl()) !== s ? (Zi = r3, r3 = t3) : (zi = r3, r3 = s), r3;
+        }
+        function bl2() {
+          var r3, t3, e3;
+          return r3 = zi, (t3 = Cl()) !== s && Pp() !== s && rb() !== s && Pp() !== s && (e3 = Cl()) !== s ? (Zi = r3, r3 = t3 = [t3, e3]) : (zi = r3, r3 = s), r3;
+        }
+        function pl() {
+          var t3, e3;
+          return t3 = zi, Ib() !== s && Pp() !== s ? ("btree" === r2.substr(zi, 5).toLowerCase() ? (e3 = r2.substr(zi, 5), zi += 5) : (e3 = s, 0 === ec && ac(ln)), e3 === s && ("hash" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(fn))), e3 !== s ? (Zi = t3, t3 = { keyword: "using", type: e3.toLowerCase() }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function vl() {
+          var r3, t3, e3, n2, o2, u2;
+          if (r3 = zi, (t3 = dl()) !== s) {
+            for (e3 = [], n2 = zi, (o2 = Pp()) !== s && (u2 = dl()) !== s ? n2 = o2 = [o2, u2] : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Pp()) !== s && (u2 = dl()) !== s ? n2 = o2 = [o2, u2] : (zi = n2, n2 = s);
+            e3 !== s ? (Zi = r3, r3 = t3 = (function(r4, t4) {
+              const e4 = [r4];
+              for (let r5 = 0; r5 < t4.length; r5++) e4.push(t4[r5][1]);
+              return e4;
+            })(t3, e3)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          return r3;
+        }
+        function dl() {
+          var t3, e3, n2, o2, u2, a2;
+          return t3 = zi, (e3 = (function() {
+            var t4, e4, n3, o3;
+            t4 = zi, "key_block_size" === r2.substr(zi, 14).toLowerCase() ? (e4 = r2.substr(zi, 14), zi += 14) : (e4 = s, 0 === ec && ac(dt));
+            e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t4, t4 = e4 = "KEY_BLOCK_SIZE") : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()) !== s && Pp() !== s ? ((n2 = Lp()) === s && (n2 = null), n2 !== s && Pp() !== s && (o2 = qf()) !== s ? (Zi = t3, u2 = n2, a2 = o2, t3 = e3 = { type: e3.toLowerCase(), symbol: u2, expr: a2 }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = pl()) === s && (t3 = zi, "with" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(v)), e3 !== s && Pp() !== s ? ("parser" === r2.substr(zi, 6).toLowerCase() ? (n2 = r2.substr(zi, 6), zi += 6) : (n2 = s, 0 === ec && ac(bn)), n2 !== s && Pp() !== s && (o2 = hf()) !== s ? (Zi = t3, t3 = e3 = { type: "with parser", expr: o2 }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, "visible" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(pn)), e3 === s && ("invisible" === r2.substr(zi, 9).toLowerCase() ? (e3 = r2.substr(zi, 9), zi += 9) : (e3 = s, 0 === ec && ac(vn))), e3 !== s && (Zi = t3, e3 = (function(r3) {
+            return { type: r3.toLowerCase(), expr: r3.toLowerCase() };
+          })(e3)), (t3 = e3) === s && (t3 = Hp()))), t3;
+        }
+        function yl() {
+          var r3, t3, e3, n2, o2, u2, a2, i2, c2, l2, f2, b2;
+          if (r3 = zi, (t3 = Ll()) !== s) {
+            for (e3 = [], n2 = wl(); n2 !== s; ) e3.push(n2), n2 = wl();
+            e3 !== s ? (Zi = r3, f2 = t3, (b2 = e3).unshift(f2), b2.forEach((r4) => {
+              const { table: t4, as: e4 } = r4;
+              mv[t4] = t4, e4 && (mv[e4] = t4), wv(Cv);
+            }), r3 = t3 = b2) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          if (r3 === s) {
+            if (r3 = zi, t3 = [], (e3 = jp()) !== s) for (; e3 !== s; ) t3.push(e3), e3 = jp();
+            else t3 = s;
+            if (t3 !== s) if ((e3 = Pp()) !== s) if ((n2 = Ll()) !== s) {
+              for (o2 = [], u2 = wl(); u2 !== s; ) o2.push(u2), u2 = wl();
+              if (o2 !== s) if ((u2 = Pp()) !== s) {
+                if (a2 = [], (i2 = xp()) !== s) for (; i2 !== s; ) a2.push(i2), i2 = xp();
+                else a2 = s;
+                if (a2 !== s) if ((i2 = Pp()) !== s) {
+                  for (c2 = [], l2 = wl(); l2 !== s; ) c2.push(l2), l2 = wl();
+                  c2 !== s ? (Zi = r3, r3 = t3 = (function(r4, t4, e4, n3, o3) {
+                    if (r4.length !== n3.length) throw new Error(`parentheses not match in from clause: ${r4.length} != ${n3.length}`);
+                    return e4.unshift(t4), e4.forEach((r5) => {
+                      const { table: t5, as: e5 } = r5;
+                      mv[t5] = t5, e5 && (mv[e5] = t5), wv(Cv);
+                    }), o3.forEach((r5) => {
+                      const { table: t5, as: e5 } = r5;
+                      mv[t5] = t5, e5 && (mv[e5] = t5), wv(Cv);
+                    }), { expr: e4, parentheses: { length: n3.length }, joins: o3 };
+                  })(t3, n2, o2, a2, c2)) : (zi = r3, r3 = s);
+                } else zi = r3, r3 = s;
+                else zi = r3, r3 = s;
+              } else zi = r3, r3 = s;
+              else zi = r3, r3 = s;
+            } else zi = r3, r3 = s;
+            else zi = r3, r3 = s;
+            else zi = r3, r3 = s;
+          }
+          return r3;
+        }
+        function wl() {
+          var r3, t3, e3;
+          return r3 = zi, Pp() !== s && (t3 = Op()) !== s && Pp() !== s && (e3 = Ll()) !== s ? (Zi = r3, r3 = e3) : (zi = r3, r3 = s), r3 === s && (r3 = zi, Pp() !== s && (t3 = (function() {
+            var r4, t4, e4, n2, o2, u2, a2, i2, c2, l2, f2;
+            if (r4 = zi, (t4 = hl()) !== s) if (Pp() !== s) if ((e4 = Ll()) === s && (e4 = yl()), e4 !== s) if (Pp() !== s) if ((n2 = Ib()) !== s) if (Pp() !== s) if (jp() !== s) if (Pp() !== s) if ((o2 = af()) !== s) {
+              for (u2 = [], a2 = zi, (i2 = Pp()) !== s && (c2 = Op()) !== s && (l2 = Pp()) !== s && (f2 = af()) !== s ? a2 = i2 = [i2, c2, l2, f2] : (zi = a2, a2 = s); a2 !== s; ) u2.push(a2), a2 = zi, (i2 = Pp()) !== s && (c2 = Op()) !== s && (l2 = Pp()) !== s && (f2 = af()) !== s ? a2 = i2 = [i2, c2, l2, f2] : (zi = a2, a2 = s);
+              u2 !== s && (a2 = Pp()) !== s && (i2 = xp()) !== s ? (Zi = r4, b2 = t4, v2 = o2, d2 = u2, (p2 = e4).join = b2, p2.using = pv(v2, d2), r4 = t4 = p2) : (zi = r4, r4 = s);
+            } else zi = r4, r4 = s;
+            else zi = r4, r4 = s;
+            else zi = r4, r4 = s;
+            else zi = r4, r4 = s;
+            else zi = r4, r4 = s;
+            else zi = r4, r4 = s;
+            else zi = r4, r4 = s;
+            else zi = r4, r4 = s;
+            else zi = r4, r4 = s;
+            var b2, p2, v2, d2;
+            r4 === s && (r4 = zi, (t4 = hl()) !== s && Pp() !== s ? ((e4 = Ll()) === s && (e4 = yl()), e4 !== s && Pp() !== s ? ((n2 = ml()) === s && (n2 = null), n2 !== s ? (Zi = r4, t4 = (function(r5, t5, e5) {
+              return t5.join = r5, t5.on = e5, t5;
+            })(t4, e4, n2), r4 = t4) : (zi = r4, r4 = s)) : (zi = r4, r4 = s)) : (zi = r4, r4 = s), r4 === s && (r4 = zi, (t4 = hl()) === s && (t4 = pc()), t4 !== s && Pp() !== s && (e4 = jp()) !== s && Pp() !== s && (n2 = vc()) !== s && Pp() !== s && xp() !== s && Pp() !== s ? ((o2 = cl()) === s && (o2 = null), o2 !== s && (u2 = Pp()) !== s ? ((a2 = ml()) === s && (a2 = null), a2 !== s ? (Zi = r4, t4 = (function(r5, t5, e5, n3) {
+              return t5.parentheses = true, { expr: t5, as: e5, join: r5, on: n3 };
+            })(t4, n2, o2, a2), r4 = t4) : (zi = r4, r4 = s)) : (zi = r4, r4 = s)) : (zi = r4, r4 = s)));
+            return r4;
+          })()) !== s ? (Zi = r3, r3 = t3) : (zi = r3, r3 = s)), r3;
+        }
+        function Ll() {
+          var t3, e3, n2, o2, u2, a2, i2;
+          return t3 = zi, (e3 = (function() {
+            var t4;
+            "dual" === r2.substr(zi, 4).toLowerCase() ? (t4 = r2.substr(zi, 4), zi += 4) : (t4 = s, 0 === ec && ac(bi));
+            return t4;
+          })()) !== s && (Zi = t3, e3 = { type: "dual" }), (t3 = e3) === s && (t3 = zi, (e3 = Cl()) !== s && Pp() !== s ? ((n2 = cl()) === s && (n2 = null), n2 !== s ? (Zi = t3, i2 = n2, t3 = e3 = "var" === (a2 = e3).type ? (a2.as = i2, a2) : { db: a2.db, table: a2.table, as: i2, ...cv() }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, (e3 = jp()) !== s && Pp() !== s && (n2 = Cl()) !== s && Pp() !== s ? ((o2 = cl()) === s && (o2 = null), o2 !== s && Pp() !== s && xp() !== s ? (Zi = t3, t3 = e3 = (function(r3, t4, e4) {
+            return "var" === r3.type ? (r3.as = t4, r3.parentheses = true, r3) : { db: r3.db, table: r3.table, as: t4, parentheses: true };
+          })(n2, o2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, (e3 = Ul()) !== s && Pp() !== s ? ((n2 = cl()) === s && (n2 = null), n2 !== s ? (Zi = t3, t3 = e3 = /* @__PURE__ */ (function(r3, t4) {
+            return { expr: { type: "values", values: r3, prefix: "row" }, as: t4 };
+          })(e3, n2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, "lateral" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(dn)), e3 === s && (e3 = null), e3 !== s && Pp() !== s && (n2 = jp()) !== s && Pp() !== s ? ((o2 = vc()) === s && (o2 = Ul()), o2 !== s && Pp() !== s && xp() !== s && Pp() !== s ? ((u2 = cl()) === s && (u2 = null), u2 !== s ? (Zi = t3, t3 = e3 = (function(r3, t4, e4) {
+            Array.isArray(t4) && (t4 = { type: "values", values: t4, prefix: "row" }), t4.parentheses = true;
+            const n3 = { expr: t4, as: e4 };
+            return r3 && (n3.prefix = r3), n3;
+          })(e3, o2, u2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s))))), t3;
+        }
+        function hl() {
+          var t3, e3, n2, o2;
+          return t3 = zi, (e3 = (function() {
+            var t4, e4, n3, o3;
+            t4 = zi, "left" === r2.substr(zi, 4).toLowerCase() ? (e4 = r2.substr(zi, 4), zi += 4) : (e4 = s, 0 === ec && ac(mu));
+            e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? t4 = e4 = [e4, n3] : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()) !== s && (n2 = Pp()) !== s ? ((o2 = _b()) === s && (o2 = null), o2 !== s && Pp() !== s && Tb() !== s ? (Zi = t3, t3 = e3 = "LEFT JOIN") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, (e3 = (function() {
+            var t4, e4, n3, o3;
+            t4 = zi, "right" === r2.substr(zi, 5).toLowerCase() ? (e4 = r2.substr(zi, 5), zi += 5) : (e4 = s, 0 === ec && ac(Eu));
+            e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? t4 = e4 = [e4, n3] : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()) !== s && (n2 = Pp()) !== s ? ((o2 = _b()) === s && (o2 = null), o2 !== s && Pp() !== s && Tb() !== s ? (Zi = t3, t3 = e3 = "RIGHT JOIN") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, (e3 = (function() {
+            var t4, e4, n3, o3;
+            t4 = zi, "full" === r2.substr(zi, 4).toLowerCase() ? (e4 = r2.substr(zi, 4), zi += 4) : (e4 = s, 0 === ec && ac(Au));
+            e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? t4 = e4 = [e4, n3] : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()) !== s && (n2 = Pp()) !== s ? ((o2 = _b()) === s && (o2 = null), o2 !== s && Pp() !== s && Tb() !== s ? (Zi = t3, t3 = e3 = "FULL JOIN") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, (e3 = (function() {
+            var t4, e4, n3, o3;
+            t4 = zi, "cross" === r2.substr(zi, 5).toLowerCase() ? (e4 = r2.substr(zi, 5), zi += 5) : (e4 = s, 0 === ec && ac(_u));
+            e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? t4 = e4 = [e4, n3] : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()) !== s && (n2 = Pp()) !== s && (o2 = Tb()) !== s ? (Zi = t3, t3 = e3 = "CROSS JOIN") : (zi = t3, t3 = s), t3 === s && (t3 = zi, (e3 = (function() {
+            var t4, e4, n3, o3;
+            t4 = zi, "straight_join" === r2.substr(zi, 13).toLowerCase() ? (e4 = r2.substr(zi, 13), zi += 13) : (e4 = s, 0 === ec && ac(gu));
+            e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? t4 = e4 = [e4, n3] : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()) !== s && (Zi = t3, e3 = "STRAIGHT_JOIN"), (t3 = e3) === s && (t3 = zi, e3 = zi, (n2 = (function() {
+            var t4, e4, n3, o3;
+            t4 = zi, "inner" === r2.substr(zi, 5).toLowerCase() ? (e4 = r2.substr(zi, 5), zi += 5) : (e4 = s, 0 === ec && ac(Tu));
+            e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? t4 = e4 = [e4, n3] : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()) !== s && (o2 = Pp()) !== s ? e3 = n2 = [n2, o2] : (zi = e3, e3 = s), e3 === s && (e3 = null), e3 !== s && (n2 = Tb()) !== s ? (Zi = t3, t3 = e3 = "INNER JOIN") : (zi = t3, t3 = s)))))), t3;
+        }
+        function Cl() {
+          var t3, e3, n2, o2, u2, a2, i2, c2, l2;
+          if (t3 = zi, e3 = [], yn.test(r2.charAt(zi)) ? (n2 = r2.charAt(zi), zi++) : (n2 = s, 0 === ec && ac(wn)), n2 !== s) for (; n2 !== s; ) e3.push(n2), yn.test(r2.charAt(zi)) ? (n2 = r2.charAt(zi), zi++) : (n2 = s, 0 === ec && ac(wn));
+          else e3 = s;
+          return e3 !== s && (n2 = cf()) !== s ? (o2 = zi, (u2 = Pp()) !== s && (a2 = Np()) !== s && (i2 = Pp()) !== s && (c2 = cf()) !== s ? o2 = u2 = [u2, a2, i2, c2] : (zi = o2, o2 = s), o2 === s && (o2 = null), o2 !== s ? (Zi = t3, t3 = e3 = (function(r3, t4, e4) {
+            const n3 = `${r3.join("")}${t4}`, o3 = { db: null, table: n3 };
+            return null !== e4 && (o3.db = n3, o3.table = e4[3]), o3;
+          })(e3, n2, o2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, (e3 = lf()) !== s ? (n2 = zi, (o2 = Pp()) !== s && (u2 = Np()) !== s && (a2 = Pp()) !== s && (i2 = cf()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s), n2 === s && (n2 = null), n2 !== s ? (Zi = t3, t3 = e3 = (function(r3, t4) {
+            const e4 = { db: null, table: r3 };
+            return null !== t4 && (e4.db = r3, e4.table = t4[3]), e4;
+          })(e3, n2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, (e3 = rv()) !== s && (Zi = t3, (l2 = e3).db = null, l2.table = l2.name, e3 = l2), t3 = e3)), t3;
+        }
+        function ml() {
+          var r3, t3;
+          return r3 = zi, Ab() !== s && Pp() !== s && (t3 = Bl()) !== s ? (Zi = r3, r3 = t3) : (zi = r3, r3 = s), r3;
+        }
+        function El() {
+          var t3, e3;
+          return t3 = zi, (function() {
+            var t4, e4, n2, o2;
+            t4 = zi, "where" === r2.substr(zi, 5).toLowerCase() ? (e4 = r2.substr(zi, 5), zi += 5) : (e4 = s, 0 === ec && ac(Uu));
+            e4 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t4 = e4 = [e4, n2] : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })() !== s && Pp() !== s && (e3 = $l()) !== s ? (Zi = t3, t3 = e3) : (zi = t3, t3 = s), t3;
+        }
+        function Al() {
+          var r3, t3, e3, n2, o2, u2, a2, i2;
+          if (r3 = zi, (t3 = of()) !== s) {
+            for (e3 = [], n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = of()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = of()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s);
+            e3 !== s ? (Zi = r3, r3 = t3 = sr(t3, e3)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          return r3;
+        }
+        function Tl() {
+          var r3, t3;
+          return r3 = zi, pb() !== s && Pp() !== s && Ob() !== s && Pp() !== s && (t3 = ul()) !== s ? (Zi = r3, r3 = t3) : (zi = r3, r3 = s), r3;
+        }
+        function _l() {
+          var t3, e3;
+          return t3 = zi, (function() {
+            var t4, e4, n2, o2;
+            t4 = zi, "order" === r2.substr(zi, 5).toLowerCase() ? (e4 = r2.substr(zi, 5), zi += 5) : (e4 = s, 0 === ec && ac(Pu));
+            e4 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t4 = e4 = [e4, n2] : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })() !== s && Pp() !== s && Ob() !== s && Pp() !== s && (e3 = (function() {
+            var r3, t4, e4, n2, o2, u2, a2, i2;
+            if (r3 = zi, (t4 = gl()) !== s) {
+              for (e4 = [], n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = gl()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s); n2 !== s; ) e4.push(n2), n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = gl()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s);
+              e4 !== s ? (Zi = r3, t4 = sr(t4, e4), r3 = t4) : (zi = r3, r3 = s);
+            } else zi = r3, r3 = s;
+            return r3;
+          })()) !== s ? (Zi = t3, t3 = e3) : (zi = t3, t3 = s), t3;
+        }
+        function gl() {
+          var r3, t3, e3;
+          return r3 = zi, (t3 = Yl()) !== s && Pp() !== s ? ((e3 = jb()) === s && (e3 = Rb()), e3 === s && (e3 = null), e3 !== s ? (Zi = r3, r3 = t3 = { expr: t3, type: e3 }) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3;
+        }
+        function Il() {
+          var t3, e3;
+          return (t3 = qf()) === s && (t3 = Af()) === s && (t3 = zi, 63 === r2.charCodeAt(zi) ? (e3 = "?", zi++) : (e3 = s, 0 === ec && ac(hn)), e3 !== s && (Zi = t3, e3 = { type: "origin", value: "?" }), t3 = e3), t3;
+        }
+        function Sl() {
+          var t3, e3, n2, o2, u2, a2;
+          return t3 = zi, (function() {
+            var t4, e4, n3, o3;
+            t4 = zi, "limit" === r2.substr(zi, 5).toLowerCase() ? (e4 = r2.substr(zi, 5), zi += 5) : (e4 = s, 0 === ec && ac(Fu));
+            e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? t4 = e4 = [e4, n3] : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })() !== s && Pp() !== s && (e3 = Il()) !== s && Pp() !== s ? (n2 = zi, (o2 = Op()) === s && (o2 = (function() {
+            var t4, e4, n3, o3;
+            t4 = zi, "offset" === r2.substr(zi, 6).toLowerCase() ? (e4 = r2.substr(zi, 6), zi += 6) : (e4 = s, 0 === ec && ac(Hu));
+            e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t4, t4 = e4 = "OFFSET") : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()), o2 !== s && (u2 = Pp()) !== s && (a2 = Il()) !== s ? n2 = o2 = [o2, u2, a2] : (zi = n2, n2 = s), n2 === s && (n2 = null), n2 !== s ? (Zi = t3, t3 = (function(r3, t4) {
+            const e4 = [r3];
+            return t4 && e4.push(t4[2]), { seperator: t4 && t4[0] && t4[0].toLowerCase() || "", value: e4, ...cv() };
+          })(e3, n2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Nl() {
+          var r3, t3, e3, n2, o2, u2, a2, i2;
+          if (r3 = zi, (t3 = Ol()) !== s) {
+            for (e3 = [], n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = Ol()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = Ol()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s);
+            e3 !== s ? (Zi = r3, r3 = t3 = sr(t3, e3)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          return r3;
+        }
+        function Ol() {
+          var t3, e3, n2, o2, u2, a2, i2, c2, l2;
+          return t3 = zi, e3 = zi, (n2 = lf()) !== s && (o2 = Pp()) !== s && (u2 = Np()) !== s ? e3 = n2 = [n2, o2, u2] : (zi = e3, e3 = s), e3 === s && (e3 = null), e3 !== s && (n2 = Pp()) !== s && (o2 = yf()) !== s && (u2 = Pp()) !== s ? (61 === r2.charCodeAt(zi) ? (a2 = "=", zi++) : (a2 = s, 0 === ec && ac(Cn)), a2 !== s && Pp() !== s && (i2 = Yl()) !== s ? (Zi = t3, t3 = e3 = { column: o2, value: i2, table: (l2 = e3) && l2[0] }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, e3 = zi, (n2 = lf()) !== s && (o2 = Pp()) !== s && (u2 = Np()) !== s ? e3 = n2 = [n2, o2, u2] : (zi = e3, e3 = s), e3 === s && (e3 = null), e3 !== s && (n2 = Pp()) !== s && (o2 = yf()) !== s && (u2 = Pp()) !== s ? (61 === r2.charCodeAt(zi) ? (a2 = "=", zi++) : (a2 = s, 0 === ec && ac(Cn)), a2 !== s && Pp() !== s && (i2 = gb()) !== s && Pp() !== s && jp() !== s && Pp() !== s && (c2 = of()) !== s && Pp() !== s && xp() !== s ? (Zi = t3, t3 = e3 = (function(r3, t4, e4) {
+            return { column: t4, value: e4, table: r3 && r3[0], keyword: "values" };
+          })(e3, o2, c2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)), t3;
+        }
+        function Rl() {
+          var r3, t3;
+          return (r3 = Ul()) === s && (r3 = zi, (t3 = vc()) !== s && (Zi = r3, t3 = t3.ast), r3 = t3), r3;
+        }
+        function jl() {
+          var r3, t3, e3, n2, o2, u2, a2, i2, c2;
+          if (r3 = zi, pb() !== s) if (Pp() !== s) if ((t3 = jp()) !== s) if (Pp() !== s) if ((e3 = hf()) !== s) {
+            for (n2 = [], o2 = zi, (u2 = Pp()) !== s && (a2 = Op()) !== s && (i2 = Pp()) !== s && (c2 = hf()) !== s ? o2 = u2 = [u2, a2, i2, c2] : (zi = o2, o2 = s); o2 !== s; ) n2.push(o2), o2 = zi, (u2 = Pp()) !== s && (a2 = Op()) !== s && (i2 = Pp()) !== s && (c2 = hf()) !== s ? o2 = u2 = [u2, a2, i2, c2] : (zi = o2, o2 = s);
+            n2 !== s && (o2 = Pp()) !== s && (u2 = xp()) !== s ? (Zi = r3, r3 = h(e3, n2)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          else zi = r3, r3 = s;
+          else zi = r3, r3 = s;
+          else zi = r3, r3 = s;
+          else zi = r3, r3 = s;
+          return r3 === s && (r3 = zi, pb() !== s && Pp() !== s && (t3 = Dl()) !== s ? (Zi = r3, r3 = t3) : (zi = r3, r3 = s)), r3;
+        }
+        function xl() {
+          var t3, e3, n2;
+          return t3 = zi, Ab() !== s && Pp() !== s ? ("duplicate" === r2.substr(zi, 9).toLowerCase() ? (e3 = r2.substr(zi, 9), zi += 9) : (e3 = s, 0 === ec && ac(mn)), e3 !== s && Pp() !== s && Ep() !== s && Pp() !== s && sb() !== s && Pp() !== s && (n2 = Nl()) !== s ? (Zi = t3, t3 = { keyword: "on duplicate key update", set: n2 }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function kl() {
+          var r3, t3;
+          return r3 = zi, (t3 = cb()) !== s && (Zi = r3, t3 = "insert"), (r3 = t3) === s && (r3 = zi, (t3 = lb()) !== s && (Zi = r3, t3 = "replace"), r3 = t3), r3;
+        }
+        function Ul() {
+          var r3, t3;
+          return r3 = zi, gb() !== s && Pp() !== s && (t3 = (function() {
+            var r4, t4, e3, n2, o2, u2, a2, i2;
+            if (r4 = zi, (t4 = Dl()) !== s) {
+              for (e3 = [], n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = Dl()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = Dl()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s);
+              e3 !== s ? (Zi = r4, t4 = sr(t4, e3), r4 = t4) : (zi = r4, r4 = s);
+            } else zi = r4, r4 = s;
+            return r4;
+          })()) !== s ? (Zi = r3, r3 = { type: "values", values: t3 }) : (zi = r3, r3 = s), r3;
+        }
+        function Dl() {
+          var t3, e3, n2, o2, u2;
+          return t3 = zi, "row" === r2.substr(zi, 3).toLowerCase() ? (e3 = r2.substr(zi, 3), zi += 3) : (e3 = s, 0 === ec && ac(yr)), e3 === s && (e3 = null), e3 !== s && Pp() !== s && jp() !== s && Pp() !== s && (n2 = Ml()) !== s && Pp() !== s && xp() !== s ? (Zi = t3, o2 = e3, (u2 = n2).prefix = o2 && o2.toLowerCase(), t3 = e3 = u2) : (zi = t3, t3 = s), t3;
+        }
+        function Ml() {
+          var r3, t3, e3, n2, o2, u2, a2, i2;
+          if (r3 = zi, (t3 = Yl()) !== s) {
+            for (e3 = [], n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = Yl()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = Yl()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s);
+            e3 !== s ? (Zi = r3, r3 = t3 = (function(r4, t4) {
+              const e4 = { type: "expr_list" };
+              return e4.value = pv(r4, t4), e4;
+            })(t3, e3)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          return r3;
+        }
+        function Pl() {
+          var t3, e3, n2;
+          return t3 = zi, fp() !== s && Pp() !== s && (e3 = Yl()) !== s && Pp() !== s && (n2 = (function() {
+            var t4;
+            (t4 = (function() {
+              var t5, e4, n3, o2;
+              t5 = zi, "year" === r2.substr(zi, 4).toLowerCase() ? (e4 = r2.substr(zi, 4), zi += 4) : (e4 = s, 0 === ec && ac(ns));
+              e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "YEAR") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (t4 = (function() {
+              var t5, e4, n3, o2;
+              t5 = zi, "quarter" === r2.substr(zi, 7).toLowerCase() ? (e4 = r2.substr(zi, 7), zi += 7) : (e4 = s, 0 === ec && ac(Zo));
+              e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "QUARTER") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (t4 = (function() {
+              var t5, e4, n3, o2;
+              t5 = zi, "month" === r2.substr(zi, 5).toLowerCase() ? (e4 = r2.substr(zi, 5), zi += 5) : (e4 = s, 0 === ec && ac(zo));
+              e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "MONTH") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (t4 = (function() {
+              var t5, e4, n3, o2;
+              t5 = zi, "week" === r2.substr(zi, 4).toLowerCase() ? (e4 = r2.substr(zi, 4), zi += 4) : (e4 = s, 0 === ec && ac(es));
+              e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "WEEK") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (t4 = (function() {
+              var t5, e4, n3, o2;
+              t5 = zi, "day" === r2.substr(zi, 3).toLowerCase() ? (e4 = r2.substr(zi, 3), zi += 3) : (e4 = s, 0 === ec && ac(Mo));
+              e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "DAY") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (t4 = (function() {
+              var t5, e4, n3, o2;
+              t5 = zi, "hour" === r2.substr(zi, 4).toLowerCase() ? (e4 = r2.substr(zi, 4), zi += 4) : (e4 = s, 0 === ec && ac(Bo));
+              e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "HOUR") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (t4 = (function() {
+              var t5, e4, n3, o2;
+              t5 = zi, "minute" === r2.substr(zi, 6).toLowerCase() ? (e4 = r2.substr(zi, 6), zi += 6) : (e4 = s, 0 === ec && ac(Qo));
+              e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "MINUTE") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (t4 = (function() {
+              var t5, e4, n3, o2;
+              t5 = zi, "second" === r2.substr(zi, 6).toLowerCase() ? (e4 = r2.substr(zi, 6), zi += 6) : (e4 = s, 0 === ec && ac(Jo));
+              e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "SECOND") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (t4 = (function() {
+              var t5, e4, n3, o2;
+              t5 = zi, "microsecond" === r2.substr(zi, 11).toLowerCase() ? (e4 = r2.substr(zi, 11), zi += 11) : (e4 = s, 0 === ec && ac($a));
+              e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "MICROSECOND") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (t4 = (function() {
+              var t5, e4, n3, o2;
+              t5 = zi, "second_microsecond" === r2.substr(zi, 18).toLowerCase() ? (e4 = r2.substr(zi, 18), zi += 18) : (e4 = s, 0 === ec && ac(xo));
+              e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "SECOND_MICROSECOND") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (t4 = (function() {
+              var t5, e4, n3, o2;
+              t5 = zi, "minute_microsecond" === r2.substr(zi, 18).toLowerCase() ? (e4 = r2.substr(zi, 18), zi += 18) : (e4 = s, 0 === ec && ac(jo));
+              e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "MINUTE_MICROSECOND") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (t4 = (function() {
+              var t5, e4, n3, o2;
+              t5 = zi, "minute_second" === r2.substr(zi, 13).toLowerCase() ? (e4 = r2.substr(zi, 13), zi += 13) : (e4 = s, 0 === ec && ac(Ro));
+              e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "MINUTE_SECOND") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (t4 = (function() {
+              var t5, e4, n3, o2;
+              t5 = zi, "hour_microsecond" === r2.substr(zi, 16).toLowerCase() ? (e4 = r2.substr(zi, 16), zi += 16) : (e4 = s, 0 === ec && ac(Oo));
+              e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "HOUR_MICROSECOND") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (t4 = (function() {
+              var t5, e4, n3, o2;
+              t5 = zi, "hour_second" === r2.substr(zi, 11).toLowerCase() ? (e4 = r2.substr(zi, 11), zi += 11) : (e4 = s, 0 === ec && ac(No));
+              e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "HOUR_SECOND") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (t4 = (function() {
+              var t5, e4, n3, o2;
+              t5 = zi, "hour_minute" === r2.substr(zi, 11).toLowerCase() ? (e4 = r2.substr(zi, 11), zi += 11) : (e4 = s, 0 === ec && ac(So));
+              e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "HOUR_MINUTE") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (t4 = (function() {
+              var t5, e4, n3, o2;
+              t5 = zi, "day_microsecond" === r2.substr(zi, 15).toLowerCase() ? (e4 = r2.substr(zi, 15), zi += 15) : (e4 = s, 0 === ec && ac(Io));
+              e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "DAY_MICROSECOND") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (t4 = (function() {
+              var t5, e4, n3, o2;
+              t5 = zi, "day_second" === r2.substr(zi, 10).toLowerCase() ? (e4 = r2.substr(zi, 10), zi += 10) : (e4 = s, 0 === ec && ac(go));
+              e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "DAY_SECOND") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (t4 = (function() {
+              var t5, e4, n3, o2;
+              t5 = zi, "day_minute" === r2.substr(zi, 10).toLowerCase() ? (e4 = r2.substr(zi, 10), zi += 10) : (e4 = s, 0 === ec && ac(_o));
+              e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "DAY_MINUTE") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (t4 = (function() {
+              var t5, e4, n3, o2;
+              t5 = zi, "day_hour" === r2.substr(zi, 8).toLowerCase() ? (e4 = r2.substr(zi, 8), zi += 8) : (e4 = s, 0 === ec && ac(To));
+              e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "DAY_HOUR") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (t4 = (function() {
+              var t5, e4, n3, o2;
+              t5 = zi, "year_month" === r2.substr(zi, 10).toLowerCase() ? (e4 = r2.substr(zi, 10), zi += 10) : (e4 = s, 0 === ec && ac(Ao));
+              e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "YEAR_MONTH") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })());
+            return t4;
+          })()) !== s ? (Zi = t3, t3 = { type: "interval", expr: e3, unit: n2.toLowerCase() }) : (zi = t3, t3 = s), t3;
+        }
+        function Gl() {
+          var r3, t3, e3, n2, o2, u2;
+          if (r3 = zi, (t3 = Fl()) !== s) if (Pp() !== s) {
+            for (e3 = [], n2 = zi, (o2 = Pp()) !== s && (u2 = Fl()) !== s ? n2 = o2 = [o2, u2] : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Pp()) !== s && (u2 = Fl()) !== s ? n2 = o2 = [o2, u2] : (zi = n2, n2 = s);
+            e3 !== s ? (Zi = r3, r3 = t3 = l(t3, e3)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          else zi = r3, r3 = s;
+          return r3;
+        }
+        function Fl() {
+          var t3, e3, n2;
+          return t3 = zi, (function() {
+            var t4, e4, n3, o2;
+            t4 = zi, "when" === r2.substr(zi, 4).toLowerCase() ? (e4 = r2.substr(zi, 4), zi += 4) : (e4 = s, 0 === ec && ac(la));
+            e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? t4 = e4 = [e4, n3] : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })() !== s && Pp() !== s && (e3 = $l()) !== s && Pp() !== s && (function() {
+            var t4, e4, n3, o2;
+            t4 = zi, "then" === r2.substr(zi, 4).toLowerCase() ? (e4 = r2.substr(zi, 4), zi += 4) : (e4 = s, 0 === ec && ac(fa));
+            e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? t4 = e4 = [e4, n3] : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })() !== s && Pp() !== s && (n2 = Yl()) !== s ? (Zi = t3, t3 = { type: "when", cond: e3, result: n2 }) : (zi = t3, t3 = s), t3;
+        }
+        function Hl() {
+          var t3, e3;
+          return t3 = zi, (function() {
+            var t4, e4, n2, o2;
+            t4 = zi, "else" === r2.substr(zi, 4).toLowerCase() ? (e4 = r2.substr(zi, 4), zi += 4) : (e4 = s, 0 === ec && ac(ba));
+            e4 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t4 = e4 = [e4, n2] : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })() !== s && Pp() !== s && (e3 = Yl()) !== s ? (Zi = t3, t3 = { type: "else", result: e3 }) : (zi = t3, t3 = s), t3;
+        }
+        function Yl() {
+          var r3;
+          return (r3 = (function() {
+            var r4, t3, e3, n2, o2, u2, a2, i2;
+            if (r4 = zi, (t3 = Wl()) !== s) {
+              for (e3 = [], n2 = zi, (o2 = Gp()) !== s && (u2 = Yb()) !== s && (a2 = Pp()) !== s && (i2 = Wl()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Gp()) !== s && (u2 = Yb()) !== s && (a2 = Pp()) !== s && (i2 = Wl()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s);
+              e3 !== s ? (Zi = r4, t3 = En(t3, e3), r4 = t3) : (zi = r4, r4 = s);
+            } else zi = r4, r4 = s;
+            return r4;
+          })()) === s && (r3 = vc()), r3;
+        }
+        function Bl() {
+          var r3, t3, e3, n2, o2, u2, a2, i2;
+          if (r3 = zi, (t3 = Yl()) !== s) {
+            for (e3 = [], n2 = zi, (o2 = Pp()) !== s ? ((u2 = Hb()) === s && (u2 = Yb()), u2 !== s && (a2 = Pp()) !== s && (i2 = Yl()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s)) : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Pp()) !== s ? ((u2 = Hb()) === s && (u2 = Yb()), u2 !== s && (a2 = Pp()) !== s && (i2 = Yl()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s)) : (zi = n2, n2 = s);
+            e3 !== s ? (Zi = r3, r3 = t3 = (function(r4, t4) {
+              const e4 = t4.length;
+              let n3 = r4;
+              for (let r5 = 0; r5 < e4; ++r5) n3 = fv(t4[r5][1], n3, t4[r5][3]);
+              return n3;
+            })(t3, e3)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          return r3;
+        }
+        function $l() {
+          var r3, t3, e3, n2, o2, u2, a2, i2;
+          if (r3 = zi, (t3 = Yl()) !== s) {
+            for (e3 = [], n2 = zi, (o2 = Pp()) !== s ? ((u2 = Hb()) === s && (u2 = Yb()) === s && (u2 = Op()) === s && (u2 = Mp()), u2 !== s && (a2 = Pp()) !== s && (i2 = Yl()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s)) : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Pp()) !== s ? ((u2 = Hb()) === s && (u2 = Yb()) === s && (u2 = Op()) === s && (u2 = Mp()), u2 !== s && (a2 = Pp()) !== s && (i2 = Yl()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s)) : (zi = n2, n2 = s);
+            e3 !== s ? (Zi = r3, r3 = t3 = (function(r4, t4) {
+              const e4 = t4.length;
+              let n3 = r4, o3 = "";
+              for (let r5 = 0; r5 < e4; ++r5) "," === t4[r5][1] ? (o3 = ",", Array.isArray(n3) || (n3 = [n3]), n3.push(t4[r5][3])) : n3 = fv(t4[r5][1], n3, t4[r5][3]);
+              if ("," === o3) {
+                const r5 = { type: "expr_list" };
+                return r5.value = Array.isArray(n3) ? n3 : [n3], r5;
+              }
+              return n3;
+            })(t3, e3)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          return r3;
+        }
+        function Wl() {
+          var r3, t3, e3, n2, o2, u2, a2, i2;
+          if (r3 = zi, (t3 = ql()) !== s) {
+            for (e3 = [], n2 = zi, (o2 = Gp()) !== s && (u2 = Hb()) !== s && (a2 = Pp()) !== s && (i2 = ql()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Gp()) !== s && (u2 = Hb()) !== s && (a2 = Pp()) !== s && (i2 = ql()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s);
+            e3 !== s ? (Zi = r3, r3 = t3 = vv(t3, e3)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          return r3;
+        }
+        function ql() {
+          var r3, t3;
+          return (r3 = Vl()) === s && (r3 = (function() {
+            var r4, t4, e3;
+            r4 = zi, (t4 = (function() {
+              var r5, t5, e4, n3, o3;
+              r5 = zi, t5 = zi, (e4 = Fb()) !== s && (n3 = Pp()) !== s && (o3 = Gb()) !== s ? t5 = e4 = [e4, n3, o3] : (zi = t5, t5 = s);
+              t5 !== s && (Zi = r5, t5 = An(t5));
+              (r5 = t5) === s && (r5 = Gb());
+              return r5;
+            })()) !== s && Pp() !== s && jp() !== s && Pp() !== s && (e3 = vc()) !== s && Pp() !== s && xp() !== s ? (Zi = r4, n2 = t4, (o2 = e3).parentheses = true, t4 = lv(n2, o2), r4 = t4) : (zi = r4, r4 = s);
+            var n2, o2;
+            return r4;
+          })()) === s && (r3 = zi, Fb() !== s && Pp() !== s && (t3 = ql()) !== s ? (Zi = r3, r3 = lv("NOT", t3)) : (zi = r3, r3 = s)), r3;
+        }
+        function Vl() {
+          var t3, e3, n2;
+          return t3 = zi, (e3 = Zl()) !== s && Pp() !== s ? ((n2 = (function() {
+            var t4;
+            (t4 = (function() {
+              var r3, t5, e4, n3, o2, u2, a2;
+              r3 = zi, t5 = [], e4 = zi, (n3 = Pp()) !== s && (o2 = Xl()) !== s && (u2 = Pp()) !== s && (a2 = Zl()) !== s ? e4 = n3 = [n3, o2, u2, a2] : (zi = e4, e4 = s);
+              if (e4 !== s) for (; e4 !== s; ) t5.push(e4), e4 = zi, (n3 = Pp()) !== s && (o2 = Xl()) !== s && (u2 = Pp()) !== s && (a2 = Zl()) !== s ? e4 = n3 = [n3, o2, u2, a2] : (zi = e4, e4 = s);
+              else t5 = s;
+              t5 !== s && (e4 = Pp()) !== s ? ((n3 = zl()) === s && (n3 = null), n3 !== s ? (Zi = r3, r3 = t5 = { type: "arithmetic", tail: t5, in: n3 }) : (zi = r3, r3 = s)) : (zi = r3, r3 = s);
+              return r3;
+            })()) === s && (t4 = zl()) === s && (t4 = (function() {
+              var r3, t5, e4, n3;
+              r3 = zi, (t5 = (function() {
+                var r4, t6, e5, n4, o2;
+                r4 = zi, t6 = zi, (e5 = Fb()) !== s && (n4 = Pp()) !== s && (o2 = Ub()) !== s ? t6 = e5 = [e5, n4, o2] : (zi = t6, t6 = s);
+                t6 !== s && (Zi = r4, t6 = An(t6));
+                (r4 = t6) === s && (r4 = Ub());
+                return r4;
+              })()) !== s && Pp() !== s && (e4 = Zl()) !== s && Pp() !== s && Hb() !== s && Pp() !== s && (n3 = Zl()) !== s ? (Zi = r3, r3 = t5 = { op: t5, right: { type: "expr_list", value: [e4, n3] } }) : (zi = r3, r3 = s);
+              return r3;
+            })()) === s && (t4 = (function() {
+              var r3, t5, e4, n3, o2;
+              r3 = zi, (t5 = Mb()) !== s && (e4 = Pp()) !== s && (n3 = Zl()) !== s ? (Zi = r3, r3 = t5 = { op: "IS", right: n3 }) : (zi = r3, r3 = s);
+              r3 === s && (r3 = zi, t5 = zi, (e4 = Mb()) !== s && (n3 = Pp()) !== s && (o2 = Fb()) !== s ? t5 = e4 = [e4, n3, o2] : (zi = t5, t5 = s), t5 !== s && (e4 = Pp()) !== s && (n3 = Zl()) !== s ? (Zi = r3, t5 = /* @__PURE__ */ (function(r4) {
+                return { op: "IS NOT", right: r4 };
+              })(n3), r3 = t5) : (zi = r3, r3 = s));
+              return r3;
+            })()) === s && (t4 = Ql()) === s && (t4 = (function() {
+              var t5, e4, n3, o2;
+              t5 = zi, (e4 = (function() {
+                var t6, e5, n4;
+                t6 = zi, (e5 = Fb()) === s && (e5 = null);
+                e5 !== s && Pp() !== s ? ((n4 = (function() {
+                  var t7, e6, n5, o4;
+                  t7 = zi, "regexp" === r2.substr(zi, 6).toLowerCase() ? (e6 = r2.substr(zi, 6), zi += 6) : (e6 = s, 0 === ec && ac(zu));
+                  e6 !== s ? (n5 = zi, ec++, o4 = Cf(), ec--, o4 === s ? n5 = void 0 : (zi = n5, n5 = s), n5 !== s ? (Zi = t7, t7 = e6 = "REGEXP") : (zi = t7, t7 = s)) : (zi = t7, t7 = s);
+                  return t7;
+                })()) === s && (n4 = (function() {
+                  var t7, e6, n5, o4;
+                  t7 = zi, "rlike" === r2.substr(zi, 5).toLowerCase() ? (e6 = r2.substr(zi, 5), zi += 5) : (e6 = s, 0 === ec && ac(Qu));
+                  e6 !== s ? (n5 = zi, ec++, o4 = Cf(), ec--, o4 === s ? n5 = void 0 : (zi = n5, n5 = s), n5 !== s ? (Zi = t7, t7 = e6 = "RLIKE") : (zi = t7, t7 = s)) : (zi = t7, t7 = s);
+                  return t7;
+                })()), n4 !== s ? (Zi = t6, u3 = n4, t6 = e5 = (o3 = e5) ? `${o3} ${u3}` : u3) : (zi = t6, t6 = s)) : (zi = t6, t6 = s);
+                var o3, u3;
+                return t6;
+              })()) !== s && Pp() !== s ? ("binary" === r2.substr(zi, 6).toLowerCase() ? (n3 = r2.substr(zi, 6), zi += 6) : (n3 = s, 0 === ec && ac(Bt)), n3 === s && (n3 = null), n3 !== s && Pp() !== s ? ((o2 = Df()) === s && (o2 = Yf()) === s && (o2 = of()), o2 !== s ? (Zi = t5, u2 = e4, t5 = e4 = { op: (a2 = n3) ? `${u2} ${a2}` : u2, right: o2 }) : (zi = t5, t5 = s)) : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              var u2, a2;
+              return t5;
+            })());
+            return t4;
+          })()) === s && (n2 = null), n2 !== s ? (Zi = t3, t3 = e3 = (function(r3, t4) {
+            if (null === t4) return r3;
+            if ("arithmetic" === t4.type) {
+              if (!t4.in) return vv(r3, t4.tail);
+              const e4 = vv(r3, t4.tail);
+              return fv(t4.in.op, e4, t4.in.right);
+            }
+            return fv(t4.op, r3, t4.right);
+          })(e3, n2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = Yf()) === s && (t3 = of()), t3;
+        }
+        function Xl() {
+          var t3;
+          return ">=" === r2.substr(zi, 2) ? (t3 = ">=", zi += 2) : (t3 = s, 0 === ec && ac(Tn)), t3 === s && (62 === r2.charCodeAt(zi) ? (t3 = ">", zi++) : (t3 = s, 0 === ec && ac(_n)), t3 === s && ("<=" === r2.substr(zi, 2) ? (t3 = "<=", zi += 2) : (t3 = s, 0 === ec && ac(gn)), t3 === s && ("<>" === r2.substr(zi, 2) ? (t3 = "<>", zi += 2) : (t3 = s, 0 === ec && ac(In)), t3 === s && (60 === r2.charCodeAt(zi) ? (t3 = "<", zi++) : (t3 = s, 0 === ec && ac(Sn)), t3 === s && (61 === r2.charCodeAt(zi) ? (t3 = "=", zi++) : (t3 = s, 0 === ec && ac(Cn)), t3 === s && ("!=" === r2.substr(zi, 2) ? (t3 = "!=", zi += 2) : (t3 = s, 0 === ec && ac(Nn)))))))), t3;
+        }
+        function Kl() {
+          var r3, t3, e3, n2, o2;
+          return r3 = zi, t3 = zi, (e3 = Fb()) !== s && (n2 = Pp()) !== s && (o2 = Db()) !== s ? t3 = e3 = [e3, n2, o2] : (zi = t3, t3 = s), t3 !== s && (Zi = r3, t3 = An(t3)), (r3 = t3) === s && (r3 = Db()), r3;
+        }
+        function Ql() {
+          var t3, e3, n2, o2, u2, a2, i2;
+          return t3 = zi, (e3 = (function() {
+            var r3, t4, e4, n3, o3;
+            return r3 = zi, t4 = zi, (e4 = Fb()) !== s && (n3 = Pp()) !== s && (o3 = Pb()) !== s ? t4 = e4 = [e4, n3, o3] : (zi = t4, t4 = s), t4 !== s && (Zi = r3, t4 = An(t4)), (r3 = t4) === s && (r3 = Pb()), r3;
+          })()) !== s && Pp() !== s ? ((n2 = Ff()) === s && (n2 = Af()) === s && (n2 = Vl()), n2 !== s && Pp() !== s ? ((o2 = (function() {
+            var t4, e4, n3;
+            return t4 = zi, "escape" === r2.substr(zi, 6).toLowerCase() ? (e4 = r2.substr(zi, 6), zi += 6) : (e4 = s, 0 === ec && ac(On)), e4 !== s && Pp() !== s && (n3 = Yf()) !== s ? (Zi = t4, t4 = e4 = { type: "ESCAPE", value: n3 }) : (zi = t4, t4 = s), t4;
+          })()) === s && (o2 = null), o2 !== s ? (Zi = t3, u2 = e3, a2 = n2, (i2 = o2) && (a2.escape = i2), t3 = e3 = { op: u2, right: a2 }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function zl() {
+          var r3, t3, e3, n2;
+          return r3 = zi, (t3 = Kl()) !== s && Pp() !== s && (e3 = jp()) !== s && Pp() !== s && (n2 = Ml()) !== s && Pp() !== s && xp() !== s ? (Zi = r3, r3 = t3 = { op: t3, right: n2 }) : (zi = r3, r3 = s), r3 === s && (r3 = zi, (t3 = Kl()) !== s && Pp() !== s ? ((e3 = rv()) === s && (e3 = of()) === s && (e3 = Yf()), e3 !== s ? (Zi = r3, r3 = t3 = /* @__PURE__ */ (function(r4, t4) {
+            return { op: r4, right: t4 };
+          })(t3, e3)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)), r3;
+        }
+        function Zl() {
+          var r3, t3, e3, n2, o2, u2, a2, i2;
+          if (r3 = zi, (t3 = rf()) !== s) {
+            for (e3 = [], n2 = zi, (o2 = Pp()) !== s && (u2 = Jl()) !== s && (a2 = Pp()) !== s && (i2 = rf()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Pp()) !== s && (u2 = Jl()) !== s && (a2 = Pp()) !== s && (i2 = rf()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s);
+            e3 !== s ? (Zi = r3, r3 = t3 = (function(r4, t4) {
+              if (t4 && t4.length && "column_ref" === r4.type && "*" === r4.column) throw new Error(JSON.stringify({ message: "args could not be star column in additive expr", ...cv() }));
+              return vv(r4, t4);
+            })(t3, e3)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          return r3;
+        }
+        function Jl() {
+          var t3;
+          return 43 === r2.charCodeAt(zi) ? (t3 = "+", zi++) : (t3 = s, 0 === ec && ac(Rn)), t3 === s && (45 === r2.charCodeAt(zi) ? (t3 = "-", zi++) : (t3 = s, 0 === ec && ac(jn))), t3;
+        }
+        function rf() {
+          var r3, t3, e3, n2, o2, u2, a2, i2;
+          if (r3 = zi, (t3 = ef()) !== s) {
+            for (e3 = [], n2 = zi, (o2 = Pp()) !== s ? ((u2 = tf()) === s && (u2 = Mp()), u2 !== s && (a2 = Pp()) !== s && (i2 = ef()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s)) : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Pp()) !== s ? ((u2 = tf()) === s && (u2 = Mp()), u2 !== s && (a2 = Pp()) !== s && (i2 = ef()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s)) : (zi = n2, n2 = s);
+            e3 !== s ? (Zi = r3, r3 = t3 = vv(t3, e3)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          return r3;
+        }
+        function tf() {
+          var t3, e3;
+          return 42 === r2.charCodeAt(zi) ? (t3 = "*", zi++) : (t3 = s, 0 === ec && ac(xn)), t3 === s && (47 === r2.charCodeAt(zi) ? (t3 = "/", zi++) : (t3 = s, 0 === ec && ac(kn)), t3 === s && (37 === r2.charCodeAt(zi) ? (t3 = "%", zi++) : (t3 = s, 0 === ec && ac(Un)), t3 === s && ("||" === r2.substr(zi, 2) ? (t3 = "||", zi += 2) : (t3 = s, 0 === ec && ac(Dn)), t3 === s && (t3 = zi, "div" === r2.substr(zi, 3).toLowerCase() ? (e3 = r2.substr(zi, 3), zi += 3) : (e3 = s, 0 === ec && ac(Mn)), e3 === s && ("mod" === r2.substr(zi, 3).toLowerCase() ? (e3 = r2.substr(zi, 3), zi += 3) : (e3 = s, 0 === ec && ac(Pn))), e3 !== s && (Zi = t3, e3 = e3.toUpperCase()), (t3 = e3) === s && (38 === r2.charCodeAt(zi) ? (t3 = "&", zi++) : (t3 = s, 0 === ec && ac(Gn)), t3 === s && (">>" === r2.substr(zi, 2) ? (t3 = ">>", zi += 2) : (t3 = s, 0 === ec && ac(Fn)), t3 === s && ("<<" === r2.substr(zi, 2) ? (t3 = "<<", zi += 2) : (t3 = s, 0 === ec && ac(Hn)), t3 === s && (94 === r2.charCodeAt(zi) ? (t3 = "^", zi++) : (t3 = s, 0 === ec && ac(Yn)), t3 === s && (124 === r2.charCodeAt(zi) ? (t3 = "|", zi++) : (t3 = s, 0 === ec && ac(Bn))))))))))), t3;
+        }
+        function ef() {
+          var t3, e3, n2, o2, u2;
+          return (t3 = (function() {
+            var t4, e4, n3, o3, u3, a2, i2, c2;
+            if (t4 = zi, (e4 = nf()) !== s) if (Pp() !== s) {
+              for (n3 = [], o3 = zi, (u3 = Pp()) !== s ? ("?|" === r2.substr(zi, 2) ? (a2 = "?|", zi += 2) : (a2 = s, 0 === ec && ac(qn)), a2 === s && ("?&" === r2.substr(zi, 2) ? (a2 = "?&", zi += 2) : (a2 = s, 0 === ec && ac(Vn)), a2 === s && (63 === r2.charCodeAt(zi) ? (a2 = "?", zi++) : (a2 = s, 0 === ec && ac(hn)), a2 === s && ("#-" === r2.substr(zi, 2) ? (a2 = "#-", zi += 2) : (a2 = s, 0 === ec && ac(Xn)), a2 === s && ("#>>" === r2.substr(zi, 3) ? (a2 = "#>>", zi += 3) : (a2 = s, 0 === ec && ac(Kn)), a2 === s && ("#>" === r2.substr(zi, 2) ? (a2 = "#>", zi += 2) : (a2 = s, 0 === ec && ac(Qn)), a2 === s && (a2 = Dp()) === s && (a2 = Up()) === s && ("@>" === r2.substr(zi, 2) ? (a2 = "@>", zi += 2) : (a2 = s, 0 === ec && ac(zn)), a2 === s && ("<@" === r2.substr(zi, 2) ? (a2 = "<@", zi += 2) : (a2 = s, 0 === ec && ac(Zn))))))))), a2 !== s && (i2 = Pp()) !== s && (c2 = nf()) !== s ? o3 = u3 = [u3, a2, i2, c2] : (zi = o3, o3 = s)) : (zi = o3, o3 = s); o3 !== s; ) n3.push(o3), o3 = zi, (u3 = Pp()) !== s ? ("?|" === r2.substr(zi, 2) ? (a2 = "?|", zi += 2) : (a2 = s, 0 === ec && ac(qn)), a2 === s && ("?&" === r2.substr(zi, 2) ? (a2 = "?&", zi += 2) : (a2 = s, 0 === ec && ac(Vn)), a2 === s && (63 === r2.charCodeAt(zi) ? (a2 = "?", zi++) : (a2 = s, 0 === ec && ac(hn)), a2 === s && ("#-" === r2.substr(zi, 2) ? (a2 = "#-", zi += 2) : (a2 = s, 0 === ec && ac(Xn)), a2 === s && ("#>>" === r2.substr(zi, 3) ? (a2 = "#>>", zi += 3) : (a2 = s, 0 === ec && ac(Kn)), a2 === s && ("#>" === r2.substr(zi, 2) ? (a2 = "#>", zi += 2) : (a2 = s, 0 === ec && ac(Qn)), a2 === s && (a2 = Dp()) === s && (a2 = Up()) === s && ("@>" === r2.substr(zi, 2) ? (a2 = "@>", zi += 2) : (a2 = s, 0 === ec && ac(zn)), a2 === s && ("<@" === r2.substr(zi, 2) ? (a2 = "<@", zi += 2) : (a2 = s, 0 === ec && ac(Zn))))))))), a2 !== s && (i2 = Pp()) !== s && (c2 = nf()) !== s ? o3 = u3 = [u3, a2, i2, c2] : (zi = o3, o3 = s)) : (zi = o3, o3 = s);
+              n3 !== s && (o3 = Pp()) !== s ? ((u3 = _c()) === s && (u3 = null), u3 !== s ? (Zi = t4, e4 = (function(r3, t5, e5) {
+                let n4 = r3;
+                return t5 && t5.length > 0 && (n4 = vv(r3, t5)), e5 && (n4.collate = e5), n4;
+              })(e4, n3, u3), t4 = e4) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            } else zi = t4, t4 = s;
+            else zi = t4, t4 = s;
+            return t4;
+          })()) === s && (t3 = zi, (e3 = (function() {
+            var t4;
+            33 === r2.charCodeAt(zi) ? (t4 = "!", zi++) : (t4 = s, 0 === ec && ac($n));
+            t4 === s && (45 === r2.charCodeAt(zi) ? (t4 = "-", zi++) : (t4 = s, 0 === ec && ac(jn)), t4 === s && (43 === r2.charCodeAt(zi) ? (t4 = "+", zi++) : (t4 = s, 0 === ec && ac(Rn)), t4 === s && (126 === r2.charCodeAt(zi) ? (t4 = "~", zi++) : (t4 = s, 0 === ec && ac(Wn)))));
+            return t4;
+          })()) !== s ? (n2 = zi, (o2 = Pp()) !== s && (u2 = ef()) !== s ? n2 = o2 = [o2, u2] : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = lv(e3, n2[1])) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)), t3;
+        }
+        function nf() {
+          var t3, e3, n2, o2;
+          return (t3 = Pl()) === s && (t3 = (function() {
+            var t4;
+            (t4 = (function() {
+              var t5, e4, n3, o3;
+              t5 = zi, (e4 = (function() {
+                var t6, e5, n4, o4;
+                t6 = zi, "count" === r2.substr(zi, 5).toLowerCase() ? (e5 = r2.substr(zi, 5), zi += 5) : (e5 = s, 0 === ec && ac(ta));
+                e5 !== s ? (n4 = zi, ec++, o4 = Cf(), ec--, o4 === s ? n4 = void 0 : (zi = n4, n4 = s), n4 !== s ? (Zi = t6, t6 = e5 = "COUNT") : (zi = t6, t6 = s)) : (zi = t6, t6 = s);
+                return t6;
+              })()) === s && (e4 = (function() {
+                var t6, e5, n4, o4;
+                t6 = zi, "group_concat" === r2.substr(zi, 12).toLowerCase() ? (e5 = r2.substr(zi, 12), zi += 12) : (e5 = s, 0 === ec && ac(ea));
+                e5 !== s ? (n4 = zi, ec++, o4 = Cf(), ec--, o4 === s ? n4 = void 0 : (zi = n4, n4 = s), n4 !== s ? (Zi = t6, t6 = e5 = "GROUP_CONCAT") : (zi = t6, t6 = s)) : (zi = t6, t6 = s);
+                return t6;
+              })());
+              e4 !== s && Pp() !== s && jp() !== s && Pp() !== s && (n3 = (function() {
+                var t6, e5, n4, o4, u2;
+                t6 = zi, (e5 = (function() {
+                  var t7, e6;
+                  t7 = zi, 42 === r2.charCodeAt(zi) ? (e6 = "*", zi++) : (e6 = s, 0 === ec && ac(xn));
+                  e6 !== s && (Zi = t7, e6 = { type: "star", value: "*" });
+                  return t7 = e6;
+                })()) !== s && (Zi = t6, e5 = { expr: e5, ...cv() });
+                (t6 = e5) === s && (t6 = zi, (e5 = kb()) === s && (e5 = null), e5 !== s && Pp() !== s && (n4 = $l()) !== s && Pp() !== s ? ((o4 = _l()) === s && (o4 = null), o4 !== s && Pp() !== s ? ((u2 = (function() {
+                  var t7, e6, n5;
+                  t7 = zi, "separator" === r2.substr(zi, 9).toLowerCase() ? (e6 = r2.substr(zi, 9), zi += 9) : (e6 = s, 0 === ec && ac(Eo));
+                  e6 === s && (e6 = null);
+                  e6 !== s && Pp() !== s && (n5 = Yf()) !== s ? (Zi = t7, t7 = e6 = { keyword: e6, value: n5 }) : (zi = t7, t7 = s);
+                  return t7;
+                })()) === s && (u2 = null), u2 !== s ? (Zi = t6, e5 = { distinct: e5, expr: n4, orderby: o4, separator: u2, ...cv() }, t6 = e5) : (zi = t6, t6 = s)) : (zi = t6, t6 = s)) : (zi = t6, t6 = s));
+                return t6;
+              })()) !== s && Pp() !== s && xp() !== s && Pp() !== s ? ((o3 = _f()) === s && (o3 = null), o3 !== s ? (Zi = t5, e4 = { type: "aggr_func", name: e4, args: n3, over: o3, ...cv() }, t5 = e4) : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (t4 = (function() {
+              var t5, e4, n3, o3;
+              t5 = zi, (e4 = (function() {
+                var t6;
+                (t6 = (function() {
+                  var t7, e5, n4, o4;
+                  t7 = zi, "sum" === r2.substr(zi, 3).toLowerCase() ? (e5 = r2.substr(zi, 3), zi += 3) : (e5 = s, 0 === ec && ac(sa));
+                  e5 !== s ? (n4 = zi, ec++, o4 = Cf(), ec--, o4 === s ? n4 = void 0 : (zi = n4, n4 = s), n4 !== s ? (Zi = t7, t7 = e5 = "SUM") : (zi = t7, t7 = s)) : (zi = t7, t7 = s);
+                  return t7;
+                })()) === s && (t6 = (function() {
+                  var t7, e5, n4, o4;
+                  t7 = zi, "max" === r2.substr(zi, 3).toLowerCase() ? (e5 = r2.substr(zi, 3), zi += 3) : (e5 = s, 0 === ec && ac(na));
+                  e5 !== s ? (n4 = zi, ec++, o4 = Cf(), ec--, o4 === s ? n4 = void 0 : (zi = n4, n4 = s), n4 !== s ? (Zi = t7, t7 = e5 = "MAX") : (zi = t7, t7 = s)) : (zi = t7, t7 = s);
+                  return t7;
+                })()) === s && (t6 = (function() {
+                  var t7, e5, n4, o4;
+                  t7 = zi, "min" === r2.substr(zi, 3).toLowerCase() ? (e5 = r2.substr(zi, 3), zi += 3) : (e5 = s, 0 === ec && ac(oa));
+                  e5 !== s ? (n4 = zi, ec++, o4 = Cf(), ec--, o4 === s ? n4 = void 0 : (zi = n4, n4 = s), n4 !== s ? (Zi = t7, t7 = e5 = "MIN") : (zi = t7, t7 = s)) : (zi = t7, t7 = s);
+                  return t7;
+                })()) === s && (t6 = (function() {
+                  var t7, e5, n4, o4;
+                  t7 = zi, "avg" === r2.substr(zi, 3).toLowerCase() ? (e5 = r2.substr(zi, 3), zi += 3) : (e5 = s, 0 === ec && ac(ua));
+                  e5 !== s ? (n4 = zi, ec++, o4 = Cf(), ec--, o4 === s ? n4 = void 0 : (zi = n4, n4 = s), n4 !== s ? (Zi = t7, t7 = e5 = "AVG") : (zi = t7, t7 = s)) : (zi = t7, t7 = s);
+                  return t7;
+                })());
+                return t6;
+              })()) !== s && Pp() !== s && jp() !== s && Pp() !== s && (n3 = Bl()) !== s && Pp() !== s && xp() !== s && Pp() !== s ? ((o3 = _f()) === s && (o3 = null), o3 !== s ? (Zi = t5, e4 = { type: "aggr_func", name: e4, args: { expr: n3 }, over: o3, ...cv() }, t5 = e4) : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })());
+            return t4;
+          })()) === s && (t3 = al()) === s && (t3 = Df()) === s && (t3 = (function() {
+            var r3, t4, e4, n3, o3, u2, a2;
+            r3 = zi, (t4 = qb()) !== s && Pp() !== s && jp() !== s && Pp() !== s && (e4 = Yl()) !== s && Pp() !== s && wb() !== s && Pp() !== s && (n3 = ov()) !== s && Pp() !== s && (o3 = Gc()) !== s && Pp() !== s && (u2 = af()) !== s && Pp() !== s && xp() !== s ? (Zi = r3, t4 = (function(r4, t5, e5, n4, o4) {
+              const { dataType: s2, length: u3 } = e5;
+              let a3 = s2;
+              return void 0 !== u3 && (a3 = `${a3}(${u3})`), { type: "cast", keyword: r4.toLowerCase(), expr: t5, symbol: "as", target: [{ dataType: a3, suffix: [{ type: "origin", value: n4 }, o4] }] };
+            })(t4, e4, n3, o3, u2), r3 = t4) : (zi = r3, r3 = s);
+            r3 === s && (r3 = zi, (t4 = qb()) !== s && Pp() !== s && jp() !== s && Pp() !== s && (e4 = Yl()) !== s && Pp() !== s && wb() !== s && Pp() !== s && (n3 = ev()) !== s && Pp() !== s && (o3 = xp()) !== s ? (Zi = r3, i2 = e4, c2 = n3, t4 = { type: "cast", keyword: t4.toLowerCase(), expr: i2, symbol: "as", target: [c2] }, r3 = t4) : (zi = r3, r3 = s), r3 === s && (r3 = zi, (t4 = qb()) !== s && Pp() !== s && jp() !== s && Pp() !== s && (e4 = Yl()) !== s && Pp() !== s && wb() !== s && Pp() !== s && (n3 = Kb()) !== s && Pp() !== s && (o3 = jp()) !== s && Pp() !== s && (u2 = Vf()) !== s && Pp() !== s && xp() !== s && Pp() !== s && (a2 = xp()) !== s ? (Zi = r3, t4 = (function(r4, t5, e5) {
+              return { type: "cast", keyword: r4.toLowerCase(), expr: t5, symbol: "as", target: [{ dataType: "DECIMAL(" + e5 + ")" }] };
+            })(t4, e4, u2), r3 = t4) : (zi = r3, r3 = s), r3 === s && (r3 = zi, (t4 = qb()) !== s && Pp() !== s && jp() !== s && Pp() !== s && (e4 = Yl()) !== s && Pp() !== s && wb() !== s && Pp() !== s && (n3 = Kb()) !== s && Pp() !== s && (o3 = jp()) !== s && Pp() !== s && (u2 = Vf()) !== s && Pp() !== s && Op() !== s && Pp() !== s && (a2 = Vf()) !== s && Pp() !== s && xp() !== s && Pp() !== s && xp() !== s ? (Zi = r3, t4 = (function(r4, t5, e5, n4) {
+              return { type: "cast", keyword: r4.toLowerCase(), expr: t5, symbol: "as", target: [{ dataType: "DECIMAL(" + e5 + ", " + n4 + ")" }] };
+            })(t4, e4, u2, a2), r3 = t4) : (zi = r3, r3 = s), r3 === s && (r3 = zi, (t4 = qb()) !== s && Pp() !== s && jp() !== s && Pp() !== s && (e4 = Yl()) !== s && Pp() !== s && wb() !== s && Pp() !== s && (n3 = Pf()) !== s && Pp() !== s ? ((o3 = zb()) === s && (o3 = null), o3 !== s && Pp() !== s && (u2 = xp()) !== s ? (Zi = r3, t4 = (function(r4, t5, e5, n4) {
+              return { type: "cast", keyword: r4.toLowerCase(), expr: t5, symbol: "as", target: [{ dataType: [e5, n4].filter(Boolean).join(" ") }] };
+            })(t4, e4, n3, o3), r3 = t4) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)))));
+            var i2, c2;
+            return r3;
+          })()) === s && (t3 = (function() {
+            var r3, t4, e4, n3, o3, u2, a2, i2;
+            return r3 = zi, $b() !== s && Pp() !== s && (t4 = Gl()) !== s && Pp() !== s ? ((e4 = Hl()) === s && (e4 = null), e4 !== s && Pp() !== s && (n3 = Wb()) !== s && Pp() !== s ? ((o3 = $b()) === s && (o3 = null), o3 !== s ? (Zi = r3, a2 = t4, (i2 = e4) && a2.push(i2), r3 = { type: "case", expr: null, args: a2 }) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3 === s && (r3 = zi, $b() !== s && Pp() !== s && (t4 = Yl()) !== s && Pp() !== s && (e4 = Gl()) !== s && Pp() !== s ? ((n3 = Hl()) === s && (n3 = null), n3 !== s && Pp() !== s && (o3 = Wb()) !== s && Pp() !== s ? ((u2 = $b()) === s && (u2 = null), u2 !== s ? (Zi = r3, r3 = (function(r4, t5, e5) {
+              return e5 && t5.push(e5), { type: "case", expr: r4, args: t5 };
+            })(t4, e4, n3)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)), r3;
+          })()) === s && (t3 = Gf()) === s && (t3 = of()) === s && (t3 = qf()) === s && (t3 = Af()) === s && (t3 = zi, jp() !== s && (e3 = Pp()) !== s && (n2 = $l()) !== s && Pp() !== s && xp() !== s ? (Zi = t3, (o2 = n2).parentheses = true, t3 = o2) : (zi = t3, t3 = s), t3 === s && (t3 = rv()) === s && (t3 = zi, Pp() !== s ? (63 === r2.charCodeAt(zi) ? (e3 = "?", zi++) : (e3 = s, 0 === ec && ac(hn)), e3 !== s ? (Zi = t3, t3 = { type: "origin", value: e3 }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s))), t3;
+        }
+        function of() {
+          var r3, t3, e3, n2, o2, u2, a2, i2, c2, l2, f2, b2, p2, v2, d2, y2, w2;
+          return r3 = zi, (t3 = hf()) === s && (t3 = df()), t3 !== s && (e3 = Pp()) !== s && (n2 = Np()) !== s && (o2 = Pp()) !== s ? ((u2 = hf()) === s && (u2 = df()), u2 !== s && (a2 = Pp()) !== s && (i2 = Np()) !== s && (c2 = Pp()) !== s && (l2 = yf()) !== s ? (f2 = zi, (b2 = Pp()) !== s && (p2 = _c()) !== s ? f2 = b2 = [b2, p2] : (zi = f2, f2 = s), f2 === s && (f2 = null), f2 !== s ? (Zi = r3, v2 = t3, d2 = u2, y2 = l2, w2 = f2, Cv.add(`select::${"object" == typeof v2 ? v2.value : v2}::${"object" == typeof d2 ? d2.value : d2}::${y2}`), r3 = t3 = { type: "column_ref", db: v2, table: d2, column: y2, collate: w2 && w2[1], ...cv() }) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3 === s && (r3 = zi, (t3 = hf()) === s && (t3 = df()), t3 !== s && (e3 = Pp()) !== s && (n2 = Np()) !== s && (o2 = Pp()) !== s && (u2 = yf()) !== s ? (a2 = zi, (i2 = Pp()) !== s && (c2 = _c()) !== s ? a2 = i2 = [i2, c2] : (zi = a2, a2 = s), a2 === s && (a2 = null), a2 !== s ? (Zi = r3, r3 = t3 = (function(r4, t4, e4) {
+            return Cv.add(`select::${"object" == typeof r4 ? r4.value : r4}::${t4}`), { type: "column_ref", table: r4, column: t4, collate: e4 && e4[1], ...cv() };
+          })(t3, u2, a2)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3 === s && (r3 = zi, t3 = zi, (e3 = lf()) !== s && (n2 = Pp()) !== s && (o2 = Np()) !== s ? t3 = e3 = [e3, n2, o2] : (zi = t3, t3 = s), t3 === s && (t3 = null), t3 !== s && (e3 = Pp()) !== s && (n2 = Rp()) !== s ? (Zi = r3, r3 = t3 = (function(r4) {
+            const t4 = r4 && r4[0] || null;
+            return Cv.add(`select::${t4}::(.*)`), { expr: { type: "column_ref", table: t4, column: "*" }, as: null, ...cv() };
+          })(t3)) : (zi = r3, r3 = s), r3 === s && (r3 = zi, (t3 = wf()) !== s ? (e3 = zi, (n2 = Pp()) !== s && (o2 = _c()) !== s ? e3 = n2 = [n2, o2] : (zi = e3, e3 = s), e3 === s && (e3 = null), e3 !== s ? (Zi = r3, r3 = t3 = (function(r4, t4) {
+            return Cv.add("select::null::" + r4), { type: "column_ref", table: null, column: r4, collate: t4 && t4[1], ...cv() };
+          })(t3, e3)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)))), r3;
+        }
+        function sf() {
+          var r3, t3, e3, n2, o2, u2, a2, i2;
+          if (r3 = zi, (t3 = wf()) !== s) {
+            for (e3 = [], n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = wf()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = wf()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s);
+            e3 !== s ? (Zi = r3, r3 = t3 = sr(t3, e3)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          return r3;
+        }
+        function uf() {
+          var r3, t3;
+          return r3 = zi, (t3 = hf()) !== s && (Zi = r3, t3 = { type: "default", value: t3 }), r3 = t3;
+        }
+        function af() {
+          var r3;
+          return (r3 = uf()) === s && (r3 = ff()), r3;
+        }
+        function cf() {
+          var r3;
+          return (r3 = hf()) === s && (r3 = bf()), r3;
+        }
+        function lf() {
+          var r3, t3;
+          return r3 = zi, (t3 = hf()) !== s ? (Zi = zi, (Jn(t3) ? s : void 0) !== s ? (Zi = r3, r3 = t3 = t3) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3 === s && (r3 = bf()), r3;
+        }
+        function ff() {
+          var r3;
+          return (r3 = pf()) === s && (r3 = vf()) === s && (r3 = df()), r3;
+        }
+        function bf() {
+          var r3, t3;
+          return r3 = zi, (t3 = pf()) === s && (t3 = vf()) === s && (t3 = df()), t3 !== s && (Zi = r3, t3 = t3.value), r3 = t3;
+        }
+        function pf() {
+          var t3, e3, n2, o2;
+          if (t3 = zi, 34 === r2.charCodeAt(zi) ? (e3 = '"', zi++) : (e3 = s, 0 === ec && ac(ro)), e3 !== s) {
+            if (n2 = [], to.test(r2.charAt(zi)) ? (o2 = r2.charAt(zi), zi++) : (o2 = s, 0 === ec && ac(eo)), o2 !== s) for (; o2 !== s; ) n2.push(o2), to.test(r2.charAt(zi)) ? (o2 = r2.charAt(zi), zi++) : (o2 = s, 0 === ec && ac(eo));
+            else n2 = s;
+            n2 !== s ? (34 === r2.charCodeAt(zi) ? (o2 = '"', zi++) : (o2 = s, 0 === ec && ac(ro)), o2 !== s ? (Zi = t3, t3 = e3 = { type: "double_quote_string", value: n2.join("") }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s);
+          } else zi = t3, t3 = s;
+          return t3;
+        }
+        function vf() {
+          var t3, e3, n2, o2;
+          if (t3 = zi, 39 === r2.charCodeAt(zi) ? (e3 = "'", zi++) : (e3 = s, 0 === ec && ac(Ot)), e3 !== s) {
+            for (n2 = [], no.test(r2.charAt(zi)) ? (o2 = r2.charAt(zi), zi++) : (o2 = s, 0 === ec && ac(oo)); o2 !== s; ) n2.push(o2), no.test(r2.charAt(zi)) ? (o2 = r2.charAt(zi), zi++) : (o2 = s, 0 === ec && ac(oo));
+            n2 !== s ? (39 === r2.charCodeAt(zi) ? (o2 = "'", zi++) : (o2 = s, 0 === ec && ac(Ot)), o2 !== s ? (Zi = t3, t3 = e3 = { type: "single_quote_string", value: n2.join("") }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s);
+          } else zi = t3, t3 = s;
+          return t3;
+        }
+        function df() {
+          var t3, e3, n2, o2;
+          if (t3 = zi, 96 === r2.charCodeAt(zi) ? (e3 = "`", zi++) : (e3 = s, 0 === ec && ac(so)), e3 !== s) {
+            if (n2 = [], uo.test(r2.charAt(zi)) ? (o2 = r2.charAt(zi), zi++) : (o2 = s, 0 === ec && ac(ao)), o2 === s && (o2 = Wf()), o2 !== s) for (; o2 !== s; ) n2.push(o2), uo.test(r2.charAt(zi)) ? (o2 = r2.charAt(zi), zi++) : (o2 = s, 0 === ec && ac(ao)), o2 === s && (o2 = Wf());
+            else n2 = s;
+            n2 !== s ? (96 === r2.charCodeAt(zi) ? (o2 = "`", zi++) : (o2 = s, 0 === ec && ac(so)), o2 !== s ? (Zi = t3, t3 = e3 = { type: "backticks_quote_string", value: n2.join("") }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s);
+          } else zi = t3, t3 = s;
+          return t3;
+        }
+        function yf() {
+          var r3, t3;
+          return r3 = zi, (t3 = Lf()) !== s && (Zi = r3, t3 = t3), (r3 = t3) === s && (r3 = bf()), r3;
+        }
+        function wf() {
+          var r3, t3;
+          return r3 = zi, (t3 = Lf()) !== s ? (Zi = zi, (Jn(t3) ? s : void 0) !== s ? (Zi = r3, r3 = t3 = t3) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3 === s && (r3 = zi, (t3 = df()) !== s && (Zi = r3, t3 = t3.value), r3 = t3), r3;
+        }
+        function Lf() {
+          var r3, t3, e3, n2;
+          if (r3 = zi, (t3 = Cf()) !== s) {
+            for (e3 = [], n2 = Ef(); n2 !== s; ) e3.push(n2), n2 = Ef();
+            e3 !== s ? (Zi = r3, r3 = t3 = io(t3, e3)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          if (r3 === s) if (r3 = zi, (t3 = Qf()) !== s) {
+            if (e3 = [], (n2 = Ef()) !== s) for (; n2 !== s; ) e3.push(n2), n2 = Ef();
+            else e3 = s;
+            e3 !== s ? (Zi = r3, r3 = t3 = io(t3, e3)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          return r3;
+        }
+        function hf() {
+          var r3, t3, e3, n2;
+          if (r3 = zi, (t3 = Cf()) !== s) {
+            for (e3 = [], n2 = mf(); n2 !== s; ) e3.push(n2), n2 = mf();
+            e3 !== s ? (Zi = r3, r3 = t3 = io(t3, e3)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          return r3;
+        }
+        function Cf() {
+          var t3;
+          return co.test(r2.charAt(zi)) ? (t3 = r2.charAt(zi), zi++) : (t3 = s, 0 === ec && ac(lo)), t3;
+        }
+        function mf() {
+          var t3;
+          return fo.test(r2.charAt(zi)) ? (t3 = r2.charAt(zi), zi++) : (t3 = s, 0 === ec && ac(bo)), t3;
+        }
+        function Ef() {
+          var t3;
+          return po.test(r2.charAt(zi)) ? (t3 = r2.charAt(zi), zi++) : (t3 = s, 0 === ec && ac(vo)), t3;
+        }
+        function Af() {
+          var t3, e3, n2, o2;
+          return t3 = zi, e3 = zi, 58 === r2.charCodeAt(zi) ? (n2 = ":", zi++) : (n2 = s, 0 === ec && ac(yo)), n2 !== s && (o2 = hf()) !== s ? e3 = n2 = [n2, o2] : (zi = e3, e3 = s), e3 !== s && (Zi = t3, e3 = { type: "param", value: e3[1] }), t3 = e3;
+        }
+        function Tf() {
+          var t3, e3, n2, o2, u2, a2, i2, c2, l2;
+          return t3 = zi, Ab() !== s && Pp() !== s && sb() !== s && Pp() !== s && (e3 = bp()) !== s && Pp() !== s ? (n2 = zi, (o2 = jp()) !== s && (u2 = Pp()) !== s ? ((a2 = Ml()) === s && (a2 = null), a2 !== s && (i2 = Pp()) !== s && (c2 = xp()) !== s ? n2 = o2 = [o2, u2, a2, i2, c2] : (zi = n2, n2 = s)) : (zi = n2, n2 = s), n2 === s && (n2 = null), n2 !== s ? (Zi = t3, t3 = { type: "on update", keyword: e3, parentheses: !!(l2 = n2), expr: l2 ? l2[2] : null }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, Ab() !== s && Pp() !== s && sb() !== s && Pp() !== s ? ("now" === r2.substr(zi, 3).toLowerCase() ? (e3 = r2.substr(zi, 3), zi += 3) : (e3 = s, 0 === ec && ac(wo)), e3 !== s && Pp() !== s && (n2 = jp()) !== s && (o2 = Pp()) !== s && (u2 = xp()) !== s ? (Zi = t3, t3 = /* @__PURE__ */ (function(r3) {
+            return { type: "on update", keyword: r3, parentheses: true };
+          })(e3)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)), t3;
+        }
+        function _f() {
+          var t3, e3, n2;
+          return t3 = zi, "over" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(Lo)), e3 !== s && Pp() !== s && (n2 = If()) !== s ? (Zi = t3, t3 = e3 = { type: "window", as_window_specification: n2 }) : (zi = t3, t3 = s), t3 === s && (t3 = Tf()), t3;
+        }
+        function gf() {
+          var r3, t3, e3;
+          return r3 = zi, (t3 = hf()) !== s && Pp() !== s && wb() !== s && Pp() !== s && (e3 = If()) !== s ? (Zi = r3, r3 = t3 = { name: t3, as_window_specification: e3 }) : (zi = r3, r3 = s), r3;
+        }
+        function If() {
+          var r3, t3;
+          return (r3 = hf()) === s && (r3 = zi, jp() !== s && Pp() !== s ? ((t3 = (function() {
+            var r4, t4, e3, n2;
+            r4 = zi, (t4 = Tl()) === s && (t4 = null);
+            t4 !== s && Pp() !== s ? ((e3 = _l()) === s && (e3 = null), e3 !== s && Pp() !== s ? ((n2 = (function() {
+              var r5, t5, e4, n3, o2;
+              r5 = zi, (t5 = up()) !== s && Pp() !== s ? ((e4 = Sf()) === s && (e4 = Nf()), e4 !== s ? (Zi = r5, r5 = t5 = { type: "rows", expr: e4 }) : (zi = r5, r5 = s)) : (zi = r5, r5 = s);
+              r5 === s && (r5 = zi, (t5 = up()) !== s && Pp() !== s && (e4 = Ub()) !== s && Pp() !== s && (n3 = Nf()) !== s && Pp() !== s && Hb() !== s && Pp() !== s && (o2 = Sf()) !== s ? (Zi = r5, t5 = fv(e4, { type: "origin", value: "rows" }, { type: "expr_list", value: [n3, o2] }), r5 = t5) : (zi = r5, r5 = s));
+              return r5;
+            })()) === s && (n2 = null), n2 !== s ? (Zi = r4, r4 = t4 = { name: null, partitionby: t4, orderby: e3, window_frame_clause: n2 }) : (zi = r4, r4 = s)) : (zi = r4, r4 = s)) : (zi = r4, r4 = s);
+            return r4;
+          })()) === s && (t3 = null), t3 !== s && Pp() !== s && xp() !== s ? (Zi = r3, r3 = { window_specification: t3 || {}, parentheses: true }) : (zi = r3, r3 = s)) : (zi = r3, r3 = s)), r3;
+        }
+        function Sf() {
+          var t3, e3, n2, o2;
+          return t3 = zi, (e3 = Rf()) !== s && Pp() !== s ? ("following" === r2.substr(zi, 9).toLowerCase() ? (n2 = r2.substr(zi, 9), zi += 9) : (n2 = s, 0 === ec && ac(Co)), n2 !== s ? (Zi = t3, (o2 = e3).value += " FOLLOWING", t3 = e3 = o2) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = Of()), t3;
+        }
+        function Nf() {
+          var t3, e3, n2, o2, u2;
+          return t3 = zi, (e3 = Rf()) !== s && Pp() !== s ? ("preceding" === r2.substr(zi, 9).toLowerCase() ? (n2 = r2.substr(zi, 9), zi += 9) : (n2 = s, 0 === ec && ac(mo)), n2 === s && ("following" === r2.substr(zi, 9).toLowerCase() ? (n2 = r2.substr(zi, 9), zi += 9) : (n2 = s, 0 === ec && ac(Co))), n2 !== s ? (Zi = t3, u2 = n2, (o2 = e3).value += " " + u2.toUpperCase(), t3 = e3 = o2) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = Of()), t3;
+        }
+        function Of() {
+          var t3, e3, n2;
+          return t3 = zi, "current" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(P)), e3 !== s && Pp() !== s ? ("row" === r2.substr(zi, 3).toLowerCase() ? (n2 = r2.substr(zi, 3), zi += 3) : (n2 = s, 0 === ec && ac(yr)), n2 !== s ? (Zi = t3, t3 = e3 = { type: "origin", value: "current row", ...cv() }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Rf() {
+          var t3, e3;
+          return t3 = zi, "unbounded" === r2.substr(zi, 9).toLowerCase() ? (e3 = r2.substr(zi, 9), zi += 9) : (e3 = s, 0 === ec && ac(Y)), e3 !== s && (Zi = t3, e3 = { type: "origin", value: e3.toUpperCase(), ...cv() }), (t3 = e3) === s && (t3 = qf()), t3;
+        }
+        function jf() {
+          var t3, e3;
+          return t3 = zi, "year_month" === r2.substr(zi, 10).toLowerCase() ? (e3 = r2.substr(zi, 10), zi += 10) : (e3 = s, 0 === ec && ac(Ao)), e3 === s && ("day_hour" === r2.substr(zi, 8).toLowerCase() ? (e3 = r2.substr(zi, 8), zi += 8) : (e3 = s, 0 === ec && ac(To)), e3 === s && ("day_minute" === r2.substr(zi, 10).toLowerCase() ? (e3 = r2.substr(zi, 10), zi += 10) : (e3 = s, 0 === ec && ac(_o)), e3 === s && ("day_second" === r2.substr(zi, 10).toLowerCase() ? (e3 = r2.substr(zi, 10), zi += 10) : (e3 = s, 0 === ec && ac(go)), e3 === s && ("day_microsecond" === r2.substr(zi, 15).toLowerCase() ? (e3 = r2.substr(zi, 15), zi += 15) : (e3 = s, 0 === ec && ac(Io)), e3 === s && ("hour_minute" === r2.substr(zi, 11).toLowerCase() ? (e3 = r2.substr(zi, 11), zi += 11) : (e3 = s, 0 === ec && ac(So)), e3 === s && ("hour_second" === r2.substr(zi, 11).toLowerCase() ? (e3 = r2.substr(zi, 11), zi += 11) : (e3 = s, 0 === ec && ac(No)), e3 === s && ("hour_microsecond" === r2.substr(zi, 16).toLowerCase() ? (e3 = r2.substr(zi, 16), zi += 16) : (e3 = s, 0 === ec && ac(Oo)), e3 === s && ("minute_second" === r2.substr(zi, 13).toLowerCase() ? (e3 = r2.substr(zi, 13), zi += 13) : (e3 = s, 0 === ec && ac(Ro)), e3 === s && ("minute_microsecond" === r2.substr(zi, 18).toLowerCase() ? (e3 = r2.substr(zi, 18), zi += 18) : (e3 = s, 0 === ec && ac(jo)), e3 === s && ("second_microsecond" === r2.substr(zi, 18).toLowerCase() ? (e3 = r2.substr(zi, 18), zi += 18) : (e3 = s, 0 === ec && ac(xo)), e3 === s && ("timezone_hour" === r2.substr(zi, 13).toLowerCase() ? (e3 = r2.substr(zi, 13), zi += 13) : (e3 = s, 0 === ec && ac(ko)), e3 === s && ("timezone_minute" === r2.substr(zi, 15).toLowerCase() ? (e3 = r2.substr(zi, 15), zi += 15) : (e3 = s, 0 === ec && ac(Uo)), e3 === s && ("century" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(Do)), e3 === s && ("day" === r2.substr(zi, 3).toLowerCase() ? (e3 = r2.substr(zi, 3), zi += 3) : (e3 = s, 0 === ec && ac(Mo)), e3 === s && ("date" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(Po)), e3 === s && ("decade" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(Go)), e3 === s && ("dow" === r2.substr(zi, 3).toLowerCase() ? (e3 = r2.substr(zi, 3), zi += 3) : (e3 = s, 0 === ec && ac(Fo)), e3 === s && ("doy" === r2.substr(zi, 3).toLowerCase() ? (e3 = r2.substr(zi, 3), zi += 3) : (e3 = s, 0 === ec && ac(Ho)), e3 === s && ("epoch" === r2.substr(zi, 5).toLowerCase() ? (e3 = r2.substr(zi, 5), zi += 5) : (e3 = s, 0 === ec && ac(Yo)), e3 === s && ("hour" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(Bo)), e3 === s && ("isodow" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac($o)), e3 === s && ("isoweek" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(Wo)), e3 === s && ("isoyear" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(qo)), e3 === s && ("microseconds" === r2.substr(zi, 12).toLowerCase() ? (e3 = r2.substr(zi, 12), zi += 12) : (e3 = s, 0 === ec && ac(Vo)), e3 === s && ("millennium" === r2.substr(zi, 10).toLowerCase() ? (e3 = r2.substr(zi, 10), zi += 10) : (e3 = s, 0 === ec && ac(Xo)), e3 === s && ("milliseconds" === r2.substr(zi, 12).toLowerCase() ? (e3 = r2.substr(zi, 12), zi += 12) : (e3 = s, 0 === ec && ac(Ko)), e3 === s && ("minute" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(Qo)), e3 === s && ("month" === r2.substr(zi, 5).toLowerCase() ? (e3 = r2.substr(zi, 5), zi += 5) : (e3 = s, 0 === ec && ac(zo)), e3 === s && ("quarter" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(Zo)), e3 === s && ("second" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(Jo)), e3 === s && ("time" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(rs)), e3 === s && ("timezone" === r2.substr(zi, 8).toLowerCase() ? (e3 = r2.substr(zi, 8), zi += 8) : (e3 = s, 0 === ec && ac(ts2)), e3 === s && ("week" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(es)), e3 === s && ("year" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(ns)))))))))))))))))))))))))))))))))))), e3 !== s && (Zi = t3, e3 = e3), t3 = e3;
+        }
+        function xf() {
+          var t3, e3, n2, o2, u2, a2, i2, c2;
+          return t3 = zi, (e3 = Bb()) !== s && Pp() !== s && jp() !== s && Pp() !== s && (n2 = jf()) !== s && Pp() !== s && db2() !== s && Pp() !== s ? ((o2 = ip()) === s && (o2 = fp()) === s && (o2 = ap()) === s && (o2 = op()), o2 !== s && Pp() !== s && (u2 = Yl()) !== s && Pp() !== s && xp() !== s ? (Zi = t3, a2 = n2, i2 = o2, c2 = u2, t3 = e3 = { type: e3.toLowerCase(), args: { field: a2, cast_type: i2, source: c2 }, ...cv() }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, (e3 = Bb()) !== s && Pp() !== s && jp() !== s && Pp() !== s && (n2 = jf()) !== s && Pp() !== s && db2() !== s && Pp() !== s && (o2 = Yl()) !== s && Pp() !== s && (u2 = xp()) !== s ? (Zi = t3, t3 = e3 = (function(r3, t4, e4) {
+            return { type: r3.toLowerCase(), args: { field: t4, source: e4 }, ...cv() };
+          })(e3, n2, o2)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, "date_trunc" === r2.substr(zi, 10).toLowerCase() ? (e3 = r2.substr(zi, 10), zi += 10) : (e3 = s, 0 === ec && ac(os)), e3 !== s && Pp() !== s && jp() !== s && Pp() !== s && (n2 = Yl()) !== s && Pp() !== s && Op() !== s && Pp() !== s && (o2 = jf()) !== s && Pp() !== s && (u2 = xp()) !== s ? (Zi = t3, t3 = e3 = (function(r3, t4) {
+            return { type: "function", name: { name: [{ type: "origin", value: "date_trunc" }] }, args: { type: "expr_list", value: [r3, { type: "origin", value: t4 }] }, over: null, ...cv() };
+          })(n2, o2)) : (zi = t3, t3 = s))), t3;
+        }
+        function kf() {
+          var t3, e3, n2;
+          return t3 = zi, (e3 = (function() {
+            var t4;
+            return "both" === r2.substr(zi, 4).toLowerCase() ? (t4 = r2.substr(zi, 4), zi += 4) : (t4 = s, 0 === ec && ac(ss)), t4 === s && ("leading" === r2.substr(zi, 7).toLowerCase() ? (t4 = r2.substr(zi, 7), zi += 7) : (t4 = s, 0 === ec && ac(us)), t4 === s && ("trailing" === r2.substr(zi, 8).toLowerCase() ? (t4 = r2.substr(zi, 8), zi += 8) : (t4 = s, 0 === ec && ac(as)))), t4;
+          })()) === s && (e3 = null), e3 !== s && Pp() !== s ? ((n2 = Yl()) === s && (n2 = null), n2 !== s && Pp() !== s && db2() !== s ? (Zi = t3, t3 = e3 = (function(r3, t4, e4) {
+            let n3 = [];
+            return r3 && n3.push({ type: "origin", value: r3 }), t4 && n3.push(t4), n3.push({ type: "origin", value: "from" }), { type: "expr_list", value: n3 };
+          })(e3, n2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Uf() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "trim" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(is)), e3 !== s && Pp() !== s && jp() !== s && Pp() !== s ? ((n2 = kf()) === s && (n2 = null), n2 !== s && Pp() !== s && (o2 = Yl()) !== s && Pp() !== s && xp() !== s ? (Zi = t3, t3 = e3 = (function(r3, t4) {
+            let e4 = r3 || { type: "expr_list", value: [] };
+            return e4.value.push(t4), { type: "function", name: { name: [{ type: "origin", value: "trim" }] }, args: e4, ...cv() };
+          })(n2, o2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Df() {
+          var t3, e3, n2, o2, u2, a2, i2, c2;
+          return (t3 = xf()) === s && (t3 = Uf()) === s && (t3 = zi, "convert" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(cs)), e3 !== s && Pp() !== s && (n2 = jp()) !== s && Pp() !== s && (o2 = (function() {
+            var r3, t4, e4, n3, o3, u3;
+            return r3 = zi, (t4 = Vp()) !== s && Pp() !== s && Op() !== s && Pp() !== s ? ((e4 = ov()) === s && (e4 = uv()), e4 !== s && Pp() !== s && (n3 = Gc()) !== s && Pp() !== s && (o3 = af()) !== s ? (Zi = r3, r3 = t4 = (function(r4, t5, e5, n4) {
+              const { dataType: o4, length: s2 } = t5;
+              let u4 = o4;
+              return void 0 !== s2 && (u4 = `${u4}(${s2})`), { type: "expr_list", value: [r4, { type: "origin", value: u4, suffix: { prefix: e5, ...n4 } }] };
+            })(t4, e4, n3, o3)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3 === s && (r3 = zi, (t4 = Vp()) !== s && Pp() !== s && Op() !== s && Pp() !== s ? ((e4 = Pf()) === s && (e4 = ev()), e4 !== s ? (Zi = r3, r3 = t4 = { type: "expr_list", value: [t4, { type: "datatype", ..."string" == typeof (u3 = e4) ? { dataType: u3 } : u3 }] }) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3 === s && (r3 = zi, (t4 = $l()) !== s && Pp() !== s && Ib() !== s && Pp() !== s && (e4 = hf()) !== s ? (Zi = r3, r3 = t4 = (function(r4, t5) {
+              return r4.suffix = "USING " + t5.toUpperCase(), { type: "expr_list", value: [r4] };
+            })(t4, e4)) : (zi = r3, r3 = s))), r3;
+          })()) !== s && (u2 = Pp()) !== s && xp() !== s ? (Zi = t3, t3 = e3 = { type: "function", name: { name: [{ type: "origin", value: "convert" }] }, args: o2, ...cv() }) : (zi = t3, t3 = s), t3 === s && (t3 = zi, (e3 = (function() {
+            var t4;
+            (t4 = Mf()) === s && (t4 = pp()) === s && (t4 = cp()) === s && (t4 = (function() {
+              var t5, e4, n3, o3;
+              t5 = zi, "session_user" === r2.substr(zi, 12).toLowerCase() ? (e4 = r2.substr(zi, 12), zi += 12) : (e4 = s, 0 === ec && ac(Xa));
+              e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "SESSION_USER") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) === s && (t4 = (function() {
+              var t5, e4, n3, o3;
+              t5 = zi, "system_user" === r2.substr(zi, 11).toLowerCase() ? (e4 = r2.substr(zi, 11), zi += 11) : (e4 = s, 0 === ec && ac(Ka));
+              e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "SYSTEM_USER") : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })());
+            return t4;
+          })()) !== s && Pp() !== s && (n2 = jp()) !== s && Pp() !== s ? ((o2 = Ml()) === s && (o2 = null), o2 !== s && (u2 = Pp()) !== s && xp() !== s && Pp() !== s ? ((a2 = _f()) === s && (a2 = null), a2 !== s ? (Zi = t3, t3 = e3 = (function(r3, t4, e4) {
+            return { type: "function", name: { name: [{ type: "default", value: r3 }] }, args: t4 || { type: "expr_list", value: [] }, over: e4, ...cv() };
+          })(e3, o2, a2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, (e3 = Mf()) !== s && Pp() !== s ? ((n2 = Tf()) === s && (n2 = null), n2 !== s ? (Zi = t3, t3 = e3 = { type: "function", name: { name: [{ type: "origin", value: e3 }] }, over: n2, ...cv() }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = zi, (e3 = Qp()) !== s ? (Zi = zi, (!iv[(c2 = e3).name[0] && c2.name[0].value.toLowerCase()] ? void 0 : s) !== s && (n2 = Pp()) !== s && jp() !== s && (o2 = Pp()) !== s ? ((u2 = $l()) === s && (u2 = null), u2 !== s && Pp() !== s && xp() !== s && (a2 = Pp()) !== s ? ((i2 = _f()) === s && (i2 = null), i2 !== s ? (Zi = t3, t3 = e3 = (function(r3, t4, e4) {
+            return t4 && "expr_list" !== t4.type && (t4 = { type: "expr_list", value: [t4] }), (r3.name[0] && "TIMESTAMPDIFF" === r3.name[0].value.toUpperCase() || r3.name[0] && "TIMESTAMPADD" === r3.name[0].value.toUpperCase()) && t4.value && t4.value[0] && (t4.value[0] = { type: "origin", value: t4.value[0].column }), { type: "function", name: r3, args: t4 || { type: "expr_list", value: [] }, over: e4, ...cv() };
+          })(e3, u2, i2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s))))), t3;
+        }
+        function Mf() {
+          var t3;
+          return (t3 = (function() {
+            var t4, e3, n2, o2;
+            t4 = zi, "current_date" === r2.substr(zi, 12).toLowerCase() ? (e3 = r2.substr(zi, 12), zi += 12) : (e3 = s, 0 === ec && ac(Ya));
+            e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t4, t4 = e3 = "CURRENT_DATE") : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()) === s && (t3 = (function() {
+            var t4, e3, n2, o2;
+            t4 = zi, "current_time" === r2.substr(zi, 12).toLowerCase() ? (e3 = r2.substr(zi, 12), zi += 12) : (e3 = s, 0 === ec && ac(Wa));
+            e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t4, t4 = e3 = "CURRENT_TIME") : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()) === s && (t3 = bp()), t3;
+        }
+        function Pf() {
+          var t3;
+          return (t3 = (function() {
+            var t4, e3, n2, o2;
+            t4 = zi, "signed" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(ma));
+            e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t4, t4 = e3 = "SIGNED") : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()) === s && (t3 = (function() {
+            var t4, e3, n2, o2;
+            t4 = zi, "unsigned" === r2.substr(zi, 8).toLowerCase() ? (e3 = r2.substr(zi, 8), zi += 8) : (e3 = s, 0 === ec && ac(Ea));
+            e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t4, t4 = e3 = "UNSIGNED") : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()), t3;
+        }
+        function Gf() {
+          var t3, e3, n2, o2, u2, a2, i2, c2, l2;
+          return t3 = zi, "binary" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(ls)), e3 === s && ("_binary" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(fs))), e3 === s && (e3 = null), e3 !== s && Pp() !== s && (n2 = Yf()) !== s ? (o2 = zi, (u2 = Pp()) !== s && (a2 = _c()) !== s ? o2 = u2 = [u2, a2] : (zi = o2, o2 = s), o2 === s && (o2 = null), o2 !== s ? (Zi = t3, c2 = n2, l2 = o2, (i2 = e3) && (c2.prefix = i2.toLowerCase()), l2 && (c2.suffix = { collate: l2[1] }), t3 = e3 = c2) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3 === s && (t3 = (function() {
+            var t4, e4;
+            t4 = zi, (e4 = (function() {
+              var t5, e5, n3, o3;
+              t5 = zi, "true" === r2.substr(zi, 4).toLowerCase() ? (e5 = r2.substr(zi, 4), zi += 4) : (e5 = s, 0 === ec && ac(zs));
+              e5 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? t5 = e5 = [e5, n3] : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) !== s && (Zi = t4, e4 = { type: "bool", value: true });
+            (t4 = e4) === s && (t4 = zi, (e4 = (function() {
+              var t5, e5, n3, o3;
+              t5 = zi, "false" === r2.substr(zi, 5).toLowerCase() ? (e5 = r2.substr(zi, 5), zi += 5) : (e5 = s, 0 === ec && ac(Js));
+              e5 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? t5 = e5 = [e5, n3] : (zi = t5, t5 = s)) : (zi = t5, t5 = s);
+              return t5;
+            })()) !== s && (Zi = t4, e4 = { type: "bool", value: false }), t4 = e4);
+            return t4;
+          })()) === s && (t3 = Hf()) === s && (t3 = (function() {
+            var t4, e4, n3, o3, u3, a3;
+            t4 = zi, (e4 = ap()) === s && (e4 = op()) === s && (e4 = ip()) === s && (e4 = sp());
+            if (e4 !== s) if (Pp() !== s) {
+              if (n3 = zi, 39 === r2.charCodeAt(zi) ? (o3 = "'", zi++) : (o3 = s, 0 === ec && ac(Ot)), o3 !== s) {
+                for (u3 = [], a3 = $f(); a3 !== s; ) u3.push(a3), a3 = $f();
+                u3 !== s ? (39 === r2.charCodeAt(zi) ? (a3 = "'", zi++) : (a3 = s, 0 === ec && ac(Ot)), a3 !== s ? n3 = o3 = [o3, u3, a3] : (zi = n3, n3 = s)) : (zi = n3, n3 = s);
+              } else zi = n3, n3 = s;
+              n3 !== s ? (Zi = t4, e4 = hs(e4, n3), t4 = e4) : (zi = t4, t4 = s);
+            } else zi = t4, t4 = s;
+            else zi = t4, t4 = s;
+            if (t4 === s) if (t4 = zi, (e4 = ap()) === s && (e4 = op()) === s && (e4 = ip()) === s && (e4 = sp()), e4 !== s) if (Pp() !== s) {
+              if (n3 = zi, 34 === r2.charCodeAt(zi) ? (o3 = '"', zi++) : (o3 = s, 0 === ec && ac(ro)), o3 !== s) {
+                for (u3 = [], a3 = Bf(); a3 !== s; ) u3.push(a3), a3 = Bf();
+                u3 !== s ? (34 === r2.charCodeAt(zi) ? (a3 = '"', zi++) : (a3 = s, 0 === ec && ac(ro)), a3 !== s ? n3 = o3 = [o3, u3, a3] : (zi = n3, n3 = s)) : (zi = n3, n3 = s);
+              } else zi = n3, n3 = s;
+              n3 !== s ? (Zi = t4, e4 = hs(e4, n3), t4 = e4) : (zi = t4, t4 = s);
+            } else zi = t4, t4 = s;
+            else zi = t4, t4 = s;
+            return t4;
+          })()), t3;
+        }
+        function Ff() {
+          var r3;
+          return (r3 = Gf()) === s && (r3 = qf()), r3;
+        }
+        function Hf() {
+          var t3, e3;
+          return t3 = zi, (e3 = (function() {
+            var t4, e4, n2, o2;
+            t4 = zi, "null" === r2.substr(zi, 4).toLowerCase() ? (e4 = r2.substr(zi, 4), zi += 4) : (e4 = s, 0 === ec && ac(Ks));
+            e4 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t4 = e4 = [e4, n2] : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()) !== s && (Zi = t3, e3 = { type: "null", value: null }), t3 = e3;
+        }
+        function Yf() {
+          var t3, e3, n2, o2, u2, a2, i2, c2;
+          if (t3 = zi, "_binary" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(fs)), e3 === s && ("_latin1" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(bs))), e3 === s && (e3 = null), e3 !== s) if ((n2 = Pp()) !== s) if ("x" === r2.substr(zi, 1).toLowerCase() ? (o2 = r2.charAt(zi), zi++) : (o2 = s, 0 === ec && ac(ps)), o2 !== s) {
+            if (u2 = zi, 39 === r2.charCodeAt(zi) ? (a2 = "'", zi++) : (a2 = s, 0 === ec && ac(Ot)), a2 !== s) {
+              for (i2 = [], vs.test(r2.charAt(zi)) ? (c2 = r2.charAt(zi), zi++) : (c2 = s, 0 === ec && ac(ds)); c2 !== s; ) i2.push(c2), vs.test(r2.charAt(zi)) ? (c2 = r2.charAt(zi), zi++) : (c2 = s, 0 === ec && ac(ds));
+              i2 !== s ? (39 === r2.charCodeAt(zi) ? (c2 = "'", zi++) : (c2 = s, 0 === ec && ac(Ot)), c2 !== s ? u2 = a2 = [a2, i2, c2] : (zi = u2, u2 = s)) : (zi = u2, u2 = s);
+            } else zi = u2, u2 = s;
+            u2 !== s ? (Zi = t3, t3 = e3 = { type: "hex_string", prefix: e3, value: u2[1].join("") }) : (zi = t3, t3 = s);
+          } else zi = t3, t3 = s;
+          else zi = t3, t3 = s;
+          else zi = t3, t3 = s;
+          if (t3 === s) {
+            if (t3 = zi, "_binary" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(fs)), e3 === s && ("_latin1" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(bs))), e3 === s && (e3 = null), e3 !== s) if ((n2 = Pp()) !== s) if ("b" === r2.substr(zi, 1).toLowerCase() ? (o2 = r2.charAt(zi), zi++) : (o2 = s, 0 === ec && ac(ys)), o2 !== s) {
+              if (u2 = zi, 39 === r2.charCodeAt(zi) ? (a2 = "'", zi++) : (a2 = s, 0 === ec && ac(Ot)), a2 !== s) {
+                for (i2 = [], vs.test(r2.charAt(zi)) ? (c2 = r2.charAt(zi), zi++) : (c2 = s, 0 === ec && ac(ds)); c2 !== s; ) i2.push(c2), vs.test(r2.charAt(zi)) ? (c2 = r2.charAt(zi), zi++) : (c2 = s, 0 === ec && ac(ds));
+                i2 !== s ? (39 === r2.charCodeAt(zi) ? (c2 = "'", zi++) : (c2 = s, 0 === ec && ac(Ot)), c2 !== s ? u2 = a2 = [a2, i2, c2] : (zi = u2, u2 = s)) : (zi = u2, u2 = s);
+              } else zi = u2, u2 = s;
+              u2 !== s ? (Zi = t3, t3 = e3 = (function(r3, t4, e4) {
+                return { type: "bit_string", prefix: r3, value: e4[1].join("") };
+              })(e3, 0, u2)) : (zi = t3, t3 = s);
+            } else zi = t3, t3 = s;
+            else zi = t3, t3 = s;
+            else zi = t3, t3 = s;
+            if (t3 === s) {
+              if (t3 = zi, "_binary" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(fs)), e3 === s && ("_latin1" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(bs))), e3 === s && (e3 = null), e3 !== s) if ((n2 = Pp()) !== s) if ("0x" === r2.substr(zi, 2).toLowerCase() ? (o2 = r2.substr(zi, 2), zi += 2) : (o2 = s, 0 === ec && ac(ws)), o2 !== s) {
+                for (u2 = [], vs.test(r2.charAt(zi)) ? (a2 = r2.charAt(zi), zi++) : (a2 = s, 0 === ec && ac(ds)); a2 !== s; ) u2.push(a2), vs.test(r2.charAt(zi)) ? (a2 = r2.charAt(zi), zi++) : (a2 = s, 0 === ec && ac(ds));
+                u2 !== s ? (Zi = t3, t3 = e3 = (function(r3, t4, e4) {
+                  return { type: "full_hex_string", prefix: r3, value: e4.join("") };
+                })(e3, 0, u2)) : (zi = t3, t3 = s);
+              } else zi = t3, t3 = s;
+              else zi = t3, t3 = s;
+              else zi = t3, t3 = s;
+              if (t3 === s) {
+                if (t3 = zi, "n" === r2.substr(zi, 1).toLowerCase() ? (e3 = r2.charAt(zi), zi++) : (e3 = s, 0 === ec && ac(Ls)), e3 !== s) {
+                  if (n2 = zi, 39 === r2.charCodeAt(zi) ? (o2 = "'", zi++) : (o2 = s, 0 === ec && ac(Ot)), o2 !== s) {
+                    for (u2 = [], a2 = $f(); a2 !== s; ) u2.push(a2), a2 = $f();
+                    u2 !== s ? (39 === r2.charCodeAt(zi) ? (a2 = "'", zi++) : (a2 = s, 0 === ec && ac(Ot)), a2 !== s ? n2 = o2 = [o2, u2, a2] : (zi = n2, n2 = s)) : (zi = n2, n2 = s);
+                  } else zi = n2, n2 = s;
+                  n2 !== s ? (Zi = t3, t3 = e3 = (function(r3, t4) {
+                    return { type: "natural_string", value: t4[1].join("") };
+                  })(0, n2)) : (zi = t3, t3 = s);
+                } else zi = t3, t3 = s;
+                if (t3 === s) {
+                  if (t3 = zi, e3 = zi, 39 === r2.charCodeAt(zi) ? (n2 = "'", zi++) : (n2 = s, 0 === ec && ac(Ot)), n2 !== s) {
+                    for (o2 = [], u2 = $f(); u2 !== s; ) o2.push(u2), u2 = $f();
+                    o2 !== s ? (39 === r2.charCodeAt(zi) ? (u2 = "'", zi++) : (u2 = s, 0 === ec && ac(Ot)), u2 !== s ? e3 = n2 = [n2, o2, u2] : (zi = e3, e3 = s)) : (zi = e3, e3 = s);
+                  } else zi = e3, e3 = s;
+                  if (e3 !== s && (Zi = t3, e3 = (function(r3) {
+                    return { type: "single_quote_string", value: r3[1].join("") };
+                  })(e3)), (t3 = e3) === s) {
+                    if (t3 = zi, e3 = zi, 34 === r2.charCodeAt(zi) ? (n2 = '"', zi++) : (n2 = s, 0 === ec && ac(ro)), n2 !== s) {
+                      for (o2 = [], u2 = Bf(); u2 !== s; ) o2.push(u2), u2 = Bf();
+                      o2 !== s ? (34 === r2.charCodeAt(zi) ? (u2 = '"', zi++) : (u2 = s, 0 === ec && ac(ro)), u2 !== s ? e3 = n2 = [n2, o2, u2] : (zi = e3, e3 = s)) : (zi = e3, e3 = s);
+                    } else zi = e3, e3 = s;
+                    e3 !== s && (Zi = t3, e3 = (function(r3) {
+                      return { type: "double_quote_string", value: r3[1].join("") };
+                    })(e3)), t3 = e3;
+                  }
+                }
+              }
+            }
+          }
+          return t3;
+        }
+        function Bf() {
+          var t3;
+          return Cs.test(r2.charAt(zi)) ? (t3 = r2.charAt(zi), zi++) : (t3 = s, 0 === ec && ac(ms)), t3 === s && (t3 = Wf()) === s && (Es.test(r2.charAt(zi)) ? (t3 = r2.charAt(zi), zi++) : (t3 = s, 0 === ec && ac(As))), t3;
+        }
+        function $f() {
+          var t3;
+          return Ts.test(r2.charAt(zi)) ? (t3 = r2.charAt(zi), zi++) : (t3 = s, 0 === ec && ac(_s)), t3 === s && (t3 = Wf()), t3;
+        }
+        function Wf() {
+          var t3, e3, n2, o2, u2, a2, i2, c2, l2, f2;
+          return t3 = zi, "\\'" === r2.substr(zi, 2) ? (e3 = "\\'", zi += 2) : (e3 = s, 0 === ec && ac(gs)), e3 !== s && (Zi = t3, e3 = "\\'"), (t3 = e3) === s && (t3 = zi, '\\"' === r2.substr(zi, 2) ? (e3 = '\\"', zi += 2) : (e3 = s, 0 === ec && ac(Is)), e3 !== s && (Zi = t3, e3 = '\\"'), (t3 = e3) === s && (t3 = zi, "\\\\" === r2.substr(zi, 2) ? (e3 = "\\\\", zi += 2) : (e3 = s, 0 === ec && ac(Ss)), e3 !== s && (Zi = t3, e3 = "\\\\"), (t3 = e3) === s && (t3 = zi, "\\/" === r2.substr(zi, 2) ? (e3 = "\\/", zi += 2) : (e3 = s, 0 === ec && ac(Ns)), e3 !== s && (Zi = t3, e3 = "\\/"), (t3 = e3) === s && (t3 = zi, "\\b" === r2.substr(zi, 2) ? (e3 = "\\b", zi += 2) : (e3 = s, 0 === ec && ac(Os)), e3 !== s && (Zi = t3, e3 = "\b"), (t3 = e3) === s && (t3 = zi, "\\f" === r2.substr(zi, 2) ? (e3 = "\\f", zi += 2) : (e3 = s, 0 === ec && ac(Rs)), e3 !== s && (Zi = t3, e3 = "\f"), (t3 = e3) === s && (t3 = zi, "\\n" === r2.substr(zi, 2) ? (e3 = "\\n", zi += 2) : (e3 = s, 0 === ec && ac(js)), e3 !== s && (Zi = t3, e3 = "\n"), (t3 = e3) === s && (t3 = zi, "\\r" === r2.substr(zi, 2) ? (e3 = "\\r", zi += 2) : (e3 = s, 0 === ec && ac(xs)), e3 !== s && (Zi = t3, e3 = "\r"), (t3 = e3) === s && (t3 = zi, "\\t" === r2.substr(zi, 2) ? (e3 = "\\t", zi += 2) : (e3 = s, 0 === ec && ac(ks)), e3 !== s && (Zi = t3, e3 = "	"), (t3 = e3) === s && (t3 = zi, "\\u" === r2.substr(zi, 2) ? (e3 = "\\u", zi += 2) : (e3 = s, 0 === ec && ac(Us)), e3 !== s && (n2 = Zf()) !== s && (o2 = Zf()) !== s && (u2 = Zf()) !== s && (a2 = Zf()) !== s ? (Zi = t3, i2 = n2, c2 = o2, l2 = u2, f2 = a2, t3 = e3 = String.fromCharCode(parseInt("0x" + i2 + c2 + l2 + f2))) : (zi = t3, t3 = s), t3 === s && (t3 = zi, 92 === r2.charCodeAt(zi) ? (e3 = "\\", zi++) : (e3 = s, 0 === ec && ac(Ds)), e3 !== s && (Zi = t3, e3 = "\\"), (t3 = e3) === s && (t3 = zi, "''" === r2.substr(zi, 2) ? (e3 = "''", zi += 2) : (e3 = s, 0 === ec && ac(Ms)), e3 !== s && (Zi = t3, e3 = "''"), (t3 = e3) === s && (t3 = zi, '""' === r2.substr(zi, 2) ? (e3 = '""', zi += 2) : (e3 = s, 0 === ec && ac(Ps)), e3 !== s && (Zi = t3, e3 = '""'), (t3 = e3) === s && (t3 = zi, "``" === r2.substr(zi, 2) ? (e3 = "``", zi += 2) : (e3 = s, 0 === ec && ac(Gs)), e3 !== s && (Zi = t3, e3 = "``"), t3 = e3))))))))))))), t3;
+        }
+        function qf() {
+          var r3, t3, e3;
+          return r3 = zi, (t3 = (function() {
+            var r4, t4, e4, n2;
+            r4 = zi, (t4 = Vf()) !== s && (e4 = Xf()) !== s && (n2 = Kf()) !== s ? (Zi = r4, r4 = t4 = { type: "bigint", value: t4 + e4 + n2 }) : (zi = r4, r4 = s);
+            r4 === s && (r4 = zi, (t4 = Vf()) !== s && (e4 = Xf()) !== s ? (Zi = r4, t4 = (function(r5, t5) {
+              const e5 = r5 + t5;
+              if (bv(r5)) return { type: "bigint", value: e5 };
+              const n3 = t5.length >= 1 ? t5.length - 1 : 0;
+              return parseFloat(e5).toFixed(n3);
+            })(t4, e4), r4 = t4) : (zi = r4, r4 = s), r4 === s && (r4 = zi, (t4 = Vf()) !== s && (e4 = Kf()) !== s ? (Zi = r4, t4 = (function(r5, t5) {
+              return { type: "bigint", value: r5 + t5 };
+            })(t4, e4), r4 = t4) : (zi = r4, r4 = s), r4 === s && (r4 = zi, (t4 = Vf()) !== s && (Zi = r4, t4 = (function(r5) {
+              return bv(r5) ? { type: "bigint", value: r5 } : parseFloat(r5);
+            })(t4)), r4 = t4)));
+            return r4;
+          })()) !== s && (Zi = r3, t3 = (e3 = t3) && "bigint" === e3.type ? e3 : { type: "number", value: e3 }), r3 = t3;
+        }
+        function Vf() {
+          var t3, e3, n2;
+          return (t3 = Qf()) === s && (t3 = zf()) === s && (t3 = zi, 45 === r2.charCodeAt(zi) ? (e3 = "-", zi++) : (e3 = s, 0 === ec && ac(jn)), e3 === s && (43 === r2.charCodeAt(zi) ? (e3 = "+", zi++) : (e3 = s, 0 === ec && ac(Rn))), e3 !== s && (n2 = Qf()) !== s ? (Zi = t3, t3 = e3 = e3 + n2) : (zi = t3, t3 = s), t3 === s && (t3 = zi, 45 === r2.charCodeAt(zi) ? (e3 = "-", zi++) : (e3 = s, 0 === ec && ac(jn)), e3 === s && (43 === r2.charCodeAt(zi) ? (e3 = "+", zi++) : (e3 = s, 0 === ec && ac(Rn))), e3 !== s && (n2 = zf()) !== s ? (Zi = t3, t3 = e3 = (function(r3, t4) {
+            return r3 + t4;
+          })(e3, n2)) : (zi = t3, t3 = s))), t3;
+        }
+        function Xf() {
+          var t3, e3, n2, o2;
+          return t3 = zi, 46 === r2.charCodeAt(zi) ? (e3 = ".", zi++) : (e3 = s, 0 === ec && ac(Ys)), e3 !== s ? ((n2 = Qf()) === s && (n2 = null), n2 !== s ? (Zi = t3, t3 = e3 = (o2 = n2) ? "." + o2 : "") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Kf() {
+          var t3, e3, n2;
+          return t3 = zi, (e3 = (function() {
+            var t4, e4, n3;
+            t4 = zi, Ws.test(r2.charAt(zi)) ? (e4 = r2.charAt(zi), zi++) : (e4 = s, 0 === ec && ac(qs));
+            e4 !== s ? (Vs.test(r2.charAt(zi)) ? (n3 = r2.charAt(zi), zi++) : (n3 = s, 0 === ec && ac(Xs)), n3 === s && (n3 = null), n3 !== s ? (Zi = t4, t4 = e4 = e4 + (null !== (o2 = n3) ? o2 : "")) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            var o2;
+            return t4;
+          })()) !== s && (n2 = Qf()) !== s ? (Zi = t3, t3 = e3 = e3 + n2) : (zi = t3, t3 = s), t3;
+        }
+        function Qf() {
+          var r3, t3, e3;
+          if (r3 = zi, t3 = [], (e3 = zf()) !== s) for (; e3 !== s; ) t3.push(e3), e3 = zf();
+          else t3 = s;
+          return t3 !== s && (Zi = r3, t3 = t3.join("")), r3 = t3;
+        }
+        function zf() {
+          var t3;
+          return We.test(r2.charAt(zi)) ? (t3 = r2.charAt(zi), zi++) : (t3 = s, 0 === ec && ac(qe)), t3;
+        }
+        function Zf() {
+          var t3;
+          return Bs.test(r2.charAt(zi)) ? (t3 = r2.charAt(zi), zi++) : (t3 = s, 0 === ec && ac($s)), t3;
+        }
+        function Jf() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "default" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(k)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function rb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "to" === r2.substr(zi, 2).toLowerCase() ? (e3 = r2.substr(zi, 2), zi += 2) : (e3 = s, 0 === ec && ac(Zs)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function tb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "show" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(ru)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function eb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "drop" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(Dr)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "DROP") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function nb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "alter" === r2.substr(zi, 5).toLowerCase() ? (e3 = r2.substr(zi, 5), zi += 5) : (e3 = s, 0 === ec && ac(eu)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function ob() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "select" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(nu)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function sb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "update" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(ou)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function ub() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "create" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(su)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function ab() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "temporary" === r2.substr(zi, 9).toLowerCase() ? (e3 = r2.substr(zi, 9), zi += 9) : (e3 = s, 0 === ec && ac(uu)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function ib() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "delete" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(au)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function cb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "insert" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(iu)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function lb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "replace" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(lu)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function fb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "rename" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(fu)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function bb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "ignore" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(bu)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function pb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "partition" === r2.substr(zi, 9).toLowerCase() ? (e3 = r2.substr(zi, 9), zi += 9) : (e3 = s, 0 === ec && ac(vu)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "PARTITION") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function vb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "into" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(Re)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function db2() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "from" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(du)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function yb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "set" === r2.substr(zi, 3).toLowerCase() ? (e3 = r2.substr(zi, 3), zi += 3) : (e3 = s, 0 === ec && ac(ft)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "SET") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function wb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "as" === r2.substr(zi, 2).toLowerCase() ? (e3 = r2.substr(zi, 2), zi += 2) : (e3 = s, 0 === ec && ac(L)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Lb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "table" === r2.substr(zi, 5).toLowerCase() ? (e3 = r2.substr(zi, 5), zi += 5) : (e3 = s, 0 === ec && ac(je)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "TABLE") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function hb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "trigger" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(yu)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "TRIGGER") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Cb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "tables" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(wu)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "TABLES") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function mb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "database" === r2.substr(zi, 8).toLowerCase() ? (e3 = r2.substr(zi, 8), zi += 8) : (e3 = s, 0 === ec && ac(Lu)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "DATABASE") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Eb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "schema" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(hu)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "SCHEMA") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Ab() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "on" === r2.substr(zi, 2).toLowerCase() ? (e3 = r2.substr(zi, 2), zi += 2) : (e3 = s, 0 === ec && ac(Cu)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Tb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "join" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(Iu)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function _b() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "outer" === r2.substr(zi, 5).toLowerCase() ? (e3 = r2.substr(zi, 5), zi += 5) : (e3 = s, 0 === ec && ac(Su)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function gb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "values" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(xu)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Ib() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "using" === r2.substr(zi, 5).toLowerCase() ? (e3 = r2.substr(zi, 5), zi += 5) : (e3 = s, 0 === ec && ac(ku)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Sb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "with" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(v)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Nb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "go" === r2.substr(zi, 2).toLowerCase() ? (e3 = r2.substr(zi, 2), zi += 2) : (e3 = s, 0 === ec && ac(Du)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "GO") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Ob() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "by" === r2.substr(zi, 2).toLowerCase() ? (e3 = r2.substr(zi, 2), zi += 2) : (e3 = s, 0 === ec && ac(d)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Rb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "asc" === r2.substr(zi, 3).toLowerCase() ? (e3 = r2.substr(zi, 3), zi += 3) : (e3 = s, 0 === ec && ac(Yu)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "ASC") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function jb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "desc" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(Bu)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "DESC") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function xb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "all" === r2.substr(zi, 3).toLowerCase() ? (e3 = r2.substr(zi, 3), zi += 3) : (e3 = s, 0 === ec && ac(Wu)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "ALL") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function kb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "distinct" === r2.substr(zi, 8).toLowerCase() ? (e3 = r2.substr(zi, 8), zi += 8) : (e3 = s, 0 === ec && ac(qu)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "DISTINCT") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Ub() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "between" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(Vu)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "BETWEEN") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Db() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "in" === r2.substr(zi, 2).toLowerCase() ? (e3 = r2.substr(zi, 2), zi += 2) : (e3 = s, 0 === ec && ac(Ve)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "IN") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Mb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "is" === r2.substr(zi, 2).toLowerCase() ? (e3 = r2.substr(zi, 2), zi += 2) : (e3 = s, 0 === ec && ac(Xu)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "IS") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Pb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "like" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(Ku)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "LIKE") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Gb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "exists" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(Zu)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "EXISTS") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Fb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "not" === r2.substr(zi, 3).toLowerCase() ? (e3 = r2.substr(zi, 3), zi += 3) : (e3 = s, 0 === ec && ac(Zr)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "NOT") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Hb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "and" === r2.substr(zi, 3).toLowerCase() ? (e3 = r2.substr(zi, 3), zi += 3) : (e3 = s, 0 === ec && ac(Ju)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "AND") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Yb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "or" === r2.substr(zi, 2).toLowerCase() ? (e3 = r2.substr(zi, 2), zi += 2) : (e3 = s, 0 === ec && ac(ra)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "OR") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Bb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "extract" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(aa)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "EXTRACT") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function $b() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "case" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(ca)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Wb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "end" === r2.substr(zi, 3).toLowerCase() ? (e3 = r2.substr(zi, 3), zi += 3) : (e3 = s, 0 === ec && ac(pa)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? t3 = e3 = [e3, n2] : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function qb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "cast" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(va)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "CAST") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Vb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "bit" === r2.substr(zi, 3).toLowerCase() ? (e3 = r2.substr(zi, 3), zi += 3) : (e3 = s, 0 === ec && ac(ya)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "BIT") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Xb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "numeric" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(ha)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "NUMERIC") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Kb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "decimal" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(Ca)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "DECIMAL") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Qb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "int" === r2.substr(zi, 3).toLowerCase() ? (e3 = r2.substr(zi, 3), zi += 3) : (e3 = s, 0 === ec && ac(Aa)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "INT") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function zb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "integer" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(_a)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "INTEGER") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Zb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "smallint" === r2.substr(zi, 8).toLowerCase() ? (e3 = r2.substr(zi, 8), zi += 8) : (e3 = s, 0 === ec && ac(Ia)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "SMALLINT") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Jb() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "mediumint" === r2.substr(zi, 9).toLowerCase() ? (e3 = r2.substr(zi, 9), zi += 9) : (e3 = s, 0 === ec && ac(Sa)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "MEDIUMINT") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function rp() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "tinyint" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(Na)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "TINYINT") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function tp() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "bigint" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(ka)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "BIGINT") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function ep() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "float" === r2.substr(zi, 5).toLowerCase() ? (e3 = r2.substr(zi, 5), zi += 5) : (e3 = s, 0 === ec && ac(Da)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "FLOAT") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function np() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "double" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(Ma)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "DOUBLE") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function op() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "date" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(Po)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "DATE") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function sp() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "datetime" === r2.substr(zi, 8).toLowerCase() ? (e3 = r2.substr(zi, 8), zi += 8) : (e3 = s, 0 === ec && ac(Pa)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "DATETIME") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function up() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "rows" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(xe)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "ROWS") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function ap() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "time" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(rs)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "TIME") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function ip() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "timestamp" === r2.substr(zi, 9).toLowerCase() ? (e3 = r2.substr(zi, 9), zi += 9) : (e3 = s, 0 === ec && ac(Ga)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "TIMESTAMP") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function cp() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "user" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(Fa)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "USER") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function lp() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "vector" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(Ha)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "VECTOR") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function fp() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "interval" === r2.substr(zi, 8).toLowerCase() ? (e3 = r2.substr(zi, 8), zi += 8) : (e3 = s, 0 === ec && ac(Ba)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "INTERVAL") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function bp() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "current_timestamp" === r2.substr(zi, 17).toLowerCase() ? (e3 = r2.substr(zi, 17), zi += 17) : (e3 = s, 0 === ec && ac(qa)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "CURRENT_TIMESTAMP") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function pp() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "current_user" === r2.substr(zi, 12).toLowerCase() ? (e3 = r2.substr(zi, 12), zi += 12) : (e3 = s, 0 === ec && ac(Va)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "CURRENT_USER") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function vp() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "view" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(ke)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "VIEW") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function dp() {
+          var t3;
+          return 64 === r2.charCodeAt(zi) ? (t3 = "@", zi++) : (t3 = s, 0 === ec && ac(lr)), t3;
+        }
+        function yp() {
+          var t3;
+          return (t3 = (function() {
+            var t4;
+            return "@@" === r2.substr(zi, 2) ? (t4 = "@@", zi += 2) : (t4 = s, 0 === ec && ac(ii)), t4;
+          })()) === s && (t3 = dp()) === s && (t3 = (function() {
+            var t4;
+            return 36 === r2.charCodeAt(zi) ? (t4 = "$", zi++) : (t4 = s, 0 === ec && ac(ci)), t4;
+          })()), t3;
+        }
+        function wp() {
+          var t3;
+          return ":=" === r2.substr(zi, 2) ? (t3 = ":=", zi += 2) : (t3 = s, 0 === ec && ac(fi)), t3;
+        }
+        function Lp() {
+          var t3;
+          return 61 === r2.charCodeAt(zi) ? (t3 = "=", zi++) : (t3 = s, 0 === ec && ac(Cn)), t3;
+        }
+        function hp() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "add" === r2.substr(zi, 3).toLowerCase() ? (e3 = r2.substr(zi, 3), zi += 3) : (e3 = s, 0 === ec && ac(pi)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "ADD") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Cp() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "column" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(vi)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "COLUMN") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function mp() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "index" === r2.substr(zi, 5).toLowerCase() ? (e3 = r2.substr(zi, 5), zi += 5) : (e3 = s, 0 === ec && ac(It)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "INDEX") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Ep() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "key" === r2.substr(zi, 3).toLowerCase() ? (e3 = r2.substr(zi, 3), zi += 3) : (e3 = s, 0 === ec && ac(ir)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "KEY") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Ap() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "fulltext" === r2.substr(zi, 8).toLowerCase() ? (e3 = r2.substr(zi, 8), zi += 8) : (e3 = s, 0 === ec && ac(yi)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "FULLTEXT") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Tp() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "spatial" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(wi)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "SPATIAL") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function _p() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "unique" === r2.substr(zi, 6).toLowerCase() ? (e3 = r2.substr(zi, 6), zi += 6) : (e3 = s, 0 === ec && ac(ar)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "UNIQUE") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function gp() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "comment" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(Li)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "COMMENT") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Ip() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "constraint" === r2.substr(zi, 10).toLowerCase() ? (e3 = r2.substr(zi, 10), zi += 10) : (e3 = s, 0 === ec && ac(Qr)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "CONSTRAINT") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Sp() {
+          var t3, e3, n2, o2;
+          return t3 = zi, "references" === r2.substr(zi, 10).toLowerCase() ? (e3 = r2.substr(zi, 10), zi += 10) : (e3 = s, 0 === ec && ac(hi)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t3, t3 = e3 = "REFERENCES") : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function Np() {
+          var t3;
+          return 46 === r2.charCodeAt(zi) ? (t3 = ".", zi++) : (t3 = s, 0 === ec && ac(Ys)), t3;
+        }
+        function Op() {
+          var t3;
+          return 44 === r2.charCodeAt(zi) ? (t3 = ",", zi++) : (t3 = s, 0 === ec && ac(gi)), t3;
+        }
+        function Rp() {
+          var t3;
+          return 42 === r2.charCodeAt(zi) ? (t3 = "*", zi++) : (t3 = s, 0 === ec && ac(xn)), t3;
+        }
+        function jp() {
+          var t3;
+          return 40 === r2.charCodeAt(zi) ? (t3 = "(", zi++) : (t3 = s, 0 === ec && ac(Be)), t3;
+        }
+        function xp() {
+          var t3;
+          return 41 === r2.charCodeAt(zi) ? (t3 = ")", zi++) : (t3 = s, 0 === ec && ac($e)), t3;
+        }
+        function kp() {
+          var t3;
+          return 59 === r2.charCodeAt(zi) ? (t3 = ";", zi++) : (t3 = s, 0 === ec && ac(Ni)), t3;
+        }
+        function Up() {
+          var t3;
+          return "->" === r2.substr(zi, 2) ? (t3 = "->", zi += 2) : (t3 = s, 0 === ec && ac(Oi)), t3;
+        }
+        function Dp() {
+          var t3;
+          return "->>" === r2.substr(zi, 3) ? (t3 = "->>", zi += 3) : (t3 = s, 0 === ec && ac(Ri)), t3;
+        }
+        function Mp() {
+          var t3;
+          return (t3 = (function() {
+            var t4;
+            return "||" === r2.substr(zi, 2) ? (t4 = "||", zi += 2) : (t4 = s, 0 === ec && ac(Dn)), t4;
+          })()) === s && (t3 = (function() {
+            var t4;
+            return "&&" === r2.substr(zi, 2) ? (t4 = "&&", zi += 2) : (t4 = s, 0 === ec && ac(ji)), t4;
+          })()) === s && (t3 = (function() {
+            var t4, e3, n2, o2;
+            return t4 = zi, "xor" === r2.substr(zi, 3).toLowerCase() ? (e3 = r2.substr(zi, 3), zi += 3) : (e3 = s, 0 === ec && ac(xi)), e3 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t4, t4 = e3 = "XOR") : (zi = t4, t4 = s)) : (zi = t4, t4 = s), t4;
+          })()), t3;
+        }
+        function Pp() {
+          var r3, t3;
+          for (r3 = [], (t3 = Bp()) === s && (t3 = Fp()); t3 !== s; ) r3.push(t3), (t3 = Bp()) === s && (t3 = Fp());
+          return r3;
+        }
+        function Gp() {
+          var r3, t3;
+          if (r3 = [], (t3 = Bp()) === s && (t3 = Fp()), t3 !== s) for (; t3 !== s; ) r3.push(t3), (t3 = Bp()) === s && (t3 = Fp());
+          else r3 = s;
+          return r3;
+        }
+        function Fp() {
+          var t3;
+          return (t3 = (function() {
+            var t4, e3, n2, o2, u2, a2;
+            t4 = zi, "/*" === r2.substr(zi, 2) ? (e3 = "/*", zi += 2) : (e3 = s, 0 === ec && ac(ki));
+            if (e3 !== s) {
+              for (n2 = [], o2 = zi, u2 = zi, ec++, "*/" === r2.substr(zi, 2) ? (a2 = "*/", zi += 2) : (a2 = s, 0 === ec && ac(Ui)), ec--, a2 === s ? u2 = void 0 : (zi = u2, u2 = s), u2 !== s && (a2 = Yp()) !== s ? o2 = u2 = [u2, a2] : (zi = o2, o2 = s); o2 !== s; ) n2.push(o2), o2 = zi, u2 = zi, ec++, "*/" === r2.substr(zi, 2) ? (a2 = "*/", zi += 2) : (a2 = s, 0 === ec && ac(Ui)), ec--, a2 === s ? u2 = void 0 : (zi = u2, u2 = s), u2 !== s && (a2 = Yp()) !== s ? o2 = u2 = [u2, a2] : (zi = o2, o2 = s);
+              n2 !== s ? ("*/" === r2.substr(zi, 2) ? (o2 = "*/", zi += 2) : (o2 = s, 0 === ec && ac(Ui)), o2 !== s ? t4 = e3 = [e3, n2, o2] : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            } else zi = t4, t4 = s;
+            return t4;
+          })()) === s && (t3 = (function() {
+            var t4, e3, n2, o2, u2, a2;
+            t4 = zi, "--" === r2.substr(zi, 2) ? (e3 = "--", zi += 2) : (e3 = s, 0 === ec && ac(Di));
+            if (e3 !== s) {
+              for (n2 = [], o2 = zi, u2 = zi, ec++, a2 = $p(), ec--, a2 === s ? u2 = void 0 : (zi = u2, u2 = s), u2 !== s && (a2 = Yp()) !== s ? o2 = u2 = [u2, a2] : (zi = o2, o2 = s); o2 !== s; ) n2.push(o2), o2 = zi, u2 = zi, ec++, a2 = $p(), ec--, a2 === s ? u2 = void 0 : (zi = u2, u2 = s), u2 !== s && (a2 = Yp()) !== s ? o2 = u2 = [u2, a2] : (zi = o2, o2 = s);
+              n2 !== s ? t4 = e3 = [e3, n2] : (zi = t4, t4 = s);
+            } else zi = t4, t4 = s;
+            return t4;
+          })()) === s && (t3 = (function() {
+            var t4, e3, n2, o2, u2, a2;
+            t4 = zi, 35 === r2.charCodeAt(zi) ? (e3 = "#", zi++) : (e3 = s, 0 === ec && ac(Mi));
+            if (e3 !== s) {
+              for (n2 = [], o2 = zi, u2 = zi, ec++, a2 = $p(), ec--, a2 === s ? u2 = void 0 : (zi = u2, u2 = s), u2 !== s && (a2 = Yp()) !== s ? o2 = u2 = [u2, a2] : (zi = o2, o2 = s); o2 !== s; ) n2.push(o2), o2 = zi, u2 = zi, ec++, a2 = $p(), ec--, a2 === s ? u2 = void 0 : (zi = u2, u2 = s), u2 !== s && (a2 = Yp()) !== s ? o2 = u2 = [u2, a2] : (zi = o2, o2 = s);
+              n2 !== s ? t4 = e3 = [e3, n2] : (zi = t4, t4 = s);
+            } else zi = t4, t4 = s;
+            return t4;
+          })()), t3;
+        }
+        function Hp() {
+          var r3, t3, e3, n2, o2, u2, a2;
+          return r3 = zi, (t3 = gp()) !== s && Pp() !== s ? ((e3 = Lp()) === s && (e3 = null), e3 !== s && Pp() !== s && (n2 = Yf()) !== s ? (Zi = r3, u2 = e3, a2 = n2, r3 = t3 = { type: (o2 = t3).toLowerCase(), keyword: o2.toLowerCase(), symbol: u2, value: a2 }) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3;
+        }
+        function Yp() {
+          var t3;
+          return r2.length > zi ? (t3 = r2.charAt(zi), zi++) : (t3 = s, 0 === ec && ac(Pi)), t3;
+        }
+        function Bp() {
+          var t3;
+          return Gi.test(r2.charAt(zi)) ? (t3 = r2.charAt(zi), zi++) : (t3 = s, 0 === ec && ac(Fi)), t3;
+        }
+        function $p() {
+          var t3, e3;
+          if ((t3 = (function() {
+            var t4, e4;
+            t4 = zi, ec++, r2.length > zi ? (e4 = r2.charAt(zi), zi++) : (e4 = s, 0 === ec && ac(Pi));
+            ec--, e4 === s ? t4 = void 0 : (zi = t4, t4 = s);
+            return t4;
+          })()) === s) if (t3 = [], Fs.test(r2.charAt(zi)) ? (e3 = r2.charAt(zi), zi++) : (e3 = s, 0 === ec && ac(Hs)), e3 !== s) for (; e3 !== s; ) t3.push(e3), Fs.test(r2.charAt(zi)) ? (e3 = r2.charAt(zi), zi++) : (e3 = s, 0 === ec && ac(Hs));
+          else t3 = s;
+          return t3;
+        }
+        function Wp() {
+          var t3, e3;
+          return t3 = zi, Zi = zi, Lv = [], void 0 !== s && Pp() !== s ? ((e3 = qp()) === s && (e3 = (function() {
+            var t4, e4;
+            t4 = zi, (function() {
+              var t5;
+              return "return" === r2.substr(zi, 6).toLowerCase() ? (t5 = r2.substr(zi, 6), zi += 6) : (t5 = s, 0 === ec && ac(li)), t5;
+            })() !== s && Pp() !== s && (e4 = (function() {
+              var t5;
+              (t5 = zc()) === s && (t5 = (function() {
+                var r3, t6, e5, n2, o2;
+                r3 = zi, (t6 = rv()) !== s && Pp() !== s && (e5 = hl()) !== s && Pp() !== s && (n2 = rv()) !== s && Pp() !== s && (o2 = ml()) !== s ? (Zi = r3, r3 = t6 = { type: "join", ltable: t6, rtable: n2, op: e5, on: o2 }) : (zi = r3, r3 = s);
+                return r3;
+              })()) === s && (t5 = Vp()) === s && (t5 = (function() {
+                var t6, e5;
+                t6 = zi, (function() {
+                  var t7;
+                  return 91 === r2.charCodeAt(zi) ? (t7 = "[", zi++) : (t7 = s, 0 === ec && ac(Ii)), t7;
+                })() !== s && Pp() !== s && (e5 = Jp()) !== s && Pp() !== s && (function() {
+                  var t7;
+                  return 93 === r2.charCodeAt(zi) ? (t7 = "]", zi++) : (t7 = s, 0 === ec && ac(Si)), t7;
+                })() !== s ? (Zi = t6, t6 = { type: "array", value: e5 }) : (zi = t6, t6 = s);
+                return t6;
+              })());
+              return t5;
+            })()) !== s ? (Zi = t4, t4 = { type: "return", expr: e4 }) : (zi = t4, t4 = s);
+            return t4;
+          })()), e3 !== s ? (Zi = t3, t3 = { stmt: e3, vars: Lv }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function qp() {
+          var r3, t3, e3, n2;
+          return r3 = zi, (t3 = rv()) === s && (t3 = tv()), t3 !== s && Pp() !== s ? ((e3 = wp()) === s && (e3 = Lp()), e3 !== s && Pp() !== s && (n2 = Yl()) !== s ? (Zi = r3, r3 = t3 = Hi(t3, e3, n2)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3;
+        }
+        function Vp() {
+          var r3, t3, e3, n2, o2, u2, a2, i2;
+          if (r3 = zi, (t3 = Xp()) !== s) {
+            for (e3 = [], n2 = zi, (o2 = Pp()) !== s && (u2 = Jl()) !== s && (a2 = Pp()) !== s && (i2 = Xp()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Pp()) !== s && (u2 = Jl()) !== s && (a2 = Pp()) !== s && (i2 = Xp()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s);
+            e3 !== s ? (Zi = r3, r3 = t3 = En(t3, e3)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          return r3;
+        }
+        function Xp() {
+          var r3, t3, e3, n2, o2, u2, a2, i2;
+          if (r3 = zi, (t3 = Kp()) !== s) {
+            for (e3 = [], n2 = zi, (o2 = Pp()) !== s && (u2 = tf()) !== s && (a2 = Pp()) !== s && (i2 = Kp()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Pp()) !== s && (u2 = tf()) !== s && (a2 = Pp()) !== s && (i2 = Kp()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s);
+            e3 !== s ? (Zi = r3, r3 = t3 = En(t3, e3)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          return r3;
+        }
+        function Kp() {
+          var r3, t3, e3;
+          return (r3 = zp()) === s && (r3 = Ff()) === s && (r3 = rv()) === s && (r3 = of()) === s && (r3 = Zp()) === s && (r3 = Af()) === s && (r3 = zi, jp() !== s && Pp() !== s && (t3 = Vp()) !== s && Pp() !== s && xp() !== s ? (Zi = r3, (e3 = t3).parentheses = true, r3 = e3) : (zi = r3, r3 = s)), r3;
+        }
+        function Qp() {
+          var r3, t3, e3, n2, o2, u2, a2;
+          return r3 = zi, (t3 = uf()) === s && (t3 = df()), t3 !== s ? (e3 = zi, (n2 = Pp()) !== s && (o2 = Np()) !== s && (u2 = Pp()) !== s ? ((a2 = uf()) === s && (a2 = df()), a2 !== s ? e3 = n2 = [n2, o2, u2, a2] : (zi = e3, e3 = s)) : (zi = e3, e3 = s), e3 === s && (e3 = null), e3 !== s ? (Zi = r3, r3 = t3 = (function(r4, t4) {
+            const e4 = { name: [r4] };
+            return null !== t4 && (e4.schema = r4, e4.name = [t4[3]]), e4;
+          })(t3, e3)) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3;
+        }
+        function zp() {
+          var r3, t3, e3;
+          return r3 = zi, (t3 = Qp()) !== s && Pp() !== s && jp() !== s && Pp() !== s ? ((e3 = Jp()) === s && (e3 = null), e3 !== s && Pp() !== s && xp() !== s ? (Zi = r3, r3 = t3 = { type: "function", name: t3, args: { type: "expr_list", value: e3 }, ...cv() }) : (zi = r3, r3 = s)) : (zi = r3, r3 = s), r3;
+        }
+        function Zp() {
+          var r3, t3;
+          return r3 = zi, (t3 = Qp()) !== s && (Zi = r3, t3 = { type: "function", name: t3, args: null, ...cv() }), r3 = t3;
+        }
+        function Jp() {
+          var r3, t3, e3, n2, o2, u2, a2, i2;
+          if (r3 = zi, (t3 = Kp()) !== s) {
+            for (e3 = [], n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = Kp()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s); n2 !== s; ) e3.push(n2), n2 = zi, (o2 = Pp()) !== s && (u2 = Op()) !== s && (a2 = Pp()) !== s && (i2 = Kp()) !== s ? n2 = o2 = [o2, u2, a2, i2] : (zi = n2, n2 = s);
+            e3 !== s ? (Zi = r3, r3 = t3 = sr(t3, e3)) : (zi = r3, r3 = s);
+          } else zi = r3, r3 = s;
+          return r3;
+        }
+        function rv() {
+          var r3, t3, e3, n2, o2;
+          return r3 = zi, (t3 = yp()) !== s && (e3 = tv()) !== s ? (Zi = r3, n2 = t3, o2 = e3, r3 = t3 = { type: "var", ...o2, prefix: n2 }) : (zi = r3, r3 = s), r3;
+        }
+        function tv() {
+          var t3, e3, n2, o2, u2;
+          return t3 = zi, (e3 = hf()) !== s && (n2 = (function() {
+            var t4, e4, n3, o3, u3;
+            t4 = zi, e4 = [], n3 = zi, 46 === r2.charCodeAt(zi) ? (o3 = ".", zi++) : (o3 = s, 0 === ec && ac(Ys));
+            o3 !== s && (u3 = hf()) !== s ? n3 = o3 = [o3, u3] : (zi = n3, n3 = s);
+            for (; n3 !== s; ) e4.push(n3), n3 = zi, 46 === r2.charCodeAt(zi) ? (o3 = ".", zi++) : (o3 = s, 0 === ec && ac(Ys)), o3 !== s && (u3 = hf()) !== s ? n3 = o3 = [o3, u3] : (zi = n3, n3 = s);
+            e4 !== s && (Zi = t4, e4 = (function(r3) {
+              const t5 = [];
+              for (let e5 = 0; e5 < r3.length; e5++) t5.push(r3[e5][1]);
+              return t5;
+            })(e4));
+            return t4 = e4;
+          })()) !== s ? (Zi = t3, o2 = e3, u2 = n2, Lv.push(o2), t3 = e3 = { type: "var", name: o2, members: u2, prefix: null }) : (zi = t3, t3 = s), t3 === s && (t3 = zi, (e3 = qf()) !== s && (Zi = t3, e3 = { type: "var", name: e3.value, members: [], quoted: null, prefix: null }), t3 = e3), t3;
+        }
+        function ev() {
+          var t3;
+          return (t3 = ov()) === s && (t3 = (function() {
+            var t4, e3, n2, o2, u2, a2, i2, c2, l2, f2, b2, p2;
+            t4 = zi, (e3 = Xb()) === s && (e3 = Kb()) === s && (e3 = Qb()) === s && (e3 = zb()) === s && (e3 = Zb()) === s && (e3 = Jb()) === s && (e3 = rp()) === s && (e3 = tp()) === s && (e3 = ep()) === s && (e3 = np()) === s && (e3 = Vb());
+            if (e3 !== s) if ((n2 = Pp()) !== s) if ((o2 = jp()) !== s) if ((u2 = Pp()) !== s) {
+              if (a2 = [], We.test(r2.charAt(zi)) ? (i2 = r2.charAt(zi), zi++) : (i2 = s, 0 === ec && ac(qe)), i2 !== s) for (; i2 !== s; ) a2.push(i2), We.test(r2.charAt(zi)) ? (i2 = r2.charAt(zi), zi++) : (i2 = s, 0 === ec && ac(qe));
+              else a2 = s;
+              if (a2 !== s) if ((i2 = Pp()) !== s) {
+                if (c2 = zi, (l2 = Op()) !== s) if ((f2 = Pp()) !== s) {
+                  if (b2 = [], We.test(r2.charAt(zi)) ? (p2 = r2.charAt(zi), zi++) : (p2 = s, 0 === ec && ac(qe)), p2 !== s) for (; p2 !== s; ) b2.push(p2), We.test(r2.charAt(zi)) ? (p2 = r2.charAt(zi), zi++) : (p2 = s, 0 === ec && ac(qe));
+                  else b2 = s;
+                  b2 !== s ? c2 = l2 = [l2, f2, b2] : (zi = c2, c2 = s);
+                } else zi = c2, c2 = s;
+                else zi = c2, c2 = s;
+                c2 === s && (c2 = null), c2 !== s && (l2 = Pp()) !== s && (f2 = xp()) !== s && (b2 = Pp()) !== s ? ((p2 = sv()) === s && (p2 = null), p2 !== s ? (Zi = t4, v2 = c2, d2 = p2, e3 = { dataType: e3, length: parseInt(a2.join(""), 10), scale: v2 && parseInt(v2[2].join(""), 10), parentheses: true, suffix: d2 }, t4 = e3) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+              } else zi = t4, t4 = s;
+              else zi = t4, t4 = s;
+            } else zi = t4, t4 = s;
+            else zi = t4, t4 = s;
+            else zi = t4, t4 = s;
+            else zi = t4, t4 = s;
+            var v2, d2;
+            if (t4 === s) {
+              if (t4 = zi, (e3 = Xb()) === s && (e3 = Kb()) === s && (e3 = Qb()) === s && (e3 = zb()) === s && (e3 = Zb()) === s && (e3 = Jb()) === s && (e3 = rp()) === s && (e3 = tp()) === s && (e3 = ep()) === s && (e3 = np()) === s && (e3 = Vb()), e3 !== s) {
+                if (n2 = [], We.test(r2.charAt(zi)) ? (o2 = r2.charAt(zi), zi++) : (o2 = s, 0 === ec && ac(qe)), o2 !== s) for (; o2 !== s; ) n2.push(o2), We.test(r2.charAt(zi)) ? (o2 = r2.charAt(zi), zi++) : (o2 = s, 0 === ec && ac(qe));
+                else n2 = s;
+                n2 !== s && (o2 = Pp()) !== s ? ((u2 = sv()) === s && (u2 = null), u2 !== s ? (Zi = t4, e3 = (function(r3, t5, e4) {
+                  return { dataType: r3, length: parseInt(t5.join(""), 10), suffix: e4 };
+                })(e3, n2, u2), t4 = e3) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+              } else zi = t4, t4 = s;
+              t4 === s && (t4 = zi, (e3 = Xb()) === s && (e3 = Kb()) === s && (e3 = Qb()) === s && (e3 = zb()) === s && (e3 = Zb()) === s && (e3 = Jb()) === s && (e3 = rp()) === s && (e3 = tp()) === s && (e3 = ep()) === s && (e3 = np()) === s && (e3 = Vb()), e3 !== s && (n2 = Pp()) !== s ? ((o2 = sv()) === s && (o2 = null), o2 !== s && (u2 = Pp()) !== s ? (Zi = t4, e3 = /* @__PURE__ */ (function(r3, t5) {
+                return { dataType: r3, suffix: t5 };
+              })(e3, o2), t4 = e3) : (zi = t4, t4 = s)) : (zi = t4, t4 = s));
+            }
+            return t4;
+          })()) === s && (t3 = uv()) === s && (t3 = (function() {
+            var t4, e3;
+            t4 = zi, (e3 = (function() {
+              var t5, e4, n2, o2;
+              return t5 = zi, "json" === r2.substr(zi, 4).toLowerCase() ? (e4 = r2.substr(zi, 4), zi += 4) : (e4 = s, 0 === ec && ac(ga)), e4 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t5, t5 = e4 = "JSON") : (zi = t5, t5 = s)) : (zi = t5, t5 = s), t5;
+            })()) !== s && (Zi = t4, e3 = { dataType: e3 });
+            return t4 = e3;
+          })()) === s && (t3 = (function() {
+            var t4, e3, n2;
+            t4 = zi, (e3 = (function() {
+              var t5, e4, n3, o2;
+              return t5 = zi, "tinytext" === r2.substr(zi, 8).toLowerCase() ? (e4 = r2.substr(zi, 8), zi += 8) : (e4 = s, 0 === ec && ac(Oa)), e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "TINYTEXT") : (zi = t5, t5 = s)) : (zi = t5, t5 = s), t5;
+            })()) === s && (e3 = (function() {
+              var t5, e4, n3, o2;
+              return t5 = zi, "text" === r2.substr(zi, 4).toLowerCase() ? (e4 = r2.substr(zi, 4), zi += 4) : (e4 = s, 0 === ec && ac(Ra)), e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "TEXT") : (zi = t5, t5 = s)) : (zi = t5, t5 = s), t5;
+            })()) === s && (e3 = (function() {
+              var t5, e4, n3, o2;
+              return t5 = zi, "mediumtext" === r2.substr(zi, 10).toLowerCase() ? (e4 = r2.substr(zi, 10), zi += 10) : (e4 = s, 0 === ec && ac(ja)), e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "MEDIUMTEXT") : (zi = t5, t5 = s)) : (zi = t5, t5 = s), t5;
+            })()) === s && (e3 = (function() {
+              var t5, e4, n3, o2;
+              return t5 = zi, "longtext" === r2.substr(zi, 8).toLowerCase() ? (e4 = r2.substr(zi, 8), zi += 8) : (e4 = s, 0 === ec && ac(xa)), e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "LONGTEXT") : (zi = t5, t5 = s)) : (zi = t5, t5 = s), t5;
+            })());
+            e3 !== s ? ((n2 = nv()) === s && (n2 = null), n2 !== s ? (Zi = t4, e3 = Vi(e3, n2), t4 = e3) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()) === s && (t3 = (function() {
+            var t4, e3, n2;
+            t4 = zi, (e3 = (function() {
+              var t5, e4, n3, o3;
+              return t5 = zi, "enum" === r2.substr(zi, 4).toLowerCase() ? (e4 = r2.substr(zi, 4), zi += 4) : (e4 = s, 0 === ec && ac(Ua)), e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "ENUM") : (zi = t5, t5 = s)) : (zi = t5, t5 = s), t5;
+            })()) === s && (e3 = yb());
+            e3 !== s && Pp() !== s && (n2 = Dl()) !== s ? (Zi = t4, o2 = e3, (u2 = n2).parentheses = true, t4 = e3 = { dataType: o2, expr: u2 }) : (zi = t4, t4 = s);
+            var o2, u2;
+            return t4;
+          })()) === s && (t3 = (function() {
+            var t4, e3;
+            t4 = zi, "boolean" === r2.substr(zi, 7).toLowerCase() ? (e3 = r2.substr(zi, 7), zi += 7) : (e3 = s, 0 === ec && ac(Yi));
+            e3 !== s && (Zi = t4, e3 = { dataType: "BOOLEAN" });
+            return t4 = e3;
+          })()) === s && (t3 = (function() {
+            var t4, e3, n2;
+            t4 = zi, (e3 = (function() {
+              var t5, e4, n3, o2;
+              return t5 = zi, "binary" === r2.substr(zi, 6).toLowerCase() ? (e4 = r2.substr(zi, 6), zi += 6) : (e4 = s, 0 === ec && ac(Bt)), e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "BINARY") : (zi = t5, t5 = s)) : (zi = t5, t5 = s), t5;
+            })()) === s && (e3 = (function() {
+              var t5, e4, n3, o2;
+              return t5 = zi, "varbinary" === r2.substr(zi, 9).toLowerCase() ? (e4 = r2.substr(zi, 9), zi += 9) : (e4 = s, 0 === ec && ac(da)), e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t5, t5 = e4 = "VARBINARY") : (zi = t5, t5 = s)) : (zi = t5, t5 = s), t5;
+            })());
+            e3 !== s && Pp() !== s ? ((n2 = nv()) === s && (n2 = null), n2 !== s ? (Zi = t4, e3 = Vi(e3, n2), t4 = e3) : (zi = t4, t4 = s)) : (zi = t4, t4 = s);
+            return t4;
+          })()) === s && (t3 = (function() {
+            var t4, e3;
+            t4 = zi, "blob" === r2.substr(zi, 4).toLowerCase() ? (e3 = r2.substr(zi, 4), zi += 4) : (e3 = s, 0 === ec && ac(Bi));
+            e3 === s && ("tinyblob" === r2.substr(zi, 8).toLowerCase() ? (e3 = r2.substr(zi, 8), zi += 8) : (e3 = s, 0 === ec && ac($i)), e3 === s && ("mediumblob" === r2.substr(zi, 10).toLowerCase() ? (e3 = r2.substr(zi, 10), zi += 10) : (e3 = s, 0 === ec && ac(Wi)), e3 === s && ("longblob" === r2.substr(zi, 8).toLowerCase() ? (e3 = r2.substr(zi, 8), zi += 8) : (e3 = s, 0 === ec && ac(qi)))));
+            e3 !== s && (Zi = t4, e3 = { dataType: e3.toUpperCase() });
+            return t4 = e3;
+          })()) === s && (t3 = (function() {
+            var t4, e3;
+            t4 = zi, (e3 = (function() {
+              var t5, e4, n2, o2;
+              return t5 = zi, "geometry" === r2.substr(zi, 8).toLowerCase() ? (e4 = r2.substr(zi, 8), zi += 8) : (e4 = s, 0 === ec && ac(ri)), e4 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t5, t5 = e4 = "GEOMETRY") : (zi = t5, t5 = s)) : (zi = t5, t5 = s), t5;
+            })()) === s && (e3 = (function() {
+              var t5, e4, n2, o2;
+              return t5 = zi, "point" === r2.substr(zi, 5).toLowerCase() ? (e4 = r2.substr(zi, 5), zi += 5) : (e4 = s, 0 === ec && ac(ti)), e4 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t5, t5 = e4 = "POINT") : (zi = t5, t5 = s)) : (zi = t5, t5 = s), t5;
+            })()) === s && (e3 = (function() {
+              var t5, e4, n2, o2;
+              return t5 = zi, "linestring" === r2.substr(zi, 10).toLowerCase() ? (e4 = r2.substr(zi, 10), zi += 10) : (e4 = s, 0 === ec && ac(ei)), e4 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t5, t5 = e4 = "LINESTRING") : (zi = t5, t5 = s)) : (zi = t5, t5 = s), t5;
+            })()) === s && (e3 = (function() {
+              var t5, e4, n2, o2;
+              return t5 = zi, "polygon" === r2.substr(zi, 7).toLowerCase() ? (e4 = r2.substr(zi, 7), zi += 7) : (e4 = s, 0 === ec && ac(ni)), e4 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t5, t5 = e4 = "POLYGON") : (zi = t5, t5 = s)) : (zi = t5, t5 = s), t5;
+            })()) === s && (e3 = (function() {
+              var t5, e4, n2, o2;
+              return t5 = zi, "multipoint" === r2.substr(zi, 10).toLowerCase() ? (e4 = r2.substr(zi, 10), zi += 10) : (e4 = s, 0 === ec && ac(oi)), e4 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t5, t5 = e4 = "MULTIPOINT") : (zi = t5, t5 = s)) : (zi = t5, t5 = s), t5;
+            })()) === s && (e3 = (function() {
+              var t5, e4, n2, o2;
+              return t5 = zi, "multilinestring" === r2.substr(zi, 15).toLowerCase() ? (e4 = r2.substr(zi, 15), zi += 15) : (e4 = s, 0 === ec && ac(si)), e4 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t5, t5 = e4 = "MULTILINESTRING") : (zi = t5, t5 = s)) : (zi = t5, t5 = s), t5;
+            })()) === s && (e3 = (function() {
+              var t5, e4, n2, o2;
+              return t5 = zi, "multipolygon" === r2.substr(zi, 12).toLowerCase() ? (e4 = r2.substr(zi, 12), zi += 12) : (e4 = s, 0 === ec && ac(ui)), e4 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t5, t5 = e4 = "MULTIPOLYGON") : (zi = t5, t5 = s)) : (zi = t5, t5 = s), t5;
+            })()) === s && (e3 = (function() {
+              var t5, e4, n2, o2;
+              return t5 = zi, "geometrycollection" === r2.substr(zi, 18).toLowerCase() ? (e4 = r2.substr(zi, 18), zi += 18) : (e4 = s, 0 === ec && ac(ai)), e4 !== s ? (n2 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n2 = void 0 : (zi = n2, n2 = s), n2 !== s ? (Zi = t5, t5 = e4 = "GEOMETRYCOLLECTION") : (zi = t5, t5 = s)) : (zi = t5, t5 = s), t5;
+            })());
+            e3 !== s && (Zi = t4, e3 = { dataType: e3 });
+            return t4 = e3;
+          })()) === s && (t3 = (function() {
+            var t4, e3, n2, o2;
+            if (t4 = zi, (e3 = lp()) !== s) if (Pp() !== s) if (jp() !== s) if (Pp() !== s) {
+              if (n2 = [], We.test(r2.charAt(zi)) ? (o2 = r2.charAt(zi), zi++) : (o2 = s, 0 === ec && ac(qe)), o2 !== s) for (; o2 !== s; ) n2.push(o2), We.test(r2.charAt(zi)) ? (o2 = r2.charAt(zi), zi++) : (o2 = s, 0 === ec && ac(qe));
+              else n2 = s;
+              n2 !== s && (o2 = Pp()) !== s && xp() !== s ? (Zi = t4, e3 = { dataType: e3, length: parseInt(n2.join(""), 10), parentheses: true }, t4 = e3) : (zi = t4, t4 = s);
+            } else zi = t4, t4 = s;
+            else zi = t4, t4 = s;
+            else zi = t4, t4 = s;
+            else zi = t4, t4 = s;
+            t4 === s && (t4 = zi, (e3 = lp()) !== s && (Zi = t4, e3 = /* @__PURE__ */ (function(r3) {
+              return { dataType: r3 };
+            })(e3)), t4 = e3);
+            return t4;
+          })()), t3;
+        }
+        function nv() {
+          var t3, e3, n2, o2, u2;
+          if (t3 = zi, jp() !== s) if (Pp() !== s) {
+            if (e3 = [], We.test(r2.charAt(zi)) ? (n2 = r2.charAt(zi), zi++) : (n2 = s, 0 === ec && ac(qe)), n2 !== s) for (; n2 !== s; ) e3.push(n2), We.test(r2.charAt(zi)) ? (n2 = r2.charAt(zi), zi++) : (n2 = s, 0 === ec && ac(qe));
+            else e3 = s;
+            e3 !== s && (n2 = Pp()) !== s && xp() !== s && Pp() !== s ? ((o2 = sv()) === s && (o2 = null), o2 !== s ? (Zi = t3, u2 = o2, t3 = { length: parseInt(e3.join(""), 10), parentheses: true, suffix: u2 }) : (zi = t3, t3 = s)) : (zi = t3, t3 = s);
+          } else zi = t3, t3 = s;
+          else zi = t3, t3 = s;
+          return t3;
+        }
+        function ov() {
+          var t3, e3, n2, o2, u2, a2, i2, c2, l2, f2, b2;
+          if (t3 = zi, (e3 = (function() {
+            var t4, e4, n3, o3;
+            return t4 = zi, "char" === r2.substr(zi, 4).toLowerCase() ? (e4 = r2.substr(zi, 4), zi += 4) : (e4 = s, 0 === ec && ac(wa)), e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t4, t4 = e4 = "CHAR") : (zi = t4, t4 = s)) : (zi = t4, t4 = s), t4;
+          })()) === s && (e3 = (function() {
+            var t4, e4, n3, o3;
+            return t4 = zi, "varchar" === r2.substr(zi, 7).toLowerCase() ? (e4 = r2.substr(zi, 7), zi += 7) : (e4 = s, 0 === ec && ac(La)), e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t4, t4 = e4 = "VARCHAR") : (zi = t4, t4 = s)) : (zi = t4, t4 = s), t4;
+          })()), e3 !== s) {
+            if (n2 = zi, (o2 = Pp()) !== s) if ((u2 = jp()) !== s) if ((a2 = Pp()) !== s) {
+              if (i2 = [], We.test(r2.charAt(zi)) ? (c2 = r2.charAt(zi), zi++) : (c2 = s, 0 === ec && ac(qe)), c2 !== s) for (; c2 !== s; ) i2.push(c2), We.test(r2.charAt(zi)) ? (c2 = r2.charAt(zi), zi++) : (c2 = s, 0 === ec && ac(qe));
+              else i2 = s;
+              i2 !== s && (c2 = Pp()) !== s && (l2 = xp()) !== s && (f2 = Pp()) !== s ? ("array" === r2.substr(zi, 5).toLowerCase() ? (b2 = r2.substr(zi, 5), zi += 5) : (b2 = s, 0 === ec && ac(Xi)), b2 === s && (b2 = null), b2 !== s ? n2 = o2 = [o2, u2, a2, i2, c2, l2, f2, b2] : (zi = n2, n2 = s)) : (zi = n2, n2 = s);
+            } else zi = n2, n2 = s;
+            else zi = n2, n2 = s;
+            else zi = n2, n2 = s;
+            n2 === s && (n2 = null), n2 !== s ? (Zi = t3, t3 = e3 = (function(r3, t4) {
+              const e4 = { dataType: r3 };
+              return t4 && (e4.length = parseInt(t4[3].join(""), 10), e4.parentheses = true, e4.suffix = t4[7] && ["ARRAY"]), e4;
+            })(e3, n2)) : (zi = t3, t3 = s);
+          } else zi = t3, t3 = s;
+          return t3;
+        }
+        function sv() {
+          var t3, e3, n2;
+          return t3 = zi, (e3 = Pf()) === s && (e3 = null), e3 !== s && Pp() !== s ? ((n2 = (function() {
+            var t4, e4, n3, o2;
+            return t4 = zi, "zerofill" === r2.substr(zi, 8).toLowerCase() ? (e4 = r2.substr(zi, 8), zi += 8) : (e4 = s, 0 === ec && ac(Ta)), e4 !== s ? (n3 = zi, ec++, o2 = Cf(), ec--, o2 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t4, t4 = e4 = "ZEROFILL") : (zi = t4, t4 = s)) : (zi = t4, t4 = s), t4;
+          })()) === s && (n2 = null), n2 !== s ? (Zi = t3, t3 = e3 = (function(r3, t4) {
+            const e4 = [];
+            return r3 && e4.push(r3), t4 && e4.push(t4), e4;
+          })(e3, n2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        function uv() {
+          var t3, e3, n2, o2, u2, a2, i2, c2, l2, f2, b2;
+          return t3 = zi, (e3 = op()) === s && (e3 = sp()) === s && (e3 = ap()) === s && (e3 = ip()) === s && (e3 = (function() {
+            var t4, e4, n3, o3;
+            return t4 = zi, "year" === r2.substr(zi, 4).toLowerCase() ? (e4 = r2.substr(zi, 4), zi += 4) : (e4 = s, 0 === ec && ac(ns)), e4 !== s ? (n3 = zi, ec++, o3 = Cf(), ec--, o3 === s ? n3 = void 0 : (zi = n3, n3 = s), n3 !== s ? (Zi = t4, t4 = e4 = "YEAR") : (zi = t4, t4 = s)) : (zi = t4, t4 = s), t4;
+          })()), e3 !== s ? (n2 = zi, (o2 = Pp()) !== s && (u2 = jp()) !== s && (a2 = Pp()) !== s ? (Ki.test(r2.charAt(zi)) ? (i2 = r2.charAt(zi), zi++) : (i2 = s, 0 === ec && ac(Qi)), i2 !== s && (c2 = Pp()) !== s && (l2 = xp()) !== s && (f2 = Pp()) !== s ? ((b2 = sv()) === s && (b2 = null), b2 !== s ? n2 = o2 = [o2, u2, a2, i2, c2, l2, f2, b2] : (zi = n2, n2 = s)) : (zi = n2, n2 = s)) : (zi = n2, n2 = s), n2 === s && (n2 = null), n2 !== s ? (Zi = t3, t3 = e3 = (function(r3, t4) {
+            const e4 = { dataType: r3 };
+            return t4 && (e4.length = parseInt(t4[3], 10), e4.parentheses = true, e4.suffix = t4[7]), e4;
+          })(e3, n2)) : (zi = t3, t3 = s)) : (zi = t3, t3 = s), t3;
+        }
+        const av = { ALTER: true, ALL: true, ADD: true, AND: true, AS: true, ASC: true, ANALYZE: true, ACCESSIBLE: true, BEFORE: true, BETWEEN: true, BIGINT: true, BLOB: true, BOTH: true, BY: true, BOOLEAN: true, CALL: true, CASCADE: true, CASE: true, CHAR: true, CHECK: true, COLLATE: true, CONDITION: true, CONSTRAINT: true, CONTINUE: true, CONVERT: true, CREATE: true, CROSS: true, CURRENT_DATE: true, CURRENT_TIME: true, CURRENT_TIMESTAMP: true, CURRENT_USER: true, CURSOR: true, DATABASE: true, DATABASES: true, DAY_HOUR: true, DAY_MICROSECOND: true, DAY_MINUTE: true, DAY_SECOND: true, DEC: true, DECIMAL: true, DECLARE: true, DEFAULT: true, DELAYED: true, DELETE: true, DESC: true, DESCRIBE: true, DETERMINISTIC: true, DISTINCT: true, DISTINCTROW: true, DIV: true, DROP: true, DOUBLE: true, DUAL: true, ELSE: true, EACH: true, ELSEIF: true, ENCLOSED: true, ESCAPED: true, EXCEPT: true, EXISTS: true, EXIT: true, EXPLAIN: true, FALSE: true, FULL: true, FROM: true, FETCH: true, FLOAT: true, FLOAT4: true, FLOAT8: true, FOR: true, FORCE: true, FOREIGN: true, FULLTEXT: true, FUNCTION: true, GENERATED: true, GET: true, GO: true, GRANT: true, GROUP: true, GROUPING: true, GROUPS: true, HAVING: true, HIGH_PRIORITY: true, HOUR_MICROSECOND: true, HOUR_MINUTE: true, HOUR_SECOND: true, IGNORE: true, IN: true, INNER: true, INFILE: true, INOUT: true, INSENSITIVE: true, INSERT: true, INTERSECT: true, INT: true, INT1: true, INT2: true, INT3: true, INT4: true, INT8: true, INTEGER: true, INTERVAL: true, INTO: true, IO_AFTER_GTIDS: true, IO_BEFORE_GTIDS: true, IS: true, ITERATE: true, JOIN: true, JSON_TABLE: true, KEY: true, KEYS: true, KILL: true, LAG: true, LAST_VALUE: true, LATERAL: true, LEAD: true, LEADING: true, LEAVE: true, LEFT: true, LIKE: true, LIMIT: true, LINEAR: true, LINES: true, LOAD: true, LOCALTIME: true, LOCALTIMESTAMP: true, LOCK: true, LONG: true, LONGBLOB: true, LONGTEXT: true, LOOP: true, LOW_PRIORITY: true, MASTER_BIND: true, MATCH: true, MAXVALUE: true, MEDIUMBLOB: true, MEDIUMINT: true, MEDIUMTEXT: true, MIDDLEINT: true, MINUTE_MICROSECOND: true, MINUTE_SECOND: true, MINUS: true, MOD: true, MODIFIES: true, NATURAL: true, NOT: true, NO_WRITE_TO_BINLOG: true, NTH_VALUE: true, NTILE: true, NULL: true, NUMERIC: true, OF: true, ON: true, OPTIMIZE: true, OPTIMIZER_COSTS: true, OPTION: true, OPTIONALLY: true, OR: true, ORDER: true, OUT: true, OUTER: true, OUTFILE: true, OVER: true, PARTITION: true, PERCENT_RANK: true, PRECISION: true, PRIMARY: true, PROCEDURE: true, PURGE: true, RANGE: true, RANK: true, READ: true, READS: true, READ_WRITE: true, REAL: true, RECURSIVE: true, REFERENCES: true, REGEXP: true, RELEASE: true, RENAME: true, REPEAT: true, REPLACE: true, REQUIRE: true, RESIGNAL: true, RESTRICT: true, RETURN: true, REVOKE: true, RIGHT: true, RLIKE: true, ROW: true, ROWS: true, ROW_NUMBER: true, SCHEMA: true, SCHEMAS: true, SELECT: true, SENSITIVE: true, SEPARATOR: true, SET: true, SHOW: true, SIGNAL: true, SMALLINT: true, SPATIAL: true, SPECIFIC: true, SQL: true, SQLEXCEPTION: true, SQLSTATE: true, SQLWARNING: true, SQL_BIG_RESULT: true, SSL: true, STARTING: true, STORED: true, STRAIGHT_JOIN: true, TABLE: true, TERMINATED: true, THEN: true, TINYBLOB: true, TINYINT: true, TINYTEXT: true, TO: true, TRAILING: true, TRIGGER: true, TRUE: true, UNION: true, UNIQUE: true, UNLOCK: true, UNSIGNED: true, UPDATE: true, USAGE: true, USE: true, USING: true, UTC_DATE: true, UTC_TIME: true, UTC_TIMESTAMP: true, VALUES: true, VARBINARY: true, VARCHAR: true, VARCHARACTER: true, VARYING: true, VIRTUAL: true, VECTOR: true, WHEN: true, WHERE: true, WHILE: true, WINDOW: true, WITH: true, WRITE: true, XOR: true, YEAR_MONTH: true, ZEROFILL: true }, iv = { avg: true, sum: true, count: true, convert: true, max: true, min: true, group_concat: true, std: true, variance: true, current_date: true, current_time: true, current_timestamp: true, current_user: true, user: true, session_user: true, system_user: true };
+        function cv() {
+          return t2.includeLocations ? { loc: uc(Zi, zi) } : {};
+        }
+        function lv(r3, t3) {
+          return { type: "unary_expr", operator: r3, expr: t3 };
+        }
+        function fv(r3, t3, e3) {
+          return { type: "binary_expr", operator: r3, left: t3, right: e3, ...cv() };
+        }
+        function bv(r3) {
+          const t3 = n(Number.MAX_SAFE_INTEGER);
+          return !(n(r3) < t3);
+        }
+        function pv(r3, t3, e3 = 3) {
+          const n2 = [r3];
+          for (let r4 = 0; r4 < t3.length; r4++) delete t3[r4][e3].tableList, delete t3[r4][e3].columnList, n2.push(t3[r4][e3]);
+          return n2;
+        }
+        function vv(r3, t3) {
+          let e3 = r3;
+          for (let r4 = 0; r4 < t3.length; r4++) e3 = fv(t3[r4][1], e3, t3[r4][3]);
+          return e3;
+        }
+        function dv(r3) {
+          const t3 = mv[r3];
+          return t3 || (r3 || null);
+        }
+        function yv(r3) {
+          const t3 = /* @__PURE__ */ new Set();
+          for (let e3 of r3.keys()) {
+            const r4 = e3.split("::");
+            if (!r4) {
+              t3.add(e3);
+              break;
+            }
+            r4 && r4[1] && (r4[1] = dv(r4[1])), t3.add(r4.join("::"));
+          }
+          return Array.from(t3);
+        }
+        function wv(r3) {
+          const t3 = yv(r3);
+          r3.clear(), t3.forEach((t4) => r3.add(t4));
+        }
+        let Lv = [];
+        const hv = /* @__PURE__ */ new Set(), Cv = /* @__PURE__ */ new Set(), mv = {};
+        if ((e2 = a()) !== s && zi === r2.length) return e2;
+        throw e2 !== s && zi < r2.length && ac({ type: "end" }), ic(tc, rc < r2.length ? r2.charAt(rc) : null, rc < r2.length ? uc(rc, rc + 1) : uc(rc, rc));
+      } };
+    }, function(r, t, e) {
+      r.exports = e(3);
+    }, function(r, t) {
+      r.exports = requireBigInteger();
+    }, function(r, t, e) {
+      e.r(t), e.d(t, "Parser", (function() {
+        return $t;
+      })), e.d(t, "util", (function() {
+        return n;
+      }));
+      var n = {};
+      function o(r2) {
+        return (o = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(r3) {
+          return typeof r3;
+        } : function(r3) {
+          return r3 && "function" == typeof Symbol && r3.constructor === Symbol && r3 !== Symbol.prototype ? "symbol" : typeof r3;
+        })(r2);
+      }
+      e.r(n), e.d(n, "arrayStructTypeToSQL", (function() {
+        return T;
+      })), e.d(n, "autoIncrementToSQL", (function() {
+        return N;
+      })), e.d(n, "columnOrderListToSQL", (function() {
+        return O;
+      })), e.d(n, "commonKeywordArgsToSQL", (function() {
+        return S;
+      })), e.d(n, "commonOptionConnector", (function() {
+        return a;
+      })), e.d(n, "connector", (function() {
+        return i;
+      })), e.d(n, "commonTypeValue", (function() {
+        return C;
+      })), e.d(n, "commentToSQL", (function() {
+        return _2;
+      })), e.d(n, "createBinaryExpr", (function() {
+        return l;
+      })), e.d(n, "createValueExpr", (function() {
+        return c;
+      })), e.d(n, "dataTypeToSQL", (function() {
+        return A;
+      })), e.d(n, "DEFAULT_OPT", (function() {
+        return s;
+      })), e.d(n, "escape", (function() {
+        return f;
+      })), e.d(n, "literalToSQL", (function() {
+        return h;
+      })), e.d(n, "columnIdentifierToSql", (function() {
+        return d;
+      })), e.d(n, "getParserOpt", (function() {
+        return b;
+      })), e.d(n, "identifierToSql", (function() {
+        return y;
+      })), e.d(n, "onPartitionsToSQL", (function() {
+        return E;
+      })), e.d(n, "replaceParams", (function() {
+        return m;
+      })), e.d(n, "returningToSQL", (function() {
+        return I;
+      })), e.d(n, "hasVal", (function() {
+        return L;
+      })), e.d(n, "setParserOpt", (function() {
+        return p;
+      })), e.d(n, "toUpper", (function() {
+        return w;
+      })), e.d(n, "topToSQL", (function() {
+        return v;
+      })), e.d(n, "triggerEventToSQL", (function() {
+        return g;
+      }));
+      var s = { database: "mysql", type: "table", trimQuery: true, parseOptions: { includeLocations: false } }, u = s;
+      function a(r2, t2, e2) {
+        if (e2) return r2 ? "".concat(r2.toUpperCase(), " ").concat(t2(e2)) : t2(e2);
+      }
+      function i(r2, t2) {
+        if (t2) return "".concat(r2.toUpperCase(), " ").concat(t2);
+      }
+      function c(r2) {
+        var t2 = o(r2);
+        if (Array.isArray(r2)) return { type: "expr_list", value: r2.map(c) };
+        if (null === r2) return { type: "null", value: null };
+        switch (t2) {
+          case "boolean":
+            return { type: "bool", value: r2 };
+          case "string":
+            return { type: "string", value: r2 };
+          case "number":
+            return { type: "number", value: r2 };
+          default:
+            throw new Error('Cannot convert value "'.concat(t2, '" to SQL'));
+        }
+      }
+      function l(r2, t2, e2) {
+        var n2 = { operator: r2, type: "binary_expr" };
+        return n2.left = t2.type ? t2 : c(t2), "BETWEEN" === r2 || "NOT BETWEEN" === r2 ? (n2.right = { type: "expr_list", value: [c(e2[0]), c(e2[1])] }, n2) : (n2.right = e2.type ? e2 : c(e2), n2);
+      }
+      function f(r2) {
+        return r2;
+      }
+      function b() {
+        return u;
+      }
+      function p(r2) {
+        u = r2;
+      }
+      function v(r2) {
+        if (r2) {
+          var t2 = r2.value, e2 = r2.percent, n2 = r2.parentheses ? "(".concat(t2, ")") : t2, o2 = "TOP ".concat(n2);
+          return e2 ? "".concat(o2, " ").concat(e2.toUpperCase()) : o2;
+        }
+      }
+      function d(r2) {
+        var t2 = b().database;
+        if (r2) switch (t2 && t2.toLowerCase()) {
+          case "athena":
+          case "db2":
+          case "postgresql":
+          case "redshift":
+          case "snowflake":
+          case "noql":
+          case "trino":
+          case "sqlite":
+            return '"'.concat(r2, '"');
+          case "transactsql":
+            return "[".concat(r2, "]");
+          case "mysql":
+          case "mariadb":
+          case "bigquery":
+          default:
+            return "`".concat(r2, "`");
+        }
+      }
+      function y(r2, t2, e2) {
+        if (true === t2) return "'".concat(r2, "'");
+        if (r2) {
+          if ("*" === r2) return r2;
+          if (null != e2) return "".concat(e2).concat(r2).concat(e2);
+          var n2 = b().database;
+          switch (n2 && n2.toLowerCase()) {
+            case "mysql":
+            case "mariadb":
+              return "`".concat(r2, "`");
+            case "athena":
+            case "postgresql":
+            case "redshift":
+            case "snowflake":
+            case "trino":
+            case "noql":
+            case "sqlite":
+              return '"'.concat(r2, '"');
+            case "transactsql":
+              return "[".concat(r2, "]");
+            case "bigquery":
+            case "db2":
+              return r2;
+            default:
+              return "`".concat(r2, "`");
+          }
+        }
+      }
+      function w(r2) {
+        if (r2) return r2.toUpperCase();
+      }
+      function L(r2) {
+        return r2;
+      }
+      function h(r2) {
+        if (r2) {
+          var t2 = r2.prefix, e2 = r2.type, n2 = r2.parentheses, s2 = r2.suffix, u2 = r2.value, a2 = "object" === o(r2) ? u2 : r2;
+          switch (e2) {
+            case "backticks_quote_string":
+              a2 = "`".concat(u2, "`");
+              break;
+            case "string":
+              a2 = "'".concat(u2, "'");
+              break;
+            case "regex_string":
+              a2 = 'r"'.concat(u2, '"');
+              break;
+            case "hex_string":
+              a2 = "X'".concat(u2, "'");
+              break;
+            case "full_hex_string":
+              a2 = "0x".concat(u2);
+              break;
+            case "natural_string":
+              a2 = "N'".concat(u2, "'");
+              break;
+            case "bit_string":
+              a2 = "b'".concat(u2, "'");
+              break;
+            case "double_quote_string":
+              a2 = '"'.concat(u2, '"');
+              break;
+            case "single_quote_string":
+              a2 = "'".concat(u2, "'");
+              break;
+            case "boolean":
+            case "bool":
+              a2 = u2 ? "TRUE" : "FALSE";
+              break;
+            case "null":
+              a2 = "NULL";
+              break;
+            case "star":
+              a2 = "*";
+              break;
+            case "param":
+              a2 = "".concat(t2 || ":").concat(u2), t2 = null;
+              break;
+            case "origin":
+              a2 = u2.toUpperCase();
+              break;
+            case "date":
+            case "datetime":
+            case "time":
+            case "timestamp":
+              a2 = "".concat(e2.toUpperCase(), " '").concat(u2, "'");
+              break;
+            case "var_string":
+              a2 = "N'".concat(u2, "'");
+              break;
+            case "unicode_string":
+              a2 = "U&'".concat(u2, "'");
+          }
+          var i2 = [];
+          return t2 && i2.push(w(t2)), i2.push(a2), s2 && ("string" == typeof s2 && i2.push(s2), "object" === o(s2) && (s2.collate ? i2.push(pt(s2.collate)) : i2.push(h(s2)))), a2 = i2.join(" "), n2 ? "(".concat(a2, ")") : a2;
+        }
+      }
+      function C(r2) {
+        if (!r2) return [];
+        var t2 = r2.type, e2 = r2.symbol, n2 = r2.value;
+        return [t2.toUpperCase(), e2, "string" == typeof n2 ? n2.toUpperCase() : h(n2)].filter(L);
+      }
+      function m(r2, t2) {
+        return (function r3(t3, e2) {
+          return Object.keys(t3).filter((function(r4) {
+            var e3 = t3[r4];
+            return Array.isArray(e3) || "object" === o(e3) && null !== e3;
+          })).forEach((function(n2) {
+            var s2 = t3[n2];
+            if ("object" !== o(s2) || "param" !== s2.type) return r3(s2, e2);
+            if (void 0 === e2[s2.value]) throw new Error("no value for parameter :".concat(s2.value, " found"));
+            return t3[n2] = c(e2[s2.value]), null;
+          })), t3;
+        })(JSON.parse(JSON.stringify(r2)), t2);
+      }
+      function E(r2) {
+        var t2 = r2.type, e2 = r2.partitions;
+        return [w(t2), "(".concat(e2.map((function(r3) {
+          if ("range" !== r3.type) return h(r3);
+          var t3 = r3.start, e3 = r3.end, n2 = r3.symbol;
+          return "".concat(h(t3), " ").concat(w(n2), " ").concat(h(e3));
+        })).join(", "), ")")].join(" ");
+      }
+      function A(r2) {
+        var t2 = r2.schema, e2 = r2.dataType, n2 = r2.length, o2 = r2.parentheses, s2 = r2.scale, u2 = r2.suffix, a2 = "";
+        null != n2 && (a2 = s2 ? "".concat(n2, ", ").concat(s2) : n2), o2 && (a2 = "(".concat(a2, ")")), u2 && u2.length && (a2 += " ".concat(u2.join(" ")));
+        var i2 = t2 ? "".concat(t2, ".") : "";
+        return "".concat(i2).concat(e2).concat(a2);
+      }
+      function T(r2) {
+        if (r2) {
+          var t2 = r2.dataType, e2 = r2.definition, n2 = r2.anglebracket, o2 = w(t2);
+          if ("ARRAY" !== o2 && "STRUCT" !== o2) return o2;
+          var s2 = e2 && e2.map((function(r3) {
+            return [r3.field_name, T(r3.field_type)].filter(L).join(" ");
+          })).join(", ");
+          return n2 ? "".concat(o2, "<").concat(s2, ">") : "".concat(o2, " ").concat(s2);
+        }
+      }
+      function _2(r2) {
+        if (r2) {
+          var t2 = [], e2 = r2.keyword, n2 = r2.symbol, o2 = r2.value;
+          return t2.push(e2.toUpperCase()), n2 && t2.push(n2), t2.push(h(o2)), t2.join(" ");
+        }
+      }
+      function g(r2) {
+        return r2.map((function(r3) {
+          var t2 = r3.keyword, e2 = r3.args, n2 = [w(t2)];
+          if (e2) {
+            var o2 = e2.keyword, s2 = e2.columns;
+            n2.push(w(o2), s2.map(At).join(", "));
+          }
+          return n2.join(" ");
+        })).join(" OR ");
+      }
+      function I(r2) {
+        return r2 ? ["RETURNING", r2.columns.map(Ot).filter(L).join(", ")].join(" ") : "";
+      }
+      function S(r2) {
+        return r2 ? [w(r2.keyword), w(r2.args)] : [];
+      }
+      function N(r2) {
+        if (r2) {
+          if ("string" == typeof r2) {
+            var t2 = b().database;
+            switch (t2 && t2.toLowerCase()) {
+              case "sqlite":
+                return "AUTOINCREMENT";
+              default:
+                return "AUTO_INCREMENT";
+            }
+          }
+          var e2 = r2.keyword, n2 = r2.seed, o2 = r2.increment, s2 = r2.parentheses, u2 = w(e2);
+          return s2 && (u2 += "(".concat(h(n2), ", ").concat(h(o2), ")")), u2;
+        }
+      }
+      function O(r2) {
+        if (r2) return r2.map(It).filter(L).join(", ");
+      }
+      function R(r2) {
+        return (function(r3) {
+          if (Array.isArray(r3)) return j(r3);
+        })(r2) || (function(r3) {
+          if ("undefined" != typeof Symbol && null != r3[Symbol.iterator] || null != r3["@@iterator"]) return Array.from(r3);
+        })(r2) || (function(r3, t2) {
+          if (r3) {
+            if ("string" == typeof r3) return j(r3, t2);
+            var e2 = {}.toString.call(r3).slice(8, -1);
+            return "Object" === e2 && r3.constructor && (e2 = r3.constructor.name), "Map" === e2 || "Set" === e2 ? Array.from(r3) : "Arguments" === e2 || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(e2) ? j(r3, t2) : void 0;
+          }
+        })(r2) || (function() {
+          throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+        })();
+      }
+      function j(r2, t2) {
+        (null == t2 || t2 > r2.length) && (t2 = r2.length);
+        for (var e2 = 0, n2 = Array(t2); e2 < t2; e2++) n2[e2] = r2[e2];
+        return n2;
+      }
+      function x(r2) {
+        if (!r2) return [];
+        var t2 = r2.keyword, e2 = r2.type;
+        return [t2.toUpperCase(), w(e2)];
+      }
+      function k(r2) {
+        if (r2) {
+          var t2 = r2.type, e2 = r2.expr, n2 = r2.symbol, o2 = t2.toUpperCase(), s2 = [];
+          switch (s2.push(o2), o2) {
+            case "KEY_BLOCK_SIZE":
+              n2 && s2.push(n2), s2.push(h(e2));
+              break;
+            case "BTREE":
+            case "HASH":
+              s2.length = 0, s2.push.apply(s2, R(x(r2)));
+              break;
+            case "WITH PARSER":
+              s2.push(e2);
+              break;
+            case "VISIBLE":
+            case "INVISIBLE":
+              break;
+            case "COMMENT":
+              s2.shift(), s2.push(_2(r2));
+              break;
+            case "DATA_COMPRESSION":
+              s2.push(n2, w(e2.value), E(e2.on));
+              break;
+            default:
+              s2.push(n2, h(e2));
+          }
+          return s2.filter(L).join(" ");
+        }
+      }
+      function U(r2) {
+        return r2 ? r2.map(k) : [];
+      }
+      function D(r2) {
+        var t2 = r2.constraint_type, e2 = r2.index_type, n2 = r2.index_options, o2 = void 0 === n2 ? [] : n2, s2 = r2.definition, u2 = r2.on, a2 = r2.with, i2 = [];
+        if (i2.push.apply(i2, R(x(e2))), s2 && s2.length) {
+          var c2 = "CHECK" === w(t2) ? "(".concat(lt(s2[0]), ")") : "(".concat(s2.map((function(r3) {
+            return lt(r3);
+          })).join(", "), ")");
+          i2.push(c2);
+        }
+        return i2.push(U(o2).join(" ")), a2 && i2.push("WITH (".concat(U(a2).join(", "), ")")), u2 && i2.push("ON [".concat(u2, "]")), i2;
+      }
+      function M(r2) {
+        var t2 = r2.operator || r2.op, e2 = lt(r2.right), n2 = false;
+        if (Array.isArray(e2)) {
+          switch (t2) {
+            case "=":
+              t2 = "IN";
+              break;
+            case "!=":
+              t2 = "NOT IN";
+              break;
+            case "BETWEEN":
+            case "NOT BETWEEN":
+              n2 = true, e2 = "".concat(e2[0], " AND ").concat(e2[1]);
+          }
+          n2 || (e2 = "(".concat(e2.join(", "), ")"));
+        }
+        var o2 = r2.right.escape || {}, s2 = Array.isArray(r2.left) ? r2.left.map(lt).join(", ") : lt(r2.left), u2 = pt(r2.collate), a2 = [s2, t2, e2, w(o2.type), lt(o2.value)].filter(L).join("." === t2 ? "" : " "), i2 = r2.parentheses ? "(".concat(a2, ")") : a2;
+        return u2 && (i2 = "".concat(i2, " ").concat(u2)), i2;
+      }
+      function P(r2) {
+        var t2 = r2.name, e2 = r2.type;
+        switch (e2) {
+          case "table":
+          case "view":
+            var n2 = [y(t2.db), y(t2.table)].filter(L).join(".");
+            return "".concat(w(e2), " ").concat(n2);
+          case "column":
+            return "COLUMN ".concat(At(t2));
+          default:
+            return "".concat(w(e2), " ").concat(h(t2));
+        }
+      }
+      function G(r2) {
+        var t2 = r2.keyword, e2 = r2.expr;
+        return [w(t2), h(e2)].filter(L).join(" ");
+      }
+      function F(r2) {
+        return (function(r3) {
+          if (Array.isArray(r3)) return H(r3);
+        })(r2) || (function(r3) {
+          if ("undefined" != typeof Symbol && null != r3[Symbol.iterator] || null != r3["@@iterator"]) return Array.from(r3);
+        })(r2) || (function(r3, t2) {
+          if (r3) {
+            if ("string" == typeof r3) return H(r3, t2);
+            var e2 = {}.toString.call(r3).slice(8, -1);
+            return "Object" === e2 && r3.constructor && (e2 = r3.constructor.name), "Map" === e2 || "Set" === e2 ? Array.from(r3) : "Arguments" === e2 || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(e2) ? H(r3, t2) : void 0;
+          }
+        })(r2) || (function() {
+          throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+        })();
+      }
+      function H(r2, t2) {
+        (null == t2 || t2 > r2.length) && (t2 = r2.length);
+        for (var e2 = 0, n2 = Array(t2); e2 < t2; e2++) n2[e2] = r2[e2];
+        return n2;
+      }
+      function Y(r2) {
+        return r2 ? [r2.prefix.map(h).join(" "), lt(r2.value), r2.suffix.map(h).join(" ")] : [];
+      }
+      function B(r2) {
+        return r2 ? r2.fetch || r2.offset ? (e2 = (t2 = r2).fetch, n2 = t2.offset, [].concat(F(Y(n2)), F(Y(e2))).filter(L).join(" ")) : (function(r3) {
+          var t3 = r3.seperator, e3 = r3.value;
+          return 1 === e3.length && "offset" === t3 ? i("OFFSET", lt(e3[0])) : i("LIMIT", e3.map(lt).join("".concat("offset" === t3 ? " " : "").concat(w(t3), " ")));
+        })(r2) : "";
+        var t2, e2, n2;
+      }
+      function $(r2) {
+        if (r2 && 0 !== r2.length) {
+          var t2 = r2[0].recursive ? "RECURSIVE " : "", e2 = r2.map((function(r3) {
+            var t3 = r3.name, e3 = r3.stmt, n2 = r3.columns, o2 = Array.isArray(n2) ? "(".concat(n2.map(At).join(", "), ")") : "", s2 = a("values" === e3.type ? "VALUES" : "", lt, e3);
+            return "".concat("default" === t3.type ? y(t3.value) : h(t3)).concat(o2, " AS (").concat(s2, ")");
+          })).join(", ");
+          return "WITH ".concat(t2).concat(e2);
+        }
+      }
+      function W(r2) {
+        if (r2 && r2.position) {
+          var t2 = r2.keyword, e2 = r2.expr, n2 = [], o2 = w(t2);
+          switch (o2) {
+            case "VAR":
+              n2.push(e2.map(ct).join(", "));
+              break;
+            default:
+              n2.push(o2, "string" == typeof e2 ? y(e2) : lt(e2));
+          }
+          return n2.filter(L).join(" ");
+        }
+      }
+      function q(r2) {
+        var t2 = r2.as_struct_val, e2 = r2.columns, n2 = r2.collate, o2 = r2.distinct, s2 = r2.for, u2 = r2.from, c2 = r2.for_sys_time_as_of, l2 = void 0 === c2 ? {} : c2, f2 = r2.locking_read, b2 = r2.groupby, p2 = r2.having, d2 = r2.into, y2 = void 0 === d2 ? {} : d2, C2 = r2.isolation, m2 = r2.limit, E2 = r2.options, A2 = r2.orderby, T2 = r2.parentheses_symbol, _3 = r2.qualify, g2 = r2.top, I2 = r2.window, S2 = r2.with, N2 = r2.where, O2 = [$(S2), "SELECT", w(t2)];
+        Array.isArray(E2) && O2.push(E2.join(" ")), O2.push((function(r3) {
+          if (r3) {
+            if ("string" == typeof r3) return r3;
+            var t3 = r3.type, e3 = r3.columns, n3 = [w(t3)];
+            return e3 && n3.push("(".concat(e3.map(lt).join(", "), ")")), n3.filter(L).join(" ");
+          }
+        })(o2), v(g2), jt(e2, u2));
+        var R2 = y2.position, j2 = "";
+        R2 && (j2 = a("INTO", W, y2)), "column" === R2 && O2.push(j2), O2.push(a("FROM", mr, u2)), "from" === R2 && O2.push(j2);
+        var x2 = l2 || {}, k2 = x2.keyword, U2 = x2.expr;
+        O2.push(a(k2, lt, U2)), O2.push(a("WHERE", lt, N2)), b2 && (O2.push(i("GROUP BY", ft(b2.columns).join(", "))), O2.push(ft(b2.modifiers).join(", "))), O2.push(a("HAVING", lt, p2)), O2.push(a("QUALIFY", lt, _3)), O2.push(a("WINDOW", lt, I2)), O2.push(bt(A2, "order by")), O2.push(pt(n2)), O2.push(B(m2)), C2 && O2.push(a(C2.keyword, h, C2.expr)), O2.push(w(f2)), "end" === R2 && O2.push(j2), O2.push((function(r3) {
+          if (r3) {
+            var t3 = r3.expr, e3 = r3.keyword, n3 = [w(r3.type), w(e3)];
+            return t3 ? "".concat(n3.join(" "), "(").concat(lt(t3), ")") : n3.join(" ");
+          }
+        })(s2));
+        var D2 = O2.filter(L).join(" ");
+        return T2 ? "(".concat(D2, ")") : D2;
+      }
+      function V(r2, t2) {
+        var e2 = "undefined" != typeof Symbol && r2[Symbol.iterator] || r2["@@iterator"];
+        if (!e2) {
+          if (Array.isArray(r2) || (e2 = (function(r3, t3) {
+            if (r3) {
+              if ("string" == typeof r3) return X(r3, t3);
+              var e3 = {}.toString.call(r3).slice(8, -1);
+              return "Object" === e3 && r3.constructor && (e3 = r3.constructor.name), "Map" === e3 || "Set" === e3 ? Array.from(r3) : "Arguments" === e3 || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(e3) ? X(r3, t3) : void 0;
+            }
+          })(r2)) || t2) {
+            e2 && (r2 = e2);
+            var n2 = 0, o2 = function() {
+            };
+            return { s: o2, n: function() {
+              return n2 >= r2.length ? { done: true } : { done: false, value: r2[n2++] };
+            }, e: function(r3) {
+              throw r3;
+            }, f: o2 };
+          }
+          throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+        }
+        var s2, u2 = true, a2 = false;
+        return { s: function() {
+          e2 = e2.call(r2);
+        }, n: function() {
+          var r3 = e2.next();
+          return u2 = r3.done, r3;
+        }, e: function(r3) {
+          a2 = true, s2 = r3;
+        }, f: function() {
+          try {
+            u2 || null == e2.return || e2.return();
+          } finally {
+            if (a2) throw s2;
+          }
+        } };
+      }
+      function X(r2, t2) {
+        (null == t2 || t2 > r2.length) && (t2 = r2.length);
+        for (var e2 = 0, n2 = Array(t2); e2 < t2; e2++) n2[e2] = r2[e2];
+        return n2;
+      }
+      function K(r2) {
+        if (!r2 || 0 === r2.length) return "";
+        var t2, e2 = [], n2 = V(r2);
+        try {
+          for (n2.s(); !(t2 = n2.n()).done; ) {
+            var o2 = t2.value, s2 = {}, u2 = o2.value;
+            for (var a2 in o2) "value" !== a2 && "keyword" !== a2 && (s2[a2] = o2[a2]);
+            var i2 = [At(s2)], c2 = "";
+            u2 && (c2 = lt(u2), i2.push("=", c2)), e2.push(i2.filter(L).join(" "));
+          }
+        } catch (r3) {
+          n2.e(r3);
+        } finally {
+          n2.f();
+        }
+        return e2.join(", ");
+      }
+      function Q(r2) {
+        var t2 = r2.name, e2 = r2.value;
+        return ["@".concat(t2), "=", lt(e2)].filter(L).join(" ");
+      }
+      function z(r2) {
+        if (!r2) return "";
+        var t2 = r2.keyword, e2 = r2.terminated, n2 = r2.enclosed, o2 = r2.escaped;
+        return [w(t2), h(e2), h(n2), h(o2)].filter(L).join(" ");
+      }
+      function Z(r2) {
+        if (!r2) return "";
+        var t2 = r2.keyword, e2 = r2.starting, n2 = r2.terminated;
+        return [w(t2), h(e2), h(n2)].filter(L).join(" ");
+      }
+      function J(r2) {
+        if (!r2) return "";
+        var t2 = r2.count, e2 = r2.suffix;
+        return ["IGNORE", h(t2), e2].filter(L).join(" ");
+      }
+      function rr(r2) {
+        if (!r2) return "";
+        var t2 = r2.mode, e2 = r2.local, n2 = r2.file, o2 = r2.replace_ignore, s2 = r2.table, u2 = r2.partition, i2 = r2.character_set, c2 = r2.column, l2 = r2.fields, f2 = r2.lines, b2 = r2.set, p2 = r2.ignore;
+        return ["LOAD DATA", w(t2), w(e2), "INFILE", h(n2), w(o2), "INTO TABLE", Cr(s2), ar(u2), a("CHARACTER SET", h, i2), z(l2), Z(f2), J(p2), jt(c2), a("SET", K, b2)].filter(L).join(" ");
+      }
+      function tr(r2) {
+        var t2 = r2.left, e2 = r2.right, n2 = r2.symbol, o2 = r2.keyword;
+        t2.keyword = o2;
+        var s2 = lt(t2), u2 = lt(e2);
+        return [s2, w(n2), u2].filter(L).join(" ");
+      }
+      function er(r2) {
+        var t2, e2, n2, o2, s2 = r2.keyword, u2 = r2.suffix, i2 = "";
+        switch (w(s2)) {
+          case "BINLOG":
+            e2 = (t2 = r2).in, n2 = t2.from, o2 = t2.limit, i2 = [a("IN", h, e2 && e2.right), a("FROM", mr, n2), B(o2)].filter(L).join(" ");
+            break;
+          case "CHARACTER":
+          case "COLLATION":
+            i2 = (function(r3) {
+              var t3 = r3.expr;
+              if (t3) return "LIKE" === w(t3.op) ? a("LIKE", h, t3.right) : a("WHERE", lt, t3);
+            })(r2);
+            break;
+          case "COLUMNS":
+          case "INDEXES":
+          case "INDEX":
+            i2 = a("FROM", mr, r2.from);
+            break;
+          case "GRANTS":
+            i2 = (function(r3) {
+              var t3 = r3.for;
+              if (t3) {
+                var e3 = t3.user, n3 = t3.host, o3 = t3.role_list, s3 = "'".concat(e3, "'");
+                return n3 && (s3 += "@'".concat(n3, "'")), ["FOR", s3, o3 && "USING", o3 && o3.map((function(r4) {
+                  return "'".concat(r4, "'");
+                })).join(", ")].filter(L).join(" ");
+              }
+            })(r2);
+            break;
+          case "CREATE":
+            i2 = a("", Cr, r2[u2]);
+            break;
+          case "VAR":
+            i2 = ct(r2.var), s2 = "";
+        }
+        return ["SHOW", w(s2), w(u2), i2].filter(L).join(" ");
+      }
+      var nr = { alter: function(r2) {
+        var t2 = r2.keyword;
+        switch (void 0 === t2 ? "table" : t2) {
+          case "aggregate":
+            return (function(r3) {
+              var t3 = r3.args, e2 = r3.expr, n2 = r3.keyword, o2 = r3.name, s2 = r3.type, u2 = t3.expr, a2 = t3.orderby;
+              return [w(s2), w(n2), [[y(o2.schema), y(o2.name)].filter(L).join("."), "(".concat(u2.map(nt).join(", ")).concat(a2 ? [" ORDER", "BY", a2.map(nt).join(", ")].join(" ") : "", ")")].filter(L).join(""), et(e2)].filter(L).join(" ");
+            })(r2);
+          case "table":
+            return (function(r3) {
+              var t3 = r3.type, e2 = r3.table, n2 = r3.if_exists, o2 = r3.prefix, s2 = r3.expr, u2 = void 0 === s2 ? [] : s2, a2 = w(t3), i2 = mr(e2), c2 = u2.map(lt);
+              return [a2, "TABLE", w(n2), h(o2), i2, c2.join(", ")].filter(L).join(" ");
+            })(r2);
+          case "schema":
+            return (function(r3) {
+              var t3 = r3.expr, e2 = r3.keyword, n2 = r3.schema;
+              return [w(r3.type), w(e2), y(n2), et(t3)].filter(L).join(" ");
+            })(r2);
+          case "sequence":
+            return (function(r3) {
+              var t3 = r3.type, e2 = r3.keyword, n2 = r3.sequence, o2 = r3.if_exists, s2 = r3.expr, u2 = void 0 === s2 ? [] : s2, a2 = w(t3), i2 = mr(n2), c2 = u2.map(Kr);
+              return [a2, w(e2), w(o2), i2, c2.join(", ")].filter(L).join(" ");
+            })(r2);
+          case "domain":
+          case "type":
+            return (function(r3) {
+              var t3 = r3.expr, e2 = r3.keyword, n2 = r3.name;
+              return [w(r3.type), w(e2), [y(n2.schema), y(n2.name)].filter(L).join("."), et(t3)].filter(L).join(" ");
+            })(r2);
+          case "function":
+            return (function(r3) {
+              var t3 = r3.args, e2 = r3.expr, n2 = r3.keyword, o2 = r3.name;
+              return [w(r3.type), w(n2), [[y(o2.schema), y(o2.name)].filter(L).join("."), t3 && "(".concat(t3.expr ? t3.expr.map(nt).join(", ") : "", ")")].filter(L).join(""), et(e2)].filter(L).join(" ");
+            })(r2);
+          case "view":
+            return (function(r3) {
+              var t3 = r3.type, e2 = r3.columns, n2 = r3.attributes, o2 = r3.select, s2 = r3.view, u2 = r3.with, a2 = w(t3), i2 = Cr(s2), c2 = [a2, "VIEW", i2];
+              e2 && c2.push("(".concat(e2.map(At).join(", "), ")"));
+              n2 && c2.push("WITH ".concat(n2.map(w).join(", ")));
+              c2.push("AS", q(o2)), u2 && c2.push(w(u2));
+              return c2.filter(L).join(" ");
+            })(r2);
+        }
+      }, analyze: function(r2) {
+        var t2 = r2.type, e2 = r2.table;
+        return [w(t2), Cr(e2)].join(" ");
+      }, attach: function(r2) {
+        var t2 = r2.type, e2 = r2.database, n2 = r2.expr, o2 = r2.as, s2 = r2.schema;
+        return [w(t2), w(e2), lt(n2), w(o2), y(s2)].filter(L).join(" ");
+      }, create: function(r2) {
+        var t2 = r2.keyword, e2 = "";
+        switch (t2.toLowerCase()) {
+          case "aggregate":
+            e2 = (function(r3) {
+              var t3 = r3.type, e3 = r3.replace, n2 = r3.keyword, o2 = r3.name, s2 = r3.args, u2 = r3.options, a2 = [w(t3), w(e3), w(n2)], i2 = [y(o2.schema), o2.name].filter(L).join("."), c2 = "".concat(s2.expr.map(nt).join(", ")).concat(s2.orderby ? [" ORDER", "BY", s2.orderby.map(nt).join(", ")].join(" ") : "");
+              return a2.push("".concat(i2, "(").concat(c2, ")"), "(".concat(u2.map(rt).join(", "), ")")), a2.filter(L).join(" ");
+            })(r2);
+            break;
+          case "table":
+            e2 = (function(r3) {
+              var t3 = r3.type, e3 = r3.keyword, n2 = r3.table, o2 = r3.like, s2 = r3.as, u2 = r3.temporary, a2 = r3.if_not_exists, i2 = r3.create_definitions, c2 = r3.table_options, l2 = r3.ignore_replace, f2 = r3.replace, p2 = r3.partition_of, v2 = r3.query_expr, d2 = r3.unlogged, y2 = r3.with, C2 = [w(t3), w(f2), w(u2), w(d2), w(e3), w(a2), mr(n2)];
+              if (o2) {
+                var m2 = o2.type, E2 = mr(o2.table);
+                return C2.push(w(m2), E2), C2.filter(L).join(" ");
+              }
+              if (p2) return C2.concat([zr(p2)]).filter(L).join(" ");
+              i2 && C2.push("(".concat(i2.map(Kr).join(", "), ")"));
+              if (c2) {
+                var A2 = b().database, T2 = A2 && "sqlite" === A2.toLowerCase() ? ", " : " ";
+                C2.push(c2.map(Er).join(T2));
+              }
+              if (y2) {
+                var _3 = y2.map((function(r4) {
+                  return [h(r4.keyword), w(r4.symbol), h(r4.value)].join(" ");
+                })).join(", ");
+                C2.push("WITH (".concat(_3, ")"));
+              }
+              C2.push(w(l2), w(s2)), v2 && C2.push(or(v2));
+              return C2.filter(L).join(" ");
+            })(r2);
+            break;
+          case "trigger":
+            e2 = "constraint" === r2.resource ? (function(r3) {
+              var t3 = r3.constraint, e3 = r3.constraint_kw, n2 = r3.deferrable, o2 = r3.events, s2 = r3.execute, u2 = r3.for_each, a2 = r3.from, i2 = r3.location, c2 = r3.keyword, l2 = r3.or, f2 = r3.type, b2 = r3.table, p2 = r3.when, v2 = [w(f2), w(l2), w(e3), w(c2), y(t3), w(i2)], d2 = g(o2);
+              v2.push(d2, "ON", Cr(b2)), a2 && v2.push("FROM", Cr(a2));
+              v2.push.apply(v2, qr(S(n2)).concat(qr(S(u2)))), p2 && v2.push(w(p2.type), lt(p2.cond));
+              return v2.push(w(s2.keyword), Wr(s2.expr)), v2.filter(L).join(" ");
+            })(r2) : (function(r3) {
+              var t3 = r3.definer, e3 = r3.for_each, n2 = r3.keyword, o2 = r3.execute, s2 = r3.type, u2 = r3.table, i2 = r3.if_not_exists, c2 = r3.temporary, l2 = r3.trigger, f2 = r3.events, b2 = r3.order, p2 = r3.time, v2 = r3.when, d2 = [w(s2), w(c2), lt(t3), w(n2), w(i2), Cr(l2), w(p2), f2.map((function(r4) {
+                var t4 = [w(r4.keyword)], e4 = r4.args;
+                return e4 && t4.push(w(e4.keyword), e4.columns.map(At).join(", ")), t4.join(" ");
+              })), "ON", Cr(u2), w(e3 && e3.keyword), w(e3 && e3.args), b2 && "".concat(w(b2.keyword), " ").concat(y(b2.trigger)), a("WHEN", lt, v2), w(o2.prefix)];
+              switch (o2.type) {
+                case "set":
+                  d2.push(a("SET", K, o2.expr));
+                  break;
+                case "multiple":
+                  d2.push(sr(o2.expr.ast));
+              }
+              return d2.push(w(o2.suffix)), d2.filter(L).join(" ");
+            })(r2);
+            break;
+          case "extension":
+            e2 = (function(r3) {
+              var t3 = r3.extension, e3 = r3.from, n2 = r3.if_not_exists, o2 = r3.keyword, s2 = r3.schema, u2 = r3.type, i2 = r3.with, c2 = r3.version;
+              return [w(u2), w(o2), w(n2), h(t3), w(i2), a("SCHEMA", h, s2), a("VERSION", h, c2), a("FROM", h, e3)].filter(L).join(" ");
+            })(r2);
+            break;
+          case "function":
+            e2 = (function(r3) {
+              var t3 = r3.type, e3 = r3.replace, n2 = r3.keyword, o2 = r3.name, s2 = r3.args, u2 = r3.returns, a2 = r3.options, i2 = r3.last, c2 = [w(t3), w(e3), w(n2)], l2 = [h(o2.schema), o2.name.map(h).join(".")].filter(L).join("."), f2 = s2.map(nt).filter(L).join(", ");
+              return c2.push("".concat(l2, "(").concat(f2, ")"), (function(r4) {
+                var t4 = r4.type, e4 = r4.keyword, n3 = r4.expr;
+                return [w(t4), w(e4), Array.isArray(n3) ? "(".concat(n3.map(St).join(", "), ")") : Zr(n3)].filter(L).join(" ");
+              })(u2), a2.map(Jr).join(" "), i2), c2.filter(L).join(" ");
+            })(r2);
+            break;
+          case "index":
+            e2 = (function(r3) {
+              var t3 = r3.concurrently, e3 = r3.filestream_on, n2 = r3.keyword, o2 = r3.if_not_exists, s2 = r3.include, u2 = r3.index_columns, i2 = r3.index_type, c2 = r3.index_using, l2 = r3.index, f2 = r3.on, b2 = r3.index_options, p2 = r3.algorithm_option, v2 = r3.lock_option, d2 = r3.on_kw, C2 = r3.table, m2 = r3.tablespace, E2 = r3.type, A2 = r3.where, T2 = r3.with, _3 = r3.with_before_where, g2 = T2 && "WITH (".concat(U(T2).join(", "), ")"), I2 = s2 && "".concat(w(s2.keyword), " (").concat(s2.columns.map((function(r4) {
+                return "string" == typeof r4 ? y(r4) : lt(r4);
+              })).join(", "), ")"), S2 = l2;
+              l2 && (S2 = "string" == typeof l2 ? y(l2) : [y(l2.schema), y(l2.name)].filter(L).join("."));
+              var N2 = [w(E2), w(i2), w(n2), w(o2), w(t3), S2, w(d2), Cr(C2)].concat(qr(x(c2)), ["(".concat(O(u2), ")"), I2, U(b2).join(" "), et(p2), et(v2), a("TABLESPACE", h, m2)]);
+              _3 ? N2.push(g2, a("WHERE", lt, A2)) : N2.push(a("WHERE", lt, A2), g2);
+              return N2.push(a("ON", lt, f2), a("FILESTREAM_ON", h, e3)), N2.filter(L).join(" ");
+            })(r2);
+            break;
+          case "sequence":
+            e2 = (function(r3) {
+              var t3 = r3.type, e3 = r3.keyword, n2 = r3.sequence, o2 = r3.temporary, s2 = r3.if_not_exists, u2 = r3.create_definitions, a2 = [w(t3), w(o2), w(e3), w(s2), mr(n2)];
+              u2 && a2.push(u2.map(Kr).join(" "));
+              return a2.filter(L).join(" ");
+            })(r2);
+            break;
+          case "database":
+          case "schema":
+            e2 = (function(r3) {
+              var t3 = r3.type, e3 = r3.keyword, n2 = r3.replace, o2 = r3.if_not_exists, s2 = r3.create_definitions, u2 = r3[e3], a2 = u2.db, i2 = u2.schema, c2 = [h(a2), i2.map(h).join(".")].filter(L).join("."), l2 = [w(t3), w(n2), w(e3), w(o2), c2];
+              s2 && l2.push(s2.map(Er).join(" "));
+              return l2.filter(L).join(" ");
+            })(r2);
+            break;
+          case "view":
+            e2 = (function(r3) {
+              var t3 = r3.algorithm, e3 = r3.columns, n2 = r3.definer, o2 = r3.if_not_exists, s2 = r3.keyword, u2 = r3.recursive, a2 = r3.replace, i2 = r3.select, c2 = r3.sql_security, l2 = r3.temporary, f2 = r3.type, b2 = r3.view, p2 = r3.with, v2 = r3.with_options, h2 = b2.db, m2 = b2.schema, E2 = b2.view, A2 = [y(h2), y(m2), y(E2)].filter(L).join(".");
+              return [w(f2), w(a2), w(l2), w(u2), t3 && "ALGORITHM = ".concat(w(t3)), lt(n2), c2 && "SQL SECURITY ".concat(w(c2)), w(s2), w(o2), A2, e3 && "(".concat(e3.map(d).join(", "), ")"), v2 && ["WITH", "(".concat(v2.map((function(r4) {
+                return C(r4).join(" ");
+              })).join(", "), ")")].join(" "), "AS", or(i2), w(p2)].filter(L).join(" ");
+            })(r2);
+            break;
+          case "domain":
+            e2 = (function(r3) {
+              var t3 = r3.as, e3 = r3.domain, n2 = r3.type, o2 = r3.keyword, s2 = r3.target, u2 = r3.create_definitions, a2 = [w(n2), w(o2), [y(e3.schema), y(e3.name)].filter(L).join("."), w(t3), A(s2)];
+              if (u2 && u2.length > 0) {
+                var i2, c2 = [], l2 = (function(r4, t4) {
+                  var e4 = "undefined" != typeof Symbol && r4[Symbol.iterator] || r4["@@iterator"];
+                  if (!e4) {
+                    if (Array.isArray(r4) || (e4 = Vr(r4)) || t4) {
+                      e4 && (r4 = e4);
+                      var n3 = 0, o3 = function() {
+                      };
+                      return { s: o3, n: function() {
+                        return n3 >= r4.length ? { done: true } : { done: false, value: r4[n3++] };
+                      }, e: function(r5) {
+                        throw r5;
+                      }, f: o3 };
+                    }
+                    throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+                  }
+                  var s3, u3 = true, a3 = false;
+                  return { s: function() {
+                    e4 = e4.call(r4);
+                  }, n: function() {
+                    var r5 = e4.next();
+                    return u3 = r5.done, r5;
+                  }, e: function(r5) {
+                    a3 = true, s3 = r5;
+                  }, f: function() {
+                    try {
+                      u3 || null == e4.return || e4.return();
+                    } finally {
+                      if (a3) throw s3;
+                    }
+                  } };
+                })(u2);
+                try {
+                  for (l2.s(); !(i2 = l2.n()).done; ) {
+                    var f2 = i2.value, b2 = f2.type;
+                    switch (b2) {
+                      case "collate":
+                        c2.push(lt(f2));
+                        break;
+                      case "default":
+                        c2.push(w(b2), lt(f2.value));
+                        break;
+                      case "constraint":
+                        c2.push(Pr(f2));
+                    }
+                  }
+                } catch (r4) {
+                  l2.e(r4);
+                } finally {
+                  l2.f();
+                }
+                a2.push(c2.filter(L).join(" "));
+              }
+              return a2.filter(L).join(" ");
+            })(r2);
+            break;
+          case "type":
+            e2 = (function(r3) {
+              var t3 = r3.as, e3 = r3.create_definitions, n2 = r3.keyword, o2 = r3.name, s2 = r3.resource, u2 = [w(r3.type), w(n2), [y(o2.schema), y(o2.name)].filter(L).join("."), w(t3), w(s2)];
+              if (e3) {
+                var a2 = [];
+                switch (s2) {
+                  case "enum":
+                  case "range":
+                    a2.push(lt(e3));
+                    break;
+                  default:
+                    a2.push("(".concat(e3.map(Kr).join(", "), ")"));
+                }
+                u2.push(a2.filter(L).join(" "));
+              }
+              return u2.filter(L).join(" ");
+            })(r2);
+            break;
+          case "user":
+            e2 = (function(r3) {
+              var t3 = r3.attribute, e3 = r3.comment, n2 = r3.default_role, o2 = r3.if_not_exists, s2 = r3.keyword, u2 = r3.lock_option, i2 = r3.password_options, c2 = r3.require, l2 = r3.resource_options, f2 = r3.type, b2 = r3.user.map((function(r4) {
+                var t4 = r4.user, e4 = r4.auth_option, n3 = [kr(t4)];
+                return e4 && n3.push(w(e4.keyword), e4.auth_plugin, h(e4.value)), n3.filter(L).join(" ");
+              })).join(", "), p2 = [w(f2), w(s2), w(o2), b2];
+              n2 && p2.push(w(n2.keyword), n2.value.map(kr).join(", "));
+              p2.push(a(c2 && c2.keyword, lt, c2 && c2.value)), l2 && p2.push(w(l2.keyword), l2.value.map((function(r4) {
+                return lt(r4);
+              })).join(" "));
+              i2 && i2.forEach((function(r4) {
+                return p2.push(a(r4.keyword, lt, r4.value));
+              }));
+              return p2.push(h(u2), _2(e3), h(t3)), p2.filter(L).join(" ");
+            })(r2);
+            break;
+          default:
+            throw new Error("unknown create resource ".concat(t2));
+        }
+        return e2;
+      }, comment: function(r2) {
+        var t2 = r2.expr, e2 = r2.keyword, n2 = r2.target;
+        return [w(r2.type), w(e2), P(n2), G(t2)].filter(L).join(" ");
+      }, select: q, deallocate: function(r2) {
+        var t2 = r2.type, e2 = r2.keyword, n2 = r2.expr;
+        return [w(t2), w(e2), lt(n2)].filter(L).join(" ");
+      }, delete: function(r2) {
+        var t2 = r2.columns, e2 = r2.from, n2 = r2.table, o2 = r2.where, s2 = r2.orderby, u2 = r2.with, i2 = r2.limit, c2 = r2.returning, l2 = [$(u2), "DELETE"], f2 = jt(t2, e2);
+        return l2.push(f2), Array.isArray(n2) && (1 === n2.length && true === n2[0].addition || l2.push(mr(n2))), l2.push(a("FROM", mr, e2)), l2.push(a("WHERE", lt, o2)), l2.push(bt(s2, "order by")), l2.push(B(i2)), l2.push(I(c2)), l2.filter(L).join(" ");
+      }, exec: function(r2) {
+        var t2 = r2.keyword, e2 = r2.module, n2 = r2.parameters;
+        return [w(t2), Cr(e2), (n2 || []).map(Q).filter(L).join(", ")].filter(L).join(" ");
+      }, execute: function(r2) {
+        var t2 = r2.type, e2 = r2.name, n2 = r2.args, o2 = [w(t2)], s2 = [e2];
+        n2 && s2.push("(".concat(lt(n2).join(", "), ")"));
+        return o2.push(s2.join("")), o2.filter(L).join(" ");
+      }, explain: function(r2) {
+        var t2 = r2.type, e2 = r2.expr;
+        return [w(t2), q(e2)].join(" ");
+      }, for: function(r2) {
+        var t2 = r2.type, e2 = r2.label, n2 = r2.target, o2 = r2.query, s2 = r2.stmts;
+        return [e2, w(t2), n2, "IN", sr([o2]), "LOOP", sr(s2), "END LOOP", e2].filter(L).join(" ");
+      }, update: function(r2) {
+        var t2 = r2.from, e2 = r2.table, n2 = r2.set, o2 = r2.where, s2 = r2.orderby, u2 = r2.with, i2 = r2.limit, c2 = r2.returning;
+        return [$(u2), "UPDATE", mr(e2), a("SET", K, n2), a("FROM", mr, t2), a("WHERE", lt, o2), bt(s2, "order by"), B(i2), I(c2)].filter(L).join(" ");
+      }, if: function(r2) {
+        var t2 = r2.boolean_expr, e2 = r2.else_expr, n2 = r2.elseif_expr, o2 = r2.if_expr, s2 = r2.prefix, u2 = r2.go, a2 = r2.semicolons, i2 = r2.suffix, c2 = [w(r2.type), lt(t2), h(s2), "".concat(gr(o2.ast || o2)).concat(a2[0]), w(u2)];
+        n2 && c2.push(n2.map((function(r3) {
+          return [w(r3.type), lt(r3.boolean_expr), "THEN", gr(r3.then.ast || r3.then), r3.semicolon].filter(L).join(" ");
+        })).join(" "));
+        e2 && c2.push("ELSE", "".concat(gr(e2.ast || e2)).concat(a2[1]));
+        return c2.push(h(i2)), c2.filter(L).join(" ");
+      }, insert: fr, load_data: rr, drop: Rr, truncate: Rr, replace: fr, declare: function(r2) {
+        var t2 = r2.type, e2 = r2.declare, n2 = r2.symbol, o2 = [w(t2)], s2 = e2.map((function(r3) {
+          var t3 = r3.at, e3 = r3.name, n3 = r3.as, o3 = r3.constant, s3 = r3.datatype, u2 = r3.not_null, a2 = r3.prefix, i2 = r3.definition, c2 = r3.keyword, l2 = [[t3, e3].filter(L).join(""), w(n3), w(o3)];
+          switch (c2) {
+            case "variable":
+              l2.push(Tt(s3), lt(r3.collate), w(u2)), i2 && l2.push(w(i2.keyword), lt(i2.value));
+              break;
+            case "cursor":
+              l2.push(w(a2));
+              break;
+            case "table":
+              l2.push(w(a2), "(".concat(i2.map(Kr).join(", "), ")"));
+          }
+          return l2.filter(L).join(" ");
+        })).join("".concat(n2, " "));
+        return o2.push(s2), o2.join(" ");
+      }, use: function(r2) {
+        var t2 = r2.type, e2 = r2.db, n2 = w(t2), o2 = y(e2);
+        return "".concat(n2, " ").concat(o2);
+      }, rename: function(r2) {
+        var t2 = r2.type, e2 = r2.table, n2 = [], o2 = "".concat(t2 && t2.toUpperCase(), " TABLE");
+        if (e2) {
+          var s2, u2 = Ir(e2);
+          try {
+            for (u2.s(); !(s2 = u2.n()).done; ) {
+              var a2 = s2.value.map(Cr);
+              n2.push(a2.join(" TO "));
+            }
+          } catch (r3) {
+            u2.e(r3);
+          } finally {
+            u2.f();
+          }
+        }
+        return "".concat(o2, " ").concat(n2.join(", "));
+      }, call: function(r2) {
+        var t2 = lt(r2.expr);
+        return "".concat("CALL", " ").concat(t2);
+      }, desc: jr, describe: jr, set: function(r2) {
+        var t2 = r2.type, e2 = r2.expr, n2 = r2.keyword, o2 = w(t2), s2 = e2.map(lt).join(", ");
+        return [o2, w(n2), s2].filter(L).join(" ");
+      }, lock: xr, unlock: xr, show: er, grant: Ur, revoke: Ur, proc: function(r2) {
+        var t2 = r2.stmt;
+        switch (t2.type) {
+          case "assign":
+            return tr(t2);
+          case "return":
+            return (function(r3) {
+              var t3 = r3.type, e2 = r3.expr;
+              return [w(t3), lt(e2)].join(" ");
+            })(t2);
+        }
+      }, raise: function(r2) {
+        var t2 = r2.type, e2 = r2.level, n2 = r2.raise, o2 = r2.using, s2 = [w(t2), w(e2)];
+        n2 && s2.push([h(n2.keyword), "format" === n2.type && n2.expr.length > 0 && ","].filter(L).join(""), n2.expr.map((function(r3) {
+          return lt(r3);
+        })).join(", "));
+        o2 && s2.push(w(o2.type), w(o2.option), o2.symbol, o2.expr.map((function(r3) {
+          return lt(r3);
+        })).join(", "));
+        return s2.filter(L).join(" ");
+      }, transaction: function(r2) {
+        var t2 = r2.expr, e2 = t2.action, n2 = t2.keyword, o2 = t2.modes, s2 = [h(e2), w(n2)];
+        return o2 && s2.push(o2.map(h).join(", ")), s2.filter(L).join(" ");
+      } };
+      function or(r2) {
+        if (!r2) return "";
+        for (var t2 = nr[r2.type], e2 = r2, n2 = e2._parentheses, o2 = e2._orderby, s2 = e2._limit, u2 = [n2 && "(", t2(r2)]; r2._next; ) {
+          var a2 = nr[r2._next.type], i2 = w(r2.set_op);
+          u2.push(i2, a2(r2._next)), r2 = r2._next;
+        }
+        return u2.push(n2 && ")", bt(o2, "order by"), B(s2)), u2.filter(L).join(" ");
+      }
+      function sr(r2) {
+        for (var t2 = [], e2 = 0, n2 = r2.length; e2 < n2; ++e2) {
+          var o2 = r2[e2] && r2[e2].ast ? r2[e2].ast : r2[e2], s2 = or(o2);
+          e2 === n2 - 1 && "transaction" === o2.type && (s2 = "".concat(s2, " ;")), t2.push(s2);
+        }
+        return t2.join(" ; ");
+      }
+      function ur(r2) {
+        var t2 = r2.type;
+        return "select" === t2 ? or(r2) : ("values" === t2 ? r2.values : r2).map((function(r3) {
+          var t3 = lt(r3);
+          return [w(r3.prefix), "(".concat(t3, ")")].filter(L).join("");
+        })).join(", ");
+      }
+      function ar(r2) {
+        if (!r2) return "";
+        var t2 = ["PARTITION", "("];
+        if (Array.isArray(r2)) t2.push(r2.map((function(r3) {
+          return y(r3);
+        })).join(", "));
+        else {
+          var e2 = r2.value;
+          t2.push(e2.map(lt).join(", "));
+        }
+        return t2.push(")"), t2.filter(L).join("");
+      }
+      function ir(r2) {
+        if (!r2) return "";
+        switch (r2.type) {
+          case "column":
+            return "(".concat(r2.expr.map(At).join(", "), ")");
+        }
+      }
+      function cr2(r2) {
+        var t2 = r2.expr, e2 = r2.keyword, n2 = t2.type, o2 = [w(e2)];
+        switch (n2) {
+          case "origin":
+            o2.push(h(t2));
+            break;
+          case "update":
+            o2.push("UPDATE", a("SET", K, t2.set), a("WHERE", lt, t2.where));
+        }
+        return o2.filter(L).join(" ");
+      }
+      function lr(r2) {
+        if (!r2) return "";
+        var t2 = r2.action;
+        return [ir(r2.target), cr2(t2)].filter(L).join(" ");
+      }
+      function fr(r2) {
+        var t2 = r2.table, e2 = r2.type, n2 = r2.or, o2 = void 0 === n2 ? [] : n2, s2 = r2.prefix, u2 = void 0 === s2 ? "into" : s2, i2 = r2.columns, c2 = r2.conflict, l2 = r2.values, f2 = r2.where, b2 = r2.on_duplicate_update, p2 = r2.partition, v2 = r2.returning, d2 = r2.set, y2 = b2 || {}, C2 = y2.keyword, m2 = y2.set, E2 = [w(e2), o2.map(h).join(" "), w(u2), mr(t2), ar(p2)];
+        return Array.isArray(i2) && E2.push("(".concat(i2.map(h).join(", "), ")")), E2.push(a(l2 && "values" === l2.type ? "VALUES" : "", ur, l2)), E2.push(a("ON CONFLICT", lr, c2)), E2.push(a("SET", K, d2)), E2.push(a("WHERE", lt, f2)), E2.push(a(C2, K, m2)), E2.push(I(v2)), E2.filter(L).join(" ");
+      }
+      function br(r2) {
+        var t2 = r2.expr, e2 = r2.unit, n2 = r2.suffix;
+        return ["INTERVAL", lt(t2), w(e2), lt(n2)].filter(L).join(" ");
+      }
+      function pr(r2) {
+        return (function(r3) {
+          if (Array.isArray(r3)) return vr(r3);
+        })(r2) || (function(r3) {
+          if ("undefined" != typeof Symbol && null != r3[Symbol.iterator] || null != r3["@@iterator"]) return Array.from(r3);
+        })(r2) || (function(r3, t2) {
+          if (r3) {
+            if ("string" == typeof r3) return vr(r3, t2);
+            var e2 = {}.toString.call(r3).slice(8, -1);
+            return "Object" === e2 && r3.constructor && (e2 = r3.constructor.name), "Map" === e2 || "Set" === e2 ? Array.from(r3) : "Arguments" === e2 || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(e2) ? vr(r3, t2) : void 0;
+          }
+        })(r2) || (function() {
+          throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+        })();
+      }
+      function vr(r2, t2) {
+        (null == t2 || t2 > r2.length) && (t2 = r2.length);
+        for (var e2 = 0, n2 = Array(t2); e2 < t2; e2++) n2[e2] = r2[e2];
+        return n2;
+      }
+      function dr(r2) {
+        var t2 = r2.type, e2 = r2.as, n2 = r2.expr, o2 = r2.with_offset;
+        return ["".concat(w(t2), "(").concat(n2 && lt(n2) || "", ")"), a("AS", "string" == typeof e2 ? y : lt, e2), a(w(o2 && o2.keyword), y, o2 && o2.as)].filter(L).join(" ");
+      }
+      function yr(r2) {
+        if (r2) switch (r2.type) {
+          case "pivot":
+          case "unpivot":
+            return (function(r3) {
+              var t2 = r3.as, e2 = r3.column, n2 = r3.expr, o2 = r3.in_expr, s2 = r3.type, u2 = [lt(n2), "FOR", At(e2), M(o2)], a2 = ["".concat(w(s2), "(").concat(u2.join(" "), ")")];
+              return t2 && a2.push("AS", y(t2)), a2.join(" ");
+            })(r2);
+          default:
+            return "";
+        }
+      }
+      function wr(r2) {
+        if (r2) {
+          var t2 = r2.keyword, e2 = r2.expr, n2 = r2.index, o2 = r2.index_columns, s2 = r2.parentheses, u2 = r2.prefix, a2 = [];
+          switch (t2.toLowerCase()) {
+            case "forceseek":
+              a2.push(w(t2), "(".concat(y(n2)), "(".concat(o2.map(lt).filter(L).join(", "), "))"));
+              break;
+            case "spatial_window_max_cells":
+              a2.push(w(t2), "=", lt(e2));
+              break;
+            case "index":
+              a2.push(w(u2), w(t2), s2 ? "(".concat(e2.map((function(r3) {
+                return y(r3);
+              })).join(", "), ")") : "= ".concat(y(e2)));
+              break;
+            default:
+              a2.push(lt(e2));
+          }
+          return a2.filter(L).join(" ");
+        }
+      }
+      function Lr(r2, t2) {
+        var e2 = r2.name, n2 = r2.symbol;
+        return [w(e2), n2, t2].filter(L).join(" ");
+      }
+      function hr(r2) {
+        var t2 = [];
+        switch (r2.keyword) {
+          case "as":
+            t2.push("AS", "OF", lt(r2.of));
+            break;
+          case "from_to":
+            t2.push("FROM", lt(r2.from), "TO", lt(r2.to));
+            break;
+          case "between_and":
+            t2.push("BETWEEN", lt(r2.between), "AND", lt(r2.and));
+            break;
+          case "contained":
+            t2.push("CONTAINED", "IN", lt(r2.in));
+        }
+        return t2.filter(L).join(" ");
+      }
+      function Cr(r2) {
+        if ("UNNEST" === w(r2.type)) return dr(r2);
+        var t2, e2, n2, o2, s2 = r2.table, u2 = r2.db, i2 = r2.as, c2 = r2.expr, l2 = r2.operator, f2 = r2.prefix, b2 = r2.schema, p2 = r2.server, v2 = r2.suffix, d2 = r2.tablesample, m2 = r2.temporal_table, E2 = r2.table_hint, A2 = r2.surround, T2 = void 0 === A2 ? {} : A2, _3 = y(p2, false, T2.server), g2 = y(u2, false, T2.db), I2 = y(b2, false, T2.schema), S2 = s2 && y(s2, false, T2.table);
+        if (c2) switch (c2.type) {
+          case "values":
+            var N2 = c2.parentheses, O2 = c2.values, R2 = c2.prefix, j2 = [N2 && "(", "", N2 && ")"], x2 = ur(O2);
+            R2 && (x2 = x2.split("(").slice(1).map((function(r3) {
+              return "".concat(w(R2), "(").concat(r3);
+            })).join("")), j2[1] = "VALUES ".concat(x2), S2 = j2.filter(L).join("");
+            break;
+          case "tumble":
+            S2 = (function(r3) {
+              if (!r3) return "";
+              var t3 = r3.data, e3 = r3.timecol, n3 = r3.offset, o3 = r3.size, s3 = [y(t3.expr.db), y(t3.expr.schema), y(t3.expr.table)].filter(L).join("."), u3 = "DESCRIPTOR(".concat(At(e3.expr), ")"), a2 = ["TABLE(TUMBLE(TABLE ".concat(Lr(t3, s3)), Lr(e3, u3)], i3 = Lr(o3, br(o3.expr));
+              return n3 && n3.expr ? a2.push(i3, "".concat(Lr(n3, br(n3.expr)), "))")) : a2.push("".concat(i3, "))")), a2.filter(L).join(", ");
+            })(c2);
+            break;
+          case "generator":
+            e2 = (t2 = c2).keyword, n2 = t2.type, o2 = t2.generators.map((function(r3) {
+              return C(r3).join(" ");
+            })).join(", "), S2 = "".concat(w(e2), "(").concat(w(n2), "(").concat(o2, "))");
+            break;
+          default:
+            S2 = lt(c2);
+        }
+        var k2 = [[_3, g2, I2, S2 = [w(f2), S2, w(v2)].filter(L).join(" ")].filter(L).join(".")];
+        if (d2) {
+          var U2 = ["TABLESAMPLE", lt(d2.expr), h(d2.repeatable)].filter(L).join(" ");
+          k2.push(U2);
+        }
+        k2.push((function(r3) {
+          if (r3) {
+            var t3 = r3.keyword, e3 = r3.expr;
+            return [w(t3), hr(e3)].filter(L).join(" ");
+          }
+        })(m2), a("AS", "string" == typeof i2 ? y : lt, i2), yr(l2)), E2 && k2.push(w(E2.keyword), "(".concat(E2.expr.map(wr).filter(L).join(", "), ")"));
+        var D2 = k2.filter(L).join(" ");
+        return r2.parentheses ? "(".concat(D2, ")") : D2;
+      }
+      function mr(r2) {
+        if (!r2) return "";
+        if (!Array.isArray(r2)) {
+          var t2 = r2.expr, e2 = r2.parentheses, n2 = r2.joins, o2 = mr(t2);
+          if (e2) {
+            for (var s2 = [], u2 = [], i2 = true === e2 ? 1 : e2.length, c2 = 0; c2++ < i2; ) s2.push("("), u2.push(")");
+            var l2 = n2 && n2.length > 0 ? mr([""].concat(pr(n2))) : "";
+            return s2.join("") + o2 + u2.join("") + l2;
+          }
+          return o2;
+        }
+        var f2 = r2[0], b2 = [];
+        if ("dual" === f2.type) return "DUAL";
+        b2.push(Cr(f2));
+        for (var p2 = 1; p2 < r2.length; ++p2) {
+          var v2 = r2[p2], d2 = v2.on, y2 = v2.using, C2 = v2.join, m2 = [], E2 = Array.isArray(v2) || Object.hasOwnProperty.call(v2, "joins");
+          m2.push(C2 ? " ".concat(w(C2)) : ","), m2.push(E2 ? mr(v2) : Cr(v2)), m2.push(a("ON", lt, d2)), y2 && m2.push("USING (".concat(y2.map(h).join(", "), ")")), b2.push(m2.filter(L).join(" "));
+        }
+        return b2.filter(L).join("");
+      }
+      function Er(r2) {
+        var t2 = r2.keyword, e2 = r2.symbol, n2 = r2.value, o2 = [t2.toUpperCase()];
+        e2 && o2.push(e2);
+        var s2 = h(n2);
+        switch (t2) {
+          case "partition by":
+          case "default collate":
+            s2 = lt(n2);
+            break;
+          case "options":
+            s2 = "(".concat(n2.map((function(r3) {
+              return [r3.keyword, r3.symbol, lt(r3.value)].join(" ");
+            })).join(", "), ")");
+            break;
+          case "cluster by":
+            s2 = n2.map(lt).join(", ");
+        }
+        return o2.push(s2), o2.filter(L).join(" ");
+      }
+      var Ar = ["analyze", "attach", "select", "deallocate", "delete", "exec", "update", "insert", "drop", "rename", "truncate", "call", "desc", "describe", "use", "alter", "set", "create", "lock", "unlock", "declare", "show", "replace", "if", "grant", "revoke", "proc", "raise", "execute", "transaction", "explain", "comment", "load_data"];
+      function Tr(r2) {
+        var t2 = r2 && r2.ast ? r2.ast : r2;
+        if (!Ar.includes(t2.type)) throw new Error("".concat(t2.type, " statements not supported at the moment"));
+      }
+      function _r(r2) {
+        return Array.isArray(r2) ? (r2.forEach(Tr), sr(r2)) : (Tr(r2), or(r2));
+      }
+      function gr(r2) {
+        return "go" === r2.go ? (function r3(t2) {
+          if (!t2 || 0 === t2.length) return "";
+          var e2 = [_r(t2.ast)];
+          return t2.go_next && e2.push(t2.go.toUpperCase(), r3(t2.go_next)), e2.filter((function(r4) {
+            return r4;
+          })).join(" ");
+        })(r2) : _r(r2);
+      }
+      function Ir(r2, t2) {
+        var e2 = "undefined" != typeof Symbol && r2[Symbol.iterator] || r2["@@iterator"];
+        if (!e2) {
+          if (Array.isArray(r2) || (e2 = Nr(r2)) || t2) {
+            e2 && (r2 = e2);
+            var n2 = 0, o2 = function() {
+            };
+            return { s: o2, n: function() {
+              return n2 >= r2.length ? { done: true } : { done: false, value: r2[n2++] };
+            }, e: function(r3) {
+              throw r3;
+            }, f: o2 };
+          }
+          throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+        }
+        var s2, u2 = true, a2 = false;
+        return { s: function() {
+          e2 = e2.call(r2);
+        }, n: function() {
+          var r3 = e2.next();
+          return u2 = r3.done, r3;
+        }, e: function(r3) {
+          a2 = true, s2 = r3;
+        }, f: function() {
+          try {
+            u2 || null == e2.return || e2.return();
+          } finally {
+            if (a2) throw s2;
+          }
+        } };
+      }
+      function Sr(r2) {
+        return (function(r3) {
+          if (Array.isArray(r3)) return Or(r3);
+        })(r2) || (function(r3) {
+          if ("undefined" != typeof Symbol && null != r3[Symbol.iterator] || null != r3["@@iterator"]) return Array.from(r3);
+        })(r2) || Nr(r2) || (function() {
+          throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+        })();
+      }
+      function Nr(r2, t2) {
+        if (r2) {
+          if ("string" == typeof r2) return Or(r2, t2);
+          var e2 = {}.toString.call(r2).slice(8, -1);
+          return "Object" === e2 && r2.constructor && (e2 = r2.constructor.name), "Map" === e2 || "Set" === e2 ? Array.from(r2) : "Arguments" === e2 || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(e2) ? Or(r2, t2) : void 0;
+        }
+      }
+      function Or(r2, t2) {
+        (null == t2 || t2 > r2.length) && (t2 = r2.length);
+        for (var e2 = 0, n2 = Array(t2); e2 < t2; e2++) n2[e2] = r2[e2];
+        return n2;
+      }
+      function Rr(r2) {
+        var t2 = r2.type, e2 = r2.keyword, n2 = r2.name, o2 = r2.prefix, s2 = r2.suffix, u2 = [w(t2), w(e2), w(o2)];
+        switch (e2) {
+          case "table":
+            u2.push(mr(n2));
+            break;
+          case "trigger":
+            u2.push([n2[0].schema ? "".concat(y(n2[0].schema), ".") : "", y(n2[0].trigger)].filter(L).join(""));
+            break;
+          case "database":
+          case "schema":
+          case "procedure":
+            u2.push(y(n2));
+            break;
+          case "view":
+            u2.push(mr(n2), r2.options && r2.options.map(lt).filter(L).join(" "));
+            break;
+          case "index":
+            u2.push.apply(u2, [At(n2)].concat(Sr(r2.table ? ["ON", Cr(r2.table)] : []), [r2.options && r2.options.map(lt).filter(L).join(" ")]));
+            break;
+          case "type":
+            u2.push(n2.map(At).join(", "), r2.options && r2.options.map(lt).filter(L).join(" "));
+        }
+        return s2 && u2.push(s2.map(lt).filter(L).join(" ")), u2.filter(L).join(" ");
+      }
+      function jr(r2) {
+        var t2 = r2.type, e2 = r2.table, n2 = w(t2), o2 = "string" == typeof e2 ? y(e2) : Cr(e2);
+        return "".concat(n2, " ").concat(o2);
+      }
+      function xr(r2) {
+        var t2 = r2.type, e2 = r2.keyword, n2 = r2.tables, o2 = [t2.toUpperCase(), w(e2)];
+        if ("UNLOCK" === t2.toUpperCase()) return o2.join(" ");
+        var s2, u2 = [], a2 = Ir(n2);
+        try {
+          var i2 = function() {
+            var r3 = s2.value, t3 = r3.table, e3 = r3.lock_type, n3 = [Cr(t3)];
+            if (e3) {
+              n3.push(["prefix", "type", "suffix"].map((function(r4) {
+                return w(e3[r4]);
+              })).filter(L).join(" "));
+            }
+            u2.push(n3.join(" "));
+          };
+          for (a2.s(); !(s2 = a2.n()).done; ) i2();
+        } catch (r3) {
+          a2.e(r3);
+        } finally {
+          a2.f();
+        }
+        return o2.push.apply(o2, [u2.join(", ")].concat(Sr((function(r3) {
+          var t3 = r3.lock_mode, e3 = r3.nowait, n3 = [];
+          if (t3) {
+            var o3 = t3.mode;
+            n3.push(o3.toUpperCase());
+          }
+          return e3 && n3.push(e3.toUpperCase()), n3;
+        })(r2)))), o2.filter(L).join(" ");
+      }
+      function kr(r2) {
+        var t2 = r2.name, e2 = r2.host, n2 = [h(t2)];
+        return e2 && n2.push("@", h(e2)), n2.join("");
+      }
+      function Ur(r2) {
+        var t2 = r2.type, e2 = r2.grant_option_for, n2 = r2.keyword, o2 = r2.objects, s2 = r2.on, u2 = r2.to_from, a2 = r2.user_or_roles, i2 = r2.with, c2 = [w(t2), h(e2)], l2 = o2.map((function(r3) {
+          var t3 = r3.priv, e3 = r3.columns, n3 = [lt(t3)];
+          return e3 && n3.push("(".concat(e3.map(At).join(", "), ")")), n3.join(" ");
+        })).join(", ");
+        if (c2.push(l2), s2) switch (c2.push("ON"), n2) {
+          case "priv":
+            c2.push(h(s2.object_type), s2.priv_level.map((function(r3) {
+              return [y(r3.prefix), y(r3.name)].filter(L).join(".");
+            })).join(", "));
+            break;
+          case "proxy":
+            c2.push(kr(s2));
+        }
+        return c2.push(w(u2), a2.map(kr).join(", ")), c2.push(h(i2)), c2.filter(L).join(" ");
+      }
+      function Dr(r2) {
+        return (function(r3) {
+          if (Array.isArray(r3)) return Mr(r3);
+        })(r2) || (function(r3) {
+          if ("undefined" != typeof Symbol && null != r3[Symbol.iterator] || null != r3["@@iterator"]) return Array.from(r3);
+        })(r2) || (function(r3, t2) {
+          if (r3) {
+            if ("string" == typeof r3) return Mr(r3, t2);
+            var e2 = {}.toString.call(r3).slice(8, -1);
+            return "Object" === e2 && r3.constructor && (e2 = r3.constructor.name), "Map" === e2 || "Set" === e2 ? Array.from(r3) : "Arguments" === e2 || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(e2) ? Mr(r3, t2) : void 0;
+          }
+        })(r2) || (function() {
+          throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+        })();
+      }
+      function Mr(r2, t2) {
+        (null == t2 || t2 > r2.length) && (t2 = r2.length);
+        for (var e2 = 0, n2 = Array(t2); e2 < t2; e2++) n2[e2] = r2[e2];
+        return n2;
+      }
+      function Pr(r2) {
+        if (r2) {
+          var t2 = r2.constraint, e2 = r2.constraint_type, n2 = r2.enforced, o2 = r2.index, s2 = r2.keyword, u2 = r2.reference_definition, i2 = r2.for, c2 = r2.with_values, l2 = [], f2 = b().database;
+          l2.push(w(s2)), l2.push(y(t2));
+          var p2 = w(e2);
+          return "sqlite" === f2.toLowerCase() && "UNIQUE KEY" === p2 && (p2 = "UNIQUE"), l2.push(p2), l2.push("sqlite" !== f2.toLowerCase() && y(o2)), l2.push.apply(l2, Dr(D(r2))), l2.push.apply(l2, Dr(_t(u2))), l2.push(w(n2)), l2.push(a("FOR", y, i2)), l2.push(h(c2)), l2.filter(L).join(" ");
+        }
+      }
+      function Gr(r2) {
+        if (r2) {
+          var t2 = r2.type;
+          return "rows" === t2 ? [w(t2), lt(r2.expr)].filter(L).join(" ") : lt(r2);
+        }
+      }
+      function Fr(r2) {
+        if ("string" == typeof r2) return r2;
+        var t2 = r2.window_specification;
+        return "(".concat((function(r3) {
+          var t3 = r3.name, e2 = r3.partitionby, n2 = r3.orderby, o2 = r3.window_frame_clause;
+          return [t3, bt(e2, "partition by"), bt(n2, "order by"), Gr(o2)].filter(L).join(" ");
+        })(t2), ")");
+      }
+      function Hr(r2) {
+        var t2 = r2.name, e2 = r2.as_window_specification;
+        return "".concat(t2, " AS ").concat(Fr(e2));
+      }
+      function Yr(r2) {
+        if (r2) {
+          var t2 = r2.as_window_specification, e2 = r2.expr, n2 = r2.keyword, o2 = r2.type, s2 = r2.parentheses, u2 = w(o2);
+          if ("WINDOW" === u2) return "OVER ".concat(Fr(t2));
+          if ("ON UPDATE" === u2) {
+            var a2 = "".concat(w(o2), " ").concat(w(n2)), i2 = lt(e2) || [];
+            return s2 && (a2 = "".concat(a2, "(").concat(i2.join(", "), ")")), a2;
+          }
+          if (r2.partitionby) return ["OVER", "(".concat(bt(r2.partitionby, "partition by")), "".concat(bt(r2.orderby, "order by"), ")")].filter(L).join(" ");
+          throw new Error("unknown over type");
+        }
+      }
+      function Br(r2) {
+        if (!r2 || !r2.array) return "";
+        var t2 = r2.array.keyword;
+        if (t2) return w(t2);
+        for (var e2 = r2.array, n2 = e2.dimension, o2 = e2.length, s2 = [], u2 = 0; u2 < n2; u2++) s2.push("["), o2 && o2[u2] && s2.push(h(o2[u2])), s2.push("]");
+        return s2.join("");
+      }
+      function $r(r2) {
+        for (var t2 = r2.target, e2 = r2.expr, n2 = r2.keyword, o2 = r2.symbol, s2 = r2.as, u2 = r2.offset, a2 = r2.parentheses, i2 = r2.collate, c2 = mt({ expr: e2, offset: u2 }), l2 = [], f2 = 0, b2 = t2.length; f2 < b2; ++f2) {
+          var p2 = t2[f2], v2 = p2.angle_brackets, d2 = p2.length, C2 = p2.dataType, m2 = p2.parentheses, E2 = p2.quoted, A2 = p2.scale, T2 = p2.suffix, _3 = p2.expr, g2 = _3 ? lt(_3) : "";
+          null != d2 && (g2 = A2 ? "".concat(d2, ", ").concat(A2) : d2), m2 && (g2 = "(".concat(g2, ")")), v2 && (g2 = "<".concat(g2, ">")), T2 && T2.length && (g2 += " ".concat(T2.map(h).join(" ")));
+          var I2 = "::", S2 = "", N2 = [];
+          "as" === o2 && (0 === f2 && (c2 = "".concat(w(n2), "(").concat(c2)), S2 = ")", I2 = " ".concat(o2.toUpperCase(), " ")), 0 === f2 && N2.push(c2);
+          var O2 = Br(p2);
+          N2.push(I2, E2, C2, E2, O2, g2, S2), l2.push(N2.filter(L).join(""));
+        }
+        var R2 = pt(i2);
+        s2 && l2.push(" AS ".concat(y(s2)));
+        var j2 = [l2.filter(L).join(""), R2].filter(L).join(" ");
+        return a2 ? "(".concat(j2, ")") : j2;
+      }
+      function Wr(r2) {
+        var t2 = r2.args, e2 = r2.array_index, n2 = r2.collate, o2 = r2.name, s2 = r2.args_parentheses, u2 = r2.parentheses, a2 = r2.within_group, i2 = r2.over, c2 = r2.suffix, l2 = Yr(i2), f2 = (function(r3) {
+          if (!r3) return "";
+          var t3 = r3.type, e3 = r3.keyword, n3 = r3.orderby;
+          return [w(t3), w(e3), "(".concat(bt(n3, "order by"), ")")].filter(L).join(" ");
+        })(a2), b2 = lt(c2), p2 = pt(n2), v2 = [h(o2.schema), o2.name.map(h).join(".")].filter(L).join(".");
+        if (!t2) return [v2, p2, f2, l2].filter(L).join(" ");
+        var d2 = r2.separator || ", ", y2 = 0;
+        if ("TRIM" === w(v2)) for (var C2 = 0, m2 = t2.value.length; C2 < m2; ++C2) {
+          var E2 = t2.value[C2];
+          if ("origin" === E2.type && "from" === E2.value) {
+            y2 = C2;
+            break;
+          }
+        }
+        var A2 = [v2];
+        A2.push(false === s2 ? " " : "(");
+        var T2 = lt(t2);
+        if (Array.isArray(d2)) {
+          for (var _3 = T2[0], g2 = 1, I2 = T2.length; g2 < I2; ++g2) _3 = [_3, T2[g2]].join(" ".concat(lt(d2[g2 - 1]), " "));
+          A2.push(_3);
+        } else "TRIM" === w(v2) && y2 > 0 ? A2.push([T2.slice(0, y2 + 1).join(" "), T2.slice(y2 + 1).join(", ")].join(" ")) : A2.push(T2.join(d2));
+        return false !== s2 && A2.push(")"), A2.push(Et(e2)), A2 = [A2.join(""), b2, p2].filter(L).join(" "), [u2 ? "(".concat(A2, ")") : A2, f2, l2].filter(L).join(" ");
+      }
+      function qr(r2) {
+        return (function(r3) {
+          if (Array.isArray(r3)) return Xr(r3);
+        })(r2) || (function(r3) {
+          if ("undefined" != typeof Symbol && null != r3[Symbol.iterator] || null != r3["@@iterator"]) return Array.from(r3);
+        })(r2) || Vr(r2) || (function() {
+          throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+        })();
+      }
+      function Vr(r2, t2) {
+        if (r2) {
+          if ("string" == typeof r2) return Xr(r2, t2);
+          var e2 = {}.toString.call(r2).slice(8, -1);
+          return "Object" === e2 && r2.constructor && (e2 = r2.constructor.name), "Map" === e2 || "Set" === e2 ? Array.from(r2) : "Arguments" === e2 || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(e2) ? Xr(r2, t2) : void 0;
+        }
+      }
+      function Xr(r2, t2) {
+        (null == t2 || t2 > r2.length) && (t2 = r2.length);
+        for (var e2 = 0, n2 = Array(t2); e2 < t2; e2++) n2[e2] = r2[e2];
+        return n2;
+      }
+      function Kr(r2) {
+        if (!r2) return [];
+        var t2, e2, n2, o2, s2 = r2.resource;
+        switch (s2) {
+          case "column":
+            return St(r2);
+          case "index":
+            return e2 = [], n2 = (t2 = r2).keyword, o2 = t2.index, e2.push(w(n2)), e2.push(o2), e2.push.apply(e2, R(D(t2))), e2.filter(L).join(" ");
+          case "constraint":
+            return Pr(r2);
+          case "sequence":
+            return [w(r2.prefix), lt(r2.value)].filter(L).join(" ");
+          default:
+            throw new Error("unknown resource = ".concat(s2, " type"));
+        }
+      }
+      function Qr(r2) {
+        var t2 = [];
+        switch (r2.keyword) {
+          case "from":
+            t2.push("FROM", "(".concat(h(r2.from), ")"), "TO", "(".concat(h(r2.to), ")"));
+            break;
+          case "in":
+            t2.push("IN", "(".concat(lt(r2.in), ")"));
+            break;
+          case "with":
+            t2.push("WITH", "(MODULUS ".concat(h(r2.modulus), ", REMAINDER ").concat(h(r2.remainder), ")"));
+        }
+        return t2.filter(L).join(" ");
+      }
+      function zr(r2) {
+        var t2 = r2.keyword, e2 = r2.table, n2 = r2.for_values, o2 = r2.tablespace, s2 = [w(t2), Cr(e2), w(n2.keyword), Qr(n2.expr)];
+        return o2 && s2.push("TABLESPACE", h(o2)), s2.filter(L).join(" ");
+      }
+      function Zr(r2) {
+        return r2.dataType ? A(r2) : [y(r2.db), y(r2.schema), y(r2.table)].filter(L).join(".");
+      }
+      function Jr(r2) {
+        var t2 = r2.type;
+        switch (t2) {
+          case "as":
+            return [w(t2), r2.symbol, or(r2.declare), w(r2.begin), sr(r2.expr), w(r2.end), r2.symbol].filter(L).join(" ");
+          case "set":
+            return [w(t2), r2.parameter, w(r2.value && r2.value.prefix), r2.value && r2.value.expr.map(lt).join(", ")].filter(L).join(" ");
+          case "return":
+            return [w(t2), lt(r2.expr)].filter(L).join(" ");
+          default:
+            return lt(r2);
+        }
+      }
+      function rt(r2) {
+        var t2 = r2.type, e2 = r2.symbol, n2 = r2.value, o2 = [w(t2), e2];
+        switch (w(t2)) {
+          case "SFUNC":
+            o2.push([y(n2.schema), n2.name].filter(L).join("."));
+            break;
+          case "STYPE":
+          case "MSTYPE":
+            o2.push(A(n2));
+            break;
+          default:
+            o2.push(lt(n2));
+        }
+        return o2.filter(L).join(" ");
+      }
+      function tt(r2, t2) {
+        switch (r2) {
+          case "add":
+            var e2 = t2.map((function(r3) {
+              var t3 = r3.name, e3 = r3.value;
+              return ["PARTITION", h(t3), "VALUES", w(e3.type), "(".concat(h(e3.expr), ")")].join(" ");
+            })).join(", ");
+            return "(".concat(e2, ")");
+          default:
+            return jt(t2);
+        }
+      }
+      function et(r2) {
+        if (!r2) return "";
+        var t2 = r2.action, e2 = r2.create_definitions, n2 = r2.if_not_exists, o2 = r2.keyword, s2 = r2.if_exists, u2 = r2.old_column, a2 = r2.prefix, i2 = r2.resource, c2 = r2.symbol, l2 = r2.suffix, f2 = "", b2 = [];
+        switch (i2) {
+          case "column":
+            b2 = [St(r2)];
+            break;
+          case "index":
+            b2 = D(r2), f2 = r2[i2];
+            break;
+          case "table":
+          case "schema":
+            f2 = y(r2[i2]);
+            break;
+          case "aggregate":
+          case "function":
+          case "domain":
+          case "type":
+            f2 = y(r2[i2]);
+            break;
+          case "algorithm":
+          case "lock":
+          case "table-option":
+            f2 = [c2, w(r2[i2])].filter(L).join(" ");
+            break;
+          case "constraint":
+            f2 = y(r2[i2]), b2 = [Kr(e2)];
+            break;
+          case "partition":
+            b2 = [tt(t2, r2.partitions)];
+            break;
+          case "key":
+            f2 = y(r2[i2]);
+            break;
+          default:
+            f2 = [c2, r2[i2]].filter((function(r3) {
+              return null !== r3;
+            })).join(" ");
+        }
+        var p2 = [w(t2), w(o2), w(n2), w(s2), u2 && At(u2), w(a2), f2 && f2.trim(), b2.filter(L).join(" ")];
+        return l2 && p2.push(w(l2.keyword), l2.expr && At(l2.expr)), p2.filter(L).join(" ");
+      }
+      function nt(r2) {
+        var t2 = r2.default && [w(r2.default.keyword), lt(r2.default.value)].join(" ");
+        return [w(r2.mode), r2.name, A(r2.type), t2].filter(L).join(" ");
+      }
+      function ot(r2) {
+        return (ot = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(r3) {
+          return typeof r3;
+        } : function(r3) {
+          return r3 && "function" == typeof Symbol && r3.constructor === Symbol && r3 !== Symbol.prototype ? "symbol" : typeof r3;
+        })(r2);
+      }
+      function st(r2) {
+        var t2 = r2.expr_list;
+        switch (w(r2.type)) {
+          case "STRUCT":
+          case "ROW":
+            return "(".concat(jt(t2), ")");
+          case "ARRAY":
+            return (function(r3) {
+              var t3 = r3.array_path, e2 = r3.brackets, n2 = r3.expr_list, o2 = r3.parentheses;
+              if (!n2) return "[".concat(jt(t3), "]");
+              var s2 = Array.isArray(n2) ? n2.map((function(r4) {
+                return "(".concat(jt(r4), ")");
+              })).filter(L).join(", ") : lt(n2);
+              return e2 ? "[".concat(s2, "]") : o2 ? "(".concat(s2, ")") : s2;
+            })(r2);
+          default:
+            return "";
+        }
+      }
+      function ut(r2) {
+        var t2 = r2.definition, e2 = r2.keyword, n2 = r2.orderby, o2 = r2.limit, s2 = [w(e2)];
+        return t2 && "object" === ot(t2) && (s2.length = 0, s2.push(T(t2))), s2.push(st(r2), bt(n2, "order by"), B(o2)), s2.filter(L).join("");
+      }
+      function at(r2) {
+        return (at = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(r3) {
+          return typeof r3;
+        } : function(r3) {
+          return r3 && "function" == typeof Symbol && r3.constructor === Symbol && r3 !== Symbol.prototype ? "symbol" : typeof r3;
+        })(r2);
+      }
+      var it = { alter: et, aggr_func: function(r2) {
+        var t2 = r2.args, e2 = r2.filter, n2 = r2.over, o2 = r2.within_group_orderby, s2 = lt(t2.expr);
+        s2 = Array.isArray(s2) ? s2.join(", ") : s2;
+        var u2 = r2.name, a2 = Yr(n2);
+        t2.distinct && (s2 = ["DISTINCT", s2].join(" ")), t2.separator && t2.separator.delimiter && (s2 = [s2, h(t2.separator.delimiter)].join("".concat(t2.separator.symbol, " "))), t2.separator && t2.separator.expr && (s2 = [s2, lt(t2.separator.expr)].join(" ")), t2.orderby && (s2 = [s2, bt(t2.orderby, "order by")].join(" ")), t2.separator && t2.separator.value && (s2 = [s2, w(t2.separator.keyword), h(t2.separator.value)].filter(L).join(" "));
+        var i2 = o2 ? "WITHIN GROUP (".concat(bt(o2, "order by"), ")") : "", c2 = e2 ? "FILTER (WHERE ".concat(lt(e2.where), ")") : "";
+        return ["".concat(u2, "(").concat(s2, ")"), i2, a2, c2].filter(L).join(" ");
+      }, any_value: function(r2) {
+        var t2 = r2.args, e2 = r2.type, n2 = r2.over, o2 = t2.expr, s2 = t2.having, u2 = "".concat(w(e2), "(").concat(lt(o2));
+        return s2 && (u2 = "".concat(u2, " HAVING ").concat(w(s2.prefix), " ").concat(lt(s2.expr))), [u2 = "".concat(u2, ")"), Yr(n2)].filter(L).join(" ");
+      }, window_func: function(r2) {
+        var t2 = r2.over;
+        return [(function(r3) {
+          var t3 = r3.args, e2 = r3.name, n2 = r3.consider_nulls, o2 = void 0 === n2 ? "" : n2, s2 = r3.separator, u2 = void 0 === s2 ? ", " : s2;
+          return [e2, "(", t3 ? lt(t3).join(u2) : "", ")", o2 && " ", o2].filter(L).join("");
+        })(r2), Yr(t2)].filter(L).join(" ");
+      }, array: ut, assign: tr, binary_expr: M, case: function(r2) {
+        var t2 = ["CASE"], e2 = r2.args, n2 = r2.expr, o2 = r2.parentheses;
+        n2 && t2.push(lt(n2));
+        for (var s2 = 0, u2 = e2.length; s2 < u2; ++s2) t2.push(e2[s2].type.toUpperCase()), e2[s2].cond && (t2.push(lt(e2[s2].cond)), t2.push("THEN")), t2.push(lt(e2[s2].result));
+        return t2.push("END"), o2 ? "(".concat(t2.join(" "), ")") : t2.join(" ");
+      }, cast: $r, collate: pt, column_ref: At, column_definition: St, datatype: A, extract: function(r2) {
+        var t2 = r2.args, e2 = r2.type, n2 = t2.field, o2 = t2.cast_type, s2 = t2.source, u2 = ["".concat(w(e2), "(").concat(w(n2)), "FROM", w(o2), lt(s2)];
+        return "".concat(u2.filter(L).join(" "), ")");
+      }, flatten: function(r2) {
+        var t2 = r2.args, e2 = r2.type, n2 = ["input", "path", "outer", "recursive", "mode"].map((function(r3) {
+          return (function(r4) {
+            if (!r4) return "";
+            var t3 = r4.type, e3 = r4.symbol, n3 = r4.value;
+            return [w(t3), e3, lt(n3)].filter(L).join(" ");
+          })(t2[r3]);
+        })).filter(L).join(", ");
+        return "".concat(w(e2), "(").concat(n2, ")");
+      }, fulltext_search: function(r2) {
+        var t2 = r2.against, e2 = r2.as, n2 = r2.columns, o2 = r2.match, s2 = r2.mode, u2 = [w(o2), "(".concat(n2.map((function(r3) {
+          return At(r3);
+        })).join(", "), ")")].join(" "), a2 = [w(t2), ["(", lt(r2.expr), s2 && " ".concat(h(s2)), ")"].filter(L).join("")].join(" ");
+        return [u2, a2, Nt(e2)].filter(L).join(" ");
+      }, function: Wr, lambda: function(r2) {
+        var t2 = r2.args, e2 = r2.expr, n2 = t2.value, o2 = t2.parentheses, s2 = n2.map(lt).join(", ");
+        return [o2 ? "(".concat(s2, ")") : s2, "->", lt(e2)].join(" ");
+      }, load_data: rr, insert: or, interval: br, json: function(r2) {
+        var t2 = r2.keyword, e2 = r2.expr_list;
+        return [w(t2), e2.map((function(r3) {
+          return lt(r3);
+        })).join(", ")].join(" ");
+      }, json_object_arg: function(r2) {
+        var t2 = r2.expr, e2 = t2.key, n2 = t2.value, o2 = t2.on, s2 = [lt(e2), "VALUE", lt(n2)];
+        return o2 && s2.push("ON", "NULL", lt(o2)), s2.filter(L).join(" ");
+      }, json_visitor: function(r2) {
+        return [r2.symbol, lt(r2.expr)].join("");
+      }, func_arg: function(r2) {
+        var t2 = r2.value;
+        return [t2.name, t2.symbol, lt(t2.expr)].filter(L).join(" ");
+      }, show: er, struct: ut, tablefunc: function(r2) {
+        var t2 = r2.as, e2 = r2.name, n2 = r2.args, o2 = [h(e2.schema), e2.name.map(h).join(".")].filter(L).join(".");
+        return ["".concat(o2, "(").concat(lt(n2).join(", "), ")"), "AS", Wr(t2)].join(" ");
+      }, tables: mr, unnest: dr, values: ur, window: function(r2) {
+        return r2.expr.map(Hr).join(", ");
+      } };
+      function ct(r2) {
+        var t2 = r2.prefix, e2 = void 0 === t2 ? "@" : t2, n2 = r2.name, o2 = r2.members, s2 = r2.quoted, u2 = r2.suffix, a2 = [], i2 = o2 && o2.length > 0 ? "".concat(n2, ".").concat(o2.join(".")) : n2, c2 = "".concat(e2 || "").concat(i2);
+        return u2 && (c2 += u2), a2.push(c2), [s2, a2.join(" "), s2].filter(L).join("");
+      }
+      function lt(r2) {
+        if (r2) {
+          var t2 = r2;
+          if (r2.ast) {
+            var e2 = t2.ast;
+            Reflect.deleteProperty(t2, e2);
+            for (var n2 = 0, o2 = Object.keys(e2); n2 < o2.length; n2++) {
+              var s2 = o2[n2];
+              t2[s2] = e2[s2];
+            }
+          }
+          var u2 = t2.type;
+          return "expr" === u2 ? lt(t2.expr) : it[u2] ? it[u2](t2) : h(t2);
+        }
+      }
+      function ft(r2) {
+        return r2 ? (Array.isArray(r2) || (r2 = [r2]), r2.map(lt)) : [];
+      }
+      function bt(r2, t2) {
+        if (!Array.isArray(r2)) return "";
+        var e2 = [], n2 = w(t2);
+        switch (n2) {
+          case "ORDER BY":
+            e2 = r2.map((function(r3) {
+              return [lt(r3.expr), r3.type || "ASC", w(r3.nulls)].filter(L).join(" ");
+            }));
+            break;
+          case "PARTITION BY":
+          default:
+            e2 = r2.map((function(r3) {
+              return lt(r3.expr);
+            }));
+        }
+        return i(n2, e2.join(", "));
+      }
+      function pt(r2) {
+        if (r2) {
+          var t2 = r2.keyword, e2 = r2.collate, n2 = e2.name, o2 = e2.symbol, s2 = e2.value, u2 = [w(t2)];
+          return s2 || u2.push(o2), u2.push(Array.isArray(n2) ? n2.map(h).join(".") : h(n2)), s2 && u2.push(o2), u2.push(lt(s2)), u2.filter(L).join(" ");
+        }
+      }
+      function vt(r2) {
+        return (vt = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(r3) {
+          return typeof r3;
+        } : function(r3) {
+          return r3 && "function" == typeof Symbol && r3.constructor === Symbol && r3 !== Symbol.prototype ? "symbol" : typeof r3;
+        })(r2);
+      }
+      function dt(r2, t2) {
+        var e2 = Object.keys(r2);
+        if (Object.getOwnPropertySymbols) {
+          var n2 = Object.getOwnPropertySymbols(r2);
+          t2 && (n2 = n2.filter((function(t3) {
+            return Object.getOwnPropertyDescriptor(r2, t3).enumerable;
+          }))), e2.push.apply(e2, n2);
+        }
+        return e2;
+      }
+      function yt(r2) {
+        for (var t2 = 1; t2 < arguments.length; t2++) {
+          var e2 = null != arguments[t2] ? arguments[t2] : {};
+          t2 % 2 ? dt(Object(e2), true).forEach((function(t3) {
+            wt(r2, t3, e2[t3]);
+          })) : Object.getOwnPropertyDescriptors ? Object.defineProperties(r2, Object.getOwnPropertyDescriptors(e2)) : dt(Object(e2)).forEach((function(t3) {
+            Object.defineProperty(r2, t3, Object.getOwnPropertyDescriptor(e2, t3));
+          }));
+        }
+        return r2;
+      }
+      function wt(r2, t2, e2) {
+        return (t2 = (function(r3) {
+          var t3 = (function(r4, t4) {
+            if ("object" != vt(r4) || !r4) return r4;
+            var e3 = r4[Symbol.toPrimitive];
+            if (void 0 !== e3) {
+              var n2 = e3.call(r4, t4);
+              if ("object" != vt(n2)) return n2;
+              throw new TypeError("@@toPrimitive must return a primitive value.");
+            }
+            return ("string" === t4 ? String : Number)(r4);
+          })(r3, "string");
+          return "symbol" == vt(t3) ? t3 : t3 + "";
+        })(t2)) in r2 ? Object.defineProperty(r2, t2, { value: e2, enumerable: true, configurable: true, writable: true }) : r2[t2] = e2, r2;
+      }
+      function Lt(r2) {
+        return (function(r3) {
+          if (Array.isArray(r3)) return Ct(r3);
+        })(r2) || (function(r3) {
+          if ("undefined" != typeof Symbol && null != r3[Symbol.iterator] || null != r3["@@iterator"]) return Array.from(r3);
+        })(r2) || ht(r2) || (function() {
+          throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+        })();
+      }
+      function ht(r2, t2) {
+        if (r2) {
+          if ("string" == typeof r2) return Ct(r2, t2);
+          var e2 = {}.toString.call(r2).slice(8, -1);
+          return "Object" === e2 && r2.constructor && (e2 = r2.constructor.name), "Map" === e2 || "Set" === e2 ? Array.from(r2) : "Arguments" === e2 || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(e2) ? Ct(r2, t2) : void 0;
+        }
+      }
+      function Ct(r2, t2) {
+        (null == t2 || t2 > r2.length) && (t2 = r2.length);
+        for (var e2 = 0, n2 = Array(t2); e2 < t2; e2++) n2[e2] = r2[e2];
+        return n2;
+      }
+      function mt(r2, t2) {
+        if ("string" == typeof r2) return y(r2, t2);
+        var e2 = r2.expr, n2 = r2.offset, o2 = r2.suffix, s2 = n2 && n2.map((function(r3) {
+          return ["[", r3.name, "".concat(r3.name ? "(" : ""), h(r3.value), "".concat(r3.name ? ")" : ""), "]"].filter(L).join("");
+        })).join("");
+        return [lt(e2), s2, o2].filter(L).join("");
+      }
+      function Et(r2) {
+        if (!r2 || 0 === r2.length) return "";
+        var t2, e2 = [], n2 = (function(r3, t3) {
+          var e3 = "undefined" != typeof Symbol && r3[Symbol.iterator] || r3["@@iterator"];
+          if (!e3) {
+            if (Array.isArray(r3) || (e3 = ht(r3)) || t3) {
+              e3 && (r3 = e3);
+              var n3 = 0, o3 = function() {
+              };
+              return { s: o3, n: function() {
+                return n3 >= r3.length ? { done: true } : { done: false, value: r3[n3++] };
+              }, e: function(r4) {
+                throw r4;
+              }, f: o3 };
+            }
+            throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+          }
+          var s3, u2 = true, a2 = false;
+          return { s: function() {
+            e3 = e3.call(r3);
+          }, n: function() {
+            var r4 = e3.next();
+            return u2 = r4.done, r4;
+          }, e: function(r4) {
+            a2 = true, s3 = r4;
+          }, f: function() {
+            try {
+              u2 || null == e3.return || e3.return();
+            } finally {
+              if (a2) throw s3;
+            }
+          } };
+        })(r2);
+        try {
+          for (n2.s(); !(t2 = n2.n()).done; ) {
+            var o2 = t2.value, s2 = o2.brackets ? "[".concat(lt(o2.index), "]") : "".concat(o2.notation).concat(lt(o2.index));
+            o2.property && (s2 = "".concat(s2, ".").concat(h(o2.property))), e2.push(s2);
+          }
+        } catch (r3) {
+          n2.e(r3);
+        } finally {
+          n2.f();
+        }
+        return e2.join("");
+      }
+      function At(r2) {
+        var t2 = r2.array_index, e2 = r2.as, n2 = r2.column, o2 = r2.collate, s2 = r2.db, u2 = r2.isDual, i2 = r2.notations, c2 = void 0 === i2 ? [] : i2, l2 = r2.options, f2 = r2.schema, b2 = r2.table, p2 = r2.parentheses, v2 = r2.suffix, d2 = r2.order_by, h2 = r2.subFields, C2 = void 0 === h2 ? [] : h2, m2 = "*" === n2 ? "*" : mt(n2, u2), E2 = [s2, f2, b2].filter(L).map((function(r3) {
+          return "".concat("string" == typeof r3 ? y(r3) : lt(r3));
+        })), A2 = E2[0];
+        if (A2) {
+          for (var T2 = 1; T2 < E2.length; ++T2) A2 = "".concat(A2).concat(c2[T2] || ".").concat(E2[T2]);
+          m2 = "".concat(A2).concat(c2[T2] || ".").concat(m2);
+        }
+        var _3 = [m2 = ["".concat(m2).concat(Et(t2))].concat(Lt(C2)).join("."), pt(o2), lt(l2), a("AS", lt, e2)];
+        _3.push("string" == typeof v2 ? w(v2) : lt(v2)), _3.push(w(d2));
+        var g2 = _3.filter(L).join(" ");
+        return p2 ? "(".concat(g2, ")") : g2;
+      }
+      function Tt(r2) {
+        if (r2) {
+          var t2 = r2.schema, e2 = r2.dataType, n2 = r2.length, o2 = r2.suffix, s2 = r2.scale, u2 = r2.expr, a2 = A({ schema: t2, dataType: e2, length: n2, suffix: o2, scale: s2, parentheses: null != n2 });
+          if (u2 && (a2 += lt(u2)), r2.array) {
+            var i2 = Br(r2);
+            a2 += [/^\[.*\]$/.test(i2) ? "" : " ", i2].join("");
+          }
+          return a2;
+        }
+      }
+      function _t(r2) {
+        var t2 = [];
+        if (!r2) return t2;
+        var e2 = r2.definition, n2 = r2.keyword, o2 = r2.match, s2 = r2.table, u2 = r2.on_action;
+        return t2.push(w(n2)), t2.push(mr(s2)), t2.push(e2 && "(".concat(e2.map((function(r3) {
+          return lt(r3);
+        })).join(", "), ")")), t2.push(w(o2)), u2.map((function(r3) {
+          return t2.push(w(r3.type), lt(r3.value));
+        })), t2.filter(L);
+      }
+      function gt(r2) {
+        var t2 = [], e2 = r2.nullable, n2 = r2.character_set, o2 = r2.check, s2 = r2.comment, u2 = r2.constraint, i2 = r2.collate, c2 = r2.storage, l2 = r2.using, f2 = r2.default_val, p2 = r2.generated, v2 = r2.auto_increment, d2 = r2.unique, y2 = r2.primary_key, m2 = r2.column_format, E2 = r2.reference_definition, A2 = r2.generated_by_default, T2 = [w(e2 && e2.action), w(e2 && e2.value)].filter(L).join(" ");
+        if (p2 || t2.push(T2), f2) {
+          var g2 = f2.type, I2 = f2.value;
+          t2.push(g2.toUpperCase(), lt(I2));
+        }
+        var S2 = b().database;
+        return u2 && t2.push(w(u2.keyword), h(u2.constraint)), t2.push(Pr(o2)), t2.push((function(r3) {
+          if (r3) return [w(r3.value), "(".concat(lt(r3.expr), ")"), w(r3.storage_type)].filter(L).join(" ");
+        })(p2)), p2 && t2.push(T2), t2.push(N(v2), w(y2), w(d2), h(A2), _2(s2)), t2.push.apply(t2, Lt(C(n2))), "sqlite" !== S2.toLowerCase() && t2.push(lt(i2)), t2.push.apply(t2, Lt(C(m2))), t2.push.apply(t2, Lt(C(c2))), t2.push.apply(t2, Lt(_t(E2))), t2.push(a("USING", lt, l2)), t2.filter(L).join(" ");
+      }
+      function It(r2) {
+        var t2 = r2.order_by, e2 = r2.column, n2 = r2.collate, o2 = r2.nulls, s2 = r2.opclass, u2 = "string" == typeof e2 ? { type: "column_ref", table: r2.table, column: e2 } : yt(yt({}, r2), {}, { order_by: null });
+        return u2.collate = null, [lt(u2), lt(n2), s2, w(t2), w(o2)].filter(L).join(" ");
+      }
+      function St(r2) {
+        var t2 = [], e2 = At(r2.column), n2 = Tt(r2.definition);
+        return t2.push(e2), t2.push(n2), t2.push(gt(r2)), t2.filter(L).join(" ");
+      }
+      function Nt(r2) {
+        return r2 ? "object" === vt(r2) ? ["AS", lt(r2)].join(" ") : ["AS", /^(`?)[a-z_][0-9a-z_]*(`?)$/i.test(r2) ? y(r2) : d(r2)].join(" ") : "";
+      }
+      function Ot(r2, t2) {
+        var e2 = r2.expr, n2 = r2.type;
+        if ("cast" === n2) return $r(r2);
+        t2 && (e2.isDual = t2);
+        var o2 = lt(e2), s2 = r2.expr_list;
+        if (s2) {
+          var u2 = [o2], a2 = s2.map((function(r3) {
+            return Ot(r3, t2);
+          })).join(", ");
+          return u2.push([w(n2), n2 && "(", a2, n2 && ")"].filter(L).join("")), u2.filter(L).join(" ");
+        }
+        return e2.parentheses && Reflect.has(e2, "array_index") && "cast" !== e2.type && (o2 = "(".concat(o2, ")")), e2.array_index && "column_ref" !== e2.type && "function" !== e2.type && (o2 = "".concat(o2).concat(Et(e2.array_index))), [o2, Nt(r2.as)].filter(L).join(" ");
+      }
+      function Rt(r2) {
+        var t2 = Array.isArray(r2) && r2[0];
+        return !(!t2 || "dual" !== t2.type);
+      }
+      function jt(r2, t2) {
+        if (!r2 || "*" === r2) return r2;
+        var e2 = Rt(t2);
+        return r2.map((function(r3) {
+          return Ot(r3, e2);
+        })).join(", ");
+      }
+      it.var = ct, it.expr_list = function(r2) {
+        var t2 = ft(r2.value), e2 = r2.parentheses, n2 = r2.separator;
+        if (!e2 && !n2) return t2;
+        var o2 = n2 || ", ", s2 = t2.join(o2);
+        return e2 ? "(".concat(s2, ")") : s2;
+      }, it.select = function(r2) {
+        var t2 = "object" === at(r2._next) ? or(r2) : q(r2);
+        return r2.parentheses ? "(".concat(t2, ")") : t2;
+      }, it.unary_expr = function(r2) {
+        var t2 = r2.operator, e2 = r2.parentheses, n2 = r2.expr, o2 = "-" === t2 || "+" === t2 || "~" === t2 || "!" === t2 ? "" : " ", s2 = "".concat(t2).concat(o2).concat(lt(n2));
+        return e2 ? "(".concat(s2, ")") : s2;
+      }, it.map_object = function(r2) {
+        var t2 = r2.keyword, e2 = r2.expr.map((function(r3) {
+          return [h(r3.key), h(r3.value)].join(", ");
+        })).join(", ");
+        return [w(t2), "[".concat(e2, "]")].join("");
+      };
+      var xt = e(0);
+      function kt(r2) {
+        return (kt = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(r3) {
+          return typeof r3;
+        } : function(r3) {
+          return r3 && "function" == typeof Symbol && r3.constructor === Symbol && r3 !== Symbol.prototype ? "symbol" : typeof r3;
+        })(r2);
+      }
+      var Ut, Dt, Mt, Pt = (Ut = {}, Dt = "mysql", Mt = xt.parse, (Dt = (function(r2) {
+        var t2 = (function(r3, t3) {
+          if ("object" != kt(r3) || !r3) return r3;
+          var e2 = r3[Symbol.toPrimitive];
+          if (void 0 !== e2) {
+            var n2 = e2.call(r3, t3);
+            if ("object" != kt(n2)) return n2;
+            throw new TypeError("@@toPrimitive must return a primitive value.");
+          }
+          return ("string" === t3 ? String : Number)(r3);
+        })(r2, "string");
+        return "symbol" == kt(t2) ? t2 : t2 + "";
+      })(Dt)) in Ut ? Object.defineProperty(Ut, Dt, { value: Mt, enumerable: true, configurable: true, writable: true }) : Ut[Dt] = Mt, Ut);
+      function Gt(r2) {
+        return (Gt = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(r3) {
+          return typeof r3;
+        } : function(r3) {
+          return r3 && "function" == typeof Symbol && r3.constructor === Symbol && r3 !== Symbol.prototype ? "symbol" : typeof r3;
+        })(r2);
+      }
+      function Ft(r2, t2) {
+        var e2 = "undefined" != typeof Symbol && r2[Symbol.iterator] || r2["@@iterator"];
+        if (!e2) {
+          if (Array.isArray(r2) || (e2 = (function(r3, t3) {
+            if (r3) {
+              if ("string" == typeof r3) return Ht(r3, t3);
+              var e3 = {}.toString.call(r3).slice(8, -1);
+              return "Object" === e3 && r3.constructor && (e3 = r3.constructor.name), "Map" === e3 || "Set" === e3 ? Array.from(r3) : "Arguments" === e3 || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(e3) ? Ht(r3, t3) : void 0;
+            }
+          })(r2)) || t2) {
+            e2 && (r2 = e2);
+            var n2 = 0, o2 = function() {
+            };
+            return { s: o2, n: function() {
+              return n2 >= r2.length ? { done: true } : { done: false, value: r2[n2++] };
+            }, e: function(r3) {
+              throw r3;
+            }, f: o2 };
+          }
+          throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+        }
+        var s2, u2 = true, a2 = false;
+        return { s: function() {
+          e2 = e2.call(r2);
+        }, n: function() {
+          var r3 = e2.next();
+          return u2 = r3.done, r3;
+        }, e: function(r3) {
+          a2 = true, s2 = r3;
+        }, f: function() {
+          try {
+            u2 || null == e2.return || e2.return();
+          } finally {
+            if (a2) throw s2;
+          }
+        } };
+      }
+      function Ht(r2, t2) {
+        (null == t2 || t2 > r2.length) && (t2 = r2.length);
+        for (var e2 = 0, n2 = Array(t2); e2 < t2; e2++) n2[e2] = r2[e2];
+        return n2;
+      }
+      function Yt(r2, t2) {
+        for (var e2 = 0; e2 < t2.length; e2++) {
+          var n2 = t2[e2];
+          n2.enumerable = n2.enumerable || false, n2.configurable = true, "value" in n2 && (n2.writable = true), Object.defineProperty(r2, Bt(n2.key), n2);
+        }
+      }
+      function Bt(r2) {
+        var t2 = (function(r3, t3) {
+          if ("object" != Gt(r3) || !r3) return r3;
+          var e2 = r3[Symbol.toPrimitive];
+          if (void 0 !== e2) {
+            var n2 = e2.call(r3, t3);
+            if ("object" != Gt(n2)) return n2;
+            throw new TypeError("@@toPrimitive must return a primitive value.");
+          }
+          return String(r3);
+        })(r2, "string");
+        return "symbol" == Gt(t2) ? t2 : t2 + "";
+      }
+      var $t = (function() {
+        return (function(r2, t2, e2) {
+          return t2 && Yt(r2.prototype, t2), Object.defineProperty(r2, "prototype", { writable: false }), r2;
+        })((function r2() {
+          !(function(r3, t2) {
+            if (!(r3 instanceof t2)) throw new TypeError("Cannot call a class as a function");
+          })(this, r2);
+        }), [{ key: "astify", value: function(r2) {
+          var t2 = arguments.length > 1 && void 0 !== arguments[1] ? arguments[1] : s, e2 = this.parse(r2, t2);
+          return e2 && e2.ast;
+        } }, { key: "sqlify", value: function(r2) {
+          var t2 = arguments.length > 1 && void 0 !== arguments[1] ? arguments[1] : s;
+          return p(t2), gr(r2);
+        } }, { key: "exprToSQL", value: function(r2) {
+          var t2 = arguments.length > 1 && void 0 !== arguments[1] ? arguments[1] : s;
+          return p(t2), lt(r2);
+        } }, { key: "columnsToSQL", value: function(r2, t2) {
+          var e2 = arguments.length > 2 && void 0 !== arguments[2] ? arguments[2] : s;
+          if (p(e2), !r2 || "*" === r2) return [];
+          var n2 = Rt(t2);
+          return r2.map((function(r3) {
+            return Ot(r3, n2);
+          }));
+        } }, { key: "parse", value: function(r2) {
+          var t2 = arguments.length > 1 && void 0 !== arguments[1] ? arguments[1] : s, e2 = t2.database, n2 = void 0 === e2 ? "mysql" : e2;
+          p(t2);
+          var o2 = n2.toLowerCase();
+          if (Pt[o2]) return Pt[o2](false === t2.trimQuery ? r2 : r2.trim(), t2.parseOptions || s.parseOptions);
+          throw new Error("".concat(n2, " is not supported currently"));
+        } }, { key: "whiteListCheck", value: function(r2, t2) {
+          var e2 = arguments.length > 2 && void 0 !== arguments[2] ? arguments[2] : s;
+          if (t2 && 0 !== t2.length) {
+            var n2 = e2.type, o2 = void 0 === n2 ? "table" : n2;
+            if (!this["".concat(o2, "List")] || "function" != typeof this["".concat(o2, "List")]) throw new Error("".concat(o2, " is not valid check mode"));
+            var u2, a2 = this["".concat(o2, "List")].bind(this), i2 = a2(r2, e2), c2 = true, l2 = "", f2 = Ft(i2);
+            try {
+              for (f2.s(); !(u2 = f2.n()).done; ) {
+                var b2, p2 = u2.value, v2 = false, d2 = Ft(t2);
+                try {
+                  for (d2.s(); !(b2 = d2.n()).done; ) {
+                    var y2 = b2.value, w2 = new RegExp("^".concat(y2, "$"), "i");
+                    if (w2.test(p2)) {
+                      v2 = true;
+                      break;
+                    }
+                  }
+                } catch (r3) {
+                  d2.e(r3);
+                } finally {
+                  d2.f();
+                }
+                if (!v2) {
+                  l2 = p2, c2 = false;
+                  break;
+                }
+              }
+            } catch (r3) {
+              f2.e(r3);
+            } finally {
+              f2.f();
+            }
+            if (!c2) throw new Error("authority = '".concat(l2, "' is required in ").concat(o2, " whiteList to execute SQL = '").concat(r2, "'"));
+          }
+        } }, { key: "tableList", value: function(r2, t2) {
+          var e2 = this.parse(r2, t2);
+          return e2 && e2.tableList;
+        } }, { key: "columnList", value: function(r2, t2) {
+          var e2 = this.parse(r2, t2);
+          return e2 && e2.columnList;
+        } }]);
+      })();
+      function Wt(r2) {
+        return (Wt = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(r3) {
+          return typeof r3;
+        } : function(r3) {
+          return r3 && "function" == typeof Symbol && r3.constructor === Symbol && r3 !== Symbol.prototype ? "symbol" : typeof r3;
+        })(r2);
+      }
+      "object" === ("undefined" == typeof self ? "undefined" : Wt(self)) && self && (self.NodeSQLParser = { Parser: $t, util: n }), "undefined" == typeof commonjsGlobal && "object" === ("undefined" == typeof window ? "undefined" : Wt(window)) && window && (window.global = window), "object" === ("undefined" == typeof commonjsGlobal ? "undefined" : Wt(commonjsGlobal)) && commonjsGlobal && commonjsGlobal.window && (commonjsGlobal.window.NodeSQLParser = { Parser: $t, util: n });
+    }]));
+  })(mysql);
+  return mysql;
+}
+var mysqlExports = requireMysql();
+const mysqlParser = /* @__PURE__ */ getDefaultExportFromCjs(mysqlExports);
+const { Parser: Parser$2 } = mysqlParser;
+const parser$1 = new Parser$2();
+const AGG_FUNCS = /* @__PURE__ */ new Set(["COUNT", "SUM", "AVG", "MIN", "MAX"]);
+const SCALAR_FUNCS = {
+  UPPER: (arg) => ({ $toUpper: arg }),
+  LOWER: (arg) => ({ $toLower: arg }),
+  LENGTH: (arg) => ({ $strLenCP: arg }),
+  TRIM: (arg) => ({ $trim: { input: arg } }),
+  LTRIM: (arg) => ({ $ltrim: { input: arg } }),
+  RTRIM: (arg) => ({ $rtrim: { input: arg } }),
+  YEAR: (arg) => ({ $year: arg }),
+  MONTH: (arg) => ({ $month: arg }),
+  DAY: (arg) => ({ $dayOfMonth: arg }),
+  ABS: (arg) => ({ $abs: arg })
+};
+function translateSql(input) {
+  if (new TextEncoder().encode(input).byteLength > MAX_SQL_SOURCE_BYTES) {
+    throw new SqlTranslateError(
+      `SQL statements are limited to ${MAX_SQL_SOURCE_BYTES / 1024} KiB.`,
+      "Split large writes into smaller statements and run them separately."
+    );
+  }
+  const sql = input.trim().replace(/;+\s*$/, "");
+  if (!sql) {
+    throw new SqlTranslateError("Empty SQL statement.", "Write a SELECT, INSERT, UPDATE or DELETE statement first.");
+  }
+  validateNumericLiterals(sql);
+  let ast;
+  try {
+    ast = parser$1.astify(sql, { database: "MySQL", parseOptions: { includeLocations: true } });
+  } catch (caught) {
+    const message = caught instanceof Error ? caught.message : String(caught);
+    const location = parseErrorRange(caught);
+    throw new SqlTranslateError(
+      `Could not parse SQL: ${message}`,
+      "Only one SELECT, INSERT, UPDATE or DELETE statement is supported. Check commas, quotes and parentheses.",
+      location
+    );
+  }
+  if (Array.isArray(ast)) {
+    throw new SqlTranslateError(
+      "Multiple SQL statements are not supported.",
+      "Run one statement at a time; split scripts on blank lines and execute each separately."
+    );
+  }
+  if (!ast || typeof ast !== "object") {
+    throw new SqlTranslateError("Could not parse SQL.", "Write a SELECT, INSERT, UPDATE or DELETE statement.");
+  }
+  const node2 = ast;
+  validateStatementShape(node2);
+  switch (node2.type) {
+    case "select":
+      return translateSelect(node2);
+    case "insert":
+      return translateInsert(node2);
+    case "update":
+      return translateUpdate(node2);
+    case "delete":
+      return translateDelete(node2);
+    default:
+      throw new SqlTranslateError(
+        `Statement type "${String(node2.type)}" is not supported.`,
+        "Supported statements: SELECT (incl. JOIN, GROUP BY, DISTINCT), INSERT, UPDATE, DELETE."
+      );
+  }
+}
+function validateStatementShape(node2) {
+  const reject2 = (message, hint) => {
+    throw new SqlTranslateError(message, hint, nodeRange(node2));
+  };
+  if (node2.with != null) {
+    reject2("Common table expressions (WITH) are not supported.", "Run the inner SELECT separately or use an explicit INNER/LEFT JOIN.");
+  }
+  if (node2.type === "select") {
+    if (node2._next != null || node2.set_op != null) {
+      reject2("UNION and other set operations are not supported.", "Run each SELECT separately.");
+    }
+    if (node2.into?.position != null || node2.into?.type != null) {
+      reject2("SELECT INTO is not supported.", "Use plain SELECT; SQL writes support INSERT ... VALUES only.");
+    }
+    if (node2.options != null || node2.locking_read != null || node2.window != null || node2.collate != null) {
+      reject2("This SELECT modifier is not supported.", "Remove locking, window, collation, or vendor-specific SELECT modifiers.");
+    }
+    const from = Array.isArray(node2.from) ? node2.from : [];
+    const joins = from.slice(1);
+    for (const join2 of joins) {
+      const kind = String(join2.join ?? "").toUpperCase();
+      if (kind !== "INNER JOIN" && kind !== "LEFT JOIN") {
+        reject2(`Join type "${kind || "implicit"}" is not supported.`, "Use INNER JOIN or LEFT JOIN with one equality condition.");
+      }
+    }
+    const columns = Array.isArray(node2.columns) ? node2.columns : [];
+    if (joins.length > 0 && columns.some((column2) => column2.expr?.type === "column_ref" && column2.expr?.column === "*")) {
+      reject2("SELECT * is not supported with JOIN.", "List each required base and joined field explicitly.");
+    }
+    for (const column2 of columns) {
+      const expr = column2.expr;
+      if (expr?.type === "case") {
+        reject2("CASE expressions are not supported.", "Use a plain field or one of the functions offered by SQL completion.");
+      }
+      if (expr?.type === "aggr_func") {
+        if (expr.over != null) reject2("Windowed aggregates are not supported.", "Remove the OVER clause.");
+        if (expr.args?.distinct != null || expr.args?.orderby != null || expr.args?.separator != null) {
+          reject2("DISTINCT/ordered aggregate arguments are not supported.", "Use a plain aggregate such as COUNT(field) or SUM(field).");
+        }
+      }
+    }
+    const modifiers = Array.isArray(node2.groupby?.modifiers) ? node2.groupby.modifiers : [];
+    if (modifiers.some((modifier) => modifier != null)) {
+      reject2("GROUP BY modifiers such as ROLLUP are not supported.", "Use a plain GROUP BY field list.");
+    }
+    return;
+  }
+  if (node2.type === "insert") {
+    const tables = Array.isArray(node2.table) ? node2.table : [];
+    if (tables.length !== 1 || tables[0]?.as != null) {
+      reject2("INSERT needs exactly one unaliased target collection.", "Use INSERT INTO collection (columns) VALUES (...).");
+    }
+    if (String(node2.prefix ?? "").trim().toLowerCase() !== "into") {
+      reject2("INSERT modifiers such as IGNORE are not supported.", "Use INSERT INTO ... (columns) VALUES (...).");
+    }
+    if (node2.partition != null || node2.on_duplicate_update != null) {
+      reject2("INSERT partition/upsert modifiers are not supported.", "Use a plain INSERT ... VALUES statement.");
+    }
+    if (node2.values?.type !== "values") {
+      reject2("INSERT SELECT is not supported.", "Use an explicit VALUES list.");
+    }
+    return;
+  }
+  if (node2.type === "update") {
+    const tables = Array.isArray(node2.table) ? node2.table : [];
+    if (tables.length !== 1 || tables[0]?.join != null || tables[0]?.as != null) {
+      reject2("UPDATE JOIN and multi-table UPDATE are not supported.", "Update one collection per statement.");
+    }
+    if (node2.orderby != null || node2.limit != null) {
+      reject2("ORDER BY/LIMIT on UPDATE is not supported.", "Use a WHERE clause; every matching document is updated.");
+    }
+    return;
+  }
+  if (node2.type === "delete") {
+    const from = Array.isArray(node2.from) ? node2.from : [];
+    if (from.length !== 1 || from.some((entry) => entry.join != null || entry.as != null)) {
+      reject2("DELETE JOIN and multi-table DELETE are not supported.", "Delete from one collection per statement.");
+    }
+    if (node2.orderby != null || node2.limit != null) {
+      reject2("ORDER BY/LIMIT on DELETE is not supported.", "Use a WHERE clause; every matching document is deleted.");
+    }
+  }
+}
+function parseErrorRange(value) {
+  const location = value && typeof value === "object" ? value.location : void 0;
+  const start = location?.start;
+  const end = location?.end;
+  if (!start?.line || !start.column) return void 0;
+  return {
+    startLine: start.line,
+    startCol: start.column,
+    endLine: end?.line ?? start.line,
+    endCol: Math.max(end?.column ?? start.column + 1, start.column + 1)
+  };
+}
+function nodeRange(node2) {
+  const start = node2.loc?.start;
+  const end = node2.loc?.end;
+  if (!start?.line || !start.column) return void 0;
+  return {
+    startLine: start.line,
+    startCol: start.column,
+    endLine: end?.line ?? start.line,
+    endCol: Math.max(end?.column ?? start.column + 1, start.column + 1)
+  };
+}
+function validateNumericLiterals(sql) {
+  let index2 = 0;
+  while (index2 < sql.length) {
+    const char = sql[index2];
+    const next = sql[index2 + 1];
+    if (char === "'" || char === '"' || char === "`") {
+      index2 = skipQuoted(sql, index2, char);
+      continue;
+    }
+    if (char === "-" && next === "-") {
+      const newline = sql.indexOf("\n", index2 + 2);
+      index2 = newline < 0 ? sql.length : newline + 1;
+      continue;
+    }
+    if (char === "/" && next === "*") {
+      const end = sql.indexOf("*/", index2 + 2);
+      index2 = end < 0 ? sql.length : end + 2;
+      continue;
+    }
+    const startsNumber = /\d/u.test(char) || char === "." && next !== void 0 && /\d/u.test(next);
+    const previous = index2 > 0 ? sql[index2 - 1] : "";
+    if (!startsNumber || /[A-Za-z0-9_$]/u.test(previous)) {
+      index2 += 1;
+      continue;
+    }
+    const match = /^(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/u.exec(sql.slice(index2));
+    if (!match) {
+      index2 += 1;
+      continue;
+    }
+    const raw = match[0];
+    validateNumericToken(raw, sql, index2);
+    index2 += raw.length;
+  }
+}
+function skipQuoted(sql, start, quote) {
+  let index2 = start + 1;
+  while (index2 < sql.length) {
+    if (sql[index2] === "\\") {
+      index2 += 2;
+      continue;
+    }
+    if (sql[index2] === quote) {
+      if (sql[index2 + 1] === quote) {
+        index2 += 2;
+        continue;
+      }
+      return index2 + 1;
+    }
+    index2 += 1;
+  }
+  return sql.length;
+}
+function validateNumericToken(raw, sql, offset) {
+  const range2 = rangeAtOffset(sql, offset, raw.length);
+  const value = Number(raw);
+  if (!Number.isFinite(value)) {
+    throw new SqlTranslateError("Numeric literal is outside the supported finite range.", "Use a finite number or MQL BSON numeric constructors.", range2);
+  }
+  const mantissa = raw.split(/[eE]/u, 1)[0].replace(".", "");
+  const significant = mantissa.replace(/^0+/u, "").length || 1;
+  if (!/[.eE]/u.test(raw)) {
+    try {
+      if (BigInt(raw) > BigInt(Number.MAX_SAFE_INTEGER)) {
+        throw new SqlTranslateError(
+          `Integer literal "${raw}" exceeds JavaScript's safe integer range.`,
+          "Use the MQL editor with Long or Decimal128 for exact BSON numbers.",
+          range2
+        );
+      }
+    } catch (caught) {
+      if (caught instanceof SqlTranslateError) throw caught;
+    }
+    if (significant > 15) {
+      throw new SqlTranslateError(
+        `Numeric literal "${raw}" has more than 15 significant digits.`,
+        "Use the MQL editor with Long or Decimal128 for exact BSON numbers.",
+        range2
+      );
+    }
+    return;
+  }
+  if (significant > 15) {
+    throw new SqlTranslateError(
+      `Numeric literal "${raw}" has more than 15 significant digits.`,
+      "Use the MQL editor with Decimal128 for exact decimal values.",
+      range2
+    );
+  }
+}
+function rangeAtOffset(sql, offset, length) {
+  const before = sql.slice(0, offset).split("\n");
+  const line = before.length;
+  const column2 = before[before.length - 1].length + 1;
+  return { startLine: line, startCol: column2, endLine: line, endCol: column2 + Math.max(1, length) };
+}
+function translateSelect(node2) {
+  const fromRaw = node2.from;
+  if (!fromRaw || fromRaw.length === 0) {
+    throw new SqlTranslateError("SELECT without FROM is not supported.", "Use SELECT ... FROM <collection>.");
+  }
+  const from = fromRaw.map((entry) => ({
+    db: entry.db ?? null,
+    table: String(entry.table),
+    alias: entry.as ?? null,
+    ...entry.join ? { join: String(entry.join) } : {},
+    ...entry.on ? { on: entry.on } : {}
+  }));
+  const base2 = from[0];
+  const aliasToTable = /* @__PURE__ */ new Map();
+  const relationKeys = /* @__PURE__ */ new Set();
+  for (const entry of from) {
+    const key = entry.alias ?? entry.table;
+    if (relationKeys.has(key)) {
+      throw new SqlTranslateError(
+        `Duplicate table alias "${key}".`,
+        "Give every joined collection a unique alias.",
+        nodeRange(entry)
+      );
+    }
+    const existingRelation = aliasToTable.get(key);
+    if (existingRelation !== void 0 && existingRelation !== entry.table) {
+      throw new SqlTranslateError(
+        `Ambiguous table name or alias "${key}".`,
+        "Use unique aliases that do not match another collection name.",
+        nodeRange(entry)
+      );
+    }
+    relationKeys.add(key);
+    aliasToTable.set(key, entry.table);
+    aliasToTable.set(entry.table, entry.table);
+  }
+  const baseKey = base2.alias ?? base2.table;
+  const joins = from.slice(1);
+  for (const join2 of joins) {
+    if (!join2.join || !/join/i.test(join2.join)) {
+      throw new SqlTranslateError(
+        `Unsupported FROM entry "${join2.table}".`,
+        "Separate multiple collections with an explicit INNER JOIN or LEFT JOIN with an ON condition."
+      );
+    }
+    if (!join2.on) {
+      throw new SqlTranslateError(
+        `JOIN on "${join2.table}" needs an ON condition.`,
+        "Example: ... INNER JOIN users u ON o.userId = u._id"
+      );
+    }
+  }
+  const database = base2.db ?? void 0;
+  for (const entry of joins) {
+    if (entry.db != null && entry.db !== database) {
+      throw new SqlTranslateError(
+        "Querying collections from different databases is not supported.",
+        "Qualify the base collection with the same database and keep every JOIN in that database."
+      );
+    }
+  }
+  const rawColumns = node2.columns;
+  if (rawColumns === "*" || rawColumns == null) {
+    throw new SqlTranslateError("Unexpected SELECT shape.", "Use SELECT * or an explicit column list.");
+  }
+  const columns = Array.isArray(rawColumns) ? rawColumns : [];
+  const distinct2 = node2.distinct != null && node2.distinct !== false;
+  const groupByRaw = node2.groupby;
+  const groupKeyRefs = groupByRaw?.columns ? groupByRaw.columns.map((col) => columnRef(col, aliasToTable)) : [];
+  const havingRaw = node2.having ?? null;
+  const orderByRaw = node2.orderby ?? null;
+  const { limit, skip } = parseLimit(node2.limit);
+  const qualify = (field, table2) => {
+    if (table2 == null) return field;
+    if (table2 === baseKey || table2 === base2.table) return field;
+    const entry = from.find((candidate) => candidate.alias === table2 || candidate.table === table2);
+    return `${entry?.alias ?? entry?.table ?? table2}.${field}`;
+  };
+  let hasStar = false;
+  let hasAgg = false;
+  let hasScalarOrExpr = false;
+  let hasRename = false;
+  const plainCols = [];
+  const aggs = [];
+  const scalarProjects = [];
+  const outputNames = /* @__PURE__ */ new Set();
+  for (const col of columns) {
+    const asName = col.as != null ? String(col.as) : null;
+    const expr = col.expr;
+    if (!expr || typeof expr !== "object") continue;
+    if (expr.type === "column_ref" && expr.column === "*") {
+      hasStar = true;
+      const qualifier = expr.table != null ? String(expr.table) : null;
+      if (qualifier != null) {
+        throw new SqlTranslateError("Qualified SELECT * is not supported.", "Use SELECT * for one collection or list explicit joined fields.");
+      }
+      if (qualifier != null && !aliasToTable.has(qualifier)) {
+        throw new SqlTranslateError(
+          `Unknown table qualifier "${qualifier}".`,
+          `Available tables: ${from.map((entry) => entry.alias ?? entry.table).join(", ")}.`
+        );
+      }
+      if (asName) {
+        throw new SqlTranslateError("SELECT * cannot be aliased.", "Alias individual columns instead, e.g. SELECT a AS alpha.");
+      }
+      continue;
+    }
+    if (expr.type === "aggr_func") {
+      hasAgg = true;
+      const func = String(expr.name).toUpperCase();
+      if (!AGG_FUNCS.has(func)) {
+        throw new SqlTranslateError(
+          `Aggregate "${func}" is not supported.`,
+          "Supported aggregates: COUNT, SUM, AVG, MIN, MAX."
+        );
+      }
+      const arg = aggArg(expr, aliasToTable, baseKey, qualify);
+      const output = asName ?? defaultAggName(func, arg);
+      ensureUniqueOutput(output, outputNames);
+      aggs.push({ func, arg, output });
+      continue;
+    }
+    if (expr.type === "column_ref") {
+      const ref = columnRef(expr, aliasToTable);
+      const output = asName ?? shortName(ref.field);
+      if (asName && asName !== ref.field) hasRename = true;
+      ensureUniqueOutput(output, outputNames);
+      plainCols.push({ field: ref.field, table: ref.table, output });
+      continue;
+    }
+    if (expr.type === "function") {
+      hasScalarOrExpr = true;
+      const output = asName ?? inferScalarName(expr);
+      ensureUniqueOutput(output, outputNames);
+      scalarProjects.push({ output, expr: buildScalarExpr(expr, aliasToTable, baseKey, qualify) });
+      continue;
+    }
+    if (expr.type === "binary_expr" || expr.type === "unary_expr") {
+      hasScalarOrExpr = true;
+      if (!asName) {
+        throw new SqlTranslateError(
+          "Computed SELECT expressions need an alias.",
+          "Example: SELECT total * 2 AS double_total FROM orders"
+        );
+      }
+      ensureUniqueOutput(asName, outputNames);
+      scalarProjects.push({ output: asName, expr: buildValueExpr(expr, aliasToTable, baseKey, qualify) });
+      continue;
+    }
+    if (isLiteral(expr)) {
+      hasScalarOrExpr = true;
+      if (!asName) {
+        throw new SqlTranslateError(
+          "Literal SELECT values need an alias.",
+          "Example: SELECT 1 AS one FROM orders"
+        );
+      }
+      ensureUniqueOutput(asName, outputNames);
+      scalarProjects.push({ output: asName, expr: { $literal: literalValue(expr) } });
+      continue;
+    }
+    throw new SqlTranslateError(
+      `Unsupported SELECT expression of type "${String(expr.type)}".`,
+      "Select plain fields, aggregates (COUNT, SUM, AVG, MIN, MAX) or simple functions (UPPER, LOWER, YEAR, ...)."
+    );
+  }
+  if (groupByRaw && groupKeyRefs.length === 0) {
+    throw new SqlTranslateError("GROUP BY needs at least one column.", "Example: SELECT status, COUNT(*) FROM orders GROUP BY status");
+  }
+  if (hasAgg && groupKeyRefs.length === 0 && plainCols.length > 0 && !distinct2) {
+    throw new SqlTranslateError(
+      "Mixing plain columns with aggregates requires GROUP BY.",
+      "Add GROUP BY for the plain columns, e.g. SELECT status, COUNT(*) FROM orders GROUP BY status"
+    );
+  }
+  if (havingRaw && groupKeyRefs.length === 0 && !hasAgg && !distinct2) {
+    throw new SqlTranslateError("HAVING needs GROUP BY or an aggregate.", "Filter plain rows with WHERE instead of HAVING.");
+  }
+  if (distinct2 && hasAgg) {
+    throw new SqlTranslateError("DISTINCT with aggregates is not supported.", "Use GROUP BY instead of DISTINCT for aggregated queries.");
+  }
+  if (distinct2 && (hasStar || hasScalarOrExpr)) {
+    throw new SqlTranslateError("DISTINCT supports plain fields only.", "List one or more plain fields after SELECT DISTINCT.");
+  }
+  if ((groupKeyRefs.length > 0 || hasAgg) && hasScalarOrExpr) {
+    throw new SqlTranslateError(
+      "Computed/scalar expressions are not supported in grouped queries.",
+      "Select GROUP BY fields and COUNT/SUM/AVG/MIN/MAX aggregates only."
+    );
+  }
+  const grouped = groupKeyRefs.length > 0 || hasAgg || distinct2;
+  const needsAggregate = joins.length > 0 || grouped || hasScalarOrExpr || hasRename || havingRaw != null || !hasStar;
+  const warnings = [];
+  const whereRaw = node2.where ?? null;
+  if (!needsAggregate) {
+    const filter2 = whereRaw ? buildFilter(whereRaw, aliasToTable, baseKey, null) : {};
+    let projection;
+    if (!hasStar) {
+      projection = createRecord();
+      for (const col of plainCols) projection[col.field] = 1;
+      if (!plainCols.some((col) => col.field === "_id")) projection._id = 0;
+    }
+    const sort2 = orderByRaw ? buildSort(orderByRaw, aliasToTable, baseKey, null) : void 0;
+    const fullCollectionTarget2 = whereRaw == null;
+    if (fullCollectionTarget2) warnings.push("No WHERE clause: the query targets the whole collection.");
+    const coll2 = base2.table;
+    return {
+      kind: "select",
+      execution: "find",
+      collection: coll2,
+      ...database ? { database } : {},
+      isWrite: false,
+      fullCollectionTarget: fullCollectionTarget2,
+      filter: filter2,
+      ...projection ? { projection } : {},
+      ...sort2 ? { sort: sort2 } : {},
+      ...limit !== void 0 ? { limit } : {},
+      ...skip !== void 0 ? { skip } : {},
+      mongosh: renderFind("mongosh", coll2, database, filter2, projection, sort2, limit, skip),
+      jsSource: renderFind("js", coll2, database, filter2, projection, sort2, limit, skip),
+      warnings
+    };
+  }
+  const pipeline = [];
+  const knownTables = /* @__PURE__ */ new Set([baseKey, base2.table]);
+  for (const join2 of joins) {
+    const parsed = parseJoinOn(join2.on, aliasToTable, knownTables, base2.table, join2);
+    pipeline.push({
+      $lookup: {
+        from: join2.table,
+        localField: parsed.localField,
+        foreignField: parsed.foreignField,
+        as: parsed.as
+      }
+    });
+    const kind = join2.join.toUpperCase();
+    if (kind.includes("LEFT")) {
+      pipeline.push({ $unwind: { path: `$${parsed.as}`, preserveNullAndEmptyArrays: true } });
+    } else if (kind.includes("INNER") || kind.includes("JOIN")) {
+      pipeline.push({ $unwind: `$${parsed.as}` });
+      warnings.push(`INNER JOIN "${join2.table}" uses $unwind: one-to-many matches fan out into multiple rows.`);
+    } else {
+      throw new SqlTranslateError(
+        `Join type "${join2.join}" is not supported.`,
+        "Use INNER JOIN or LEFT JOIN with a single equality condition."
+      );
+    }
+    knownTables.add(join2.alias ?? join2.table);
+    knownTables.add(join2.table);
+  }
+  if (whereRaw) {
+    pipeline.push({ $match: buildFilter(whereRaw, aliasToTable, baseKey, qualify) });
+  } else if (joins.length === 0 && !grouped) {
+    warnings.push("No WHERE clause: the query targets the whole collection.");
+  }
+  const qkey = (ref) => qualify(ref.field, ref.table);
+  const groupKeys = groupKeyRefs.map(qkey);
+  const aggAliasOf = /* @__PURE__ */ new Map();
+  if (distinct2 && groupKeyRefs.length === 0 && !hasAgg) {
+    if (hasStar) {
+      throw new SqlTranslateError("SELECT DISTINCT * is not supported.", "List the columns to deduplicate, e.g. SELECT DISTINCT status FROM people");
+    }
+    const id = createRecord();
+    for (const col of plainCols) id[col.output] = `$${qualify(col.field, col.table)}`;
+    pipeline.push({ $group: { _id: id } });
+    const project = createRecord();
+    project._id = 0;
+    for (const col of plainCols) project[col.output] = `$_id.${col.output}`;
+    pipeline.push({ $project: project });
+  } else if (groupKeyRefs.length > 0 || hasAgg) {
+    for (const col of plainCols) {
+      const qualified = qualify(col.field, col.table);
+      if (!groupKeys.includes(qualified)) {
+        throw new SqlTranslateError(
+          `Column "${col.field}" must appear in GROUP BY or inside an aggregate.`,
+          "Add it to GROUP BY or wrap it, e.g. MIN(...) / MAX(...)."
+        );
+      }
+    }
+    const group = createRecord();
+    group._id = buildGroupId(groupKeys);
+    for (const agg of aggs) {
+      group[agg.output] = buildAccumulator(agg.func, agg.arg);
+      aggAliasOf.set(aggKey(agg.func, agg.arg), agg.output);
+    }
+    pipeline.push({ $group: group });
+    const project = createRecord();
+    project._id = 0;
+    const groupAliasOf = /* @__PURE__ */ new Map();
+    if (groupKeys.length === 1) {
+      const key = groupKeys[0];
+      const output = outputNameForGroupKey(key, plainCols);
+      project[output] = "$_id";
+      groupAliasOf.set(key, output);
+      groupAliasOf.set(shortName(key), output);
+    } else {
+      for (const key of groupKeys) {
+        const output = outputNameForGroupKey(key, plainCols);
+        project[output] = `$_id.${sanitizeField(key)}`;
+        groupAliasOf.set(key, output);
+        groupAliasOf.set(shortName(key), output);
+      }
+    }
+    for (const agg of aggs) project[agg.output] = 1;
+    pipeline.push({ $project: project });
+    if (havingRaw) {
+      pipeline.push({
+        $match: buildHaving(havingRaw, aliasToTable, baseKey, qualify, aggAliasOf, groupAliasOf)
+      });
+    }
+  }
+  const groupedQuery = groupKeyRefs.length > 0 || hasAgg || distinct2;
+  const renameEntries = plainCols.filter((col) => col.output !== qualify(col.field, col.table));
+  if (scalarProjects.length > 0 || renameEntries.length > 0 || !hasStar && !groupedQuery) {
+    if (groupedQuery) {
+      const addFields = createRecord();
+      for (const scalar of scalarProjects) addFields[scalar.output] = scalar.expr;
+      if (Object.keys(addFields).length > 0) pipeline.push({ $addFields: addFields });
+    } else if (hasStar) {
+      const addFields = createRecord();
+      for (const col of renameEntries) {
+        addFields[col.output] = { $ifNull: [`$${qualify(col.field, col.table)}`, null] };
+      }
+      for (const scalar of scalarProjects) addFields[scalar.output] = scalar.expr;
+      pipeline.push({ $addFields: addFields });
+    } else {
+      const project = createRecord();
+      if (![...plainCols.map((col) => col.output), ...scalarProjects.map((scalar) => scalar.output)].includes("_id")) {
+        project._id = 0;
+      }
+      for (const col of plainCols) {
+        const source = `$${qualify(col.field, col.table)}`;
+        project[col.output] = { $ifNull: [source, null] };
+      }
+      for (const scalar of scalarProjects) project[scalar.output] = scalar.expr;
+      pipeline.push({ $project: project });
+    }
+  } else if (!hasStar && !groupedQuery && joins.length > 0) {
+    const project = createRecord();
+    for (const col of plainCols) project[qualify(col.field, col.table)] = 1;
+    if (Object.keys(project).length > 0) pipeline.push({ $project: project });
+  }
+  if (orderByRaw) {
+    const sort2 = buildSort(orderByRaw, aliasToTable, baseKey, qualify);
+    const outputMap = /* @__PURE__ */ new Map();
+    for (const col of plainCols) outputMap.set(qualify(col.field, col.table), col.output);
+    const remapped = createRecord();
+    for (const [key, dir2] of Object.entries(sort2)) remapped[outputMap.get(key) ?? key] = dir2;
+    const knownOutputs = /* @__PURE__ */ new Set([
+      ...plainCols.map((col) => col.output),
+      ...scalarProjects.map((scalar) => scalar.output),
+      ...aggs.map((agg) => agg.output),
+      ...hasStar ? ["*"] : []
+    ]);
+    for (const key of Object.keys(remapped)) {
+      if (!knownOutputs.has(key) && !hasStar) {
+        throw new SqlTranslateError(
+          `ORDER BY "${key}" is not available after projection.`,
+          "Order by a selected field, GROUP BY field, or aggregate alias."
+        );
+      }
+    }
+    pipeline.push({ $sort: remapped });
+  }
+  if (skip !== void 0) pipeline.push({ $skip: skip });
+  if (limit !== void 0) pipeline.push({ $limit: limit });
+  if (pipeline.length === 0) pipeline.push({ $match: {} });
+  const fullCollectionTarget = whereRaw == null;
+  const coll = base2.table;
+  return {
+    kind: "select",
+    execution: "aggregate",
+    collection: coll,
+    ...database ? { database } : {},
+    isWrite: false,
+    fullCollectionTarget,
+    filter: whereRaw ? buildFilter(whereRaw, aliasToTable, baseKey, qualify) : {},
+    pipeline,
+    ...limit !== void 0 ? { limit } : {},
+    ...skip !== void 0 ? { skip } : {},
+    mongosh: renderAggregate("mongosh", coll, database, pipeline),
+    jsSource: renderAggregate("js", coll, database, pipeline),
+    warnings
+  };
+}
+function translateInsert(node2) {
+  const table2 = firstTable(node2.table ?? node2.into);
+  const columns = node2.columns;
+  if (!columns || columns.length === 0) {
+    throw new SqlTranslateError("INSERT needs an explicit column list.", "Example: INSERT INTO people (user_id, age) VALUES ('abc', 55)");
+  }
+  const duplicateColumn = columns.find((column2, index2) => columns.indexOf(column2) !== index2);
+  if (duplicateColumn !== void 0) {
+    throw new SqlTranslateError(`Duplicate INSERT column "${duplicateColumn}".`, "List every target field once.");
+  }
+  const rows = extractInsertRows(node2.values);
+  if (rows.length === 0) {
+    throw new SqlTranslateError("INSERT needs at least one VALUES row.", "Example: INSERT INTO t (a) VALUES (1), (2)");
+  }
+  const documents = rows.map((row2, index2) => {
+    if (row2.length !== columns.length) {
+      throw new SqlTranslateError(
+        `VALUES row ${index2 + 1} has ${row2.length} values but ${columns.length} columns.`,
+        "Give every row the same number of values as columns."
+      );
+    }
+    const doc = createRecord();
+    columns.forEach((col, colIndex) => {
+      doc[String(col)] = literalValue(row2[colIndex]);
+    });
+    return doc;
+  });
+  const execution = documents.length === 1 ? "insertOne" : "insertMany";
+  const coll = table2.name;
+  return {
+    kind: "insert",
+    execution,
+    collection: coll,
+    ...table2.db ? { database: table2.db } : {},
+    isWrite: true,
+    fullCollectionTarget: false,
+    filter: {},
+    documents,
+    mongosh: renderWrite("mongosh", coll, table2.db, execution, documents.length === 1 ? documents[0] : documents),
+    jsSource: renderWrite("js", coll, table2.db, execution, documents.length === 1 ? documents[0] : documents),
+    warnings: []
+  };
+}
+function translateUpdate(node2) {
+  const table2 = firstTable(node2.table);
+  const setList = node2.set;
+  if (!setList || setList.length === 0) {
+    throw new SqlTranslateError("UPDATE needs a SET clause.", "Example: UPDATE people SET age = 56 WHERE user_id = 'abc'");
+  }
+  const update2 = createRecord();
+  for (const item of setList) {
+    const column2 = String(item.column);
+    if (!column2) throw new SqlTranslateError("UPDATE SET has an empty column.", "Use SET <field> = <literal value>.");
+    if (Object.hasOwn(update2, column2)) {
+      throw new SqlTranslateError(`Duplicate UPDATE field "${column2}".`, "Assign every field once in the SET clause.");
+    }
+    update2[column2] = literalValue(item.value);
+  }
+  const whereRaw = node2.where ?? null;
+  const filter2 = whereRaw ? buildFilter(whereRaw, /* @__PURE__ */ new Map([[table2.name, table2.name]]), table2.name, null) : {};
+  const warnings = [];
+  if (whereRaw == null) warnings.push("No WHERE clause: UPDATE targets every document in the collection.");
+  const coll = table2.name;
+  return {
+    kind: "update",
+    execution: "updateMany",
+    collection: coll,
+    ...table2.db ? { database: table2.db } : {},
+    isWrite: true,
+    fullCollectionTarget: whereRaw == null,
+    filter: filter2,
+    update: update2,
+    mongosh: renderUpdate("mongosh", coll, table2.db, filter2, update2),
+    jsSource: renderUpdate("js", coll, table2.db, filter2, update2),
+    warnings
+  };
+}
+function translateDelete(node2) {
+  const table2 = firstTable(node2.table ?? node2.from);
+  const whereRaw = node2.where ?? null;
+  const filter2 = whereRaw ? buildFilter(whereRaw, /* @__PURE__ */ new Map([[table2.name, table2.name]]), table2.name, null) : {};
+  const warnings = [];
+  if (whereRaw == null) warnings.push("No WHERE clause: DELETE removes every document in the collection.");
+  const coll = table2.name;
+  return {
+    kind: "delete",
+    execution: "deleteMany",
+    collection: coll,
+    ...table2.db ? { database: table2.db } : {},
+    isWrite: true,
+    fullCollectionTarget: whereRaw == null,
+    filter: filter2,
+    mongosh: renderWrite("mongosh", coll, table2.db, "deleteMany", filter2),
+    jsSource: renderWrite("js", coll, table2.db, "deleteMany", filter2),
+    warnings
+  };
+}
+function firstTable(tableNode) {
+  const list = Array.isArray(tableNode) ? tableNode : tableNode != null ? [tableNode] : [];
+  const first = list[0];
+  if (!first || first.table == null) {
+    throw new SqlTranslateError("Could not determine the target collection.", "Use FROM <collection> / INTO <collection> / UPDATE <collection>.");
+  }
+  const name = String(first.table);
+  if (!name) throw new SqlTranslateError("Empty collection name.", "Name a collection, e.g. FROM orders.");
+  return { name, ...first.db != null ? { db: String(first.db) } : {} };
+}
+function extractInsertRows(valuesNode) {
+  if (!valuesNode) return [];
+  const holder = Array.isArray(valuesNode) ? valuesNode[0] : valuesNode;
+  const values = holder?.values ?? holder;
+  if (!Array.isArray(values)) return [];
+  return values.map((row2) => {
+    if (row2?.type === "expr_list" && Array.isArray(row2.value)) return row2.value;
+    return [row2];
+  });
+}
+function columnRef(expr, aliases) {
+  if (expr?.type !== "column_ref") {
+    throw new SqlTranslateError("Expected a column reference.", "Use plain field names, e.g. WHERE status = 'A'.");
+  }
+  const table2 = expr.table != null ? String(expr.table) : null;
+  const field = String(expr.column);
+  if (field === "*") {
+    throw new SqlTranslateError('Cannot use "*" here.', "Name a concrete field in WHERE / GROUP BY / ORDER BY.");
+  }
+  if (table2 != null && !aliases.has(table2)) {
+    throw new SqlTranslateError(
+      `Unknown table qualifier "${table2}".`,
+      `Available tables: ${Array.from(new Set(aliases.keys())).join(", ")}.`
+    );
+  }
+  return { field, table: table2 };
+}
+function qualifyField(field, table2, aliases, baseKey, qualify) {
+  if (table2 != null && !aliases.has(table2)) {
+    throw new SqlTranslateError(
+      `Unknown table qualifier "${table2}".`,
+      `Available tables: ${Array.from(new Set(aliases.keys())).join(", ")}.`
+    );
+  }
+  if (qualify) return qualify(field, table2);
+  if (table2 != null && table2 !== baseKey && aliases.get(table2) !== table2) {
+    throw new SqlTranslateError(
+      `Column "${table2}.${field}" does not belong to this query.`,
+      "JOIN the table first, or drop the table prefix."
+    );
+  }
+  return field;
+}
+function buildFilter(expr, aliases, baseKey, qualify) {
+  if (!expr || typeof expr !== "object") {
+    throw new SqlTranslateError("Unsupported WHERE condition.", "Combine comparisons with AND / OR / NOT.");
+  }
+  if (expr.type === "function" && funcName(expr) === "NOT") {
+    const inner = funcArgs(expr)[0];
+    if (!inner) throw new SqlTranslateError("NOT needs a condition.", "Example: WHERE NOT (status = 'A')");
+    return buildFilter(negatePredicate(inner), aliases, baseKey, qualify);
+  }
+  if (expr.type !== "binary_expr") {
+    throw new SqlTranslateError(
+      `Unsupported WHERE expression of type "${String(expr.type)}".`,
+      "Use comparisons (=, <>, >, LIKE, IN, BETWEEN, IS NULL) combined with AND / OR / NOT."
+    );
+  }
+  const operator = String(expr.operator).toUpperCase();
+  if (operator === "AND") {
+    return mergeAnd(
+      buildFilter(expr.left, aliases, baseKey, qualify),
+      buildFilter(expr.right, aliases, baseKey, qualify)
+    );
+  }
+  if (operator === "OR") {
+    const left2 = buildFilter(expr.left, aliases, baseKey, qualify);
+    const right2 = buildFilter(expr.right, aliases, baseKey, qualify);
+    return { $or: [...flattenOr(left2), ...flattenOr(right2)] };
+  }
+  if (operator === "XOR") {
+    throw new SqlTranslateError("XOR is not supported.", "Rewrite with AND / OR / NOT.");
+  }
+  const left = expr.left;
+  const right = expr.right;
+  if (operator === "IS" || operator === "IS NOT") {
+    if (left?.type !== "column_ref") {
+      throw new SqlTranslateError("IS can only test a column.", "Example: WHERE deletedAt IS NULL");
+    }
+    const field = qualifyField(String(left.column), left.table != null ? String(left.table) : null, aliases, baseKey, qualify);
+    const isNot = operator === "IS NOT";
+    if (right?.type === "null" || right?.type === "bool" && right.value === null) {
+      return isNot ? { [field]: { $exists: true, $ne: null } } : { [field]: null };
+    }
+    if (right?.type === "bool") {
+      return isNot ? andFilters(nonNullGuard(field), { [field]: { $ne: Boolean(right.value) } }) : { [field]: Boolean(right.value) };
+    }
+    throw new SqlTranslateError("Unsupported IS comparison.", "Use IS NULL, IS NOT NULL, IS TRUE or IS FALSE.");
+  }
+  if (operator === "LIKE" || operator === "NOT LIKE") {
+    if (left?.type !== "column_ref") {
+      throw new SqlTranslateError("LIKE needs a column on the left.", "Example: WHERE user_id LIKE '%bc%'");
+    }
+    const field = qualifyField(String(left.column), left.table != null ? String(left.table) : null, aliases, baseKey, qualify);
+    const regex2 = likeToRegex(sqlString(right));
+    return operator === "LIKE" ? { [field]: { $regex: regex2 } } : andFilters(nonNullGuard(field), { [field]: { $not: { $regex: regex2 } } });
+  }
+  if (operator === "IN" || operator === "NOT IN") {
+    if (left?.type !== "column_ref") {
+      throw new SqlTranslateError("IN needs a column on the left.", "Example: WHERE status IN ('A', 'B')");
+    }
+    const field = qualifyField(String(left.column), left.table != null ? String(left.table) : null, aliases, baseKey, qualify);
+    const values = inList(right);
+    if (values.some((value) => value === null)) {
+      throw new SqlTranslateError("NULL inside IN/NOT IN is not supported.", "Use IS NULL/IS NOT NULL as a separate predicate.");
+    }
+    return operator === "IN" ? { [field]: { $in: values } } : andFilters(nonNullGuard(field), { [field]: { $nin: values } });
+  }
+  if (operator === "BETWEEN" || operator === "NOT BETWEEN") {
+    if (left?.type !== "column_ref") {
+      throw new SqlTranslateError("BETWEEN needs a column on the left.", "Example: WHERE age BETWEEN 20 AND 50");
+    }
+    const field = qualifyField(String(left.column), left.table != null ? String(left.table) : null, aliases, baseKey, qualify);
+    const [low, high] = betweenBounds(right);
+    if (low === null || high === null) {
+      throw new SqlTranslateError("BETWEEN bounds cannot be NULL.", "Use concrete lower and upper values.");
+    }
+    if (operator === "BETWEEN") return andFilters(nonNullGuard(field), { [field]: { $gte: low, $lte: high } });
+    return andFilters(nonNullGuard(field), { $or: [{ [field]: { $lt: low } }, { [field]: { $gt: high } }] });
+  }
+  if (["=", "!=", "<>", ">", ">=", "<", "<="].includes(operator)) {
+    if (left?.type === "column_ref" && right?.type === "column_ref") {
+      const lField = qualifyField(String(left.column), left.table != null ? String(left.table) : null, aliases, baseKey, qualify);
+      const rField = qualifyField(String(right.column), right.table != null ? String(right.table) : null, aliases, baseKey, qualify);
+      return andFilters(
+        nonNullGuard(lField),
+        nonNullGuard(rField),
+        { $expr: { [mongoCmp(operator)]: [`$${lField}`, `$${rField}`] } }
+      );
+    }
+    if (left?.type !== "column_ref") {
+      throw new SqlTranslateError(`Operator "${operator}" needs a column on the left.`, "Example: WHERE age > 25");
+    }
+    const field = qualifyField(String(left.column), left.table != null ? String(left.table) : null, aliases, baseKey, qualify);
+    const value = literalValue(right);
+    if (value === null) {
+      throw new SqlTranslateError(
+        `Comparison "${operator} NULL" is not supported; use IS NULL or IS NOT NULL.`,
+        "Use IS NULL or IS NOT NULL; SQL comparisons with NULL are UNKNOWN."
+      );
+    }
+    switch (operator) {
+      case "=":
+        return { [field]: value };
+      case "!=":
+      case "<>":
+        return andFilters(nonNullGuard(field), { [field]: { $ne: value } });
+      case ">":
+        return andFilters(nonNullGuard(field), { [field]: { $gt: value } });
+      case ">=":
+        return andFilters(nonNullGuard(field), { [field]: { $gte: value } });
+      case "<":
+        return andFilters(nonNullGuard(field), { [field]: { $lt: value } });
+      case "<=":
+        return andFilters(nonNullGuard(field), { [field]: { $lte: value } });
+    }
+  }
+  throw new SqlTranslateError(
+    `Operator "${String(expr.operator)}" is not supported.`,
+    "Supported: =, <>, !=, >, >=, <, <=, AND, OR, NOT, LIKE, IN, BETWEEN, IS NULL."
+  );
+}
+function mergeAnd(left, right) {
+  const out = { ...left };
+  for (const [key, value] of Object.entries(right)) {
+    if (!(key in out)) {
+      out[key] = value;
+      continue;
+    }
+    const existing = out[key];
+    if (!key.startsWith("$") && isPlainObject(existing) && isPlainObject(value)) {
+      const existingKeys = new Set(Object.keys(existing));
+      const compatible = Object.entries(value).every(([operator, operand]) => !existingKeys.has(operator) || Object.is(existing[operator], operand));
+      if (compatible) {
+        out[key] = { ...existing, ...value };
+        continue;
+      }
+    }
+    return { $and: [left, right] };
+  }
+  return out;
+}
+function nonNullGuard(field) {
+  return { [field]: { $exists: true, $ne: null } };
+}
+function andFilters(...filters) {
+  return filters.reduce((combined, filter2) => mergeAnd(combined, filter2));
+}
+function negatePredicate(expr) {
+  if (expr?.type === "function" && funcName(expr) === "NOT") {
+    const nested = funcArgs(expr)[0];
+    if (!nested) throw new SqlTranslateError("NOT needs a condition.", "Example: WHERE NOT (status = 'A')");
+    return nested;
+  }
+  if (expr?.type !== "binary_expr") {
+    throw new SqlTranslateError("This NOT expression is not supported.", "Apply NOT to comparisons joined by AND/OR.");
+  }
+  const operator = String(expr.operator).toUpperCase();
+  if (operator === "AND" || operator === "OR") {
+    return {
+      ...expr,
+      operator: operator === "AND" ? "OR" : "AND",
+      left: negatePredicate(expr.left),
+      right: negatePredicate(expr.right)
+    };
+  }
+  const inverse = {
+    "=": "!=",
+    "!=": "=",
+    "<>": "=",
+    ">": "<=",
+    ">=": "<",
+    "<": ">=",
+    "<=": ">",
+    LIKE: "NOT LIKE",
+    "NOT LIKE": "LIKE",
+    IN: "NOT IN",
+    "NOT IN": "IN",
+    BETWEEN: "NOT BETWEEN",
+    "NOT BETWEEN": "BETWEEN",
+    IS: "IS NOT",
+    "IS NOT": "IS"
+  };
+  const replacement = inverse[operator];
+  if (!replacement) throw new SqlTranslateError(`NOT ${operator} is not supported.`, "Rewrite the condition with supported comparisons.");
+  return { ...expr, operator: replacement };
+}
+function flattenOr(filter2) {
+  if (filter2 && typeof filter2 === "object" && "$or" in filter2 && Object.keys(filter2).length === 1) {
+    const inner = filter2.$or;
+    if (Array.isArray(inner)) return inner;
+  }
+  return [filter2];
+}
+function mongoCmp(operator) {
+  switch (operator) {
+    case "=":
+      return "$eq";
+    case "!=":
+    case "<>":
+      return "$ne";
+    case ">":
+      return "$gt";
+    case ">=":
+      return "$gte";
+    case "<":
+      return "$lt";
+    case "<=":
+      return "$lte";
+    default:
+      return "$eq";
+  }
+}
+function sqlString(node2) {
+  if (node2?.type === "single_quote_string" || node2?.type === "double_quote_string" || node2?.type === "string") {
+    return String(node2.value);
+  }
+  throw new SqlTranslateError("LIKE needs a string pattern.", "Example: WHERE name LIKE '%son%'");
+}
+function likeToRegex(pattern) {
+  let out = "";
+  for (const char of pattern) {
+    if (char === "%") out += ".*";
+    else if (char === "_") out += ".";
+    else out += escapeRegExp(char);
+  }
+  return `^${out}$`;
+}
+function escapeRegExp(char) {
+  return /[.*+?^${}()|[\]\\]/.test(char) ? `\\${char}` : char;
+}
+function inList(node2) {
+  if (node2?.type === "expr_list" && Array.isArray(node2.value)) {
+    const items = node2.value;
+    if (items.length === 1 && items[0]?.ast != null) {
+      throw new SqlTranslateError(
+        "Subqueries in IN are not supported yet.",
+        "Use an INNER JOIN instead, or run the inner query first and paste its values."
+      );
+    }
+    return items.map((item) => literalValue(item));
+  }
+  if (node2?.type === "select" || node2?.ast != null) {
+    throw new SqlTranslateError(
+      "Subqueries in IN are not supported yet.",
+      "Use an INNER JOIN instead, or run the inner query first and paste its values."
+    );
+  }
+  throw new SqlTranslateError("IN needs a value list.", "Example: WHERE status IN ('A', 'B')");
+}
+function betweenBounds(node2) {
+  if (node2?.type === "expr_list" && Array.isArray(node2.value) && node2.value.length === 2) {
+    const [low, high] = node2.value;
+    return [literalValue(low), literalValue(high)];
+  }
+  throw new SqlTranslateError("BETWEEN needs two bounds.", "Example: WHERE age BETWEEN 20 AND 50");
+}
+function isLiteral(node2) {
+  return node2?.type === "number" || node2?.type === "string" || node2?.type === "single_quote_string" || node2?.type === "double_quote_string" || node2?.type === "bool" || node2?.type === "null";
+}
+function literalValue(node2) {
+  if (!node2 || typeof node2 !== "object") {
+    throw new SqlTranslateError("Unsupported value.", "Use string, number, TRUE/FALSE or NULL literals.");
+  }
+  switch (node2.type) {
+    case "number":
+      return Number(node2.value);
+    case "single_quote_string":
+    case "double_quote_string":
+    case "string":
+      return String(node2.value);
+    case "bool":
+      return Boolean(node2.value);
+    case "null":
+      return null;
+    default:
+      throw new SqlTranslateError(
+        `Unsupported value of type "${String(node2.type)}".`,
+        "Use string, number, TRUE/FALSE or NULL literals."
+      );
+  }
+}
+function aggArg(expr, aliases, baseKey, qualify) {
+  const args = expr.args;
+  const inner = args?.expr;
+  if (!inner || inner.type === "star") return null;
+  if (inner.type === "column_ref") {
+    const field = String(inner.column);
+    const table2 = inner.table != null ? String(inner.table) : null;
+    return aliases && baseKey ? qualifyField(field, table2, aliases, baseKey, qualify ?? null) : field;
+  }
+  throw new SqlTranslateError(
+    "Aggregates take a plain column or *.",
+    "Example: COUNT(*), SUM(total), AVG(total)."
+  );
+}
+function defaultAggName(func, arg) {
+  if (arg == null) return func.toLowerCase();
+  return `${func.toLowerCase()}_${sanitizeField(arg)}`;
+}
+function aggKey(func, arg) {
+  return `${func}(${arg ?? "*"})`;
+}
+function buildAccumulator(func, arg) {
+  switch (func) {
+    case "COUNT":
+      if (arg == null) return { $sum: 1 };
+      return {
+        $sum: {
+          $cond: [
+            { $and: [{ $ne: [{ $type: `$${arg}` }, "missing"] }, { $ne: [`$${arg}`, null] }] },
+            1,
+            0
+          ]
+        }
+      };
+    case "SUM":
+      return { $sum: `$${arg}` };
+    case "AVG":
+      return { $avg: `$${arg}` };
+    case "MIN":
+      return { $min: `$${arg}` };
+    case "MAX":
+      return { $max: `$${arg}` };
+    default:
+      throw new SqlTranslateError(`Aggregate "${func}" is not supported.`, "Supported aggregates: COUNT, SUM, AVG, MIN, MAX.");
+  }
+}
+function buildGroupId(keys) {
+  if (keys.length === 0) return null;
+  if (keys.length === 1) return `$${keys[0]}`;
+  const id = createRecord();
+  for (const key of keys) {
+    const safe = sanitizeField(key);
+    if (Object.hasOwn(id, safe)) {
+      throw new SqlTranslateError(
+        `GROUP BY fields collide after normalization at "${safe}".`,
+        "Alias or rename the conflicting fields so each group key is unique."
+      );
+    }
+    id[safe] = `$${key}`;
+  }
+  return id;
+}
+function outputNameForGroupKey(key, plainCols) {
+  return plainCols.find((col) => key === col.field || key.endsWith(`.${col.field}`))?.output ?? sanitizeField(key);
+}
+function sanitizeField(field) {
+  return field.replace(/[^A-Za-z0-9_]/g, "_");
+}
+function shortName(field) {
+  return field.includes(".") ? field.split(".").pop() ?? field : field;
+}
+function ensureUniqueOutput(output, seen) {
+  if (seen.has(output)) {
+    throw new SqlTranslateError(
+      `Duplicate output name "${output}".`,
+      "Give each selected expression a unique alias with AS."
+    );
+  }
+  seen.add(output);
+}
+function inferScalarName(expr) {
+  const name = funcName(expr).toLowerCase();
+  const args = funcArgs(expr);
+  const first = args[0];
+  if (first?.type === "column_ref") return `${name}_${sanitizeField(String(first.column))}`;
+  return name;
+}
+function buildScalarExpr(expr, aliases, baseKey, qualify) {
+  const name = funcName(expr).toUpperCase();
+  const builder = SCALAR_FUNCS[name];
+  if (!builder) {
+    return buildValueExpr(expr, aliases, baseKey, qualify);
+  }
+  const args = funcArgs(expr);
+  if (args.length !== 1 || args[0]?.type !== "column_ref") {
+    throw new SqlTranslateError(
+      `Function "${name}" takes a single column.`,
+      `Example: SELECT ${name}(name) FROM ...`
+    );
+  }
+  const col = args[0];
+  const table2 = col.table != null ? String(col.table) : null;
+  if (table2 != null && !aliases.has(table2)) {
+    throw new SqlTranslateError(`Unknown table qualifier "${table2}".`, "Check the FROM and JOIN aliases.");
+  }
+  const path2 = `$${qualifyField(String(col.column), table2, aliases, baseKey, qualify)}`;
+  return builder(path2);
+}
+function buildValueExpr(expr, aliases, baseKey, qualify) {
+  if (!expr || typeof expr !== "object") {
+    throw new SqlTranslateError("Unsupported expression.", "Use fields, literals and simple arithmetic.");
+  }
+  if (expr.type === "column_ref") {
+    const table2 = expr.table != null ? String(expr.table) : null;
+    return `$${qualifyField(String(expr.column), table2, aliases, baseKey, qualify)}`;
+  }
+  if (isLiteral(expr)) return { $literal: literalValue(expr) };
+  if (expr.type === "function") {
+    const upper = funcName(expr).toUpperCase();
+    if (upper === "IFNULL" || upper === "COALESCE") {
+      const args = funcArgs(expr);
+      if (upper === "IFNULL" && args.length !== 2) {
+        throw new SqlTranslateError("IFNULL needs exactly two arguments.", "Example: IFNULL(field, 'fallback')");
+      }
+      if (upper === "COALESCE" && args.length < 2) {
+        throw new SqlTranslateError("COALESCE needs at least two arguments.", "Example: COALESCE(field, fallback, 'default')");
+      }
+      return { $ifNull: args.map((arg) => buildValueExpr(arg, aliases, baseKey, qualify)) };
+    }
+    if (upper === "CONCAT") {
+      const args = funcArgs(expr);
+      if (args.length < 2) throw new SqlTranslateError("CONCAT needs at least two arguments.", "Example: CONCAT(firstName, ' ', lastName)");
+      return { $concat: args.map((arg) => buildValueExpr(arg, aliases, baseKey, qualify)) };
+    }
+    if (SCALAR_FUNCS[upper]) {
+      return buildScalarExpr(expr, aliases, baseKey, qualify);
+    }
+  }
+  if (expr.type === "binary_expr") {
+    const opMap = { "+": "$add", "-": "$subtract", "*": "$multiply", "/": "$divide", "%": "$mod" };
+    const mongoOp = opMap[String(expr.operator)];
+    if (mongoOp) {
+      return {
+        [mongoOp]: [
+          buildValueExpr(expr.left, aliases, baseKey, qualify),
+          buildValueExpr(expr.right, aliases, baseKey, qualify)
+        ]
+      };
+    }
+  }
+  throw new SqlTranslateError(
+    "Unsupported computed expression.",
+    "Supported: + - * / %, CONCAT(...), IFNULL(...)."
+  );
+}
+function buildHaving(expr, aliases, baseKey, qualify, aggAliases, groupAliases) {
+  const rewritten = rewriteHavingRefs(expr, aliases, baseKey, qualify, aggAliases, groupAliases);
+  return buildFilter(rewritten, outputAliases(aggAliases, groupAliases), baseKey, null);
+}
+function rewriteHavingRefs(expr, aliases, baseKey, qualify, aggAliases, groupAliases) {
+  if (!expr || typeof expr !== "object") return expr;
+  if (expr.type === "aggr_func") {
+    const func = String(expr.name).toUpperCase();
+    const arg = aggArg(expr, aliases, baseKey, qualify);
+    const output = aggAliases.get(aggKey(func, arg));
+    if (!output) {
+      throw new SqlTranslateError(
+        "HAVING aggregates must also appear in SELECT.",
+        "Add the aggregate to the SELECT list with an alias."
+      );
+    }
+    return { type: "column_ref", table: null, column: output };
+  }
+  if (expr.type === "column_ref") {
+    const column2 = String(expr.column);
+    if ([...aggAliases.values()].includes(column2)) return { ...expr, table: null };
+    const table2 = expr.table != null ? String(expr.table) : null;
+    const qualified = table2 ? qualifyField(column2, table2, aliases, baseKey, qualify) : column2;
+    const output = groupAliases.get(qualified) ?? groupAliases.get(column2);
+    if (!output) {
+      throw new SqlTranslateError(
+        `HAVING cannot use "${column2}".`,
+        "HAVING supports GROUP BY keys and SELECT aggregates only."
+      );
+    }
+    return { type: "column_ref", table: null, column: output };
+  }
+  if (expr.type === "binary_expr") {
+    return {
+      ...expr,
+      left: rewriteHavingRefs(expr.left, aliases, baseKey, qualify, aggAliases, groupAliases),
+      right: rewriteHavingRefs(expr.right, aliases, baseKey, qualify, aggAliases, groupAliases)
+    };
+  }
+  if (expr.type === "function" && funcName(expr) === "NOT") {
+    const args = funcArgs(expr).map((arg) => rewriteHavingRefs(arg, aliases, baseKey, qualify, aggAliases, groupAliases));
+    if (Array.isArray(expr.args)) return { ...expr, args };
+    return { ...expr, args: { ...expr.args, value: args } };
+  }
+  return expr;
+}
+function outputAliases(aggAliases, groupAliases) {
+  const aliases = /* @__PURE__ */ new Map();
+  for (const output of [...aggAliases.values(), ...groupAliases.values()]) aliases.set(output, output);
+  return aliases;
+}
+function buildSort(orderBy, aliases, baseKey, qualify) {
+  const sort2 = createRecord();
+  for (const item of orderBy) {
+    const expr = item.expr;
+    if (expr?.type !== "column_ref") {
+      throw new SqlTranslateError("ORDER BY supports plain columns only.", "Example: ORDER BY createdAt DESC");
+    }
+    const table2 = expr.table != null ? String(expr.table) : null;
+    const field = qualify ? qualify(String(expr.column), table2) : qualifyField(String(expr.column), table2, aliases, baseKey, null);
+    const direction = String(item.type ?? "ASC").toUpperCase();
+    if (direction !== "ASC" && direction !== "DESC") {
+      throw new SqlTranslateError(`ORDER BY direction "${direction}" is not supported.`, "Use ASC or DESC.");
+    }
+    const dir2 = direction === "DESC" ? -1 : 1;
+    sort2[field] = dir2;
+  }
+  if (Object.keys(sort2).length === 0) {
+    throw new SqlTranslateError("ORDER BY needs at least one column.", "Example: ORDER BY createdAt DESC");
+  }
+  return sort2;
+}
+function parseLimit(limit) {
+  if (limit == null) return {};
+  const values = limit.value ?? [];
+  const numbers = values.map((value) => {
+    if (value?.type !== "number" || !Number.isInteger(Number(value.value)) || Number(value.value) < 0) {
+      throw new SqlTranslateError("LIMIT needs non-negative integers.", "Example: LIMIT 20 or LIMIT 20 OFFSET 10");
+    }
+    return Number(value.value);
+  });
+  const count2 = numbers.length === 1 ? numbers[0] : String(limit.seperator ?? "") === "," ? numbers[1] : numbers[0];
+  if (count2 === 0) {
+    throw new SqlTranslateError(
+      "LIMIT 0 is not supported in SQL beta.",
+      "MongoDB interprets cursor.limit(0) as no limit; use a positive LIMIT.",
+      nodeRange(limit)
+    );
+  }
+  const separator = String(limit.seperator ?? "");
+  if (numbers.length === 1) return { limit: numbers[0] };
+  if (numbers.length === 2) {
+    if (separator === ",") return { skip: numbers[0], limit: numbers[1] };
+    return { limit: numbers[0], skip: numbers[1] };
+  }
+  throw new SqlTranslateError("Unsupported LIMIT clause.", "Use LIMIT <count> with an optional OFFSET <skip>.");
+}
+function parseJoinOn(on, aliases, knownTables, baseTable, join2) {
+  if (on?.type !== "binary_expr" || String(on.operator) !== "=") {
+    throw new SqlTranslateError(
+      `JOIN on "${join2.table}" needs a single equality.`,
+      "Example: ... JOIN users u ON o.userId = u._id"
+    );
+  }
+  const left = on.left;
+  const right = on.right;
+  if (left?.type !== "column_ref" || right?.type !== "column_ref") {
+    throw new SqlTranslateError("JOIN ... ON compares two columns.", "Example: ON o.userId = u._id");
+  }
+  const newKeys = /* @__PURE__ */ new Set([join2.alias ?? join2.table, join2.table]);
+  const leftTable = left.table != null ? String(left.table) : null;
+  const rightTable = right.table != null ? String(right.table) : null;
+  const leftIsNew = leftTable != null && newKeys.has(leftTable);
+  const rightIsNew = rightTable != null && newKeys.has(rightTable);
+  if (leftIsNew === rightIsNew) {
+    throw new SqlTranslateError(
+      "JOIN ... ON must link the new table to an earlier one.",
+      "Example: ... JOIN users u ON o.userId = u._id"
+    );
+  }
+  const knownSide = leftIsNew ? right : left;
+  const newSide = leftIsNew ? left : right;
+  const knownTable = knownSide.table != null ? String(knownSide.table) : null;
+  if (knownTable != null && !knownTables.has(knownTable) && !aliases.has(knownTable)) {
+    throw new SqlTranslateError(
+      `Unknown table "${knownTable}" in JOIN ... ON.`,
+      "Each JOIN may only reference tables to its left."
+    );
+  }
+  const firstKnown = [...knownTables][0];
+  const isBaseRef = knownTable === null || knownTable === firstKnown || knownTable === baseTable;
+  const knownField = isBaseRef ? String(knownSide.column) : `${knownTable}.${String(knownSide.column)}`;
+  return {
+    localField: knownField,
+    foreignField: String(newSide.column),
+    as: join2.alias ?? join2.table
+  };
+}
+function funcName(expr) {
+  const name = expr?.name;
+  if (typeof name === "string") return name;
+  if (name && typeof name === "object") {
+    const parts = name.name;
+    if (Array.isArray(parts)) {
+      return parts.map((part) => String(part.value ?? part)).join(".");
+    }
+  }
+  return "";
+}
+function funcArgs(expr) {
+  const args = expr?.args;
+  if (Array.isArray(args)) return args;
+  if (args && typeof args === "object") {
+    const value = args.value;
+    if (Array.isArray(value)) return value;
+  }
+  return [];
+}
+function isPlainObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function createRecord() {
+  return /* @__PURE__ */ Object.create(null);
+}
+function pretty(value) {
+  return JSON.stringify(value, null, 2);
+}
+function renderValue(value) {
+  if (!containsPrototypeKey(value)) return pretty(value);
+  return `JSON.parse(${JSON.stringify(JSON.stringify(value))})`;
+}
+function containsPrototypeKey(value) {
+  if (!value || typeof value !== "object") return false;
+  if (Array.isArray(value)) return value.some((entry) => containsPrototypeKey(entry));
+  if (Object.hasOwn(value, "__proto__")) return true;
+  return Object.values(value).some((entry) => containsPrototypeKey(entry));
+}
+function collAccess(mode, collection2, database) {
+  const name = JSON.stringify(collection2);
+  if (database) {
+    return mode === "mongosh" ? `db.getSiblingDB(${JSON.stringify(database)}).getCollection(${name})` : `db.getSiblingDB(${JSON.stringify(database)}).collection(${name})`;
+  }
+  return mode === "mongosh" ? `db.getCollection(${name})` : `db.collection(${name})`;
+}
+function renderFind(mode, collection2, database, filter2, projection, sort2, limit, skip) {
+  let out = `${collAccess(mode, collection2, database)}.find(${renderValue(filter2)}`;
+  out += projection ? `, ${renderValue({ projection })}` : "";
+  out += ")";
+  if (sort2) out += `.sort(${renderValue(sort2)})`;
+  if (skip !== void 0) out += `.skip(${skip})`;
+  if (limit !== void 0) out += `.limit(${limit})`;
+  return `${out};`;
+}
+function renderAggregate(mode, collection2, database, pipeline) {
+  return `${collAccess(mode, collection2, database)}.aggregate(${renderValue(pipeline)});`;
+}
+function renderWrite(mode, collection2, database, method2, payload) {
+  return `${collAccess(mode, collection2, database)}.${method2}(${renderValue(payload)});`;
+}
+function renderUpdate(mode, collection2, database, filter2, update2) {
+  return `${collAccess(mode, collection2, database)}.updateMany(${renderValue(filter2)}, ${renderValue({ $set: update2 })});`;
 }
 var underDash;
 var hasRequiredUnderDash;
@@ -256899,7 +265150,7 @@ function requireDefinedNames() {
   definedNames = DefinedNames;
   return definedNames;
 }
-var utf8 = {};
+var utf8$1 = {};
 var utils = {};
 var support = {};
 var readable$5 = { exports: {} };
@@ -260113,7 +268364,7 @@ function requireGenericWorker() {
 }
 var hasRequiredUtf8;
 function requireUtf8() {
-  if (hasRequiredUtf8) return utf8;
+  if (hasRequiredUtf8) return utf8$1;
   hasRequiredUtf8 = 1;
   (function(exports2) {
     var utils2 = requireUtils$1();
@@ -260298,8 +268549,8 @@ function requireUtf8() {
       });
     };
     exports2.Utf8EncodeWorker = Utf8EncodeWorker;
-  })(utf8);
-  return utf8;
+  })(utf8$1);
+  return utf8$1;
 }
 var ConvertWorker_1;
 var hasRequiredConvertWorker;
@@ -283279,11 +291530,11 @@ function requireLodash_escaperegexp() {
   function toString(value) {
     return value == null ? "" : baseToString(value);
   }
-  function escapeRegExp(string) {
+  function escapeRegExp2(string) {
     string = toString(string);
     return string && reHasRegExpChar.test(string) ? string.replace(reRegExpChar, "\\$&") : string;
   }
-  lodash_escaperegexp = escapeRegExp;
+  lodash_escaperegexp = escapeRegExp2;
   return lodash_escaperegexp;
 }
 var hasRequiredFieldFormatter;
@@ -295308,7 +303559,7 @@ function requireLodash_isplainobject() {
   function isObjectLike(value) {
     return !!value && typeof value == "object";
   }
-  function isPlainObject(value) {
+  function isPlainObject2(value) {
     if (!isObjectLike(value) || objectToString.call(value) != objectTag || isHostObject(value)) {
       return false;
     }
@@ -295319,7 +303570,7 @@ function requireLodash_isplainobject() {
     var Ctor = hasOwnProperty.call(proto, "constructor") && proto.constructor;
     return typeof Ctor == "function" && Ctor instanceof Ctor && funcToString.call(Ctor) == objectCtorString;
   }
-  lodash_isplainobject = isPlainObject;
+  lodash_isplainobject = isPlainObject2;
   return lodash_isplainobject;
 }
 var old = {};
@@ -297745,7 +305996,7 @@ function requireFile$1() {
   var flatten = requireLodash_flatten();
   var difference = requireLodash_difference();
   var union = requireLodash_union();
-  var isPlainObject = requireLodash_isplainobject();
+  var isPlainObject2 = requireLodash_isplainobject();
   var glob = requireGlob();
   var file2 = file$1.exports = {};
   var pathSeparatorRe = /[\/\\]/g;
@@ -297770,7 +306021,7 @@ function requireFile$1() {
     return fs.existsSync(filepath);
   };
   file2.expand = function(...args) {
-    var options = isPlainObject(args[0]) ? args.shift() : {};
+    var options = isPlainObject2(args[0]) ? args.shift() : {};
     var patterns = Array.isArray(args[0]) ? args[0] : args;
     if (patterns.length === 0) {
       return [];
@@ -299957,7 +308208,7 @@ function requireFile() {
   var flatten = requireLodash_flatten();
   var difference = requireLodash_difference();
   var union = requireLodash_union();
-  var isPlainObject = requireLodash_isplainobject();
+  var isPlainObject2 = requireLodash_isplainobject();
   var glob = requireGlob();
   var file$12 = file.exports = {};
   var pathSeparatorRe = /[\/\\]/g;
@@ -299982,7 +308233,7 @@ function requireFile() {
     return fs.existsSync(filepath);
   };
   file$12.expand = function(...args) {
-    var options = isPlainObject(args[0]) ? args.shift() : {};
+    var options = isPlainObject2(args[0]) ? args.shift() : {};
     var patterns = Array.isArray(args[0]) ? args[0] : args;
     if (patterns.length === 0) {
       return [];
@@ -314887,1259 +323138,6 @@ function requireExtract() {
   }
   return extract;
 }
-var BigInteger = { exports: {} };
-var hasRequiredBigInteger;
-function requireBigInteger() {
-  if (hasRequiredBigInteger) return BigInteger.exports;
-  hasRequiredBigInteger = 1;
-  (function(module2) {
-    var bigInt = (function(undefined$1) {
-      var BASE = 1e7, LOG_BASE = 7, MAX_INT = 9007199254740992, MAX_INT_ARR = smallToArray(MAX_INT), DEFAULT_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz";
-      var supportsNativeBigInt = typeof BigInt === "function";
-      function Integer(v, radix, alphabet, caseSensitive) {
-        if (typeof v === "undefined") return Integer[0];
-        if (typeof radix !== "undefined") return +radix === 10 && !alphabet ? parseValue(v) : parseBase(v, radix, alphabet, caseSensitive);
-        return parseValue(v);
-      }
-      function BigInteger2(value, sign) {
-        this.value = value;
-        this.sign = sign;
-        this.isSmall = false;
-      }
-      BigInteger2.prototype = Object.create(Integer.prototype);
-      function SmallInteger(value) {
-        this.value = value;
-        this.sign = value < 0;
-        this.isSmall = true;
-      }
-      SmallInteger.prototype = Object.create(Integer.prototype);
-      function NativeBigInt(value) {
-        this.value = value;
-      }
-      NativeBigInt.prototype = Object.create(Integer.prototype);
-      function isPrecise(n) {
-        return -MAX_INT < n && n < MAX_INT;
-      }
-      function smallToArray(n) {
-        if (n < 1e7)
-          return [n];
-        if (n < 1e14)
-          return [n % 1e7, Math.floor(n / 1e7)];
-        return [n % 1e7, Math.floor(n / 1e7) % 1e7, Math.floor(n / 1e14)];
-      }
-      function arrayToSmall(arr) {
-        trim(arr);
-        var length = arr.length;
-        if (length < 4 && compareAbs(arr, MAX_INT_ARR) < 0) {
-          switch (length) {
-            case 0:
-              return 0;
-            case 1:
-              return arr[0];
-            case 2:
-              return arr[0] + arr[1] * BASE;
-            default:
-              return arr[0] + (arr[1] + arr[2] * BASE) * BASE;
-          }
-        }
-        return arr;
-      }
-      function trim(v) {
-        var i2 = v.length;
-        while (v[--i2] === 0) ;
-        v.length = i2 + 1;
-      }
-      function createArray(length) {
-        var x = new Array(length);
-        var i2 = -1;
-        while (++i2 < length) {
-          x[i2] = 0;
-        }
-        return x;
-      }
-      function truncate(n) {
-        if (n > 0) return Math.floor(n);
-        return Math.ceil(n);
-      }
-      function add(a, b) {
-        var l_a = a.length, l_b = b.length, r = new Array(l_a), carry = 0, base2 = BASE, sum, i2;
-        for (i2 = 0; i2 < l_b; i2++) {
-          sum = a[i2] + b[i2] + carry;
-          carry = sum >= base2 ? 1 : 0;
-          r[i2] = sum - carry * base2;
-        }
-        while (i2 < l_a) {
-          sum = a[i2] + carry;
-          carry = sum === base2 ? 1 : 0;
-          r[i2++] = sum - carry * base2;
-        }
-        if (carry > 0) r.push(carry);
-        return r;
-      }
-      function addAny(a, b) {
-        if (a.length >= b.length) return add(a, b);
-        return add(b, a);
-      }
-      function addSmall(a, carry) {
-        var l = a.length, r = new Array(l), base2 = BASE, sum, i2;
-        for (i2 = 0; i2 < l; i2++) {
-          sum = a[i2] - base2 + carry;
-          carry = Math.floor(sum / base2);
-          r[i2] = sum - carry * base2;
-          carry += 1;
-        }
-        while (carry > 0) {
-          r[i2++] = carry % base2;
-          carry = Math.floor(carry / base2);
-        }
-        return r;
-      }
-      BigInteger2.prototype.add = function(v) {
-        var n = parseValue(v);
-        if (this.sign !== n.sign) {
-          return this.subtract(n.negate());
-        }
-        var a = this.value, b = n.value;
-        if (n.isSmall) {
-          return new BigInteger2(addSmall(a, Math.abs(b)), this.sign);
-        }
-        return new BigInteger2(addAny(a, b), this.sign);
-      };
-      BigInteger2.prototype.plus = BigInteger2.prototype.add;
-      SmallInteger.prototype.add = function(v) {
-        var n = parseValue(v);
-        var a = this.value;
-        if (a < 0 !== n.sign) {
-          return this.subtract(n.negate());
-        }
-        var b = n.value;
-        if (n.isSmall) {
-          if (isPrecise(a + b)) return new SmallInteger(a + b);
-          b = smallToArray(Math.abs(b));
-        }
-        return new BigInteger2(addSmall(b, Math.abs(a)), a < 0);
-      };
-      SmallInteger.prototype.plus = SmallInteger.prototype.add;
-      NativeBigInt.prototype.add = function(v) {
-        return new NativeBigInt(this.value + parseValue(v).value);
-      };
-      NativeBigInt.prototype.plus = NativeBigInt.prototype.add;
-      function subtract(a, b) {
-        var a_l = a.length, b_l = b.length, r = new Array(a_l), borrow = 0, base2 = BASE, i2, difference;
-        for (i2 = 0; i2 < b_l; i2++) {
-          difference = a[i2] - borrow - b[i2];
-          if (difference < 0) {
-            difference += base2;
-            borrow = 1;
-          } else borrow = 0;
-          r[i2] = difference;
-        }
-        for (i2 = b_l; i2 < a_l; i2++) {
-          difference = a[i2] - borrow;
-          if (difference < 0) difference += base2;
-          else {
-            r[i2++] = difference;
-            break;
-          }
-          r[i2] = difference;
-        }
-        for (; i2 < a_l; i2++) {
-          r[i2] = a[i2];
-        }
-        trim(r);
-        return r;
-      }
-      function subtractAny(a, b, sign) {
-        var value;
-        if (compareAbs(a, b) >= 0) {
-          value = subtract(a, b);
-        } else {
-          value = subtract(b, a);
-          sign = !sign;
-        }
-        value = arrayToSmall(value);
-        if (typeof value === "number") {
-          if (sign) value = -value;
-          return new SmallInteger(value);
-        }
-        return new BigInteger2(value, sign);
-      }
-      function subtractSmall(a, b, sign) {
-        var l = a.length, r = new Array(l), carry = -b, base2 = BASE, i2, difference;
-        for (i2 = 0; i2 < l; i2++) {
-          difference = a[i2] + carry;
-          carry = Math.floor(difference / base2);
-          difference %= base2;
-          r[i2] = difference < 0 ? difference + base2 : difference;
-        }
-        r = arrayToSmall(r);
-        if (typeof r === "number") {
-          if (sign) r = -r;
-          return new SmallInteger(r);
-        }
-        return new BigInteger2(r, sign);
-      }
-      BigInteger2.prototype.subtract = function(v) {
-        var n = parseValue(v);
-        if (this.sign !== n.sign) {
-          return this.add(n.negate());
-        }
-        var a = this.value, b = n.value;
-        if (n.isSmall)
-          return subtractSmall(a, Math.abs(b), this.sign);
-        return subtractAny(a, b, this.sign);
-      };
-      BigInteger2.prototype.minus = BigInteger2.prototype.subtract;
-      SmallInteger.prototype.subtract = function(v) {
-        var n = parseValue(v);
-        var a = this.value;
-        if (a < 0 !== n.sign) {
-          return this.add(n.negate());
-        }
-        var b = n.value;
-        if (n.isSmall) {
-          return new SmallInteger(a - b);
-        }
-        return subtractSmall(b, Math.abs(a), a >= 0);
-      };
-      SmallInteger.prototype.minus = SmallInteger.prototype.subtract;
-      NativeBigInt.prototype.subtract = function(v) {
-        return new NativeBigInt(this.value - parseValue(v).value);
-      };
-      NativeBigInt.prototype.minus = NativeBigInt.prototype.subtract;
-      BigInteger2.prototype.negate = function() {
-        return new BigInteger2(this.value, !this.sign);
-      };
-      SmallInteger.prototype.negate = function() {
-        var sign = this.sign;
-        var small = new SmallInteger(-this.value);
-        small.sign = !sign;
-        return small;
-      };
-      NativeBigInt.prototype.negate = function() {
-        return new NativeBigInt(-this.value);
-      };
-      BigInteger2.prototype.abs = function() {
-        return new BigInteger2(this.value, false);
-      };
-      SmallInteger.prototype.abs = function() {
-        return new SmallInteger(Math.abs(this.value));
-      };
-      NativeBigInt.prototype.abs = function() {
-        return new NativeBigInt(this.value >= 0 ? this.value : -this.value);
-      };
-      function multiplyLong(a, b) {
-        var a_l = a.length, b_l = b.length, l = a_l + b_l, r = createArray(l), base2 = BASE, product, carry, i2, a_i, b_j;
-        for (i2 = 0; i2 < a_l; ++i2) {
-          a_i = a[i2];
-          for (var j = 0; j < b_l; ++j) {
-            b_j = b[j];
-            product = a_i * b_j + r[i2 + j];
-            carry = Math.floor(product / base2);
-            r[i2 + j] = product - carry * base2;
-            r[i2 + j + 1] += carry;
-          }
-        }
-        trim(r);
-        return r;
-      }
-      function multiplySmall(a, b) {
-        var l = a.length, r = new Array(l), base2 = BASE, carry = 0, product, i2;
-        for (i2 = 0; i2 < l; i2++) {
-          product = a[i2] * b + carry;
-          carry = Math.floor(product / base2);
-          r[i2] = product - carry * base2;
-        }
-        while (carry > 0) {
-          r[i2++] = carry % base2;
-          carry = Math.floor(carry / base2);
-        }
-        return r;
-      }
-      function shiftLeft(x, n) {
-        var r = [];
-        while (n-- > 0) r.push(0);
-        return r.concat(x);
-      }
-      function multiplyKaratsuba(x, y) {
-        var n = Math.max(x.length, y.length);
-        if (n <= 30) return multiplyLong(x, y);
-        n = Math.ceil(n / 2);
-        var b = x.slice(n), a = x.slice(0, n), d = y.slice(n), c = y.slice(0, n);
-        var ac = multiplyKaratsuba(a, c), bd = multiplyKaratsuba(b, d), abcd = multiplyKaratsuba(addAny(a, b), addAny(c, d));
-        var product = addAny(addAny(ac, shiftLeft(subtract(subtract(abcd, ac), bd), n)), shiftLeft(bd, 2 * n));
-        trim(product);
-        return product;
-      }
-      function useKaratsuba(l1, l2) {
-        return -0.012 * l1 - 0.012 * l2 + 15e-6 * l1 * l2 > 0;
-      }
-      BigInteger2.prototype.multiply = function(v) {
-        var n = parseValue(v), a = this.value, b = n.value, sign = this.sign !== n.sign, abs;
-        if (n.isSmall) {
-          if (b === 0) return Integer[0];
-          if (b === 1) return this;
-          if (b === -1) return this.negate();
-          abs = Math.abs(b);
-          if (abs < BASE) {
-            return new BigInteger2(multiplySmall(a, abs), sign);
-          }
-          b = smallToArray(abs);
-        }
-        if (useKaratsuba(a.length, b.length))
-          return new BigInteger2(multiplyKaratsuba(a, b), sign);
-        return new BigInteger2(multiplyLong(a, b), sign);
-      };
-      BigInteger2.prototype.times = BigInteger2.prototype.multiply;
-      function multiplySmallAndArray(a, b, sign) {
-        if (a < BASE) {
-          return new BigInteger2(multiplySmall(b, a), sign);
-        }
-        return new BigInteger2(multiplyLong(b, smallToArray(a)), sign);
-      }
-      SmallInteger.prototype._multiplyBySmall = function(a) {
-        if (isPrecise(a.value * this.value)) {
-          return new SmallInteger(a.value * this.value);
-        }
-        return multiplySmallAndArray(Math.abs(a.value), smallToArray(Math.abs(this.value)), this.sign !== a.sign);
-      };
-      BigInteger2.prototype._multiplyBySmall = function(a) {
-        if (a.value === 0) return Integer[0];
-        if (a.value === 1) return this;
-        if (a.value === -1) return this.negate();
-        return multiplySmallAndArray(Math.abs(a.value), this.value, this.sign !== a.sign);
-      };
-      SmallInteger.prototype.multiply = function(v) {
-        return parseValue(v)._multiplyBySmall(this);
-      };
-      SmallInteger.prototype.times = SmallInteger.prototype.multiply;
-      NativeBigInt.prototype.multiply = function(v) {
-        return new NativeBigInt(this.value * parseValue(v).value);
-      };
-      NativeBigInt.prototype.times = NativeBigInt.prototype.multiply;
-      function square(a) {
-        var l = a.length, r = createArray(l + l), base2 = BASE, product, carry, i2, a_i, a_j;
-        for (i2 = 0; i2 < l; i2++) {
-          a_i = a[i2];
-          carry = 0 - a_i * a_i;
-          for (var j = i2; j < l; j++) {
-            a_j = a[j];
-            product = 2 * (a_i * a_j) + r[i2 + j] + carry;
-            carry = Math.floor(product / base2);
-            r[i2 + j] = product - carry * base2;
-          }
-          r[i2 + l] = carry;
-        }
-        trim(r);
-        return r;
-      }
-      BigInteger2.prototype.square = function() {
-        return new BigInteger2(square(this.value), false);
-      };
-      SmallInteger.prototype.square = function() {
-        var value = this.value * this.value;
-        if (isPrecise(value)) return new SmallInteger(value);
-        return new BigInteger2(square(smallToArray(Math.abs(this.value))), false);
-      };
-      NativeBigInt.prototype.square = function(v) {
-        return new NativeBigInt(this.value * this.value);
-      };
-      function divMod1(a, b) {
-        var a_l = a.length, b_l = b.length, base2 = BASE, result = createArray(b.length), divisorMostSignificantDigit = b[b_l - 1], lambda = Math.ceil(base2 / (2 * divisorMostSignificantDigit)), remainder = multiplySmall(a, lambda), divisor = multiplySmall(b, lambda), quotientDigit, shift, carry, borrow, i2, l, q;
-        if (remainder.length <= a_l) remainder.push(0);
-        divisor.push(0);
-        divisorMostSignificantDigit = divisor[b_l - 1];
-        for (shift = a_l - b_l; shift >= 0; shift--) {
-          quotientDigit = base2 - 1;
-          if (remainder[shift + b_l] !== divisorMostSignificantDigit) {
-            quotientDigit = Math.floor((remainder[shift + b_l] * base2 + remainder[shift + b_l - 1]) / divisorMostSignificantDigit);
-          }
-          carry = 0;
-          borrow = 0;
-          l = divisor.length;
-          for (i2 = 0; i2 < l; i2++) {
-            carry += quotientDigit * divisor[i2];
-            q = Math.floor(carry / base2);
-            borrow += remainder[shift + i2] - (carry - q * base2);
-            carry = q;
-            if (borrow < 0) {
-              remainder[shift + i2] = borrow + base2;
-              borrow = -1;
-            } else {
-              remainder[shift + i2] = borrow;
-              borrow = 0;
-            }
-          }
-          while (borrow !== 0) {
-            quotientDigit -= 1;
-            carry = 0;
-            for (i2 = 0; i2 < l; i2++) {
-              carry += remainder[shift + i2] - base2 + divisor[i2];
-              if (carry < 0) {
-                remainder[shift + i2] = carry + base2;
-                carry = 0;
-              } else {
-                remainder[shift + i2] = carry;
-                carry = 1;
-              }
-            }
-            borrow += carry;
-          }
-          result[shift] = quotientDigit;
-        }
-        remainder = divModSmall(remainder, lambda)[0];
-        return [arrayToSmall(result), arrayToSmall(remainder)];
-      }
-      function divMod2(a, b) {
-        var a_l = a.length, b_l = b.length, result = [], part = [], base2 = BASE, guess, xlen, highx, highy, check;
-        while (a_l) {
-          part.unshift(a[--a_l]);
-          trim(part);
-          if (compareAbs(part, b) < 0) {
-            result.push(0);
-            continue;
-          }
-          xlen = part.length;
-          highx = part[xlen - 1] * base2 + part[xlen - 2];
-          highy = b[b_l - 1] * base2 + b[b_l - 2];
-          if (xlen > b_l) {
-            highx = (highx + 1) * base2;
-          }
-          guess = Math.ceil(highx / highy);
-          do {
-            check = multiplySmall(b, guess);
-            if (compareAbs(check, part) <= 0) break;
-            guess--;
-          } while (guess);
-          result.push(guess);
-          part = subtract(part, check);
-        }
-        result.reverse();
-        return [arrayToSmall(result), arrayToSmall(part)];
-      }
-      function divModSmall(value, lambda) {
-        var length = value.length, quotient = createArray(length), base2 = BASE, i2, q, remainder, divisor;
-        remainder = 0;
-        for (i2 = length - 1; i2 >= 0; --i2) {
-          divisor = remainder * base2 + value[i2];
-          q = truncate(divisor / lambda);
-          remainder = divisor - q * lambda;
-          quotient[i2] = q | 0;
-        }
-        return [quotient, remainder | 0];
-      }
-      function divModAny(self2, v) {
-        var value, n = parseValue(v);
-        if (supportsNativeBigInt) {
-          return [new NativeBigInt(self2.value / n.value), new NativeBigInt(self2.value % n.value)];
-        }
-        var a = self2.value, b = n.value;
-        var quotient;
-        if (b === 0) throw new Error("Cannot divide by zero");
-        if (self2.isSmall) {
-          if (n.isSmall) {
-            return [new SmallInteger(truncate(a / b)), new SmallInteger(a % b)];
-          }
-          return [Integer[0], self2];
-        }
-        if (n.isSmall) {
-          if (b === 1) return [self2, Integer[0]];
-          if (b == -1) return [self2.negate(), Integer[0]];
-          var abs = Math.abs(b);
-          if (abs < BASE) {
-            value = divModSmall(a, abs);
-            quotient = arrayToSmall(value[0]);
-            var remainder = value[1];
-            if (self2.sign) remainder = -remainder;
-            if (typeof quotient === "number") {
-              if (self2.sign !== n.sign) quotient = -quotient;
-              return [new SmallInteger(quotient), new SmallInteger(remainder)];
-            }
-            return [new BigInteger2(quotient, self2.sign !== n.sign), new SmallInteger(remainder)];
-          }
-          b = smallToArray(abs);
-        }
-        var comparison = compareAbs(a, b);
-        if (comparison === -1) return [Integer[0], self2];
-        if (comparison === 0) return [Integer[self2.sign === n.sign ? 1 : -1], Integer[0]];
-        if (a.length + b.length <= 200)
-          value = divMod1(a, b);
-        else value = divMod2(a, b);
-        quotient = value[0];
-        var qSign = self2.sign !== n.sign, mod = value[1], mSign = self2.sign;
-        if (typeof quotient === "number") {
-          if (qSign) quotient = -quotient;
-          quotient = new SmallInteger(quotient);
-        } else quotient = new BigInteger2(quotient, qSign);
-        if (typeof mod === "number") {
-          if (mSign) mod = -mod;
-          mod = new SmallInteger(mod);
-        } else mod = new BigInteger2(mod, mSign);
-        return [quotient, mod];
-      }
-      BigInteger2.prototype.divmod = function(v) {
-        var result = divModAny(this, v);
-        return {
-          quotient: result[0],
-          remainder: result[1]
-        };
-      };
-      NativeBigInt.prototype.divmod = SmallInteger.prototype.divmod = BigInteger2.prototype.divmod;
-      BigInteger2.prototype.divide = function(v) {
-        return divModAny(this, v)[0];
-      };
-      NativeBigInt.prototype.over = NativeBigInt.prototype.divide = function(v) {
-        return new NativeBigInt(this.value / parseValue(v).value);
-      };
-      SmallInteger.prototype.over = SmallInteger.prototype.divide = BigInteger2.prototype.over = BigInteger2.prototype.divide;
-      BigInteger2.prototype.mod = function(v) {
-        return divModAny(this, v)[1];
-      };
-      NativeBigInt.prototype.mod = NativeBigInt.prototype.remainder = function(v) {
-        return new NativeBigInt(this.value % parseValue(v).value);
-      };
-      SmallInteger.prototype.remainder = SmallInteger.prototype.mod = BigInteger2.prototype.remainder = BigInteger2.prototype.mod;
-      BigInteger2.prototype.pow = function(v) {
-        var n = parseValue(v), a = this.value, b = n.value, value, x, y;
-        if (b === 0) return Integer[1];
-        if (a === 0) return Integer[0];
-        if (a === 1) return Integer[1];
-        if (a === -1) return n.isEven() ? Integer[1] : Integer[-1];
-        if (n.sign) {
-          return Integer[0];
-        }
-        if (!n.isSmall) throw new Error("The exponent " + n.toString() + " is too large.");
-        if (this.isSmall) {
-          if (isPrecise(value = Math.pow(a, b)))
-            return new SmallInteger(truncate(value));
-        }
-        x = this;
-        y = Integer[1];
-        while (true) {
-          if (b & true) {
-            y = y.times(x);
-            --b;
-          }
-          if (b === 0) break;
-          b /= 2;
-          x = x.square();
-        }
-        return y;
-      };
-      SmallInteger.prototype.pow = BigInteger2.prototype.pow;
-      NativeBigInt.prototype.pow = function(v) {
-        var n = parseValue(v);
-        var a = this.value, b = n.value;
-        var _0 = BigInt(0), _1 = BigInt(1), _2 = BigInt(2);
-        if (b === _0) return Integer[1];
-        if (a === _0) return Integer[0];
-        if (a === _1) return Integer[1];
-        if (a === BigInt(-1)) return n.isEven() ? Integer[1] : Integer[-1];
-        if (n.isNegative()) return new NativeBigInt(_0);
-        var x = this;
-        var y = Integer[1];
-        while (true) {
-          if ((b & _1) === _1) {
-            y = y.times(x);
-            --b;
-          }
-          if (b === _0) break;
-          b /= _2;
-          x = x.square();
-        }
-        return y;
-      };
-      BigInteger2.prototype.modPow = function(exp, mod) {
-        exp = parseValue(exp);
-        mod = parseValue(mod);
-        if (mod.isZero()) throw new Error("Cannot take modPow with modulus 0");
-        var r = Integer[1], base2 = this.mod(mod);
-        if (exp.isNegative()) {
-          exp = exp.multiply(Integer[-1]);
-          base2 = base2.modInv(mod);
-        }
-        while (exp.isPositive()) {
-          if (base2.isZero()) return Integer[0];
-          if (exp.isOdd()) r = r.multiply(base2).mod(mod);
-          exp = exp.divide(2);
-          base2 = base2.square().mod(mod);
-        }
-        return r;
-      };
-      NativeBigInt.prototype.modPow = SmallInteger.prototype.modPow = BigInteger2.prototype.modPow;
-      function compareAbs(a, b) {
-        if (a.length !== b.length) {
-          return a.length > b.length ? 1 : -1;
-        }
-        for (var i2 = a.length - 1; i2 >= 0; i2--) {
-          if (a[i2] !== b[i2]) return a[i2] > b[i2] ? 1 : -1;
-        }
-        return 0;
-      }
-      BigInteger2.prototype.compareAbs = function(v) {
-        var n = parseValue(v), a = this.value, b = n.value;
-        if (n.isSmall) return 1;
-        return compareAbs(a, b);
-      };
-      SmallInteger.prototype.compareAbs = function(v) {
-        var n = parseValue(v), a = Math.abs(this.value), b = n.value;
-        if (n.isSmall) {
-          b = Math.abs(b);
-          return a === b ? 0 : a > b ? 1 : -1;
-        }
-        return -1;
-      };
-      NativeBigInt.prototype.compareAbs = function(v) {
-        var a = this.value;
-        var b = parseValue(v).value;
-        a = a >= 0 ? a : -a;
-        b = b >= 0 ? b : -b;
-        return a === b ? 0 : a > b ? 1 : -1;
-      };
-      BigInteger2.prototype.compare = function(v) {
-        if (v === Infinity) {
-          return -1;
-        }
-        if (v === -Infinity) {
-          return 1;
-        }
-        var n = parseValue(v), a = this.value, b = n.value;
-        if (this.sign !== n.sign) {
-          return n.sign ? 1 : -1;
-        }
-        if (n.isSmall) {
-          return this.sign ? -1 : 1;
-        }
-        return compareAbs(a, b) * (this.sign ? -1 : 1);
-      };
-      BigInteger2.prototype.compareTo = BigInteger2.prototype.compare;
-      SmallInteger.prototype.compare = function(v) {
-        if (v === Infinity) {
-          return -1;
-        }
-        if (v === -Infinity) {
-          return 1;
-        }
-        var n = parseValue(v), a = this.value, b = n.value;
-        if (n.isSmall) {
-          return a == b ? 0 : a > b ? 1 : -1;
-        }
-        if (a < 0 !== n.sign) {
-          return a < 0 ? -1 : 1;
-        }
-        return a < 0 ? 1 : -1;
-      };
-      SmallInteger.prototype.compareTo = SmallInteger.prototype.compare;
-      NativeBigInt.prototype.compare = function(v) {
-        if (v === Infinity) {
-          return -1;
-        }
-        if (v === -Infinity) {
-          return 1;
-        }
-        var a = this.value;
-        var b = parseValue(v).value;
-        return a === b ? 0 : a > b ? 1 : -1;
-      };
-      NativeBigInt.prototype.compareTo = NativeBigInt.prototype.compare;
-      BigInteger2.prototype.equals = function(v) {
-        return this.compare(v) === 0;
-      };
-      NativeBigInt.prototype.eq = NativeBigInt.prototype.equals = SmallInteger.prototype.eq = SmallInteger.prototype.equals = BigInteger2.prototype.eq = BigInteger2.prototype.equals;
-      BigInteger2.prototype.notEquals = function(v) {
-        return this.compare(v) !== 0;
-      };
-      NativeBigInt.prototype.neq = NativeBigInt.prototype.notEquals = SmallInteger.prototype.neq = SmallInteger.prototype.notEquals = BigInteger2.prototype.neq = BigInteger2.prototype.notEquals;
-      BigInteger2.prototype.greater = function(v) {
-        return this.compare(v) > 0;
-      };
-      NativeBigInt.prototype.gt = NativeBigInt.prototype.greater = SmallInteger.prototype.gt = SmallInteger.prototype.greater = BigInteger2.prototype.gt = BigInteger2.prototype.greater;
-      BigInteger2.prototype.lesser = function(v) {
-        return this.compare(v) < 0;
-      };
-      NativeBigInt.prototype.lt = NativeBigInt.prototype.lesser = SmallInteger.prototype.lt = SmallInteger.prototype.lesser = BigInteger2.prototype.lt = BigInteger2.prototype.lesser;
-      BigInteger2.prototype.greaterOrEquals = function(v) {
-        return this.compare(v) >= 0;
-      };
-      NativeBigInt.prototype.geq = NativeBigInt.prototype.greaterOrEquals = SmallInteger.prototype.geq = SmallInteger.prototype.greaterOrEquals = BigInteger2.prototype.geq = BigInteger2.prototype.greaterOrEquals;
-      BigInteger2.prototype.lesserOrEquals = function(v) {
-        return this.compare(v) <= 0;
-      };
-      NativeBigInt.prototype.leq = NativeBigInt.prototype.lesserOrEquals = SmallInteger.prototype.leq = SmallInteger.prototype.lesserOrEquals = BigInteger2.prototype.leq = BigInteger2.prototype.lesserOrEquals;
-      BigInteger2.prototype.isEven = function() {
-        return (this.value[0] & 1) === 0;
-      };
-      SmallInteger.prototype.isEven = function() {
-        return (this.value & 1) === 0;
-      };
-      NativeBigInt.prototype.isEven = function() {
-        return (this.value & BigInt(1)) === BigInt(0);
-      };
-      BigInteger2.prototype.isOdd = function() {
-        return (this.value[0] & 1) === 1;
-      };
-      SmallInteger.prototype.isOdd = function() {
-        return (this.value & 1) === 1;
-      };
-      NativeBigInt.prototype.isOdd = function() {
-        return (this.value & BigInt(1)) === BigInt(1);
-      };
-      BigInteger2.prototype.isPositive = function() {
-        return !this.sign;
-      };
-      SmallInteger.prototype.isPositive = function() {
-        return this.value > 0;
-      };
-      NativeBigInt.prototype.isPositive = SmallInteger.prototype.isPositive;
-      BigInteger2.prototype.isNegative = function() {
-        return this.sign;
-      };
-      SmallInteger.prototype.isNegative = function() {
-        return this.value < 0;
-      };
-      NativeBigInt.prototype.isNegative = SmallInteger.prototype.isNegative;
-      BigInteger2.prototype.isUnit = function() {
-        return false;
-      };
-      SmallInteger.prototype.isUnit = function() {
-        return Math.abs(this.value) === 1;
-      };
-      NativeBigInt.prototype.isUnit = function() {
-        return this.abs().value === BigInt(1);
-      };
-      BigInteger2.prototype.isZero = function() {
-        return false;
-      };
-      SmallInteger.prototype.isZero = function() {
-        return this.value === 0;
-      };
-      NativeBigInt.prototype.isZero = function() {
-        return this.value === BigInt(0);
-      };
-      BigInteger2.prototype.isDivisibleBy = function(v) {
-        var n = parseValue(v);
-        if (n.isZero()) return false;
-        if (n.isUnit()) return true;
-        if (n.compareAbs(2) === 0) return this.isEven();
-        return this.mod(n).isZero();
-      };
-      NativeBigInt.prototype.isDivisibleBy = SmallInteger.prototype.isDivisibleBy = BigInteger2.prototype.isDivisibleBy;
-      function isBasicPrime(v) {
-        var n = v.abs();
-        if (n.isUnit()) return false;
-        if (n.equals(2) || n.equals(3) || n.equals(5)) return true;
-        if (n.isEven() || n.isDivisibleBy(3) || n.isDivisibleBy(5)) return false;
-        if (n.lesser(49)) return true;
-      }
-      function millerRabinTest(n, a) {
-        var nPrev = n.prev(), b = nPrev, r = 0, d, i2, x;
-        while (b.isEven()) b = b.divide(2), r++;
-        next: for (i2 = 0; i2 < a.length; i2++) {
-          if (n.lesser(a[i2])) continue;
-          x = bigInt(a[i2]).modPow(b, n);
-          if (x.isUnit() || x.equals(nPrev)) continue;
-          for (d = r - 1; d != 0; d--) {
-            x = x.square().mod(n);
-            if (x.isUnit()) return false;
-            if (x.equals(nPrev)) continue next;
-          }
-          return false;
-        }
-        return true;
-      }
-      BigInteger2.prototype.isPrime = function(strict) {
-        var isPrime = isBasicPrime(this);
-        if (isPrime !== undefined$1) return isPrime;
-        var n = this.abs();
-        var bits = n.bitLength();
-        if (bits <= 64)
-          return millerRabinTest(n, [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37]);
-        var logN = Math.log(2) * bits.toJSNumber();
-        var t = Math.ceil(strict === true ? 2 * Math.pow(logN, 2) : logN);
-        for (var a = [], i2 = 0; i2 < t; i2++) {
-          a.push(bigInt(i2 + 2));
-        }
-        return millerRabinTest(n, a);
-      };
-      NativeBigInt.prototype.isPrime = SmallInteger.prototype.isPrime = BigInteger2.prototype.isPrime;
-      BigInteger2.prototype.isProbablePrime = function(iterations, rng2) {
-        var isPrime = isBasicPrime(this);
-        if (isPrime !== undefined$1) return isPrime;
-        var n = this.abs();
-        var t = iterations === undefined$1 ? 5 : iterations;
-        for (var a = [], i2 = 0; i2 < t; i2++) {
-          a.push(bigInt.randBetween(2, n.minus(2), rng2));
-        }
-        return millerRabinTest(n, a);
-      };
-      NativeBigInt.prototype.isProbablePrime = SmallInteger.prototype.isProbablePrime = BigInteger2.prototype.isProbablePrime;
-      BigInteger2.prototype.modInv = function(n) {
-        var t = bigInt.zero, newT = bigInt.one, r = parseValue(n), newR = this.abs(), q, lastT, lastR;
-        while (!newR.isZero()) {
-          q = r.divide(newR);
-          lastT = t;
-          lastR = r;
-          t = newT;
-          r = newR;
-          newT = lastT.subtract(q.multiply(newT));
-          newR = lastR.subtract(q.multiply(newR));
-        }
-        if (!r.isUnit()) throw new Error(this.toString() + " and " + n.toString() + " are not co-prime");
-        if (t.compare(0) === -1) {
-          t = t.add(n);
-        }
-        if (this.isNegative()) {
-          return t.negate();
-        }
-        return t;
-      };
-      NativeBigInt.prototype.modInv = SmallInteger.prototype.modInv = BigInteger2.prototype.modInv;
-      BigInteger2.prototype.next = function() {
-        var value = this.value;
-        if (this.sign) {
-          return subtractSmall(value, 1, this.sign);
-        }
-        return new BigInteger2(addSmall(value, 1), this.sign);
-      };
-      SmallInteger.prototype.next = function() {
-        var value = this.value;
-        if (value + 1 < MAX_INT) return new SmallInteger(value + 1);
-        return new BigInteger2(MAX_INT_ARR, false);
-      };
-      NativeBigInt.prototype.next = function() {
-        return new NativeBigInt(this.value + BigInt(1));
-      };
-      BigInteger2.prototype.prev = function() {
-        var value = this.value;
-        if (this.sign) {
-          return new BigInteger2(addSmall(value, 1), true);
-        }
-        return subtractSmall(value, 1, this.sign);
-      };
-      SmallInteger.prototype.prev = function() {
-        var value = this.value;
-        if (value - 1 > -MAX_INT) return new SmallInteger(value - 1);
-        return new BigInteger2(MAX_INT_ARR, true);
-      };
-      NativeBigInt.prototype.prev = function() {
-        return new NativeBigInt(this.value - BigInt(1));
-      };
-      var powersOfTwo = [1];
-      while (2 * powersOfTwo[powersOfTwo.length - 1] <= BASE) powersOfTwo.push(2 * powersOfTwo[powersOfTwo.length - 1]);
-      var powers2Length = powersOfTwo.length, highestPower2 = powersOfTwo[powers2Length - 1];
-      function shift_isSmall(n) {
-        return Math.abs(n) <= BASE;
-      }
-      BigInteger2.prototype.shiftLeft = function(v) {
-        var n = parseValue(v).toJSNumber();
-        if (!shift_isSmall(n)) {
-          throw new Error(String(n) + " is too large for shifting.");
-        }
-        if (n < 0) return this.shiftRight(-n);
-        var result = this;
-        if (result.isZero()) return result;
-        while (n >= powers2Length) {
-          result = result.multiply(highestPower2);
-          n -= powers2Length - 1;
-        }
-        return result.multiply(powersOfTwo[n]);
-      };
-      NativeBigInt.prototype.shiftLeft = SmallInteger.prototype.shiftLeft = BigInteger2.prototype.shiftLeft;
-      BigInteger2.prototype.shiftRight = function(v) {
-        var remQuo;
-        var n = parseValue(v).toJSNumber();
-        if (!shift_isSmall(n)) {
-          throw new Error(String(n) + " is too large for shifting.");
-        }
-        if (n < 0) return this.shiftLeft(-n);
-        var result = this;
-        while (n >= powers2Length) {
-          if (result.isZero() || result.isNegative() && result.isUnit()) return result;
-          remQuo = divModAny(result, highestPower2);
-          result = remQuo[1].isNegative() ? remQuo[0].prev() : remQuo[0];
-          n -= powers2Length - 1;
-        }
-        remQuo = divModAny(result, powersOfTwo[n]);
-        return remQuo[1].isNegative() ? remQuo[0].prev() : remQuo[0];
-      };
-      NativeBigInt.prototype.shiftRight = SmallInteger.prototype.shiftRight = BigInteger2.prototype.shiftRight;
-      function bitwise(x, y, fn) {
-        y = parseValue(y);
-        var xSign = x.isNegative(), ySign = y.isNegative();
-        var xRem = xSign ? x.not() : x, yRem = ySign ? y.not() : y;
-        var xDigit = 0, yDigit = 0;
-        var xDivMod = null, yDivMod = null;
-        var result = [];
-        while (!xRem.isZero() || !yRem.isZero()) {
-          xDivMod = divModAny(xRem, highestPower2);
-          xDigit = xDivMod[1].toJSNumber();
-          if (xSign) {
-            xDigit = highestPower2 - 1 - xDigit;
-          }
-          yDivMod = divModAny(yRem, highestPower2);
-          yDigit = yDivMod[1].toJSNumber();
-          if (ySign) {
-            yDigit = highestPower2 - 1 - yDigit;
-          }
-          xRem = xDivMod[0];
-          yRem = yDivMod[0];
-          result.push(fn(xDigit, yDigit));
-        }
-        var sum = fn(xSign ? 1 : 0, ySign ? 1 : 0) !== 0 ? bigInt(-1) : bigInt(0);
-        for (var i2 = result.length - 1; i2 >= 0; i2 -= 1) {
-          sum = sum.multiply(highestPower2).add(bigInt(result[i2]));
-        }
-        return sum;
-      }
-      BigInteger2.prototype.not = function() {
-        return this.negate().prev();
-      };
-      NativeBigInt.prototype.not = SmallInteger.prototype.not = BigInteger2.prototype.not;
-      BigInteger2.prototype.and = function(n) {
-        return bitwise(this, n, function(a, b) {
-          return a & b;
-        });
-      };
-      NativeBigInt.prototype.and = SmallInteger.prototype.and = BigInteger2.prototype.and;
-      BigInteger2.prototype.or = function(n) {
-        return bitwise(this, n, function(a, b) {
-          return a | b;
-        });
-      };
-      NativeBigInt.prototype.or = SmallInteger.prototype.or = BigInteger2.prototype.or;
-      BigInteger2.prototype.xor = function(n) {
-        return bitwise(this, n, function(a, b) {
-          return a ^ b;
-        });
-      };
-      NativeBigInt.prototype.xor = SmallInteger.prototype.xor = BigInteger2.prototype.xor;
-      var LOBMASK_I = 1 << 30, LOBMASK_BI = (BASE & -BASE) * (BASE & -BASE) | LOBMASK_I;
-      function roughLOB(n) {
-        var v = n.value, x = typeof v === "number" ? v | LOBMASK_I : typeof v === "bigint" ? v | BigInt(LOBMASK_I) : v[0] + v[1] * BASE | LOBMASK_BI;
-        return x & -x;
-      }
-      function integerLogarithm(value, base2) {
-        if (base2.compareTo(value) <= 0) {
-          var tmp2 = integerLogarithm(value, base2.square(base2));
-          var p = tmp2.p;
-          var e = tmp2.e;
-          var t = p.multiply(base2);
-          return t.compareTo(value) <= 0 ? { p: t, e: e * 2 + 1 } : { p, e: e * 2 };
-        }
-        return { p: bigInt(1), e: 0 };
-      }
-      BigInteger2.prototype.bitLength = function() {
-        var n = this;
-        if (n.compareTo(bigInt(0)) < 0) {
-          n = n.negate().subtract(bigInt(1));
-        }
-        if (n.compareTo(bigInt(0)) === 0) {
-          return bigInt(0);
-        }
-        return bigInt(integerLogarithm(n, bigInt(2)).e).add(bigInt(1));
-      };
-      NativeBigInt.prototype.bitLength = SmallInteger.prototype.bitLength = BigInteger2.prototype.bitLength;
-      function max2(a, b) {
-        a = parseValue(a);
-        b = parseValue(b);
-        return a.greater(b) ? a : b;
-      }
-      function min(a, b) {
-        a = parseValue(a);
-        b = parseValue(b);
-        return a.lesser(b) ? a : b;
-      }
-      function gcd(a, b) {
-        a = parseValue(a).abs();
-        b = parseValue(b).abs();
-        if (a.equals(b)) return a;
-        if (a.isZero()) return b;
-        if (b.isZero()) return a;
-        var c = Integer[1], d, t;
-        while (a.isEven() && b.isEven()) {
-          d = min(roughLOB(a), roughLOB(b));
-          a = a.divide(d);
-          b = b.divide(d);
-          c = c.multiply(d);
-        }
-        while (a.isEven()) {
-          a = a.divide(roughLOB(a));
-        }
-        do {
-          while (b.isEven()) {
-            b = b.divide(roughLOB(b));
-          }
-          if (a.greater(b)) {
-            t = b;
-            b = a;
-            a = t;
-          }
-          b = b.subtract(a);
-        } while (!b.isZero());
-        return c.isUnit() ? a : a.multiply(c);
-      }
-      function lcm(a, b) {
-        a = parseValue(a).abs();
-        b = parseValue(b).abs();
-        return a.divide(gcd(a, b)).multiply(b);
-      }
-      function randBetween(a, b, rng2) {
-        a = parseValue(a);
-        b = parseValue(b);
-        var usedRNG = rng2 || Math.random;
-        var low = min(a, b), high = max2(a, b);
-        var range2 = high.subtract(low).add(1);
-        if (range2.isSmall) return low.add(Math.floor(usedRNG() * range2));
-        var digits = toBase(range2, BASE).value;
-        var result = [], restricted = true;
-        for (var i2 = 0; i2 < digits.length; i2++) {
-          var top = restricted ? digits[i2] + (i2 + 1 < digits.length ? digits[i2 + 1] / BASE : 0) : BASE;
-          var digit = truncate(usedRNG() * top);
-          result.push(digit);
-          if (digit < digits[i2]) restricted = false;
-        }
-        return low.add(Integer.fromArray(result, BASE, false));
-      }
-      var parseBase = function(text, base2, alphabet, caseSensitive) {
-        alphabet = alphabet || DEFAULT_ALPHABET;
-        text = String(text);
-        if (!caseSensitive) {
-          text = text.toLowerCase();
-          alphabet = alphabet.toLowerCase();
-        }
-        var length = text.length;
-        var i2;
-        var absBase = Math.abs(base2);
-        var alphabetValues = {};
-        for (i2 = 0; i2 < alphabet.length; i2++) {
-          alphabetValues[alphabet[i2]] = i2;
-        }
-        for (i2 = 0; i2 < length; i2++) {
-          var c = text[i2];
-          if (c === "-") continue;
-          if (c in alphabetValues) {
-            if (alphabetValues[c] >= absBase) {
-              if (c === "1" && absBase === 1) continue;
-              throw new Error(c + " is not a valid digit in base " + base2 + ".");
-            }
-          }
-        }
-        base2 = parseValue(base2);
-        var digits = [];
-        var isNegative = text[0] === "-";
-        for (i2 = isNegative ? 1 : 0; i2 < text.length; i2++) {
-          var c = text[i2];
-          if (c in alphabetValues) digits.push(parseValue(alphabetValues[c]));
-          else if (c === "<") {
-            var start = i2;
-            do {
-              i2++;
-            } while (text[i2] !== ">" && i2 < text.length);
-            digits.push(parseValue(text.slice(start + 1, i2)));
-          } else throw new Error(c + " is not a valid character");
-        }
-        return parseBaseFromArray(digits, base2, isNegative);
-      };
-      function parseBaseFromArray(digits, base2, isNegative) {
-        var val = Integer[0], pow = Integer[1], i2;
-        for (i2 = digits.length - 1; i2 >= 0; i2--) {
-          val = val.add(digits[i2].times(pow));
-          pow = pow.times(base2);
-        }
-        return isNegative ? val.negate() : val;
-      }
-      function stringify2(digit, alphabet) {
-        alphabet = alphabet || DEFAULT_ALPHABET;
-        if (digit < alphabet.length) {
-          return alphabet[digit];
-        }
-        return "<" + digit + ">";
-      }
-      function toBase(n, base2) {
-        base2 = bigInt(base2);
-        if (base2.isZero()) {
-          if (n.isZero()) return { value: [0], isNegative: false };
-          throw new Error("Cannot convert nonzero numbers to base 0.");
-        }
-        if (base2.equals(-1)) {
-          if (n.isZero()) return { value: [0], isNegative: false };
-          if (n.isNegative())
-            return {
-              value: [].concat.apply(
-                [],
-                Array.apply(null, Array(-n.toJSNumber())).map(Array.prototype.valueOf, [1, 0])
-              ),
-              isNegative: false
-            };
-          var arr = Array.apply(null, Array(n.toJSNumber() - 1)).map(Array.prototype.valueOf, [0, 1]);
-          arr.unshift([1]);
-          return {
-            value: [].concat.apply([], arr),
-            isNegative: false
-          };
-        }
-        var neg = false;
-        if (n.isNegative() && base2.isPositive()) {
-          neg = true;
-          n = n.abs();
-        }
-        if (base2.isUnit()) {
-          if (n.isZero()) return { value: [0], isNegative: false };
-          return {
-            value: Array.apply(null, Array(n.toJSNumber())).map(Number.prototype.valueOf, 1),
-            isNegative: neg
-          };
-        }
-        var out = [];
-        var left = n, divmod;
-        while (left.isNegative() || left.compareAbs(base2) >= 0) {
-          divmod = left.divmod(base2);
-          left = divmod.quotient;
-          var digit = divmod.remainder;
-          if (digit.isNegative()) {
-            digit = base2.minus(digit).abs();
-            left = left.next();
-          }
-          out.push(digit.toJSNumber());
-        }
-        out.push(left.toJSNumber());
-        return { value: out.reverse(), isNegative: neg };
-      }
-      function toBaseString(n, base2, alphabet) {
-        var arr = toBase(n, base2);
-        return (arr.isNegative ? "-" : "") + arr.value.map(function(x) {
-          return stringify2(x, alphabet);
-        }).join("");
-      }
-      BigInteger2.prototype.toArray = function(radix) {
-        return toBase(this, radix);
-      };
-      SmallInteger.prototype.toArray = function(radix) {
-        return toBase(this, radix);
-      };
-      NativeBigInt.prototype.toArray = function(radix) {
-        return toBase(this, radix);
-      };
-      BigInteger2.prototype.toString = function(radix, alphabet) {
-        if (radix === undefined$1) radix = 10;
-        if (radix !== 10 || alphabet) return toBaseString(this, radix, alphabet);
-        var v = this.value, l = v.length, str = String(v[--l]), zeros = "0000000", digit;
-        while (--l >= 0) {
-          digit = String(v[l]);
-          str += zeros.slice(digit.length) + digit;
-        }
-        var sign = this.sign ? "-" : "";
-        return sign + str;
-      };
-      SmallInteger.prototype.toString = function(radix, alphabet) {
-        if (radix === undefined$1) radix = 10;
-        if (radix != 10 || alphabet) return toBaseString(this, radix, alphabet);
-        return String(this.value);
-      };
-      NativeBigInt.prototype.toString = SmallInteger.prototype.toString;
-      NativeBigInt.prototype.toJSON = BigInteger2.prototype.toJSON = SmallInteger.prototype.toJSON = function() {
-        return this.toString();
-      };
-      BigInteger2.prototype.valueOf = function() {
-        return parseInt(this.toString(), 10);
-      };
-      BigInteger2.prototype.toJSNumber = BigInteger2.prototype.valueOf;
-      SmallInteger.prototype.valueOf = function() {
-        return this.value;
-      };
-      SmallInteger.prototype.toJSNumber = SmallInteger.prototype.valueOf;
-      NativeBigInt.prototype.valueOf = NativeBigInt.prototype.toJSNumber = function() {
-        return parseInt(this.toString(), 10);
-      };
-      function parseStringValue(v) {
-        if (isPrecise(+v)) {
-          var x = +v;
-          if (x === truncate(x))
-            return supportsNativeBigInt ? new NativeBigInt(BigInt(x)) : new SmallInteger(x);
-          throw new Error("Invalid integer: " + v);
-        }
-        var sign = v[0] === "-";
-        if (sign) v = v.slice(1);
-        var split = v.split(/e/i);
-        if (split.length > 2) throw new Error("Invalid integer: " + split.join("e"));
-        if (split.length === 2) {
-          var exp = split[1];
-          if (exp[0] === "+") exp = exp.slice(1);
-          exp = +exp;
-          if (exp !== truncate(exp) || !isPrecise(exp)) throw new Error("Invalid integer: " + exp + " is not a valid exponent.");
-          var text = split[0];
-          var decimalPlace = text.indexOf(".");
-          if (decimalPlace >= 0) {
-            exp -= text.length - decimalPlace - 1;
-            text = text.slice(0, decimalPlace) + text.slice(decimalPlace + 1);
-          }
-          if (exp < 0) throw new Error("Cannot include negative exponent part for integers");
-          text += new Array(exp + 1).join("0");
-          v = text;
-        }
-        var isValid = /^([0-9][0-9]*)$/.test(v);
-        if (!isValid) throw new Error("Invalid integer: " + v);
-        if (supportsNativeBigInt) {
-          return new NativeBigInt(BigInt(sign ? "-" + v : v));
-        }
-        var r = [], max3 = v.length, l = LOG_BASE, min2 = max3 - l;
-        while (max3 > 0) {
-          r.push(+v.slice(min2, max3));
-          min2 -= l;
-          if (min2 < 0) min2 = 0;
-          max3 -= l;
-        }
-        trim(r);
-        return new BigInteger2(r, sign);
-      }
-      function parseNumberValue(v) {
-        if (supportsNativeBigInt) {
-          return new NativeBigInt(BigInt(v));
-        }
-        if (isPrecise(v)) {
-          if (v !== truncate(v)) throw new Error(v + " is not an integer.");
-          return new SmallInteger(v);
-        }
-        return parseStringValue(v.toString());
-      }
-      function parseValue(v) {
-        if (typeof v === "number") {
-          return parseNumberValue(v);
-        }
-        if (typeof v === "string") {
-          return parseStringValue(v);
-        }
-        if (typeof v === "bigint") {
-          return new NativeBigInt(v);
-        }
-        return v;
-      }
-      for (var i = 0; i < 1e3; i++) {
-        Integer[i] = parseValue(i);
-        if (i > 0) Integer[-i] = parseValue(-i);
-      }
-      Integer.one = Integer[1];
-      Integer.zero = Integer[0];
-      Integer.minusOne = Integer[-1];
-      Integer.max = max2;
-      Integer.min = min;
-      Integer.gcd = gcd;
-      Integer.lcm = lcm;
-      Integer.isInstance = function(x) {
-        return x instanceof BigInteger2 || x instanceof SmallInteger || x instanceof NativeBigInt;
-      };
-      Integer.randBetween = randBetween;
-      Integer.fromArray = function(digits, base2, isNegative) {
-        return parseBaseFromArray(digits.map(parseValue), parseValue(base2 || 10), isNegative);
-      };
-      return Integer;
-    })();
-    if (module2.hasOwnProperty("exports")) {
-      module2.exports = bigInt;
-    }
-  })(BigInteger);
-  return BigInteger.exports;
-}
 var Decrypt_1;
 var hasRequiredDecrypt;
 function requireDecrypt() {
@@ -320770,6 +327768,114 @@ function comparableIndex(index2) {
 function canonical(value) {
   return EJSON.stringify(value, void 0, 0, { relaxed: false });
 }
+const PROTECTED_DATABASE_NAMES = ["admin", "config", "local"];
+const utf8 = new TextEncoder();
+const databaseForbiddenCharacters = /[\s/\\."$*<>:|?\0]/u;
+function databaseNameError(value, options = {}) {
+  if (!value || value !== value.trim()) return "Database name cannot be empty or have leading/trailing whitespace.";
+  if (utf8.encode(value).byteLength >= 64) return "Database name must be shorter than 64 UTF-8 bytes.";
+  if (databaseForbiddenCharacters.test(value)) return "Database name contains a character MongoDB does not allow.";
+  if (!options.allowProtected && PROTECTED_DATABASE_NAMES.includes(value.toLowerCase())) {
+    return `Database name "${value}" is reserved by MongoDB.`;
+  }
+  return null;
+}
+function collectionNameError(value) {
+  if (!value || value !== value.trim()) return "Collection name cannot be empty or have leading/trailing whitespace.";
+  if (value.includes("\0")) return "Collection name cannot contain a null character.";
+  if (value.includes("$")) return 'Collection name cannot contain "$".';
+  if (value.startsWith("system.")) return "Collection name uses MongoDB's reserved system namespace.";
+  return null;
+}
+function namespaceLengthError(database, collection2) {
+  return utf8.encode(`${database}.${collection2}`).byteLength > 255 ? "Database and collection name together must not exceed 255 UTF-8 bytes." : null;
+}
+async function createDatabase(client2, database, collection2) {
+  assertDatabaseName(database);
+  assertCollectionNamespace(database, collection2);
+  const names = await listDatabaseNames(client2);
+  if (names.some((name) => sameDatabaseName(name, database))) {
+    throw appError("Validation", `Database "${database}" already exists.`);
+  }
+  await client2.db(database).createCollection(collection2);
+  return { database, collection: collection2 };
+}
+async function preflightDatabaseRename(client2, sourceDatabase, targetDatabase) {
+  assertDatabaseName(sourceDatabase);
+  assertDatabaseName(targetDatabase);
+  if (sameDatabaseName(sourceDatabase, targetDatabase)) {
+    throw appError("Validation", "The new database name must be different.");
+  }
+  const hello = await client2.db("admin").command({ hello: 1 }, { timeoutMS: 0 });
+  if (hello.msg === "isdbgrid") {
+    throw appError("Validation", "Database rename is not supported for sharded MongoDB deployments.");
+  }
+  const databaseNames = await listDatabaseNames(client2, { timeoutMS: 0 });
+  if (!databaseNames.includes(sourceDatabase)) {
+    throw appError("NotFound", `Source database "${sourceDatabase}" no longer exists.`);
+  }
+  if (databaseNames.some((name) => sameDatabaseName(name, targetDatabase))) {
+    throw appError("Validation", `Target database "${targetDatabase}" already exists.`);
+  }
+  const cursor = client2.db(sourceDatabase).listCollections({}, { nameOnly: false, timeoutMS: 0 });
+  const collections = [];
+  try {
+    for (; ; ) {
+      const info = await cursor.next();
+      if (!info) break;
+      const name = String(info.name ?? "");
+      const type = String(info.type ?? "collection");
+      const options = info.options ?? {};
+      if (type !== "collection") {
+        throw appError("Validation", `Database rename does not support ${type} namespace "${name}".`);
+      }
+      if (name.startsWith("system.")) {
+        throw appError("Validation", `Database rename does not support system collection "${name}".`);
+      }
+      if (options.timeseries !== void 0) {
+        throw appError("Validation", `Database rename does not support time-series collection "${name}".`);
+      }
+      if (name.startsWith("enxcol_.") || options.encryptedFields !== void 0) {
+        throw appError("Validation", `Database rename does not support Queryable Encryption collection "${name}".`);
+      }
+      assertCollectionNamespace(targetDatabase, name);
+      collections.push(name);
+    }
+  } finally {
+    await cursor.close().catch(() => void 0);
+  }
+  if (collections.length === 0) {
+    throw appError("Validation", `Source database "${sourceDatabase}" has no collections to move.`);
+  }
+  collections.sort((left, right) => left.localeCompare(right));
+  return { collections };
+}
+async function moveDatabaseCollection(client2, sourceDatabase, targetDatabase, collection2) {
+  assertDatabaseName(sourceDatabase);
+  assertDatabaseName(targetDatabase);
+  assertCollectionNamespace(sourceDatabase, collection2);
+  assertCollectionNamespace(targetDatabase, collection2);
+  await client2.db("admin").command({
+    renameCollection: `${sourceDatabase}.${collection2}`,
+    to: `${targetDatabase}.${collection2}`,
+    dropTarget: false
+  }, { timeoutMS: 0 });
+}
+async function listDatabaseNames(client2, options = {}) {
+  const result = await client2.db("admin").command({ listDatabases: 1, nameOnly: true }, options);
+  return (result.databases ?? []).map((item) => String(item.name ?? "")).filter(Boolean);
+}
+function assertDatabaseName(value) {
+  const message = databaseNameError(value);
+  if (message) throw appError("Validation", message);
+}
+function assertCollectionNamespace(database, collection2) {
+  const message = collectionNameError(collection2) ?? namespaceLengthError(database, collection2);
+  if (message) throw appError("Validation", message);
+}
+function sameDatabaseName(left, right) {
+  return left.toLowerCase() === right.toLowerCase();
+}
 const parentPort = process.parentPort;
 const registry = new CursorRegistry();
 registry.startSweeper();
@@ -320857,6 +327963,20 @@ async function handle(req) {
       );
       reply(req.id, { executionId });
       exec.promise.catch(() => void 0);
+      return;
+    }
+    case "sql-translate": {
+      try {
+        reply(req.id, translateSql(req.source));
+      } catch (error2) {
+        if (error2 instanceof SqlTranslateError) {
+          throw appError("InvalidQuerySyntax", error2.message, {
+            hint: error2.hint,
+            ...error2.range ? { statementRange: error2.range } : {}
+          });
+        }
+        throw error2;
+      }
       return;
     }
     case "cancel": {
@@ -320986,6 +328106,7 @@ async function handle(req) {
       return;
     }
     case "collection-insert": {
+      assertNoDataTransferLock();
       reply(req.id, await insertCollectionDocument(requireClient(), {
         database: req.database,
         collection: req.collection,
@@ -320994,6 +328115,7 @@ async function handle(req) {
       return;
     }
     case "collection-replace": {
+      assertNoDataTransferLock();
       reply(req.id, await replaceCollectionDocument(requireClient(), {
         database: req.database,
         collection: req.collection,
@@ -321003,6 +328125,7 @@ async function handle(req) {
       return;
     }
     case "collection-bulk-update": {
+      assertNoDataTransferLock();
       reply(req.id, await bulkUpdateCollectionDocuments(requireClient(), {
         database: req.database,
         collection: req.collection,
@@ -321012,6 +328135,7 @@ async function handle(req) {
       return;
     }
     case "collection-bulk-delete": {
+      assertNoDataTransferLock();
       reply(req.id, await bulkDeleteCollectionDocuments(requireClient(), {
         database: req.database,
         collection: req.collection,
@@ -321020,6 +328144,7 @@ async function handle(req) {
       return;
     }
     case "collection-delete": {
+      assertNoDataTransferLock();
       reply(req.id, await deleteCollectionDocument(requireClient(), {
         database: req.database,
         collection: req.collection,
@@ -321028,6 +328153,7 @@ async function handle(req) {
       return;
     }
     case "collection-rename": {
+      assertNoDataTransferLock();
       reply(req.id, await renameCollection(requireClient(), {
         database: req.database,
         collection: req.collection,
@@ -321036,13 +328162,44 @@ async function handle(req) {
       return;
     }
     case "collection-drop": {
+      assertNoDataTransferLock();
       reply(req.id, await dropCollection(requireClient(), {
         database: req.database,
         collection: req.collection
       }));
       return;
     }
+    case "database-create": {
+      assertNoDataTransferLock();
+      reply(req.id, await createDatabase(
+        requireClient(),
+        req.database,
+        req.collection
+      ));
+      return;
+    }
+    case "database-rename-preflight": {
+      assertDataTransferLockOwner(req.jobId);
+      reply(req.id, await preflightDatabaseRename(
+        requireClient(),
+        req.database,
+        req.newDatabase
+      ));
+      return;
+    }
+    case "database-rename-move-collection": {
+      assertDataTransferLockOwner(req.jobId);
+      await moveDatabaseCollection(
+        requireClient(),
+        req.database,
+        req.newDatabase,
+        req.collection
+      );
+      reply(req.id, { moved: true });
+      return;
+    }
     case "database-drop": {
+      assertNoDataTransferLock();
       reply(req.id, await dropDatabase(requireClient(), req.database));
       return;
     }
@@ -321054,6 +328211,7 @@ async function handle(req) {
       return;
     }
     case "index-create": {
+      assertNoDataTransferLock();
       reply(req.id, await createCollectionIndex(requireClient(), {
         database: req.database,
         collection: req.collection,
@@ -321068,6 +328226,7 @@ async function handle(req) {
       return;
     }
     case "index-drop": {
+      assertNoDataTransferLock();
       reply(req.id, await dropCollectionIndex(requireClient(), {
         database: req.database,
         collection: req.collection,
@@ -321131,6 +328290,7 @@ async function handle(req) {
       return;
     }
     case "gridfs-upload": {
+      assertNoDataTransferLock();
       reply(req.id, await uploadGridFsFile(requireClient(), {
         database: req.database,
         bucketName: req.bucketName,
@@ -321149,6 +328309,7 @@ async function handle(req) {
       return;
     }
     case "gridfs-delete": {
+      assertNoDataTransferLock();
       reply(req.id, await deleteGridFsFile(requireClient(), {
         database: req.database,
         bucketName: req.bucketName,
@@ -321330,7 +328491,12 @@ parentPort.on("message", ({ data }) => {
 parentPort.postMessage({ type: "ready", pid: process.pid });
 function assertNoDataTransferLock() {
   if (dataTransferLockId) {
-    throw { category: "Validation", message: "Another large data job is already using this connection." };
+    throw { category: "Validation", message: "A background data or database rename job is already using this connection." };
+  }
+}
+function assertDataTransferLockOwner(jobId) {
+  if (!dataTransferLockId || dataTransferLockId !== jobId) {
+    throw { category: "Validation", message: "Database rename no longer owns the connection job lock." };
   }
 }
 function isTerminalDataJob(status) {

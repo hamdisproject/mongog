@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useConnectionStore } from '../../stores/connections.js';
 import { useSettingsStore } from '../../stores/settings.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
-import { collectionQueryTemplate } from '../../collection-workspace.js';
+import { collectionQueryTemplate, sqlQueryTemplate } from '../../collection-workspace.js';
 import type { ConnectionGroup } from '../../../shared/domain/connections.js';
 import { ActionDialog } from '../Common/ActionDialog.js';
 import { ContextMenu, type ContextMenuItem } from '../Common/ContextMenu.js';
@@ -11,6 +11,9 @@ import { SavedTree } from './SavedTree.js';
 import { useDataTransferStore } from '../../stores/data-transfer.js';
 import { MongoGBrand } from '../Brand/MongoGBrand.js';
 import { useUpdatesStore } from '../../stores/updates.js';
+import { useDatabaseRenameJobsStore } from '../../stores/database-renames.js';
+import { CreateDatabaseDialog } from '../Database/CreateDatabaseDialog.js';
+import { RenameDatabaseDialog } from '../Database/RenameDatabaseDialog.js';
 import {
   SIDEBAR_DEFAULT_WIDTH,
   SIDEBAR_MIN_WIDTH,
@@ -583,6 +586,10 @@ type NamespaceAction =
   | { kind: 'drop-collection'; database: string; collection: string }
   | { kind: 'drop-database'; database: string };
 
+type DatabaseAction =
+  | { kind: 'create' }
+  | { kind: 'rename'; database: string };
+
 function ProfileNode({
   profile,
   isConnected,
@@ -608,14 +615,24 @@ function ProfileNode({
     renameCollection,
     dropCollection,
     dropDatabase,
+    createDatabase,
+    startDatabaseRename,
   } = useConnectionStore();
-  const { openCollection, openQuery, openAdmin, openChangeStream } = useWorkspaceStore();
+  const { openCollection, openQuery, openSql, openAdmin, openChangeStream } = useWorkspaceStore();
   const openDataTransfer = useDataTransferStore((state) => state.open);
   const [connectionBusy, setConnectionBusy] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
   const [namespaceAction, setNamespaceAction] = useState<NamespaceAction | null>(null);
   const [namespaceBusy, setNamespaceBusy] = useState(false);
   const [namespaceError, setNamespaceError] = useState<string | null>(null);
+  const [databaseAction, setDatabaseAction] = useState<DatabaseAction | null>(null);
+  const [databaseActionBusy, setDatabaseActionBusy] = useState(false);
+  const [databaseActionError, setDatabaseActionError] = useState<string | null>(null);
+  const databaseRenameActive = useDatabaseRenameJobsStore((state) => (
+    Object.values(state.jobs).some((job) => (
+      job.connectionId === profile.id && job.status !== 'completed' && job.status !== 'failed'
+    ))
+  ));
   const connDbs = databases[profile.id] ?? [];
   const profileNameMatches = !!search && profile.name.toLocaleLowerCase().includes(search);
   const visibleDatabases = !search || profileNameMatches
@@ -628,7 +645,7 @@ function ProfileNode({
   const profileKey = `profile:${profile.id}`;
   const profileExpanded = !!search || isExpanded;
   const handleConnectionAction = async () => {
-    if (connectionBusy) return;
+    if (connectionBusy || databaseRenameActive) return;
     setConnectionBusy(true);
     try {
       await onConnectionToggle();
@@ -651,13 +668,25 @@ function ProfileNode({
     setContextMenu({
       x: event.clientX,
       y: event.clientY,
-      items: [{
-        label: 'Import / Transfer Data…',
-        onSelect: () => openDataTransfer({
-          mode: profile.readOnly ? 'connection-copy' : 'file-import',
-          ...(profile.readOnly ? { sourceConnectionId: profile.id } : { targetConnectionId: profile.id }),
-        }),
-      }],
+      items: [
+        {
+          label: 'Create Database…',
+          disabled: !isConnected || profile.readOnly || databaseRenameActive,
+          onSelect: () => {
+            setDatabaseActionError(null);
+            setDatabaseAction({ kind: 'create' });
+          },
+        },
+        {
+          label: 'Import / Transfer Data…',
+          separatorBefore: true,
+          disabled: databaseRenameActive,
+          onSelect: () => openDataTransfer({
+            mode: profile.readOnly ? 'connection-copy' : 'file-import',
+            ...(profile.readOnly ? { sourceConnectionId: profile.id } : { targetConnectionId: profile.id }),
+          }),
+        },
+      ],
     });
   };
 
@@ -671,6 +700,10 @@ function ProfileNode({
         {
           label: 'New Query',
           onSelect: () => openQuery({ connectionId: profile.id, database, title: `${database} query` }),
+        },
+        {
+          label: 'New SQL Query',
+          onSelect: () => openSql({ connectionId: profile.id, database, title: `${database} SQL` }),
         },
         {
           label: 'Search Database',
@@ -687,6 +720,7 @@ function ProfileNode({
         {
           label: 'Import / Transfer Data…',
           separatorBefore: true,
+          disabled: databaseRenameActive,
           onSelect: () => openDataTransfer({
             mode: 'connection-copy',
             sourceConnectionId: profile.id,
@@ -698,14 +732,19 @@ function ProfileNode({
           onSelect: () => void refreshCollections(profile.id, database),
         },
         {
-          label: 'Rename Database (not atomic in MongoDB)',
-          disabled: true,
-          onSelect: () => undefined,
+          label: 'Rename Database…',
+          disabled: profile.readOnly
+            || databaseRenameActive
+            || ['admin', 'config', 'local'].includes(database.toLowerCase()),
+          onSelect: () => {
+            setDatabaseActionError(null);
+            setDatabaseAction({ kind: 'rename', database });
+          },
         },
         {
           label: 'Drop Database…',
           danger: true,
-          disabled: profile.readOnly,
+          disabled: profile.readOnly || databaseRenameActive,
           onSelect: () => { setNamespaceError(null); setNamespaceAction({ kind: 'drop-database', database }); },
         },
       ],
@@ -746,6 +785,18 @@ function ProfileNode({
           }),
         },
         {
+          label: 'New SQL Query for Collection',
+          onSelect: () => openSql({
+            connectionId: profile.id,
+            database,
+            title: `${database}.${collection} SQL`,
+            editorContent: sqlQueryTemplate(
+              collection,
+              useSettingsStore.getState().settings.execution.pageSize,
+            ),
+          }),
+        },
+        {
           label: 'Indexes',
           separatorBefore: true,
           onSelect: () => openAdmin({ connectionId: profile.id, database, collection, section: 'indexes' }),
@@ -761,6 +812,7 @@ function ProfileNode({
         {
           label: 'Import / Transfer Data…',
           separatorBefore: true,
+          disabled: databaseRenameActive,
           onSelect: () => openDataTransfer({
             mode: 'connection-copy',
             sourceConnectionId: profile.id,
@@ -771,13 +823,13 @@ function ProfileNode({
         },
         {
           label: 'Rename Collection…',
-          disabled: profile.readOnly,
+          disabled: profile.readOnly || databaseRenameActive,
           onSelect: () => { setNamespaceError(null); setNamespaceAction({ kind: 'rename-collection', database, collection }); },
         },
         {
           label: 'Drop Collection…',
           danger: true,
-          disabled: profile.readOnly,
+          disabled: profile.readOnly || databaseRenameActive,
           onSelect: () => { setNamespaceError(null); setNamespaceAction({ kind: 'drop-collection', database, collection }); },
         },
       ],
@@ -801,6 +853,34 @@ function ProfileNode({
       setNamespaceError(errorMessage(error));
     } finally {
       setNamespaceBusy(false);
+    }
+  };
+
+  const performCreateDatabase = async (database: string, collection: string) => {
+    if (databaseActionBusy) return;
+    setDatabaseActionBusy(true);
+    setDatabaseActionError(null);
+    try {
+      await createDatabase(profile.id, database, collection);
+      setDatabaseAction(null);
+    } catch (error) {
+      setDatabaseActionError(errorMessage(error));
+    } finally {
+      setDatabaseActionBusy(false);
+    }
+  };
+
+  const performDatabaseRename = async (newDatabase: string) => {
+    if (databaseActionBusy || databaseAction?.kind !== 'rename') return;
+    setDatabaseActionBusy(true);
+    setDatabaseActionError(null);
+    try {
+      await startDatabaseRename(profile.id, databaseAction.database, newDatabase);
+      setDatabaseAction(null);
+    } catch (error) {
+      setDatabaseActionError(errorMessage(error));
+    } finally {
+      setDatabaseActionBusy(false);
     }
   };
 
@@ -854,9 +934,10 @@ function ProfileNode({
           style={{
             ...s.connectionButton,
             color: isConnected ? 'var(--color-warning)' : 'var(--color-success)',
-            ...(connectionBusy ? { opacity: 0.55, cursor: 'default' } : {}),
+            ...(connectionBusy || databaseRenameActive ? { opacity: 0.55, cursor: 'default' } : {}),
           }}
-          disabled={connectionBusy}
+          disabled={connectionBusy || databaseRenameActive}
+          title={databaseRenameActive ? 'A database rename is in progress on this connection.' : undefined}
           onClick={(event) => { event.stopPropagation(); void handleConnectionAction(); }}
           onDoubleClick={(event) => event.stopPropagation()}
         >
@@ -999,6 +1080,23 @@ function ProfileNode({
           error={namespaceError}
           onCancel={() => { if (!namespaceBusy) setNamespaceAction(null); }}
           onConfirm={(value) => void performNamespaceAction(value)}
+        />
+      )}
+      {databaseAction?.kind === 'create' && (
+        <CreateDatabaseDialog
+          busy={databaseActionBusy}
+          error={databaseActionError}
+          onCancel={() => { if (!databaseActionBusy) setDatabaseAction(null); }}
+          onConfirm={(database, collection) => void performCreateDatabase(database, collection)}
+        />
+      )}
+      {databaseAction?.kind === 'rename' && (
+        <RenameDatabaseDialog
+          sourceDatabase={databaseAction.database}
+          busy={databaseActionBusy}
+          error={databaseActionError}
+          onCancel={() => { if (!databaseActionBusy) setDatabaseAction(null); }}
+          onConfirm={(database) => void performDatabaseRename(database)}
         />
       )}
     </div>

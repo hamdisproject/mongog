@@ -21,6 +21,7 @@ import {
   testConnectionSchema,
   connectionDraftRequestSchema,
   connExecuteSchema,
+  connExecuteSqlSchema,
   connCursorFetchNextSchema,
   connCursorFetchPrevSchema,
   connCursorFetchFullSchema,
@@ -39,6 +40,8 @@ import {
   connCollectionDeleteSchema,
   connCollectionRenameSchema,
   connCollectionDropSchema,
+  connDatabaseCreateSchema,
+  connDatabaseRenameStartSchema,
   connDatabaseDropSchema,
   sampleSchemaSchema,
   connIndexListSchema,
@@ -113,6 +116,11 @@ import type {
   DataFilePreview,
   CollectionTransferPreview,
   DataJobStartResult,
+  CreateDatabaseResult,
+  DatabaseRenameStartResult,
+  SqlPreview,
+  SqlExecuteResult,
+  SqlTranslation,
 } from '../../shared/domain/index.js';
 import type { EjsonEnvelope } from '../../shared/ejson/index.js';
 import { appError } from '../../shared/errors/index.js';
@@ -125,7 +133,9 @@ import { AuditService, type AuditContext } from '../services/audit-service.js';
 import type { Database } from '../storage/database.js';
 import { buildExportFilename, exportDialogFilters } from '../export/filename.js';
 import type { DataTransferCoordinator } from '../data-transfer/coordinator.js';
+import type { DatabaseRenameCoordinator } from '../database-rename/coordinator.js';
 import type { UpdateService } from '../services/update-service.js';
+import { SqlConfirmationStore } from '../services/sql-confirmations.js';
 
 export interface HandlerContext {
   supervisor: RuntimeSupervisor;
@@ -135,6 +145,7 @@ export interface HandlerContext {
   secretStore: ConnectionSecretStore;
   audit: AuditService;
   dataTransfer: DataTransferCoordinator;
+  databaseRenames: DatabaseRenameCoordinator;
   updates: UpdateService;
 }
 
@@ -144,6 +155,7 @@ const SPIKE_CONNECTION_ID = 'spike';
 export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderValidator): void {
   const { supervisor } = ctx;
   const conn = new ConnectionManager(ctx.getDb(), supervisor, ctx.secretStore);
+  const sqlConfirmations = new SqlConfirmationStore();
   const auditContext = (
     connectionId: string | undefined,
     context: Omit<AuditContext, 'connectionId' | 'connectionName'>,
@@ -270,7 +282,10 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
       category: 'connection', action: 'connection.delete', origin: 'user', operationClass: 'connection',
       summary: 'Delete connection profile and close its runtime',
     }),
-    () => conn.deleteProfile(id),
+    () => {
+      ctx.databaseRenames.assertConnectionAvailable(id);
+      return conn.deleteProfile(id);
+    },
   ), validateSender);
 
   // ── Connectivity ──
@@ -286,7 +301,10 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
       category: 'connection', action: 'connection.disconnect', origin: 'user', operationClass: 'connection',
       summary: 'Disconnect from MongoDB',
     }),
-    () => conn.disconnect(profileId),
+    () => {
+      ctx.databaseRenames.assertConnectionAvailable(profileId);
+      return conn.disconnect(profileId);
+    },
   ), validateSender);
   registerChannel(IpcChannels.connGetState, getStateSchema, async ({ profileId }) => conn.getConnectionState(profileId), validateSender);
   registerChannel(IpcChannels.connListConnected, emptySchema, async () => conn.listConnected(), validateSender);
@@ -355,6 +373,8 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
 
   // ── Phase 2: Connection-aware query execution ──
   registerChannel(IpcChannels.connExecute, connExecuteSchema, async (payload) => {
+    const profile = conn.getProfile(payload.connectionId);
+    if (!profile) throw appError('NotFound', `Connection profile not found: ${payload.connectionId}`);
     const runId = payload.runId ?? randomUUID();
     ctx.audit.beginQuery(auditContext(payload.connectionId, {
       correlationId: runId,
@@ -366,7 +386,87 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
     try {
       const client = supervisor.get(payload.connectionId);
       if (!client) throw appError('UtilityProcessCrash', `Connection ${payload.connectionId} is not running.`);
-      return await client.request<ExecuteResponse>('execute', { request: { ...payload, runId } });
+      return await client.request<ExecuteResponse>('execute', {
+        request: { ...payload, runId, readOnly: profile.readOnly },
+      });
+    } catch (error) {
+      ctx.audit.failQueryStart(runId, error);
+      throw error;
+    }
+  }, validateSender);
+
+  registerChannel(IpcChannels.connExecuteSql, connExecuteSqlSchema, async (payload): Promise<SqlExecuteResult> => {
+    const profile = conn.getProfile(payload.connectionId);
+    if (!profile) throw appError('NotFound', `Connection profile not found: ${payload.connectionId}`);
+    const client = supervisor.get(payload.connectionId);
+    if (!client) throw appError('UtilityProcessCrash', `Connection ${payload.connectionId} is not running.`);
+
+    const translation = await client.request<SqlTranslation>('sql-translate', { source: payload.source });
+    if (translation.database !== undefined && translation.database !== payload.database) {
+      throw appError(
+        'Validation',
+        `SQL targets database "${translation.database}" but the active database is "${payload.database}".`,
+        { hint: `Select "${translation.database}" in the database picker or remove the database qualifier.` },
+      );
+    }
+    if (profile.readOnly && translation.isWrite) {
+      throw appError('ReadOnlyProtection', 'This connection is read-only; INSERT, UPDATE and DELETE are blocked.', {
+        hint: 'Use a MongoDB user with the read role for authoritative server-side protection.',
+      });
+    }
+
+    const settings = normalizeApplicationSettings(ctx.getDb().settings.get() ?? structuredClone(DEFAULT_SETTINGS));
+    const confirmationContext = {
+      connectionId: payload.connectionId,
+      database: payload.database,
+      source: payload.source,
+    };
+    if (
+      translation.isWrite &&
+      translation.fullCollectionTarget &&
+      settings.execution.confirmDestructive &&
+      !sqlConfirmations.consume(payload.confirmationToken, confirmationContext)
+    ) {
+      const { jsSource: _trustedSource, ...preview } = translation;
+      return {
+        status: 'confirmation-required',
+        confirmationToken: sqlConfirmations.issue(confirmationContext),
+        preview: preview as SqlPreview,
+      };
+    }
+
+    const runId = payload.runId ?? randomUUID();
+    ctx.audit.beginQuery(auditContext(payload.connectionId, {
+      correlationId: runId,
+      database: payload.database,
+      collection: translation.collection,
+      category: 'query',
+      action: 'sql.execute',
+      origin: 'user',
+      operationClass: translation.isWrite ? 'write' : 'read',
+      summary: `Execute SQL ${translation.kind.toUpperCase()} on ${payload.database}.${translation.collection}`,
+      detail: {
+        statement: translation.kind,
+        execution: translation.execution,
+        fullCollectionTarget: translation.fullCollectionTarget,
+      },
+    }) as AuditContext & { correlationId: string });
+    try {
+      const response = await client.request<ExecuteResponse>('execute', {
+        request: {
+          connectionId: payload.connectionId,
+          ...(payload.tabId ? { tabId: payload.tabId } : {}),
+          runId,
+          database: payload.database,
+          mode: 'query',
+          source: translation.jsSource,
+          sourceOffset: { line: 0, column: 0 },
+          readOnly: profile.readOnly,
+          ...(payload.pageSize !== undefined ? { pageSize: payload.pageSize } : {}),
+          ...(payload.timeoutMS !== undefined ? { timeoutMS: payload.timeoutMS } : {}),
+        },
+      });
+      return { status: 'started', executionId: response.executionId };
     } catch (error) {
       ctx.audit.failQueryStart(runId, error);
       throw error;
@@ -552,6 +652,7 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
       summary: 'Insert document',
     }), async () => {
       requireWritableConnection(payload.connectionId);
+      ctx.databaseRenames.assertConnectionAvailable(payload.connectionId);
       const client = supervisor.get(payload.connectionId);
       if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
       return client.request<CollectionMutationResult>('collection-insert', payload);
@@ -565,6 +666,7 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
       summary: 'Replace document',
     }), async () => {
       requireWritableConnection(payload.connectionId);
+      ctx.databaseRenames.assertConnectionAvailable(payload.connectionId);
       const client = supervisor.get(payload.connectionId);
       if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
       return client.request<CollectionMutationResult>('collection-replace', payload);
@@ -585,6 +687,7 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
       },
     }), async () => {
       requireWritableConnection(payload.connectionId);
+      ctx.databaseRenames.assertConnectionAvailable(payload.connectionId);
       const client = supervisor.get(payload.connectionId);
       if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
       return client.request<CollectionBulkUpdateResult>('collection-bulk-update', payload);
@@ -609,6 +712,7 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
       detail: { requestedCount: payload.originalDocumentsEjson.length },
     }), async () => {
       requireWritableConnection(payload.connectionId);
+      ctx.databaseRenames.assertConnectionAvailable(payload.connectionId);
       const client = supervisor.get(payload.connectionId);
       if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
       return client.request<CollectionBulkDeleteResult>('collection-bulk-delete', payload);
@@ -632,6 +736,7 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
       summary: 'Delete document',
     }), async () => {
       requireWritableConnection(payload.connectionId);
+      ctx.databaseRenames.assertConnectionAvailable(payload.connectionId);
       const client = supervisor.get(payload.connectionId);
       if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
       return client.request<CollectionMutationResult>('collection-delete', payload);
@@ -645,6 +750,7 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
       summary: `Rename collection to "${payload.newName}"`,
     }), async () => {
       requireWritableConnection(payload.connectionId);
+      ctx.databaseRenames.assertConnectionAvailable(payload.connectionId);
       const client = supervisor.get(payload.connectionId);
       if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
       const renamed = await client.request<{ oldName: string; newName: string }>('collection-rename', payload);
@@ -665,10 +771,39 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
       summary: 'Drop collection',
     }), async () => {
       requireWritableConnection(payload.connectionId);
+      ctx.databaseRenames.assertConnectionAvailable(payload.connectionId);
       const client = supervisor.get(payload.connectionId);
       if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
       return client.request<{ dropped: boolean }>('collection-drop', payload);
     }, (result) => ({ affectedCount: result.dropped ? 1 : 0 }));
+  }, validateSender);
+
+  registerChannel(IpcChannels.connDatabaseCreate, connDatabaseCreateSchema, async (payload) => {
+    return ctx.audit.run(auditContext(payload.connectionId, {
+      database: payload.database,
+      collection: payload.collection,
+      category: 'documents', action: 'database.create', origin: 'user', operationClass: 'write',
+      summary: `Create database "${payload.database}" with its first collection`,
+    }), async (): Promise<CreateDatabaseResult> => {
+      requireWritableConnection(payload.connectionId);
+      ctx.databaseRenames.assertConnectionAvailable(payload.connectionId);
+      const client = supervisor.get(payload.connectionId);
+      if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
+      return client.request<CreateDatabaseResult>('database-create', payload);
+    }, () => ({ affectedCount: 1 }));
+  }, validateSender);
+
+  registerChannel(IpcChannels.connDatabaseRenameStart, connDatabaseRenameStartSchema, async (payload) => {
+    requireWritableConnection(payload.connectionId);
+    const result = await ctx.databaseRenames.start(payload);
+    ctx.audit.beginDatabaseRename(auditContext(payload.connectionId, {
+      correlationId: result.jobId,
+      database: payload.database,
+      category: 'documents', action: 'database.rename', origin: 'user', operationClass: 'write',
+      summary: `Rename database "${payload.database}" to "${payload.newDatabase}"`,
+      detail: { targetDatabase: payload.newDatabase },
+    }) as AuditContext & { correlationId: string });
+    return result satisfies DatabaseRenameStartResult;
   }, validateSender);
 
   registerChannel(IpcChannels.connDatabaseDrop, connDatabaseDropSchema, async (payload) => {
@@ -678,6 +813,7 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
       summary: 'Drop database',
     }), async () => {
       requireWritableConnection(payload.connectionId);
+      ctx.databaseRenames.assertConnectionAvailable(payload.connectionId);
       const client = supervisor.get(payload.connectionId);
       if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
       return client.request<{ dropped: boolean }>('database-drop', payload);
@@ -730,6 +866,7 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
       detail: { keys: payload.keysEjson, ...(payload.partialFilterEjson ? { partialFilter: payload.partialFilterEjson } : {}) },
     }), async () => {
       requireWritableConnection(payload.connectionId);
+      ctx.databaseRenames.assertConnectionAvailable(payload.connectionId);
       const client = supervisor.get(payload.connectionId);
       if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
       return client.request<{ name: string }>('index-create', payload);
@@ -743,6 +880,7 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
       summary: `Drop index "${payload.name}"`,
     }), async () => {
       requireWritableConnection(payload.connectionId);
+      ctx.databaseRenames.assertConnectionAvailable(payload.connectionId);
       const client = supervisor.get(payload.connectionId);
       if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
       return client.request<{ dropped: string }>('index-drop', payload);
@@ -846,6 +984,7 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
 
   registerChannel(IpcChannels.connGridFsUpload, connGridFsUploadSchema, async (payload) => {
     requireWritableConnection(payload.connectionId);
+    ctx.databaseRenames.assertConnectionAvailable(payload.connectionId);
     const window = ctx.getWindow();
     const selection = window
       ? await dialog.showOpenDialog(window, { properties: ['openFile'] })
@@ -899,6 +1038,7 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
       summary: 'Delete GridFS file',
     }), async () => {
       requireWritableConnection(payload.connectionId);
+      ctx.databaseRenames.assertConnectionAvailable(payload.connectionId);
       const client = supervisor.get(payload.connectionId);
       if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
       return client.request<{ deleted: true }>('gridfs-delete', payload);
@@ -907,6 +1047,7 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
 
   // ── Streaming result export ──
   registerChannel(IpcChannels.exportCollection, exportCollectionSchema, async (payload): Promise<ExportStartResult> => {
+    ctx.databaseRenames.assertConnectionAvailable(payload.connectionId);
     const client = supervisor.get(payload.connectionId);
     if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
     const filename = buildExportFilename(payload.database, payload.collection, payload.format);
@@ -937,6 +1078,7 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
   }, validateSender);
 
   registerChannel(IpcChannels.exportQueryResult, exportQueryResultSchema, async (payload): Promise<ExportStartResult> => {
+    ctx.databaseRenames.assertConnectionAvailable(payload.connectionId);
     const client = supervisor.get(payload.connectionId);
     if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
     let collection: string | undefined;
@@ -989,6 +1131,7 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
     dataTransferSelectFilesSchema,
     async ({ targetConnectionId }): Promise<DataFileDescriptor[]> => {
       requireWritableConnection(targetConnectionId);
+      ctx.databaseRenames.assertConnectionAvailable(targetConnectionId);
       return ctx.dataTransfer.selectFiles(ctx.getWindow(), targetConnectionId);
     },
     validateSender,
@@ -1020,6 +1163,7 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
     dataTransferStartFileImportSchema,
     async (payload): Promise<DataJobStartResult> => {
       requireWritableConnection(payload.targetConnectionId);
+      ctx.databaseRenames.assertConnectionAvailable(payload.targetConnectionId);
       const result = await ctx.dataTransfer.startFileImport(payload);
       ctx.audit.beginDataTransfer(auditContext(payload.targetConnectionId, {
         correlationId: result.jobId,
@@ -1047,6 +1191,8 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
     dataTransferStartConnectionCopySchema,
     async (payload): Promise<DataJobStartResult> => {
       requireWritableConnection(payload.targetConnectionId);
+      ctx.databaseRenames.assertConnectionAvailable(payload.targetConnectionId);
+      ctx.databaseRenames.assertConnectionAvailable(payload.sourceConnectionId);
       if (!conn.getProfile(payload.sourceConnectionId)) {
         throw appError('NotFound', `Source connection profile not found: ${payload.sourceConnectionId}`);
       }

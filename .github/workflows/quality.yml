@@ -1,0 +1,146 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22.13.0'
+  NODE_OPTIONS: --max-old-space-size=8192
+
+jobs:
+  static:
+    name: Typecheck and lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --prefer-offline --no-audit
+      - run: npm run typecheck
+      - run: npm run lint
+
+  unit:
+    name: Unit / ${{ matrix.area }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        area: [main, runtime, renderer, analysis, shared, release, sql]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --prefer-offline --no-audit
+      - run: npm run test:unit:${{ matrix.area }}
+
+  integration:
+    name: Integration / ${{ matrix.area }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        area: [engine, collections, data, admin]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Cache MongoDB binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/mongodb-binaries
+          key: mongodb-binaries-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: mongodb-binaries-${{ runner.os }}-
+      - run: npm ci --prefer-offline --no-audit
+      - run: npm run test:integ:${{ matrix.area }}
+
+  e2e-package:
+    name: Package unsigned Linux E2E app
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Cache Electron downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json', 'forge.config.mts') }}
+          restore-keys: electron-${{ runner.os }}-
+      - run: npm ci --prefer-offline --no-audit
+      - run: npm run package -- --platform=linux --arch=x64
+      - name: Archive package with permissions and symlinks
+        run: tar -C out -czf mongog-linux-x64.tar.gz MongoG-linux-x64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mongog-linux-e2e-package
+          path: mongog-linux-x64.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 2
+
+  e2e:
+    name: E2E / ${{ matrix.area }}
+    needs: e2e-package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        area: [app, connections, query, collections, workflows, updates]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Cache MongoDB binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/mongodb-binaries
+          key: mongodb-binaries-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: mongodb-binaries-${{ runner.os }}-
+      - run: npm ci --prefer-offline --no-audit
+      - name: Install Electron runtime dependencies
+        run: npx playwright install-deps chromium
+      - uses: actions/download-artifact@v5
+        with:
+          name: mongog-linux-e2e-package
+          path: .
+      - name: Restore packaged app
+        run: mkdir -p out && tar -C out -xzf mongog-linux-x64.tar.gz
+      - name: Run functional package
+        env:
+          MONGOG_E2E_EXECUTABLE: ${{ github.workspace }}/out/MongoG-linux-x64/mongog
+        run: xvfb-run -a npm run test:e2e:${{ matrix.area }}
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-${{ matrix.area }}-failure
+          path: test-results
+          if-no-files-found: ignore
+          retention-days: 7

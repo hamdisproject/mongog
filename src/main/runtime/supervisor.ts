@@ -5,7 +5,7 @@
 import { EventEmitter } from 'node:events';
 import { resolveRuntimeEntry } from './paths.js';
 import { RuntimeClient } from './runtime-client.js';
-import type { DataJobProgressEvent, EngineEvent, ExportProgressEvent } from '../../shared/domain/index.js';
+import type { DatabaseRenameProgressEvent, DataJobProgressEvent, EngineEvent, ExportProgressEvent } from '../../shared/domain/index.js';
 import { DEFAULT_CONNECTION_IDLE_TIMEOUT_MS } from '../../shared/domain/workspace.js';
 import { appError, serializeError } from '../../shared/errors/index.js';
 
@@ -262,6 +262,13 @@ export class RuntimeSupervisor extends EventEmitter {
       if (terminal) this.endActivity(connectionId, key);
       else this.beginActivity(connectionId, key);
     }
+  }
+
+  trackDatabaseRenameProgress(event: DatabaseRenameProgressEvent): void {
+    const key = `database-rename:${event.jobId}`;
+    const terminal = event.status === 'completed' || event.status === 'failed';
+    if (terminal) this.endActivity(event.connectionId, key);
+    else this.beginActivity(event.connectionId, key);
   }
 
   setChangeStreamActive(connectionId: string, streamId: string, active: boolean): void {

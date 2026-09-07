@@ -9,6 +9,7 @@ import type {
   EngineEvent,
   ExportProgressEvent,
   DataJobProgressEvent,
+  DatabaseRenameProgressEvent,
 } from '../../shared/domain/index.js';
 import { normalizeApplicationSettings } from '../../shared/domain/workspace.js';
 import { serializeError } from '../../shared/errors/index.js';
@@ -57,6 +58,7 @@ export class AuditService {
   private activeQueries = new Map<string, ActiveQuery>();
   private activeExports = new Map<string, ActiveExport>();
   private activeDataJobs = new Map<string, ActiveExport>();
+  private activeDatabaseRenames = new Map<string, ActiveExport>();
   private pruneTimer: NodeJS.Timeout | null = null;
 
   constructor(private readonly db: Database) {}
@@ -169,7 +171,7 @@ export class AuditService {
       ...(context.connectionId ? { connectionId: context.connectionId } : {}),
       resultCount: 0,
       affectedCount: 0,
-      write: false,
+      write: context.operationClass === 'write',
     });
   }
 
@@ -291,6 +293,43 @@ export class AuditService {
     for (const [jobId, active] of [...this.activeDataJobs]) {
       if (active.connectionId !== connectionId) continue;
       this.activeDataJobs.delete(jobId);
+      this.finish(active.id, active.startedAt, {
+        status: 'interrupted',
+        errorCategory: 'UtilityProcessCrash',
+        errorMessage: message,
+      });
+    }
+  }
+
+  beginDatabaseRename(context: AuditContext & { correlationId: string }): void {
+    const startedAt = Date.now();
+    const id = this.begin(context);
+    if (!id) return;
+    this.activeDatabaseRenames.set(context.correlationId, {
+      id,
+      startedAt,
+      ...(context.connectionId ? { connectionId: context.connectionId } : {}),
+    });
+  }
+
+  handleDatabaseRenameEvent(event: DatabaseRenameProgressEvent): void {
+    if (event.status !== 'completed' && event.status !== 'failed') return;
+    const active = this.activeDatabaseRenames.get(event.jobId);
+    if (!active) return;
+    this.activeDatabaseRenames.delete(event.jobId);
+    this.finish(active.id, active.startedAt, {
+      status: event.status === 'completed' ? 'success' : 'error',
+      affectedCount: event.movedCount,
+      ...(event.status === 'failed'
+        ? { errorCategory: event.error?.category ?? 'MongoDBCommand', errorMessage: event.message ?? 'Database rename failed.' }
+        : {}),
+    });
+  }
+
+  failDatabaseRenamesForConnection(connectionId: string, message: string): void {
+    for (const [jobId, active] of [...this.activeDatabaseRenames]) {
+      if (active.connectionId !== connectionId) continue;
+      this.activeDatabaseRenames.delete(jobId);
       this.finish(active.id, active.startedAt, {
         status: 'interrupted',
         errorCategory: 'UtilityProcessCrash',

@@ -11,13 +11,18 @@ import { appError, serializeError, type AppError } from '../../shared/errors/ind
 interface PendingRequest {
   resolve: (value: unknown) => void;
   reject: (error: AppError) => void;
-  timer: NodeJS.Timeout;
+  timer?: NodeJS.Timeout;
 }
 
 export interface RuntimeClientOptions {
   entryPath: string;
   connectionId: string;
   requestTimeoutMS?: number;
+}
+
+export interface RuntimeRequestOptions {
+  /** Zero disables the main-process timeout for a tracked long-running server command. */
+  timeoutMS?: number;
 }
 
 const MESSAGE_TIMEOUT = 120_000;
@@ -81,18 +86,23 @@ export class RuntimeClient extends EventEmitter {
     });
   }
 
-  async request<T = unknown>(type: string, payload: Record<string, unknown> = {}): Promise<T> {
+  async request<T = unknown>(
+    type: string,
+    payload: Record<string, unknown> = {},
+    options: RuntimeRequestOptions = {},
+  ): Promise<T> {
     if (!this.child || !this.isAlive) {
       throw appError('UtilityProcessCrash', 'Query runtime is not running.');
     }
     const id = this.nextId++;
     return new Promise<T>((resolve, reject) => {
-      const timer = setTimeout(() => {
+      const timeoutMS = options.timeoutMS ?? this.requestTimeoutMS;
+      const timer = timeoutMS === 0 ? undefined : setTimeout(() => {
         if (!this.pending.delete(id)) return;
         this.emit('request-settled');
         reject(appError('NetworkTimeout', `Runtime request "${type}" timed out.`));
-      }, this.requestTimeoutMS);
-      timer.unref?.();
+      }, timeoutMS);
+      timer?.unref?.();
       this.pending.set(id, {
         resolve: (v) => resolve(v as T),
         reject,
@@ -121,7 +131,7 @@ export class RuntimeClient extends EventEmitter {
     if (!child) return;
     this.child = null;
     for (const [, p] of this.pending) {
-      clearTimeout(p.timer);
+      if (p.timer) clearTimeout(p.timer);
       p.reject(appError('UtilityProcessCrash', 'Query runtime was killed.'));
     }
     this.pending.clear();
@@ -166,7 +176,7 @@ export class RuntimeClient extends EventEmitter {
       const p = this.pending.get(m.id);
       if (!p) return;
       this.pending.delete(m.id);
-      clearTimeout(p.timer);
+      if (p.timer) clearTimeout(p.timer);
       this.emit('request-settled');
       if (m.ok) p.resolve(m.value);
       else p.reject(m.error ?? appError('Unknown', 'Runtime request failed.'));
@@ -177,7 +187,7 @@ export class RuntimeClient extends EventEmitter {
     this.exitInfo = { code, at: Date.now() };
     const err = appError('UtilityProcessCrash', `Query runtime exited (code ${code}).`);
     for (const [, p] of this.pending) {
-      clearTimeout(p.timer);
+      if (p.timer) clearTimeout(p.timer);
       p.reject(err);
     }
     this.pending.clear();

@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { Explorer } from './components/Sidebar/Explorer.js';
 import { TabBar } from './components/TabBar/TabBar.js';
 import { QueryWorkspace } from './components/Editor/QueryWorkspace.js';
+import { SqlWorkspace } from './components/Sql/SqlWorkspace.js';
 import { CollectionView } from './components/Results/CollectionView.js';
 import { AdminView } from './components/Admin/AdminView.js';
 import { ChangeStreamView } from './components/Admin/ChangeStreamView.js';
@@ -26,6 +27,8 @@ import { DataTransferView } from './components/DataTransfer/DataTransferView.js'
 import { DataTransferProgressOverlay } from './components/DataTransfer/DataTransferProgressOverlay.js';
 import { useDataTransferStore } from './stores/data-transfer.js';
 import { useUpdatesStore } from './stores/updates.js';
+import { DatabaseRenameProgressOverlay } from './components/Database/DatabaseRenameProgressOverlay.js';
+import { useDatabaseRenameJobsStore } from './stores/database-renames.js';
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -121,6 +124,7 @@ export default function App() {
         );
         useExportJobsStore.getState().failConnection(state.connectionId, message);
         useDataTransferStore.getState().failConnection(state.connectionId, message);
+        useDatabaseRenameJobsStore.getState().failConnection(state.connectionId, message);
         return;
       }
       if (
@@ -139,6 +143,7 @@ export default function App() {
         useWorkspaceStore.getState().failExecutionsForConnection(state.connectionId, message);
         useExportJobsStore.getState().failConnection(state.connectionId, message);
         useDataTransferStore.getState().failConnection(state.connectionId, message);
+        useDatabaseRenameJobsStore.getState().failConnection(state.connectionId, message);
       }
     });
   }, []);
@@ -174,6 +179,11 @@ export default function App() {
 
   useEffect(() => window.mongog.events.onDataJobProgress((event) => {
     useDataTransferStore.getState().applyProgress(event);
+  }), []);
+
+  useEffect(() => window.mongog.events.onDatabaseRenameProgress((event) => {
+    useDatabaseRenameJobsStore.getState().apply(event);
+    void useConnectionStore.getState().applyDatabaseRenameProgress(event);
   }), []);
 
   useEffect(() => {
@@ -217,6 +227,7 @@ export default function App() {
       <CommandPalette />
       <ExportProgressOverlay />
       <DataTransferProgressOverlay />
+      <DatabaseRenameProgressOverlay />
       <div style={{
         flex: 1, minWidth: 0, minHeight: 0, display: 'flex',
         flexDirection: 'column', overflow: 'hidden',
@@ -330,6 +341,7 @@ function workspaceMetadataFingerprint(tabs: WorkspaceTab[], activeTabId: string 
     activeTabId,
     tabs: tabs.map(({
       editorContent: _editorContent,
+      sqlEditorContent: _sqlEditorContent,
       documentsState: _documentsState,
       documentsPageSizeOverride: _documentsPageSizeOverride,
       documentsColumnOrder: _documentsColumnOrder,
@@ -355,6 +367,8 @@ function renderTabContent(activeTabId: string | null, tabs: WorkspaceTab[]) {
       return <WelcomeView />;
     case 'query':
       return <QueryWorkspace />;
+    case 'sql':
+      return <SqlWorkspace />;
     case 'collection':
       return null;
     case 'admin':

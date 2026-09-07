@@ -19,5 +19,5 @@
     "noEmit": true,
     "types": ["node", "vite/client"]
   },
-  "include": ["src", "tests", "vite.*.config.mts", "vitest.config.mts", "forge.config.mts"]
+  "include": ["src", "tests", "vite.*.config.mts", "vitest*.config.mts", "forge.config.mts"]
 }

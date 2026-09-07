@@ -58,6 +58,13 @@ import type {
   CollectionTransferPreview,
   DataJobStartResult,
   DataJobProgressEvent,
+  CreateDatabaseInput,
+  CreateDatabaseResult,
+  StartDatabaseRenameInput,
+  DatabaseRenameStartResult,
+  DatabaseRenameProgressEvent,
+  SqlExecuteRequest,
+  SqlExecuteResult,
 } from '../domain/index.js';
 import {
   AUDIT_CATEGORIES,
@@ -70,7 +77,13 @@ import {
   DATA_COLUMN_TYPES,
   DATA_EMPTY_CELL_POLICIES,
   CONNECTION_IDLE_TIMEOUT_VALUES,
+  MAX_SQL_SOURCE_BYTES,
 } from '../domain/index.js';
+import {
+  collectionNameError,
+  databaseNameError,
+  namespaceLengthError,
+} from '../domain/namespaces.js';
 
 export const IpcChannels = {
   spikePingRuntime: 'mongog:spike:ping-runtime',
@@ -99,6 +112,7 @@ export const IpcChannels = {
   connSaveAndConnect: 'mongog:conn:save-and-connect',
   // ── Phase 2: Query execution ──
   connExecute: 'mongog:conn:execute',
+  connExecuteSql: 'mongog:conn:execute-sql',
   connCursorFetchNext: 'mongog:conn:cursor:fetch-next',
   connCursorFetchPrev: 'mongog:conn:cursor:fetch-prev',
   connCursorFetchFull: 'mongog:conn:cursor:fetch-full',
@@ -118,6 +132,8 @@ export const IpcChannels = {
   connCollectionDelete: 'mongog:conn:collection:delete',
   connCollectionRename: 'mongog:conn:collection:rename',
   connCollectionDrop: 'mongog:conn:collection:drop',
+  connDatabaseCreate: 'mongog:conn:database:create',
+  connDatabaseRenameStart: 'mongog:conn:database:rename-start',
   connDatabaseDrop: 'mongog:conn:database:drop',
   // ── Phase 4: Schema / completions ──
   connSampleSchema: 'mongog:conn:sample-schema',
@@ -177,8 +193,17 @@ export const IpcEvents = {
   auditChanged: 'mongog:event:audit-changed',
   exportProgress: 'mongog:event:export-progress',
   dataJobProgress: 'mongog:event:data-job-progress',
+  databaseRenameProgress: 'mongog:event:database-rename-progress',
   updateStatus: 'mongog:event:update-status',
 } as const;
+
+const sqlSourceSchema = (minimumLength = 0) => z.string()
+  .min(minimumLength)
+  .max(MAX_SQL_SOURCE_BYTES)
+  .refine(
+    (source) => new TextEncoder().encode(source).byteLength <= MAX_SQL_SOURCE_BYTES,
+    `SQL source must not exceed ${MAX_SQL_SOURCE_BYTES / 1024} KiB as UTF-8.`,
+  );
 
 // ── Existing schemas ──
 
@@ -309,13 +334,14 @@ export const workspaceSaveSchema = z.object({
     sidebarWidth: z.number().int().min(180).max(520),
     tabs: z.array(z.object({
       id: z.string(),
-      kind: z.enum(['welcome', 'query', 'collection', 'history', 'connection-settings', 'settings', 'release-notes', 'admin', 'change-stream', 'data-transfer', 'updates']),
+      kind: z.enum(['welcome', 'query', 'sql', 'collection', 'history', 'connection-settings', 'settings', 'release-notes', 'admin', 'change-stream', 'data-transfer', 'updates']),
       title: z.string(),
       connectionId: z.string().nullable(),
       database: z.string().optional(),
       collection: z.string().optional(),
-      collectionViewMode: z.enum(['documents', 'query']).optional(),
-      editorContent: z.string().optional(),
+      collectionViewMode: z.enum(['documents', 'query', 'sql']).optional(),
+      editorContent: z.string().max(2 * 1024 * 1024).optional(),
+      sqlEditorContent: sqlSourceSchema().optional(),
       mode: z.enum(['query', 'trusted']).optional(),
       savedItemId: z.string().min(1).optional(),
       documentsState: z.object({
@@ -328,6 +354,16 @@ export const workspaceSaveSchema = z.object({
       pinned: z.boolean().optional(),
       customTitle: z.boolean().optional(),
       dirty: z.boolean().optional(),
+    }).superRefine((tab, validation) => {
+      if (tab.kind !== 'sql' || tab.editorContent === undefined) return;
+      const checked = sqlSourceSchema().safeParse(tab.editorContent);
+      if (!checked.success) {
+        validation.addIssue({
+          code: 'custom',
+          path: ['editorContent'],
+          message: `SQL source must not exceed ${MAX_SQL_SOURCE_BYTES / 1024} KiB as UTF-8.`,
+        });
+      }
     })),
     activeTabId: z.string().nullable(),
   }),
@@ -439,14 +475,24 @@ const savedDocumentsPayloadSchema = z.object({
 const savedTabPayloadSchema = z.object({
   type: z.literal('tab'),
   template: z.object({
-    kind: z.enum(['query', 'collection']),
+    kind: z.enum(['query', 'sql', 'collection']),
     title: z.string().max(120),
     pinned: z.boolean(),
     customTitle: z.boolean(),
-    collectionViewMode: z.enum(['documents', 'query']).optional(),
+    collectionViewMode: z.enum(['documents', 'query', 'sql']).optional(),
     editorContent: z.string().max(2 * 1024 * 1024).optional(),
+    sqlEditorContent: sqlSourceSchema().optional(),
     mode: z.enum(['query', 'trusted']).optional(),
     documentsState: savedDocumentsStateSchema.optional(),
+  }).superRefine((template, validation) => {
+    if (template.kind !== 'sql' || template.editorContent === undefined) return;
+    if (!sqlSourceSchema().safeParse(template.editorContent).success) {
+      validation.addIssue({
+        code: 'custom',
+        path: ['editorContent'],
+        message: `SQL source must not exceed ${MAX_SQL_SOURCE_BYTES / 1024} KiB as UTF-8.`,
+      });
+    }
   }),
 });
 export const savedItemPayloadSchema = z.discriminatedUnion('type', [
@@ -685,11 +731,21 @@ export const connExecuteSchema = z.object({
   database: z.string().min(1),
   mode: z.enum(['query', 'trusted']),
   source: z.string().max(2 * 1024 * 1024),
-  sourceOffset: z.object({ line: z.number().int().min(0), column: z.number().int().min(0) }),
-  readOnly: z.boolean().optional(),
+  sourceOffset: z.object({ line: z.number().int().min(0), column: z.number().int().min(0) }).strict(),
   pageSize: z.number().int().min(1).max(500).optional(),
   timeoutMS: z.number().int().min(0).max(600_000).optional(),
-});
+}).strict();
+
+export const connExecuteSqlSchema = z.object({
+  connectionId: z.string().min(1),
+  tabId: z.string().min(1).optional(),
+  runId: z.string().min(1).optional(),
+  database: z.string().min(1).max(255),
+  source: sqlSourceSchema(1),
+  confirmationToken: z.string().uuid().optional(),
+  pageSize: z.number().int().min(1).max(500).optional(),
+  timeoutMS: z.number().int().min(0).max(600_000).optional(),
+}).strict() satisfies z.ZodType<SqlExecuteRequest>;
 
 export const connCursorFetchNextSchema = z.object({
   connectionId: z.string().min(1),
@@ -828,6 +884,35 @@ export const connCollectionRenameSchema = z.object({
 });
 
 export const connCollectionDropSchema = z.object(namespaceSchema);
+
+const validatedDatabaseNameSchema = z.string().superRefine((value, ctx) => {
+  const message = databaseNameError(value);
+  if (message) ctx.addIssue({ code: 'custom', message });
+});
+
+const validatedCollectionNameSchema = z.string().superRefine((value, ctx) => {
+  const message = collectionNameError(value);
+  if (message) ctx.addIssue({ code: 'custom', message });
+});
+
+export const connDatabaseCreateSchema = z.object({
+  connectionId: z.string().min(1),
+  database: validatedDatabaseNameSchema,
+  collection: validatedCollectionNameSchema,
+}).strict().superRefine((value, ctx) => {
+  const message = namespaceLengthError(value.database, value.collection);
+  if (message) ctx.addIssue({ code: 'custom', path: ['collection'], message });
+}) satisfies z.ZodType<CreateDatabaseInput>;
+
+export const connDatabaseRenameStartSchema = z.object({
+  connectionId: z.string().min(1),
+  database: validatedDatabaseNameSchema,
+  newDatabase: validatedDatabaseNameSchema,
+}).strict().superRefine((value, ctx) => {
+  if (value.database.toLowerCase() === value.newDatabase.toLowerCase()) {
+    ctx.addIssue({ code: 'custom', path: ['newDatabase'], message: 'The new database name must be different.' });
+  }
+}) satisfies z.ZodType<StartDatabaseRenameInput>;
 
 export const connDatabaseDropSchema = z.object({
   connectionId: z.string().min(1),
@@ -978,6 +1063,7 @@ export interface MongoGDesktopApi {
     onAuditChanged(cb: (event: import('../domain/index.js').AuditChangedEvent) => void): () => void;
     onExportProgress(cb: (event: ExportProgressEvent) => void): () => void;
     onDataJobProgress(cb: (event: DataJobProgressEvent) => void): () => void;
+    onDatabaseRenameProgress(cb: (event: DatabaseRenameProgressEvent) => void): () => void;
     onUpdateStatus(cb: (payload: UpdateStatusPayload) => void): () => void;
   };
   connections: {
@@ -1025,7 +1111,8 @@ export interface MongoGDesktopApi {
     saveAndConnect(input: ConnectionDraftRequest): Promise<SaveAndConnectResult>;
   };
   query: {
-    execute(req: ExecuteRequest): Promise<ExecuteResponse>;
+    execute(req: Omit<ExecuteRequest, 'readOnly'>): Promise<ExecuteResponse>;
+    executeSql(req: SqlExecuteRequest): Promise<SqlExecuteResult>;
     cursorFetchNext(connectionId: string, cursorId: string, pageSize: number | undefined, operationId: string): Promise<DocumentsPage>;
     cursorFetchPrev(connectionId: string, cursorId: string, operationId: string): Promise<DocumentsPage>;
     cursorFetchFull(
@@ -1084,6 +1171,8 @@ export interface MongoGDesktopApi {
       newName: string;
     }): Promise<{ oldName: string; newName: string }>;
     collectionDrop(connectionId: string, database: string, collection: string): Promise<{ dropped: boolean }>;
+    createDatabase(input: CreateDatabaseInput): Promise<CreateDatabaseResult>;
+    startDatabaseRename(input: StartDatabaseRenameInput): Promise<DatabaseRenameStartResult>;
     databaseDrop(connectionId: string, database: string): Promise<{ dropped: boolean }>;
     sampleSchema(
       connectionId: string,

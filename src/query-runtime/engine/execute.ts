@@ -219,6 +219,7 @@ export class ExecutionEngine {
       client: opts.client,
       database: opts.database,
       mode: opts.mode,
+      readOnly: opts.readOnly,
       capture: (i, t) => capture(i, t),
       mark: (i) => {
         scope.throwIfCancelled();

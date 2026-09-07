@@ -65,6 +65,17 @@ export type {
 } from './saved.js';
 
 export {
+  MAX_SQL_SOURCE_BYTES,
+  type SqlExecutionKind,
+  type SqlExecuteRequest,
+  type SqlExecuteResult,
+  type SqlPreview,
+  type SqlStatementKind,
+  type SqlTranslation,
+  type SqlTranslationFailure,
+} from './sql.js';
+
+export {
   AUDIT_CATEGORIES,
   AUDIT_STATUSES,
   AUDIT_ORIGINS,
@@ -87,6 +98,16 @@ export {
   DATA_JOB_STATUSES,
   DATA_JOB_PHASES,
 } from './data-transfer.js';
+
+export { PROTECTED_DATABASE_NAMES } from './namespaces.js';
+export type {
+  CreateDatabaseInput,
+  CreateDatabaseResult,
+  StartDatabaseRenameInput,
+  DatabaseRenameStartResult,
+  DatabaseRenameStatus,
+  DatabaseRenameProgressEvent,
+} from './namespaces.js';
 
 export type {
   DataJobKind,

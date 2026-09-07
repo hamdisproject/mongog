@@ -6,6 +6,7 @@ import type { DocumentCriteriaState } from './saved.js';
 export type WorkspaceTabKind =
   | 'welcome'
   | 'query'
+  | 'sql'
   | 'collection'
   | 'history'
   | 'connection-settings'
@@ -25,8 +26,8 @@ export interface WorkspaceTab {
   connectionId: string | null;
   database?: string;
   collection?: string;
-  /** collection tabs: embedded browser/query surface */
-  collectionViewMode?: 'documents' | 'query';
+  /** collection tabs: embedded browser/query/sql surface */
+  collectionViewMode?: 'documents' | 'query' | 'sql';
   /** Renderer-only one-shot request; deliberately omitted from workspace persistence. */
   autoExecuteOnOpen?: boolean;
   /** Renderer-only Documents page size; deliberately omitted from workspace persistence and saved templates. */
@@ -37,8 +38,10 @@ export interface WorkspaceTab {
   documentsColumnOrderManual?: boolean;
   /** Renderer-only Criteria visibility; initialized from preferences for each new/restored tab. */
   documentsCriteriaOpen?: boolean;
-  /** query tabs */
+  /** query + sql tabs */
   editorContent?: string;
+  /** collection tabs: SQL view source (Query view keeps using editorContent) */
+  sqlEditorContent?: string;
   mode?: 'query' | 'trusted';
   /** Locally saved source; deleted saved items detach without closing the tab. */
   savedItemId?: string;

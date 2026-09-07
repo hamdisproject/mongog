@@ -178,7 +178,7 @@ export function ConnectionsView({ tab }: { tab: WorkspaceTab }) {
             const connectionError = connectionErrors[profile.id];
             return <div key={profile.id} onClick={() => selectProfile(profile)} style={{ padding: '10px 9px', borderRadius: 5, background: active ? c.selected : 'transparent', cursor: 'pointer', marginBottom: 3 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 9, height: 9, borderRadius: '50%', background: connectionError ? c.danger : online ? c.success : (profile.color ?? c.textFaint) }} />
+                <span style={{ width: 9, height: 9, borderRadius: '50%', background: profile.color ?? 'transparent' }} />
                 <strong style={{ flex: 1, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis' }}>{profile.name}</strong>
                 <button onClick={(event) => { event.stopPropagation(); void toggleConnection(profile); }} style={{ border: 0, background: 'transparent', color: online ? c.warning : c.success, cursor: 'pointer', fontSize: 10 }}>{online ? 'DISCONNECT' : 'CONNECT'}</button>
               </div>
