@@ -19,6 +19,28 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
+    version: '1.2.22',
+    releasedAt: '2026-09-08',
+    title: 'Lossless BSON editing and clearer table values',
+    summary: 'BSON values now keep their intended types through document editing, while missing fields and Windows icons are easier to recognize.',
+    sections: [
+      {
+        kind: 'improved',
+        items: [
+          'Documents and query-result tables now show Not Set only when a field is absent, while explicitly stored null values remain null.',
+          'Windows application, taskbar, Start menu, installer, and uninstaller surfaces now use the same larger multi-resolution icon.',
+        ],
+      },
+      {
+        kind: 'fixed',
+        items: [
+          'ObjectId values entered in the document editor are inserted as real BSON ObjectIds instead of strings.',
+          'Editing a document preserves supported BSON types and prevents the immutable _id field from being removed or changed.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.2.21',
     releasedAt: '2026-09-05',
     title: 'Faster GitHub Actions releases',

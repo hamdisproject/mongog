@@ -243,6 +243,6 @@ export async function runQueryResultsAndCleanup(
   await expect(page.locator(`[data-tab-id="${queryTabId}"]`)).toHaveCount(0);
   await expect(page.locator(`[data-tab-id="${activeBeforeClosingPinnedQuery}"]`)).toHaveAttribute('data-tab-active', 'true');
   await page.getByRole('button', { name: 'Open Welcome' }).click();
-  await page.getByRole('button', { name: 'What’s New in 1.2.21' }).click();
+  await page.getByRole('button', { name: 'What’s New in 1.2.22' }).click();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
 }

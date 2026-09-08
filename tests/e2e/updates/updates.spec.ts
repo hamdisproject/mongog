@@ -41,7 +41,7 @@ test('update available is surfaced in the sidebar after consent is declined', as
     name: 'Update 9.9.9 available',
   });
   await expect(updateButton).toBeVisible();
-  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.21');
+  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.22');
 
   await updateButton.click();
   await expect(page.getByTestId('updates-view')).toBeVisible();
@@ -179,7 +179,7 @@ test('Updates tab is reachable from Settings and shows the neutral state without
   const harness = createE2EHarness(mongog);
   const { launch, closeApplication, mongoUri, userDataPath, databaseName } = harness;
   let page = await launch();
-  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.21');
+  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.22');
   await expect(page.getByRole('button', { name: /^Update .* available$/ })).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Open application settings' }).click();
