@@ -211,7 +211,7 @@ export async function runDocumentsAndSavedLibrary(
   const isSentCellIndex = await isSentSort.evaluate((element) =>
     (element.closest('th') as HTMLTableCellElement).cellIndex);
   await expect(documentsTable.locator('tbody tr').first().locator('td').nth(isSentCellIndex))
-    .toHaveText('null');
+    .toHaveText('Not Set');
   await page.getByRole('button', { name: 'Calculate total document count' }).click();
   await expect(page.getByRole('button', { name: 'Calculate total document count' }))
     .toHaveText('Total count: 1');

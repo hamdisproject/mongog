@@ -3,6 +3,7 @@ import {
   flexRender,
   getCoreRowModel,
   useReactTable,
+  type CellContext,
   type ColumnDef,
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -24,7 +25,10 @@ import {
   type StatementResultState,
 } from '../../stores/workspace.js';
 import { useSettingsStore } from '../../stores/settings.js';
-import { BsonSyntaxText } from '../Common/BsonSyntaxText.js';
+import {
+  BsonTableCell,
+  resolveBsonTableField,
+} from '../Common/BsonTableCell.js';
 import { ExportDialog } from '../Export/ExportDialog.js';
 import { useExportJobsStore } from '../../stores/exports.js';
 import { extractCollectionColumns } from '../../collection-workspace.js';
@@ -416,10 +420,10 @@ function DocumentsResult({
     [result.documents],
   );
   const columns = useMemo(
-    () => extractCollectionColumns(rows, tableColumnOrder),
+    () => extractCollectionColumns(rows.map((row) => row.value), tableColumnOrder),
     [rows, tableColumnOrder],
   );
-  const columnDefinitions = useMemo<Array<ColumnDef<Record<string, unknown>>>>(
+  const columnDefinitions = useMemo<Array<ColumnDef<QueryTableRow>>>(
     () => [
       {
         id: '$row',
@@ -430,12 +434,17 @@ function DocumentsResult({
       ...columns.map((column) => ({
         id: column,
         header: column,
-        accessorFn: (row: Record<string, unknown>) => row[column],
         size: column === '_id' ? 220 : 180,
-        cell: ({ getValue }: { getValue: () => unknown }) => {
-          const value = getValue();
-          return <QueryBsonCell value={value} mode={displayMode} />;
-        },
+        cell: ({ row }: CellContext<QueryTableRow, unknown>) => (
+          <BsonTableCell
+            field={resolveBsonTableField(
+              row.original.value,
+              column,
+              row.original.fieldsKnown,
+            )}
+            mode={displayMode}
+          />
+        ),
       })),
     ],
     [columns, displayMode],
@@ -768,36 +777,33 @@ function ErrorCard({ item }: { item: StatementErrorState }) {
   );
 }
 
-function envelopeToRow(envelope: EjsonEnvelope): Record<string, unknown> {
+interface QueryTableRow {
+  value: Record<string, unknown>;
+  fieldsKnown: boolean;
+}
+
+function envelopeToRow(envelope: EjsonEnvelope): QueryTableRow {
   if (envelope.truncated) {
     return {
-      $preview: envelope.ejson,
-      $truncated: true,
-      $originalBytes: envelope.byteSize,
+      value: {
+        $preview: envelope.ejson,
+        $truncated: true,
+        $originalBytes: envelope.byteSize,
+      },
+      fieldsKnown: false,
     };
   }
   try {
     const value = parseEjson(envelope);
     if (value && typeof value === 'object' && !Array.isArray(value)) {
-      return value as Record<string, unknown>;
+      return { value: value as Record<string, unknown>, fieldsKnown: true };
     }
-    return { $value: value };
+    return { value: { $value: value }, fieldsKnown: true };
   } catch {
-    return { $preview: envelope.ejson, $parseError: true };
-  }
-}
-
-function QueryBsonCell({ value, mode }: { value: unknown; mode: BsonDisplayMode }) {
-  const fullText = formatCell(value, mode);
-  const visibleText = fullText.length > 100 ? `${fullText.slice(0, 100)}…` : fullText;
-  return <BsonSyntaxText text={visibleText} title={fullText} />;
-}
-
-function formatCell(value: unknown, mode: BsonDisplayMode): string {
-  try {
-    return renderBson(value, mode, false);
-  } catch {
-    return String(value);
+    return {
+      value: { $preview: envelope.ejson, $parseError: true },
+      fieldsKnown: false,
+    };
   }
 }
 

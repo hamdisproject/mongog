@@ -51,12 +51,20 @@ import { ColumnFilterInput } from './ColumnFilterInput.js';
 import type { CriteriaKind } from '../../monaco/object-expression.js';
 import { SavedActions } from '../Saved/SavedActions.js';
 import { DocumentBsonEditor } from './DocumentBsonEditor.js';
-import { BsonSyntaxText } from '../Common/BsonSyntaxText.js';
+import {
+  BsonTableCell,
+  resolveBsonTableField,
+} from '../Common/BsonTableCell.js';
 import { ExportDialog } from '../Export/ExportDialog.js';
 import { useExportJobsStore } from '../../stores/exports.js';
 import { useDataTransferStore } from '../../stores/data-transfer.js';
 import { LoadingOverlay } from '../Common/LoadingOverlay.js';
 import { BulkFieldPathCombobox } from './BulkFieldPathCombobox.js';
+import {
+  immutableDocumentIdError,
+  prepareDocumentMutation,
+  type PreparedDocumentMutation,
+} from '../../document-mutation.js';
 
 const s: Record<string, React.CSSProperties> = {
   workspace: { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' },
@@ -1111,8 +1119,13 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
 
   const saveDocument = async () => {
     if (readOnly || editorMode === 'view' || editorValidationError) return;
+    let preparedDocument: PreparedDocumentMutation;
     try {
-      parseDocumentExpression(editorText, 'Document');
+      preparedDocument = prepareDocumentMutation(editorText, 'Document');
+      if (editorMode === 'edit' && selected) {
+        const immutableIdError = immutableDocumentIdError(selected.envelope.ejson, preparedDocument);
+        if (immutableIdError) throw new Error(immutableIdError);
+      }
     } catch (caught) {
       setEditorValidationError(errorMessage(caught));
       setError(errorMessage(caught));
@@ -1128,7 +1141,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
           connectionId,
           database,
           collection,
-          documentEjson: editorText,
+          documentEjson: preparedDocument.documentEjson,
         });
         successMessage = 'Document inserted.';
       } else {
@@ -1138,7 +1151,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
           database,
           collection,
           originalDocumentEjson: selected.envelope.ejson,
-          documentEjson: editorText,
+          documentEjson: preparedDocument.documentEjson,
         });
         successMessage = 'Document updated.';
       }
@@ -1650,7 +1663,10 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
                       key={column}
                       style={{ ...s.td, width: columnWidths[column] ?? (column === '_id' ? 220 : 180) }}
                     >
-                      <CollectionBsonCell value={row.value?.[column]} mode={displayMode} />
+                      <BsonTableCell
+                        field={resolveBsonTableField(row.value, column)}
+                        mode={displayMode}
+                      />
                     </td>
                   ))}
                 </tr>
@@ -1785,7 +1801,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
                 </span>
                 {editorValidationError && editorMode !== 'view' && (
                   <span role="alert" title={editorValidationError} style={{ maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: theme.colors.danger }}>
-                    Invalid BSON syntax
+                    {editorValidationError}
                   </span>
                 )}
                 {editorMode === 'view' ? (
@@ -1821,6 +1837,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
                 onChange={setEditorText}
                 onSave={() => void saveDocument()}
                 onValidationChange={setEditorValidationError}
+                originalDocumentEjson={editorMode === 'edit' ? selected?.envelope.ejson : undefined}
               />
             </>
           )}
@@ -2077,27 +2094,9 @@ function renderDocumentEnvelope(
   }
 }
 
-function CollectionBsonCell({ value, mode }: { value: unknown; mode: BsonDisplayMode }) {
-  const fullText = formatCellValue(value, mode);
-  return <BsonSyntaxText text={truncate(fullText, 100)} title={fullText} />;
-}
-
-function formatCellValue(value: unknown, mode: BsonDisplayMode): string {
-  if (value === null || value === undefined) return 'null';
-  try {
-    return renderBson(value, mode, false);
-  } catch {
-    return String(value);
-  }
-}
-
 function displayModeLabel(mode: BsonDisplayMode): string {
   if (mode === 'mongosh') return 'MongoDB Shell BSON';
   return mode === 'relaxed' ? 'Relaxed Extended JSON' : 'Canonical Extended JSON';
-}
-
-function truncate(value: string, length: number): string {
-  return value.length > length ? `${value.slice(0, length)}…` : value;
 }
 
 function isDocumentValue(value: unknown): value is Record<string, unknown> {

@@ -85,6 +85,10 @@ export async function findCollectionDocuments(
   const collection = client.db(options.database).collection(options.collection);
   let cursor = collection.find(filter as Filter<Document>, {
     ...(projection ? { projection } : {}),
+    // Preserve deprecated-but-supported BSON values such as BSON Symbol.
+    // Canonical EJSON serialization then carries every type to the renderer
+    // without changing the normal driver behavior of user query scripts.
+    promoteValues: false,
     maxTimeMS: 30_000,
     ...(options.signal ? { signal: options.signal } : {}),
   });

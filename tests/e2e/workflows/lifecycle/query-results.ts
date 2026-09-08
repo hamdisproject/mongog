@@ -1,6 +1,8 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { MongoClient } from 'mongodb';
+
 import { expect } from '../../fixtures/mongog-test.js';
 import {
   collectionColumnNames,
@@ -26,7 +28,7 @@ export async function runQueryResultsAndCleanup(
   context: LifecycleContext,
   state: LifecycleSettingsState,
 ): Promise<void> {
-  const { harness, userDataPath, textPattern } = context;
+  const { harness, userDataPath, textPattern, databaseName, mongoUri } = context;
   const {
     page,
     explorer,
@@ -104,6 +106,27 @@ export async function runQueryResultsAndCleanup(
   const queryTxt = await readFile(join(userDataPath, queryTxtName), 'utf8');
   expect(queryTxt).toContain('sku');
   expect(queryTxt).toContain('beta');
+
+  const nullValueClient = new MongoClient(mongoUri);
+  await nullValueClient.connect();
+  try {
+    await nullValueClient.db(databaseName).collection('inventory').updateOne(
+      { sku: 'alpha' },
+      { $set: { status: null } },
+    );
+  } finally {
+    await nullValueClient.close(true);
+  }
+  await page.getByRole('button', { name: /^Run/ }).click();
+  await expect.poll(async () => (
+    (await queryColumnNames(page)).indexOf('status')
+  )).toBeGreaterThan(0);
+  const statusColumnIndex = (await queryColumnNames(page)).indexOf('status');
+  const typedResultsTable = page.getByTestId('query-documents-table');
+  await expect(typedResultsTable.locator('tbody tr').filter({ hasText: '"alpha"' })
+    .locator('td').nth(statusColumnIndex)).toHaveText('null');
+  await expect(typedResultsTable.locator('tbody tr').filter({ hasText: '"beta"' })
+    .locator('td').nth(statusColumnIndex)).toHaveText('Not Set');
 
   await setQueryEditorValue(page, 'Int32(41);');
   await page.getByRole('button', { name: /^Run/ }).click();

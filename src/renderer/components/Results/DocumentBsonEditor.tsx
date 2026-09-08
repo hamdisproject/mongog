@@ -3,9 +3,12 @@ import type * as Monaco from 'monaco-editor';
 import {
   DocumentExpressionError,
   parseDocumentArrayExpression,
-  parseDocumentExpression,
   parseValueExpression,
 } from '../../../features/script-analysis/index.js';
+import {
+  immutableDocumentIdError,
+  prepareDocumentMutation,
+} from '../../document-mutation.js';
 import { OBJECT_EXPRESSION_LANGUAGE } from '../../monaco/object-expression.js';
 import { bootMonaco } from '../../monaco/setup.js';
 import { getMonacoTheme } from '../../theme.js';
@@ -19,6 +22,7 @@ interface DocumentBsonEditorProps {
   onValidationChange: (message: string | null) => void;
   validationKind?: 'document' | 'document-array' | 'value';
   ariaLabel?: string;
+  originalDocumentEjson?: string;
 }
 
 export function DocumentBsonEditor({
@@ -30,6 +34,7 @@ export function DocumentBsonEditor({
   onValidationChange,
   validationKind = 'document',
   ariaLabel = 'Document BSON editor',
+  originalDocumentEjson,
 }: DocumentBsonEditorProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const modelRef = useRef<Monaco.editor.ITextModel | null>(null);
@@ -39,12 +44,14 @@ export function DocumentBsonEditor({
   const onChangeRef = useRef(onChange);
   const onSaveRef = useRef(onSave);
   const validationRef = useRef(onValidationChange);
+  const originalDocumentEjsonRef = useRef(originalDocumentEjson);
 
   valueRef.current = value;
   readOnlyRef.current = readOnly;
   onChangeRef.current = onChange;
   onSaveRef.current = onSave;
   validationRef.current = onValidationChange;
+  originalDocumentEjsonRef.current = originalDocumentEjson;
 
   useEffect(() => {
     let disposed = false;
@@ -85,11 +92,25 @@ export function DocumentBsonEditor({
       changeRegistration = model.onDidChangeContent(() => {
         const next = model!.getValue();
         onChangeRef.current(next);
-        validateDocumentModel(monaco, model!, validationRef.current, readOnlyRef.current, validationKind);
+        validateDocumentModel(
+          monaco,
+          model!,
+          validationRef.current,
+          readOnlyRef.current,
+          validationKind,
+          originalDocumentEjsonRef.current,
+        );
       });
       modelRef.current = model;
       editorRef.current = editor;
-      validateDocumentModel(monaco, model, validationRef.current, readOnlyRef.current, validationKind);
+      validateDocumentModel(
+        monaco,
+        model,
+        validationRef.current,
+        readOnlyRef.current,
+        validationKind,
+        originalDocumentEjsonRef.current,
+      );
     });
 
     return () => {
@@ -112,9 +133,18 @@ export function DocumentBsonEditor({
     editorRef.current?.updateOptions({ readOnly });
     void bootMonaco().then((monaco) => {
       const model = modelRef.current;
-      if (model) validateDocumentModel(monaco, model, validationRef.current, readOnly, validationKind);
+      if (model) {
+        validateDocumentModel(
+          monaco,
+          model,
+          validationRef.current,
+          readOnly,
+          validationKind,
+          originalDocumentEjson,
+        );
+      }
     });
-  }, [readOnly, validationKind]);
+  }, [originalDocumentEjson, readOnly, validationKind]);
 
   return <div data-testid="document-bson-editor" ref={hostRef} style={{ flex: 1, minHeight: 0 }} />;
 }
@@ -125,6 +155,7 @@ function validateDocumentModel(
   onValidationChange: (message: string | null) => void,
   readOnly: boolean,
   validationKind: 'document' | 'document-array' | 'value',
+  originalDocumentEjson?: string,
 ): void {
   if (readOnly) {
     monaco.editor.setModelMarkers(model, OBJECT_EXPRESSION_LANGUAGE, []);
@@ -135,7 +166,13 @@ function validateDocumentModel(
   try {
     if (validationKind === 'document-array') parseDocumentArrayExpression(source, 'Documents');
     else if (validationKind === 'value') parseValueExpression(source, 'Field value');
-    else parseDocumentExpression(source, 'Document');
+    else {
+      const prepared = prepareDocumentMutation(source, 'Document');
+      if (originalDocumentEjson) {
+        const immutableIdError = immutableDocumentIdError(originalDocumentEjson, prepared);
+        if (immutableIdError) throw new Error(immutableIdError);
+      }
+    }
     monaco.editor.setModelMarkers(model, OBJECT_EXPRESSION_LANGUAGE, []);
     onValidationChange(null);
   } catch (error) {

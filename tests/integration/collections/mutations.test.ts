@@ -52,6 +52,11 @@ describe('collection browser operations', () => {
     const stored = await client!.db(DATABASE).collection('compass_literals').findOne({
       _id: new ObjectId(id),
     });
+    expect((stored?._id as { _bsontype?: string })._bsontype).toBe('ObjectId');
+    await expect(client!.db(DATABASE)
+      .collection<{ _id: ObjectId | string }>('compass_literals')
+      .findOne({ _id: id }))
+      .resolves.toBeNull();
     expect(stored?.createdAt).toBeInstanceOf(Date);
     expect((stored?.sequence as { _bsontype?: string })._bsontype).toBe('Long');
     expect((stored?.amount as { _bsontype?: string })._bsontype).toBe('Decimal128');

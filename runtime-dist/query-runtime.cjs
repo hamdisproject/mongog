@@ -252472,6 +252472,10 @@ async function findCollectionDocuments(client2, registry2, options) {
   const collection2 = client2.db(options.database).collection(options.collection);
   let cursor = collection2.find(filter2, {
     ...projection ? { projection } : {},
+    // Preserve deprecated-but-supported BSON values such as BSON Symbol.
+    // Canonical EJSON serialization then carries every type to the renderer
+    // without changing the normal driver behavior of user query scripts.
+    promoteValues: false,
     maxTimeMS: 3e4,
     ...options.signal ? { signal: options.signal } : {}
   });
