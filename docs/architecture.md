@@ -39,6 +39,11 @@ Invariants (never break):
 - Cursors stay runtime-side; renderer pages with `cursor.next()` via handles.
   Never auto-`toArray()`.
 
+Update checks are also main-only. `update-device-identity.ts` owns a random UUID
+v4 stored in SQLite under `updates:device-id`; `update-service.ts` adds it to the
+generic feed as `X-MongoG-Device-Id`. The identifier never crosses preload/IPC or
+renderer state and is not derived from hardware.
+
 ## Request flow (query execution)
 
 1. Renderer calls `window.mongog.<area>.<method>` (preload typed facade).

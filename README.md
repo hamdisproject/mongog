@@ -171,7 +171,12 @@ The app uses `electron-updater` with a generic provider pointed at
 RPM-based Linux read `/update/latest-mac.yml` or `/update/latest-linux.yml` and
 prompt before downloading. Windows reads `/update/latest.yml` only to detect a
 new version, then directs the user to `https://mongog.com/releases`; it never
-downloads or installs the package in-app. `/api/latest-version` remains reserved for the website UI. A
+downloads or installs the package in-app. Each installation keeps a random UUID
+v4 in its local `userData` database and sends it only as `X-MongoG-Device-Id`
+with update-feed requests, allowing the server to count pseudonymous installations
+without using hardware identifiers. The UUID survives normal app updates and is
+recreated only when local app data is removed or invalid. `/api/latest-version`
+remains reserved for the website UI. A
 release is publishable only after the six official artifacts and all three
 generated manifests from `Assemble draft release` are deployed together: two macOS
 DMGs, two macOS ZIPs, one explicitly unsigned Windows NSIS EXE and one Linux RPM.

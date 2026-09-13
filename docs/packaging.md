@@ -88,6 +88,10 @@ supported DB path for packaged smoke (`docs/debugging.md` §6).
 - `electron-updater`, generic provider pointed at `MONGOG_UPDATE_FEED_URL`
   (default `https://mongog.com/update`). No platform ever installs merely
   because the app quits — installation always needs an explicit action.
+- Main generates one UUID v4 per local installation, persists it under the
+  `updates:device-id` settings key, and adds it as `X-MongoG-Device-Id` to
+  manifest and update-file requests. It is never sent to renderer/IPC/logs;
+  persistence failure omits the header rather than emitting an unstable ID.
 - macOS + RPM Linux: read `/update/latest-mac.yml` / `/update/latest-linux.yml`,
   prompt BEFORE downloading (consent-driven).
 - Windows: reads `/update/latest.yml` only to detect a newer version. It keeps

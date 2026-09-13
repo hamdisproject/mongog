@@ -7,9 +7,17 @@ import {
 } from '../../shared/ipc/index.js';
 import { serializeError } from '../../shared/errors/index.js';
 import { readFileSync } from 'node:fs';
+import type { OutgoingHttpHeaders } from 'node:http';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { parseUpdateConfig } from '../../shared/update-config.mjs';
+import { isUpdateDeviceId, UPDATE_DEVICE_ID_HEADER } from './update-device-identity.js';
+
+export interface UpdateFeedOptions {
+  provider: 'generic';
+  url: string;
+  requestHeaders?: Record<string, string>;
+}
 
 /**
  * Minimal structural surface of electron-updater's autoUpdater that this service
@@ -21,7 +29,8 @@ export interface UpdaterLike {
   autoInstallOnAppQuit: boolean;
   disableDifferentialDownload: boolean;
   disableWebInstaller: boolean;
-  setFeedURL(options: { provider: 'generic'; url: string }): void;
+  requestHeaders?: OutgoingHttpHeaders | null;
+  setFeedURL(options: UpdateFeedOptions): void;
   checkForUpdates(): Promise<unknown>;
   downloadUpdate(): Promise<unknown>;
   quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void;
@@ -228,11 +237,13 @@ export interface CreateUpdateServiceOptions {
   e2eVersion?: string;
   /** Injectable real-updater factory; override in unit tests to avoid loading
    *  electron-updater/electron under plain Node. */
-  createRealUpdater?: (feedUrl: string) => Promise<UpdaterLike>;
+  createRealUpdater?: (feed: UpdateFeedOptions) => Promise<UpdaterLike>;
   getCurrentVersion?: () => string;
   isPackaged?: boolean;
   platform?: NodeJS.Platform;
   resourcesPath?: string;
+  /** Stable, pseudonymous installation UUID. Never exposed to the renderer. */
+  deviceId?: string | null;
 }
 
 /** Main-process factory wiring the real electron-updater autoUpdater. */
@@ -270,7 +281,7 @@ export async function createUpdateService(
       }
     }
     const createReal = options.createRealUpdater ?? importRealUpdater;
-    const updater = await createReal(feedUrl);
+    const updater = await createReal(updateFeedOptions(feedUrl, options.deviceId));
     return new UpdateService(updater, broadcast, getCurrentVersion, undefined, delivery);
   } catch (error) {
     // Keep initialization failures actionable through the existing error phase;
@@ -285,7 +296,7 @@ export async function createUpdateService(
   }
 }
 
-async function importRealUpdater(feedUrl: string): Promise<UpdaterLike> {
+async function importRealUpdater(feed: UpdateFeedOptions): Promise<UpdaterLike> {
   // The main bundle is ESM while electron-updater is CommonJS. Loading it via
   // createRequire avoids Electron's packaged ESM/CJS dynamic-import interop
   // failure while still resolving the dependency from app.asar.
@@ -301,8 +312,28 @@ async function importRealUpdater(feedUrl: string): Promise<UpdaterLike> {
   // electron-updater requires an Electron runtime; running outside a packaged
   // app it still accepts configuration but its checks reject at run time. Keep
   // the service constructible so the IPC surface behaves deterministically.
-  autoUpdater.setFeedURL({ provider: 'generic', url: feedUrl });
+  configureUpdaterFeed(autoUpdater, feed);
   return autoUpdater;
+}
+
+export function configureUpdaterFeed(updater: UpdaterLike, feed: UpdateFeedOptions): void {
+  updater.setFeedURL(feed);
+  // The exported autoUpdater singleton is constructed before this call. In
+  // electron-updater, setFeedURL() replaces the provider but does not copy the
+  // option's requestHeaders onto AppUpdater (the constructor does that only for
+  // options supplied during construction). Set the public header property as
+  // well so both manifest checks and artifact downloads inherit the identity.
+  updater.requestHeaders = feed.requestHeaders ?? null;
+}
+
+export function updateFeedOptions(feedUrl: string, deviceId?: string | null): UpdateFeedOptions {
+  return {
+    provider: 'generic',
+    url: feedUrl,
+    ...(isUpdateDeviceId(deviceId)
+      ? { requestHeaders: { [UPDATE_DEVICE_ID_HEADER]: deviceId } }
+      : {}),
+  };
 }
 
 function isRpmPackage(resourcesPath: string): boolean {

@@ -52,3 +52,9 @@ everywhere so a partially-applied migration can safely re-run.
 `MAX_SAVED_FOLDER_DEPTH = 32`), `audit` (retention via `audit: { retentionDays,
 maxEntries }` in `ApplicationSettings`, default 50 000 entries). Unit tests own a fresh
 `case-<n>.db` per test (`docs/testing.md`).
+
+The main-only update identity uses the existing generic settings row
+`updates:device-id`; it is a random UUID v4, not a secret or hardware fingerprint.
+Because the key/value table already exists, adding the identity requires no SQLite
+migration. Invalid values are replaced; a failed write results in anonymous update
+requests instead of a per-launch identifier.

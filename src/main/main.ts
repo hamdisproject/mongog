@@ -12,6 +12,7 @@ import { serializeError } from '../shared/errors/index.js';
 import { AuditService } from './services/audit-service.js';
 import { DataTransferCoordinator } from './data-transfer/coordinator.js';
 import { createUpdateService, type UpdateService } from './services/update-service.js';
+import { getOrCreateUpdateDeviceId } from './services/update-device-identity.js';
 import { normalizeApplicationSettings } from '../shared/domain/workspace.js';
 import { DatabaseRenameCoordinator } from './database-rename/coordinator.js';
 
@@ -115,6 +116,7 @@ void app.whenReady().then(async () => {
       isPackaged: app.isPackaged,
       platform: process.platform,
       resourcesPath: process.resourcesPath,
+      deviceId: getOrCreateUpdateDeviceId(db.settings),
     },
   );
 

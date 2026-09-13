@@ -52,7 +52,8 @@ version "undefined"`: `touch ~/.skip-forge-system-check` (Forge's own skip flag)
 | IPC | `src/main/ipc/` | `registry.ts` allowlist+zod; connection/query/cursor handlers |
 | Runtime supervisor | `src/main/runtime/` | 1 utilityProcess per connection; idle GC; crash events |
 | Services | `src/main/services/connection-manager.ts` | profiles/groups CRUD + connect/disconnect + URI resolution |
-| Update service | `src/main/services/update-service.ts` | `electron-updater` wrapper (generic feed); consent-driven check/download/install; mirrors status via `IpcEvents.updateStatus` |
+| Update service | `src/main/services/update-service.ts` | `electron-updater` wrapper (generic feed); consent-driven check/download/install; sends the main-only pseudonymous device UUID |
+| Update identity | `src/main/services/update-device-identity.ts` | UUID v4 persisted under `settings:updates:device-id`; never exposed to renderer/IPC/logs |
 | Database | `src/main/storage/database.ts` | better-sqlite3 WAL; migration runner; backup; integrity |
 | Migrations | `src/main/storage/migrations.ts` | v1: 7 tables + indexes |
 | Repositories | `src/main/storage/repositories/` | groups, profiles, secrets (blob), history, workspace, settings, scripts |

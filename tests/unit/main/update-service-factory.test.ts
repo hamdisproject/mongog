@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createUpdateService } from '../../../src/main/services/update-service.js';
+import {
+  configureUpdaterFeed,
+  createUpdateService,
+  updateFeedOptions,
+} from '../../../src/main/services/update-service.js';
+import { UPDATE_DEVICE_ID_HEADER } from '../../../src/main/services/update-device-identity.js';
 import type { UpdateStatusPayload } from '../../../src/shared/ipc/index.js';
 import {
   cleanupUpdateScratch,
@@ -51,16 +56,44 @@ describe('createUpdateService factory', () => {
   it('uses the injected real-updater factory when provided', async () => {
     const realUpdater = createFakeUpdater();
     const createRealUpdater = vi.fn(async () => realUpdater);
+    const deviceId = '123e4567-e89b-42d3-a456-426614174000';
     const service = await createUpdateService(() => undefined, 'https://x/update', {
       createRealUpdater,
       getCurrentVersion: () => '1.2.6',
       platform: 'darwin',
       resourcesPath: configuredResources(),
+      deviceId,
     });
-    expect(createRealUpdater).toHaveBeenCalledWith('https://x/update');
+    expect(createRealUpdater).toHaveBeenCalledWith({
+      provider: 'generic',
+      url: 'https://x/update',
+      requestHeaders: { [UPDATE_DEVICE_ID_HEADER]: deviceId },
+    });
     const result = service.check();
     realUpdater.emit('update-not-available');
     await expect(result).resolves.toMatchObject({ phase: 'up-to-date' });
+  });
+
+  it('omits the device header when the identity is missing or invalid', () => {
+    expect(updateFeedOptions('https://x/update', null)).toEqual({
+      provider: 'generic',
+      url: 'https://x/update',
+    });
+    expect(updateFeedOptions('https://x/update', 'not-a-uuid')).toEqual({
+      provider: 'generic',
+      url: 'https://x/update',
+    });
+  });
+
+  it('applies headers to the updater singleton as well as the generic provider', () => {
+    const updater = createFakeUpdater();
+    const setFeedURL = vi.spyOn(updater, 'setFeedURL');
+    const feed = updateFeedOptions('https://x/update', '123e4567-e89b-42d3-a456-426614174000');
+
+    configureUpdaterFeed(updater, feed);
+
+    expect(setFeedURL).toHaveBeenCalledWith(feed);
+    expect(updater.requestHeaders).toEqual(feed.requestHeaders);
   });
 
   it('surfaces a redacted initialization error when the real updater factory throws', async () => {

@@ -19,6 +19,36 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
+    version: '1.2.23',
+    releasedAt: '2026-09-13',
+    title: 'Faster, more reliable updates and complete 1.2.22 fixes',
+    summary: 'Update checks and reporting are more resilient, with general performance and stability improvements plus every user-facing improvement from 1.2.22.',
+    sections: [
+      {
+        kind: 'added',
+        items: [
+          'Update requests now use a random installation identifier that survives normal app updates and restarts, improving anonymous device-level update reporting without hardware fingerprints or account data.',
+        ],
+      },
+      {
+        kind: 'improved',
+        items: [
+          'Improved performance and stability across update checks, downloads, and operational reporting.',
+          'Documents and query-result tables show Not Set only when a field is absent, while explicitly stored null values remain null.',
+          'Windows application, taskbar, Start menu, installer, and uninstaller surfaces use the same larger multi-resolution icon.',
+        ],
+      },
+      {
+        kind: 'fixed',
+        items: [
+          'ObjectId values entered in the document editor are inserted as real BSON ObjectIds instead of strings.',
+          'Editing a document preserves supported BSON types and prevents the immutable _id field from being removed or changed.',
+          'Update identity persistence failures no longer create unstable per-launch identifiers; update checks continue anonymously.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.2.22',
     releasedAt: '2026-09-08',
     title: 'Lossless BSON editing and clearer table values',

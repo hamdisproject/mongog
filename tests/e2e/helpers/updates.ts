@@ -32,6 +32,7 @@ export async function startUpdateFeed(version: string, failure?: 'checksum' | 'h
   artifact: string;
   sha512: string;
   requests: string[];
+  observations: Array<{ path: string; deviceId: string | null }>;
   close: () => Promise<void>;
 }> {
   const manifest = process.platform === 'darwin'
@@ -63,10 +64,16 @@ export async function startUpdateFeed(version: string, failure?: 'checksum' | 'h
     '',
   ].join('\n');
   const requests: string[] = [];
+  const observations: Array<{ path: string; deviceId: string | null }> = [];
   const server = createServer((request, response) => {
     const requestUrl = request.url ?? '/';
     const pathname = requestUrl.split('?', 1)[0] ?? '/';
     requests.push(pathname);
+    const rawDeviceId = request.headers['x-mongog-device-id'];
+    observations.push({
+      path: pathname,
+      deviceId: typeof rawDeviceId === 'string' ? rawDeviceId : null,
+    });
     if (pathname === `/update/${manifest}`) {
       response.writeHead(200, { 'Content-Type': 'text/yaml', 'Cache-Control': 'no-store' });
       response.end(body);
@@ -96,6 +103,7 @@ export async function startUpdateFeed(version: string, failure?: 'checksum' | 'h
     artifact,
     sha512,
     requests,
+    observations,
     close: () => new Promise<void>((resolve, reject) => {
       server.close((error) => error ? reject(error) : resolve());
     }),

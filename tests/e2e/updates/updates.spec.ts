@@ -112,6 +112,10 @@ test('packaged updater follows the platform download policy with a real generic 
     await inspectUpdateConfiguration(harness.application!, cachePath);
 
     await expect.poll(() => feed.requests).toContain(`/update/${feed.manifest}`);
+    const manifestObservation = feed.observations.find((item) => item.path === `/update/${feed.manifest}`);
+    expect(manifestObservation?.deviceId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
     const badge = page.getByRole('button', {
       name: 'Update 9.9.9 available',
     });
@@ -128,11 +132,24 @@ test('packaged updater follows the platform download policy with a real generic 
       expect(feed.requests).not.toContain(`/update/${feed.artifact}`);
       await page.getByRole('button', { name: 'Download now' }).click();
       await expect.poll(() => feed.requests).toContain(`/update/${feed.artifact}`);
+      expect(feed.observations.find((item) => item.path === `/update/${feed.artifact}`)?.deviceId)
+        .toBe(manifestObservation?.deviceId);
       await expect(page.getByRole('button', { name: 'Restart & Install' })).toBeVisible();
       await expect(page.getByText('Download finished. Restart the app to install.', { exact: true })).toBeVisible();
       const downloaded = await readFile(join(cachePath, 'mongog-updater', 'pending', feed.artifact));
       expect(createHash('sha512').update(downloaded).digest('base64')).toBe(feed.sha512);
     }
+    const manifestCount = feed.observations.filter((item) => item.path === `/update/${feed.manifest}`).length;
+    const relaunched = await mongog.relaunch({
+      MONGOG_UPDATE_FEED_URL: feed.url,
+      MONGOG_UPDATE_E2E_VERSION: '',
+      MONGOG_UPDATE_E2E_CACHE_PATH: cachePath,
+    });
+    relaunched.page.once('dialog', (dialog) => dialog.dismiss());
+    await expect.poll(() => feed.observations.filter((item) => item.path === `/update/${feed.manifest}`).length)
+      .toBeGreaterThan(manifestCount);
+    expect(feed.observations.filter((item) => item.path === `/update/${feed.manifest}`).at(-1)?.deviceId)
+      .toBe(manifestObservation?.deviceId);
     // Deliberately do not install the fixture. Real NSIS/Squirrel/RPM installation
     // remains protected by the separate user restart action.
   } finally {
