@@ -19,6 +19,35 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
+    version: '1.2.24',
+    releasedAt: '2026-10-06',
+    title: 'Configurable query timeout with a No limit option',
+    summary: 'Long-running queries no longer fail after a fixed 30 seconds: choose how long queries may run, or let them wait until MongoDB answers.',
+    sections: [
+      {
+        kind: 'added',
+        items: [
+          'Settings → Collection & query defaults now has a Query timeout: 30 seconds, 1, 2, 5 or 10 minutes, or No limit.',
+          'The Query timeout applies to Query and SQL runs, Documents filters and counts, and loading more result pages. Cancel still stops a running query at any time.',
+        ],
+      },
+      {
+        kind: 'improved',
+        items: [
+          'When a query stops because of the timeout, the console and error hint explain which setting to change instead of only showing a cancelled run.',
+          'Trusted Mode scripts that use db, use() or getSiblingDB() are no longer cut off by the connection’s 30 second operation timeout.',
+        ],
+      },
+      {
+        kind: 'fixed',
+        items: [
+          'Queries allowed to run longer than 30 seconds no longer fail with an operation timeout from the connection default.',
+          'bulkWrite results now show inserted, modified and deleted counts and are recorded as writes in the Activity log.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.2.23',
     releasedAt: '2026-09-13',
     title: 'Faster, more reliable updates and complete 1.2.22 fixes',
