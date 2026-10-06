@@ -19,6 +19,34 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
+    version: '1.2.25',
+    releasedAt: '2026-10-06',
+    title: 'Reliable Documents paging',
+    summary: 'The Documents view now loads every page with its own query, so long pauses, query timeouts and reconnects no longer break paging, and query results stay pageable after the query timeout.',
+    sections: [
+      {
+        kind: 'added',
+        items: [
+          'The Documents view shows the total number of pages once the document count is calculated, and Go to jumps straight to a page.',
+        ],
+      },
+      {
+        kind: 'improved',
+        items: [
+          'Each Documents page is loaded with its own query, so paging keeps working after long idle periods, query timeouts or a reconnect.',
+          'After editing or deleting documents the Documents view stays on the current page instead of returning to page 1, and Refresh reloads the current page.',
+          'Documents are ordered by _id when no sort is set, and _id breaks ties of other sorts, so no document repeats or goes missing between pages.',
+        ],
+      },
+      {
+        kind: 'fixed',
+        items: [
+          'Loading the next page of query results or Documents no longer fails with an operation timeout when it is requested after the query timeout has elapsed.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.2.24',
     releasedAt: '2026-10-06',
     title: 'Configurable query timeout with a No limit option',
