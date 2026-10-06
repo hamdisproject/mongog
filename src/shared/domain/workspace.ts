@@ -185,6 +185,9 @@ export const CONNECTION_IDLE_TIMEOUT_VALUES = [
 
 export const DEFAULT_CONNECTION_IDLE_TIMEOUT_MS = 60 * 60 * 1000;
 
+/** Upper bound for `execution.defaultTimeoutMS`; 0 means no limit. */
+export const MAX_QUERY_TIMEOUT_MS = 10 * 60 * 1000;
+
 export const DEFAULT_SETTINGS: ApplicationSettings = {
   schemaVersion: 1,
   theme: 'dark',
@@ -244,7 +247,7 @@ export function normalizeApplicationSettings(value: unknown): ApplicationSetting
       idleTimeoutMS: connectionIdleTimeoutValue(connection.idleTimeoutMS),
     },
     execution: {
-      defaultTimeoutMS: integerInRange(execution.defaultTimeoutMS, 0, 600_000, DEFAULT_SETTINGS.execution.defaultTimeoutMS),
+      defaultTimeoutMS: integerInRange(execution.defaultTimeoutMS, 0, MAX_QUERY_TIMEOUT_MS, DEFAULT_SETTINGS.execution.defaultTimeoutMS),
       pageSize: integerInRange(execution.pageSize, 1, 500, DEFAULT_SETTINGS.execution.pageSize),
       maxRetainedPages: integerInRange(execution.maxRetainedPages, 1, 1_000, DEFAULT_SETTINGS.execution.maxRetainedPages),
       maxPreviewBytes: positiveInteger(execution.maxPreviewBytes, DEFAULT_SETTINGS.execution.maxPreviewBytes),

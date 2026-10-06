@@ -33,6 +33,12 @@ describe('classifyError', () => {
     expect(classifyError({ name: 'MongoNetworkError', message: 'TLS handshake failed: certificate verify failed' }).category).toBe('Tls');
   });
 
+  it('maps CSOT operation timeouts to NetworkTimeout with a Settings hint', () => {
+    const e = classifyError({ name: 'MongoOperationTimeoutError', message: 'Timed out during socket read (30000ms)' });
+    expect(e.category).toBe('NetworkTimeout');
+    expect(e.hint).toMatch(/Query timeout.*Settings/);
+  });
+
   it('maps invalid connection strings', () => {
     expect(classifyError({ name: 'MongoParseError', message: 'Invalid connection string' }).category).toBe('InvalidConnectionString');
   });

@@ -39,7 +39,10 @@ export interface ExecuteOptions {
   mode: ExecutionMode;
   readOnly?: boolean;
   pageSize?: number;
-  /** 0 = no engine-side timeout (Trusted Mode only, behind UI confirm). */
+  /**
+   * Execution budget; also applied as the CSOT `timeoutMS` of the script's
+   * `db`. 0 = no limit (Trusted Mode default, or "No limit" in Settings).
+   */
   timeoutMS?: number;
   language?: ScriptLanguage;
   registry: CursorRegistry;
@@ -215,11 +218,17 @@ export class ExecutionEngine {
       return undefined;
     };
 
+    const timeoutMS =
+      opts.timeoutMS ?? (opts.mode === 'trusted' ? 0 : DEFAULT_TIMEOUT_MS);
+
     const sandbox = createSandbox({
       client: opts.client,
       database: opts.database,
       mode: opts.mode,
       readOnly: opts.readOnly,
+      // Driver operations share the execution budget so the client-level CSOT
+      // default (connection profile) cannot cut a longer-allowed query short.
+      operationTimeoutMS: timeoutMS,
       capture: (i, t) => capture(i, t),
       mark: (i) => {
         scope.throwIfCancelled();
@@ -241,11 +250,22 @@ export class ExecutionEngine {
     });
 
     // ---- 4. Execute --------------------------------------------------------
-    const timeoutMS =
-      opts.timeoutMS ?? (opts.mode === 'trusted' ? 0 : DEFAULT_TIMEOUT_MS);
     let timer: NodeJS.Timeout | undefined;
     if (timeoutMS > 0) {
-      timer = setTimeout(() => scope.cancel(), timeoutMS);
+      timer = setTimeout(() => {
+        if (!scope.cancel()) return;
+        emit({
+          type: 'console',
+          entry: {
+            level: 'warn',
+            statementIndex: scope.currentIndex,
+            args: [serializeToEjson(
+              `[MongoG] Query stopped after the ${formatTimeout(timeoutMS)} query timeout. ` +
+              'Raise "Query timeout" in Settings or choose "No limit" to wait until MongoDB answers.',
+            )],
+          },
+        });
+      }, timeoutMS);
       timer.unref?.();
     }
 
@@ -470,6 +490,11 @@ class ExecutionScope {
   }
 }
 
+function formatTimeout(ms: number): string {
+  if (ms % 60_000 === 0) return `${ms / 60_000} min`;
+  return ms % 1_000 === 0 ? `${ms / 1_000} s` : `${ms} ms`;
+}
+
 function isThenable(v: unknown): v is PromiseLike<unknown> {
   return (
     v !== null &&
@@ -502,7 +527,10 @@ interface WriteDetection {
 function detectWriteResult(value: unknown): WriteDetection | null {
   if (typeof value !== 'object' || value === null) return null;
   const v = value as Record<string, unknown>;
-  if (typeof v.acknowledged !== 'boolean') return null;
+  // Collection.bulkWrite's BulkWriteResult has no `acknowledged` field and the
+  // class is not exported (driver 7), so recognize it by its result API.
+  const isBulkWriteResult = typeof v.isOk === 'function' && typeof v.getWriteErrors === 'function';
+  if (typeof v.acknowledged !== 'boolean' && !isBulkWriteResult) return null;
 
   if ('insertedId' in v) {
     return { op: 'insert', counts: { insertedCount: 1 }, raw: value };

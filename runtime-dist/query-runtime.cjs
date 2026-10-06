@@ -250670,6 +250670,12 @@ function classifyError(err, range2) {
       return { ...base2, category: "ServerSelection", hint: serverSelectionHint(e) };
     case "MongoNetworkTimeoutError":
       return { ...base2, category: "NetworkTimeout" };
+    case "MongoOperationTimeoutError":
+      return {
+        ...base2,
+        category: "NetworkTimeout",
+        hint: `Raise "Query timeout" in Settings (or choose "No limit"), or the connection's Operation timeout for other actions.`
+      };
     case "MongoNetworkError": {
       if (/ENOTFOUND|EAI_AGAIN|getaddrinfo/i.test(rawMessage)) return { ...base2, category: "Dns" };
       if (/TLS|SSL|certificate|CERT_/i.test(rawMessage)) return { ...base2, category: "Tls" };
@@ -251323,8 +251329,9 @@ function createSandbox(options) {
   const guarded = options.readOnly ? createReadOnlyDriverGuard(options.client) : null;
   const sandboxClient = guarded?.client ?? options.client;
   const sandboxMongoModule = guarded?.mongodb ?? mongodb;
+  const dbOptions = options.operationTimeoutMS === void 0 ? void 0 : { timeoutMS: options.operationTimeoutMS };
   const shellDb = (databaseName) => {
-    const value = sandboxClient.db(databaseName);
+    const value = sandboxClient.db(databaseName, dbOptions);
     if (!Object.hasOwn(value, "getSiblingDB")) {
       Object.defineProperty(value, "getSiblingDB", {
         configurable: false,
@@ -251680,11 +251687,15 @@ class ExecutionEngine {
       }
       return void 0;
     };
+    const timeoutMS = opts.timeoutMS ?? (opts.mode === "trusted" ? 0 : DEFAULT_TIMEOUT_MS);
     const sandbox = createSandbox({
       client: opts.client,
       database: opts.database,
       mode: opts.mode,
       readOnly: opts.readOnly,
+      // Driver operations share the execution budget so the client-level CSOT
+      // default (connection profile) cannot cut a longer-allowed query short.
+      operationTimeoutMS: timeoutMS,
       capture: (i, t) => capture(i, t),
       mark: (i) => {
         scope.throwIfCancelled();
@@ -251704,10 +251715,21 @@ class ExecutionEngine {
       onConsole: (entry) => emit({ type: "console", entry }),
       currentStatementIndex: () => scope.currentIndex
     });
-    const timeoutMS = opts.timeoutMS ?? (opts.mode === "trusted" ? 0 : DEFAULT_TIMEOUT_MS);
     let timer;
     if (timeoutMS > 0) {
-      timer = setTimeout(() => scope.cancel(), timeoutMS);
+      timer = setTimeout(() => {
+        if (!scope.cancel()) return;
+        emit({
+          type: "console",
+          entry: {
+            level: "warn",
+            statementIndex: scope.currentIndex,
+            args: [serializeToEjson(
+              `[MongoG] Query stopped after the ${formatTimeout(timeoutMS)} query timeout. Raise "Query timeout" in Settings or choose "No limit" to wait until MongoDB answers.`
+            )]
+          }
+        });
+      }, timeoutMS);
       timer.unref?.();
     }
     let script;
@@ -251884,6 +251906,10 @@ class ExecutionScope {
     this.streams.clear();
   }
 }
+function formatTimeout(ms) {
+  if (ms % 6e4 === 0) return `${ms / 6e4} min`;
+  return ms % 1e3 === 0 ? `${ms / 1e3} s` : `${ms} ms`;
+}
 function isThenable(v) {
   return v !== null && (typeof v === "object" || typeof v === "function") && typeof v.then === "function";
 }
@@ -251894,7 +251920,8 @@ function namespaceOf(cursor) {
 function detectWriteResult(value) {
   if (typeof value !== "object" || value === null) return null;
   const v = value;
-  if (typeof v.acknowledged !== "boolean") return null;
+  const isBulkWriteResult = typeof v.isOk === "function" && typeof v.getWriteErrors === "function";
+  if (typeof v.acknowledged !== "boolean" && !isBulkWriteResult) return null;
   if ("insertedId" in v) {
     return { op: "insert", counts: { insertedCount: 1 }, raw: value };
   }
@@ -252476,7 +252503,7 @@ async function findCollectionDocuments(client2, registry2, options) {
     // Canonical EJSON serialization then carries every type to the renderer
     // without changing the normal driver behavior of user query scripts.
     promoteValues: false,
-    maxTimeMS: 3e4,
+    ...options.timeoutMS === void 0 ? { maxTimeMS: 3e4 } : { timeoutMS: options.timeoutMS },
     ...options.signal ? { signal: options.signal } : {}
   });
   if (sort2 && Object.keys(sort2).length > 0) cursor = cursor.sort(sort2);
@@ -252496,8 +252523,13 @@ async function findCollectionDocuments(client2, registry2, options) {
 }
 async function countCollectionDocuments(client2, options) {
   const filter2 = parseQueryDocumentExpression(options.filterEjson, "Filter");
-  const count2 = await client2.db(options.database).collection(options.collection).countDocuments(filter2, { maxTimeMS: 11e4 });
+  const count2 = await client2.db(options.database).collection(options.collection).countDocuments(filter2, countTimeout(options.timeoutMS));
   return { count: count2 };
+}
+const COUNT_TIMEOUT_FLOOR_MS = 11e4;
+function countTimeout(timeoutMS) {
+  if (timeoutMS === void 0) return { maxTimeMS: COUNT_TIMEOUT_FLOOR_MS };
+  return { timeoutMS: timeoutMS === 0 ? 0 : Math.max(timeoutMS, COUNT_TIMEOUT_FLOOR_MS) };
 }
 async function insertCollectionDocument(client2, options) {
   const document2 = parseEjsonDocument(options.documentEjson, "Document");
@@ -328090,6 +328122,7 @@ async function handle(req) {
           ...req.sortEjson ? { sortEjson: req.sortEjson } : {},
           ...req.projectionEjson ? { projectionEjson: req.projectionEjson } : {},
           pageSize: req.pageSize,
+          ...req.timeoutMS !== void 0 ? { timeoutMS: req.timeoutMS } : {},
           signal,
           onCursorRegistered: (cursorId) => {
             fetchOperations.attachResource(operationId, () => registry.close(cursorId));
@@ -328105,7 +328138,8 @@ async function handle(req) {
       reply(req.id, await countCollectionDocuments(requireClient(), {
         database: req.database,
         collection: req.collection,
-        filterEjson: req.filterEjson
+        filterEjson: req.filterEjson,
+        ...req.timeoutMS !== void 0 ? { timeoutMS: req.timeoutMS } : {}
       }));
       return;
     }

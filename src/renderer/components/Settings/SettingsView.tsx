@@ -133,6 +133,24 @@ const connectionIdleOptions = [
   { value: 0, label: 'Never' },
 ] as const;
 
+const queryTimeoutOptions: ReadonlyArray<{ value: number; label: string }> = [
+  { value: 30 * 1000, label: '30 seconds' },
+  { value: 60 * 1000, label: '1 minute' },
+  { value: 2 * 60 * 1000, label: '2 minutes' },
+  { value: 5 * 60 * 1000, label: '5 minutes' },
+  { value: 10 * 60 * 1000, label: '10 minutes' },
+  { value: 0, label: 'No limit' },
+];
+
+/** Keep a stored value outside the presets selectable instead of silently showing another one. */
+function queryTimeoutChoices(current: number): ReadonlyArray<{ value: number; label: string }> {
+  if (queryTimeoutOptions.some((option) => option.value === current)) return queryTimeoutOptions;
+  const label = current % 1_000 === 0 ? `${current / 1_000} seconds` : `${current} ms`;
+  return [...queryTimeoutOptions, { value: current, label }].sort((a, b) => (
+    (a.value === 0 ? Infinity : a.value) - (b.value === 0 ? Infinity : b.value)
+  ));
+}
+
 export function SettingsView() {
   const {
     settings,
@@ -152,6 +170,7 @@ export function SettingsView() {
     setToolbarActionVisible,
     setConnectionIdleTimeout,
     setPageSize,
+    setQueryTimeout,
     setAuditSettings,
   } = useSettingsStore();
   const openActivityLog = useWorkspaceStore((state) => state.openActivityLog);
@@ -460,7 +479,7 @@ export function SettingsView() {
           <div style={{ padding: '15px 17px', borderBottom: `1px solid ${theme.colors.border}` }}>
             <h2 style={{ margin: 0, fontSize: 14 }}>Collection &amp; query defaults</h2>
             <div style={{ marginTop: 5, color: theme.colors.textMuted, fontSize: 11, lineHeight: 1.45 }}>
-              Choose how newly opened collections start and how many documents each new result page reads.
+              Choose how newly opened collections start, how many documents each new result page reads and how long a query may run.
             </div>
           </div>
 
@@ -617,6 +636,33 @@ export function SettingsView() {
                   borderRadius: 4, background: theme.colors.input, color: theme.colors.text, padding: '0 8px',
                 }}
               />
+            </label>
+
+            <div>
+              <strong style={{ display: 'block', fontSize: 12 }}>Query timeout</strong>
+              <span style={{ display: 'block', marginTop: 4, color: theme.colors.textMuted, fontSize: 10, lineHeight: 1.45 }}>
+                {settings.execution.defaultTimeoutMS === 0
+                  ? 'Queries, SQL and Documents filters wait until MongoDB answers. Use Cancel to stop a long-running query.'
+                  : 'Applies to Query and SQL runs, Documents filters and loading more result pages. Trusted scripts never time out.'}
+              </span>
+            </div>
+            <label style={{ display: 'grid', gap: 4, color: theme.colors.textMuted, fontSize: 9 }}>
+              TIMEOUT
+              <select
+                aria-label="Query timeout"
+                value={settings.execution.defaultTimeoutMS}
+                disabled={!loaded || saving}
+                onChange={(event) => void setQueryTimeout(Number(event.target.value))}
+                style={{
+                  width: 112, height: 29, boxSizing: 'border-box',
+                  border: `1px solid ${theme.colors.borderStrong}`, borderRadius: 4,
+                  background: theme.colors.input, color: theme.colors.text, padding: '0 8px',
+                }}
+              >
+                {queryTimeoutChoices(settings.execution.defaultTimeoutMS).map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
             </label>
           </div>
         </section>

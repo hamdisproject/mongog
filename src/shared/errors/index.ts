@@ -100,6 +100,12 @@ export function classifyError(err: unknown, range?: SourceRange): AppError {
       return { ...base, category: 'ServerSelection', hint: serverSelectionHint(e) };
     case 'MongoNetworkTimeoutError':
       return { ...base, category: 'NetworkTimeout' };
+    case 'MongoOperationTimeoutError':
+      return {
+        ...base,
+        category: 'NetworkTimeout',
+        hint: 'Raise "Query timeout" in Settings (or choose "No limit"), or the connection\'s Operation timeout for other actions.',
+      };
     case 'MongoNetworkError': {
       if (/ENOTFOUND|EAI_AGAIN|getaddrinfo/i.test(rawMessage)) return { ...base, category: 'Dns' };
       if (/TLS|SSL|certificate|CERT_/i.test(rawMessage)) return { ...base, category: 'Tls' };

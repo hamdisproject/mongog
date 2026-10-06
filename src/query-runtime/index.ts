@@ -305,6 +305,7 @@ async function handle(req: RuntimeRequest): Promise<void> {
           ...(req.sortEjson ? { sortEjson: req.sortEjson as string } : {}),
           ...(req.projectionEjson ? { projectionEjson: req.projectionEjson as string } : {}),
           pageSize: req.pageSize as number,
+          ...(req.timeoutMS !== undefined ? { timeoutMS: req.timeoutMS as number } : {}),
           signal,
           onCursorRegistered: (cursorId) => {
             fetchOperations.attachResource(operationId, () => registry.close(cursorId));
@@ -321,6 +322,7 @@ async function handle(req: RuntimeRequest): Promise<void> {
         database: req.database as string,
         collection: req.collection as string,
         filterEjson: req.filterEjson as string,
+        ...(req.timeoutMS !== undefined ? { timeoutMS: req.timeoutMS as number } : {}),
       }));
       return;
     }

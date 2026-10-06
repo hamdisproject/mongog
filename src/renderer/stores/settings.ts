@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { ApplicationSettings, ToolbarAction } from '../../shared/domain/index.js';
 import type { BsonDisplayMode } from '../../shared/ejson/index.js';
-import { DEFAULT_SETTINGS, normalizeApplicationSettings } from '../../shared/domain/workspace.js';
+import { DEFAULT_SETTINGS, MAX_QUERY_TIMEOUT_MS, normalizeApplicationSettings } from '../../shared/domain/workspace.js';
 import { applyThemePreference, type ThemePreference } from '../theme.js';
 
 interface SettingsState {
@@ -25,6 +25,7 @@ interface SettingsState {
   setToolbarActionVisible: (action: ToolbarAction, visible: boolean) => Promise<void>;
   setConnectionIdleTimeout: (idleTimeoutMS: number) => Promise<void>;
   setPageSize: (pageSize: number) => Promise<void>;
+  setQueryTimeout: (timeoutMS: number) => Promise<void>;
   setAuditSettings: (audit: ApplicationSettings['audit']) => Promise<void>;
 }
 
@@ -203,6 +204,20 @@ export const useSettingsStore = create<SettingsState>()((set, get) => {
         execution: { ...previous.execution, pageSize },
       };
       await persist(settings);
+    },
+
+    setQueryTimeout: async (defaultTimeoutMS) => {
+      if (
+        !Number.isInteger(defaultTimeoutMS) ||
+        defaultTimeoutMS < 0 ||
+        defaultTimeoutMS > MAX_QUERY_TIMEOUT_MS ||
+        get().settings.execution.defaultTimeoutMS === defaultTimeoutMS
+      ) return;
+      const previous = get().settings;
+      await persist({
+        ...previous,
+        execution: { ...previous.execution, defaultTimeoutMS },
+      });
     },
 
     setAuditSettings: async (audit) => {

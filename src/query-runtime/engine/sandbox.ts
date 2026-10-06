@@ -22,6 +22,8 @@ export interface SandboxOptions {
   database: string;
   mode: 'query' | 'trusted';
   readOnly?: boolean;
+  /** CSOT `timeoutMS` for `db`, `use()` and `getSiblingDB()`; 0 = no limit. */
+  operationTimeoutMS?: number;
   capture: (index: number, thunk: () => Promise<unknown>) => Promise<unknown>;
   mark: (index: number) => void;
   onConsole: (entry: ConsoleEntry) => void;
@@ -98,8 +100,11 @@ export function createSandbox(options: SandboxOptions): SandboxHandle {
   const guarded = options.readOnly ? createReadOnlyDriverGuard(options.client) : null;
   const sandboxClient = guarded?.client ?? options.client;
   const sandboxMongoModule = guarded?.mongodb ?? mongodb;
+  const dbOptions: mongodb.DbOptions | undefined = options.operationTimeoutMS === undefined
+    ? undefined
+    : { timeoutMS: options.operationTimeoutMS };
   const shellDb = (databaseName: string): ShellCompatibleDb => {
-    const value = sandboxClient.db(databaseName) as ShellCompatibleDb;
+    const value = sandboxClient.db(databaseName, dbOptions) as ShellCompatibleDb;
     if (!Object.hasOwn(value, 'getSiblingDB')) {
       Object.defineProperty(value, 'getSiblingDB', {
         configurable: false,

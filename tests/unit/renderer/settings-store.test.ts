@@ -115,6 +115,21 @@ describe('renderer settings store', () => {
     expect(save).toHaveBeenCalledTimes(2);
   });
 
+  it('persists the query timeout, including No limit, and rejects out-of-range values', async () => {
+    save.mockResolvedValue(undefined);
+
+    await useSettingsStore.getState().setQueryTimeout(5 * 60_000);
+    expect(useSettingsStore.getState().settings.execution.defaultTimeoutMS).toBe(5 * 60_000);
+    await useSettingsStore.getState().setQueryTimeout(0);
+    expect(save.mock.lastCall?.[0].execution).toEqual({ ...DEFAULT_SETTINGS.execution, defaultTimeoutMS: 0 });
+
+    await useSettingsStore.getState().setQueryTimeout(-1);
+    await useSettingsStore.getState().setQueryTimeout(10 * 60_000 + 1);
+    await useSettingsStore.getState().setQueryTimeout(1.5);
+    expect(useSettingsStore.getState().settings.execution.defaultTimeoutMS).toBe(0);
+    expect(save).toHaveBeenCalledTimes(2);
+  });
+
   it('persists the global table column order', async () => {
     save.mockResolvedValue(undefined);
 

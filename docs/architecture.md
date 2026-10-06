@@ -114,7 +114,7 @@ Rule: never store secrets, credentialed URIs, or certs in any store
 | page IPC cap | 8 MB | const `DEFAULT_PAGE_BUDGET` | `serialize/index.ts` (cuts page short) |
 | full-value LRU | 64 MB | const in `cursors.ts` | opaque `fullValueId` fetch |
 | `execution.cursorIdleTimeoutMS` | 10 min | ≥1 s | `CursorRegistry` sweeper (30 s) |
-| `execution.defaultTimeoutMS` | 30 s | 0–600 s | engine timeout + supervisor kill |
+| `execution.defaultTimeoutMS` (Settings → Query timeout) | 30 s | 30 s, 1/2/5/10 min, 0 = no limit (0–600 s accepted) | main fills Query/SQL executes, Documents find/count and `cursor-next`; engine timer + script `db` CSOT `timeoutMS`; main watchdog `queryRequestTimeoutMS` (disabled at 0). Trusted mode stays unlimited |
 
 Detail: `docs/runtime-lifecycle.md`.
 

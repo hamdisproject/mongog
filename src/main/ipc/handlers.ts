@@ -126,7 +126,7 @@ import type { EjsonEnvelope } from '../../shared/ejson/index.js';
 import { appError } from '../../shared/errors/index.js';
 import { containsKnownSecretMaterial } from '../../shared/redaction/index.js';
 import { RuntimeSupervisor } from '../runtime/supervisor.js';
-import { RuntimeClient } from '../runtime/runtime-client.js';
+import { queryRequestTimeoutMS, RuntimeClient } from '../runtime/runtime-client.js';
 import { resolveRuntimeEntry } from '../runtime/paths.js';
 import { ConnectionManager, type ConnectionSecretStore } from '../services/connection-manager.js';
 import { AuditService, type AuditContext } from '../services/audit-service.js';
@@ -156,6 +156,9 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
   const { supervisor } = ctx;
   const conn = new ConnectionManager(ctx.getDb(), supervisor, ctx.secretStore);
   const sqlConfirmations = new SqlConfirmationStore();
+  const loadSettings = () => normalizeApplicationSettings(ctx.getDb().settings.get() ?? structuredClone(DEFAULT_SETTINGS));
+  // User-facing query timeout (Settings); 0 waits until MongoDB answers or the user cancels.
+  const queryTimeoutMS = () => loadSettings().execution.defaultTimeoutMS;
   const auditContext = (
     connectionId: string | undefined,
     context: Omit<AuditContext, 'connectionId' | 'connectionName'>,
@@ -386,8 +389,14 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
     try {
       const client = supervisor.get(payload.connectionId);
       if (!client) throw appError('UtilityProcessCrash', `Connection ${payload.connectionId} is not running.`);
+      const timeoutMS = payload.timeoutMS ?? (payload.mode === 'query' ? queryTimeoutMS() : undefined);
       return await client.request<ExecuteResponse>('execute', {
-        request: { ...payload, runId, readOnly: profile.readOnly },
+        request: {
+          ...payload,
+          runId,
+          readOnly: profile.readOnly,
+          ...(timeoutMS !== undefined ? { timeoutMS } : {}),
+        },
       });
     } catch (error) {
       ctx.audit.failQueryStart(runId, error);
@@ -415,7 +424,7 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
       });
     }
 
-    const settings = normalizeApplicationSettings(ctx.getDb().settings.get() ?? structuredClone(DEFAULT_SETTINGS));
+    const settings = loadSettings();
     const confirmationContext = {
       connectionId: payload.connectionId,
       database: payload.database,
@@ -463,7 +472,7 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
           sourceOffset: { line: 0, column: 0 },
           readOnly: profile.readOnly,
           ...(payload.pageSize !== undefined ? { pageSize: payload.pageSize } : {}),
-          ...(payload.timeoutMS !== undefined ? { timeoutMS: payload.timeoutMS } : {}),
+          timeoutMS: payload.timeoutMS ?? settings.execution.defaultTimeoutMS,
         },
       });
       return { status: 'started', executionId: response.executionId };
@@ -480,7 +489,11 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
     }), async () => {
       const client = supervisor.get(connectionId);
       if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
-      return client.request<DocumentsPage>('cursor-next', { cursorId, pageSize, operationId });
+      return client.request<DocumentsPage>(
+        'cursor-next',
+        { cursorId, pageSize, operationId },
+        { timeoutMS: queryRequestTimeoutMS(queryTimeoutMS()) },
+      );
     }, (page) => ({ resultCount: page.documents.length }));
   }, validateSender);
 
@@ -629,7 +642,12 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
     }), async () => {
       const client = supervisor.get(payload.connectionId);
       if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
-      return client.request<CollectionDocumentsPage>('collection-find', payload);
+      const timeoutMS = queryTimeoutMS();
+      return client.request<CollectionDocumentsPage>(
+        'collection-find',
+        { ...payload, timeoutMS },
+        { timeoutMS: queryRequestTimeoutMS(timeoutMS) },
+      );
     }, (page) => ({ resultCount: page.documents.length }));
   }, validateSender);
 
@@ -641,7 +659,12 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
     }), async () => {
       const client = supervisor.get(payload.connectionId);
       if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
-      return client.request<{ count: number }>('collection-count', payload);
+      const timeoutMS = queryTimeoutMS();
+      return client.request<{ count: number }>(
+        'collection-count',
+        { ...payload, timeoutMS },
+        { timeoutMS: queryRequestTimeoutMS(timeoutMS) },
+      );
     }, (result) => ({ resultCount: result.count }));
   }, validateSender);
 
@@ -1258,9 +1281,7 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
     ctx.audit.pruneSafely();
   }, validateSender);
 
-  registerChannel(IpcChannels.settingsLoad, emptySchema, async () => (
-    normalizeApplicationSettings(ctx.getDb().settings.get() ?? structuredClone(DEFAULT_SETTINGS))
-  ), validateSender);
+  registerChannel(IpcChannels.settingsLoad, emptySchema, async () => loadSettings(), validateSender);
 
   // ── Application updates ──
   registerChannel(IpcChannels.updatesCheck, updatesCheckSchema, async (): Promise<UpdateCheckResult> => (

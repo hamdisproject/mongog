@@ -1,4 +1,4 @@
-import { MongoClient } from 'mongodb';
+import { MongoClient, type MongoClientOptions } from 'mongodb';
 import { afterAll, inject } from 'vitest';
 
 let suiteSequence = 0;
@@ -8,7 +8,7 @@ export interface MongoIntegrationSuite {
   readonly databaseName: string;
   readonly standaloneUri: string;
   readonly replicaSetUri: string;
-  newClient(uri?: string): Promise<MongoClient>;
+  newClient(uri?: string, options?: MongoClientOptions): Promise<MongoClient>;
 }
 
 function databaseUri(rootUri: string, databaseName: string): string {
@@ -54,8 +54,8 @@ export function useMongoIntegrationSuite(scope: string): MongoIntegrationSuite {
     databaseName,
     standaloneUri,
     replicaSetUri,
-    async newClient(uri = standaloneUri) {
-      const client = new MongoClient(uri, { appName });
+    async newClient(uri = standaloneUri, options = {}) {
+      const client = new MongoClient(uri, { ...options, appName });
       await client.connect();
       clients.add(client);
       return client;

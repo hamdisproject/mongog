@@ -68,6 +68,14 @@ test('global collection defaults persist and auto-run a new Query collection onc
   await expect(globalPageSize).toHaveValue('100');
   await expect(page.getByText('Preferences are saved automatically.')).toBeVisible();
 
+  const queryTimeout = page.getByLabel('Query timeout');
+  await expect(queryTimeout).toHaveValue('30000');
+  await expect(queryTimeout.locator('option', { hasText: 'No limit' })).toHaveAttribute('value', '0');
+  await queryTimeout.selectOption({ label: 'No limit' });
+  await expect(queryTimeout).toHaveValue('0');
+  await expect(page.getByText('wait until MongoDB answers', { exact: false })).toBeVisible();
+  await expect(page.getByText('Preferences are saved automatically.')).toBeVisible();
+
   const idleTimeout = page.getByLabel('Disconnect idle connections after');
   await expect(idleTimeout).toHaveValue('3600000');
   await idleTimeout.selectOption(String(2 * 60 * 60 * 1000));
@@ -86,6 +94,7 @@ test('global collection defaults persist and auto-run a new Query collection onc
   await expect(page.getByRole('switch', { name: 'Run default collection query automatically' }))
     .toHaveAttribute('aria-checked', 'true');
   await expect(page.getByLabel('Global page size')).toHaveValue('100');
+  await expect(page.getByLabel('Query timeout')).toHaveValue('0');
   await expect(page.getByLabel('Disconnect idle connections after')).toHaveValue('7200000');
 
   await page.locator('[title^="welcome: Welcome"]').click();

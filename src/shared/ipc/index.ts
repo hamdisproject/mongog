@@ -77,6 +77,7 @@ import {
   DATA_COLUMN_TYPES,
   DATA_EMPTY_CELL_POLICIES,
   CONNECTION_IDLE_TIMEOUT_VALUES,
+  MAX_QUERY_TIMEOUT_MS,
   MAX_SQL_SOURCE_BYTES,
 } from '../domain/index.js';
 import {
@@ -386,7 +387,7 @@ export const applicationSettingsSchema = z.object({
     ),
   }),
   execution: z.object({
-    defaultTimeoutMS: z.number().int().min(0).max(600_000),
+    defaultTimeoutMS: z.number().int().min(0).max(MAX_QUERY_TIMEOUT_MS),
     pageSize: z.number().int().min(1).max(500),
     maxRetainedPages: z.number().int().min(1).max(1_000),
     maxPreviewBytes: z.number().int().min(1),

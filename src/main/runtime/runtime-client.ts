@@ -26,6 +26,16 @@ export interface RuntimeRequestOptions {
 }
 
 const MESSAGE_TIMEOUT = 120_000;
+const QUERY_WATCHDOG_GRACE_MS = 5_000;
+
+/**
+ * Main-side watchdog for a request bounded by the user's query timeout: never
+ * shorter than the default, and disabled when the user chose "No limit" (0).
+ */
+export function queryRequestTimeoutMS(queryTimeoutMS: number): number {
+  if (queryTimeoutMS === 0) return 0;
+  return Math.max(MESSAGE_TIMEOUT, queryTimeoutMS + QUERY_WATCHDOG_GRACE_MS);
+}
 
 export class RuntimeClient extends EventEmitter {
   private child: UtilityProcess | null = null;

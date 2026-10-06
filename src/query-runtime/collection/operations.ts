@@ -1,5 +1,5 @@
 import { EJSON } from 'bson';
-import type { Collection, Document, Filter, MongoClient, Sort } from 'mongodb';
+import type { Collection, CountDocumentsOptions, Document, Filter, MongoClient, Sort } from 'mongodb';
 import type {
   CollectionBulkDeleteItemResult,
   CollectionBulkDeleteResult,
@@ -31,6 +31,8 @@ export interface CollectionFindOptions extends CollectionNamespace {
   sortEjson?: string;
   projectionEjson?: string;
   pageSize: number;
+  /** Query timeout from Settings (CSOT); 0 = no limit. Omitted keeps the 30 s server cap. */
+  timeoutMS?: number;
   signal?: AbortSignal;
   onCursorRegistered?: (cursorId: string) => void;
 }
@@ -59,6 +61,8 @@ export interface CollectionBulkDeleteOptions extends CollectionNamespace {
 
 export interface CollectionCountOptions extends CollectionNamespace {
   filterEjson: string;
+  /** Query timeout from Settings (CSOT); 0 = no limit. Never shortens the count floor. */
+  timeoutMS?: number;
 }
 
 export interface CollectionRenameOptions extends CollectionNamespace {
@@ -89,7 +93,7 @@ export async function findCollectionDocuments(
     // Canonical EJSON serialization then carries every type to the renderer
     // without changing the normal driver behavior of user query scripts.
     promoteValues: false,
-    maxTimeMS: 30_000,
+    ...(options.timeoutMS === undefined ? { maxTimeMS: 30_000 } : { timeoutMS: options.timeoutMS }),
     ...(options.signal ? { signal: options.signal } : {}),
   });
   if (sort && Object.keys(sort).length > 0) cursor = cursor.sort(sort as Sort);
@@ -117,11 +121,19 @@ export async function countCollectionDocuments(
   const count = await client
     .db(options.database)
     .collection(options.collection)
-    // Exact counts on large or weakly indexed filtered collections can take
-    // longer than the browser page request. Keep this below the runtime IPC
-    // ceiling while avoiding the former, surprisingly short 30 second cap.
-    .countDocuments(filter as Filter<Document>, { maxTimeMS: 110_000 });
+    .countDocuments(filter as Filter<Document>, countTimeout(options.timeoutMS));
   return { count };
+}
+
+// Exact counts on large or weakly indexed filtered collections can take longer
+// than the browser page request. Keep this below the default runtime IPC
+// ceiling while avoiding the former, surprisingly short 30 second cap.
+const COUNT_TIMEOUT_FLOOR_MS = 110_000;
+
+function countTimeout(timeoutMS: number | undefined): CountDocumentsOptions {
+  if (timeoutMS === undefined) return { maxTimeMS: COUNT_TIMEOUT_FLOOR_MS };
+  // An explicit CSOT value also overrides the shorter client-level default.
+  return { timeoutMS: timeoutMS === 0 ? 0 : Math.max(timeoutMS, COUNT_TIMEOUT_FLOOR_MS) };
 }
 
 export async function insertCollectionDocument(
