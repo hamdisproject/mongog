@@ -820,6 +820,9 @@ const namespaceSchema = {
 };
 const ejsonSchema = z.string().min(1).max(17 * 1024 * 1024);
 
+/** Upper bound for Documents skip/limit paging; deeper offsets should use a filter. */
+export const MAX_COLLECTION_SKIP = 1_000_000_000;
+
 export const connCollectionFindSchema = z.object({
   ...namespaceSchema,
   tabId: z.string().min(1),
@@ -828,6 +831,7 @@ export const connCollectionFindSchema = z.object({
   sortEjson: ejsonSchema.optional(),
   projectionEjson: ejsonSchema.optional(),
   pageSize: z.number().int().min(1).max(500),
+  skip: z.number().int().min(0).max(MAX_COLLECTION_SKIP).optional(),
 });
 
 export const connCollectionCountSchema = z.object({
@@ -1152,6 +1156,8 @@ export interface MongoGDesktopApi {
       sortEjson?: string;
       projectionEjson?: string;
       pageSize: number;
+      /** Documents to skip before the page (skip/limit paging, ADR-0014). */
+      skip?: number;
     }): Promise<CollectionDocumentsPage>;
     collectionCount(input: {
       connectionId: string;

@@ -243,10 +243,16 @@ export interface DocumentsPage {
   retainedBytes: number;
 }
 
-/** Initial page returned by the Phase 3 collection browser. */
+/**
+ * One skip/limit page of the Documents browser (ADR-0014). `cursorId` is a
+ * page-only handle (full values, current-page export); it cannot page further.
+ * `pageIndex` is `floor(skip / pageSize)`.
+ */
 export interface CollectionDocumentsPage extends DocumentsPage {
   cursorId: string;
   pageSize: number;
+  /** Documents skipped before this page; the next page starts at `skip + documents.length`. */
+  skip: number;
 }
 
 export interface CollectionMutationResult {

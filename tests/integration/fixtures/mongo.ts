@@ -1,3 +1,6 @@
+import { mkdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { MongoClient, type MongoClientOptions } from 'mongodb';
 import { afterAll, inject } from 'vitest';
 
@@ -9,6 +12,34 @@ export interface MongoIntegrationSuite {
   readonly standaloneUri: string;
   readonly replicaSetUri: string;
   newClient(uri?: string, options?: MongoClientOptions): Promise<MongoClient>;
+}
+
+const FAIL_POINT_LOCK_TIMEOUT_MS = 120_000;
+
+/**
+ * `failCommand` is ONE global fail point per mongod, and integration files run
+ * in parallel workers: arming or switching it off in one file silently changes
+ * another file's armed fail point. Wrap every fail-point section (arm, use,
+ * consume or switch off) in this cross-worker lock for the target server.
+ */
+export async function withFailPointLock<T>(uri: string, run: () => Promise<T>): Promise<T> {
+  const host = new URL(uri).host.split(',')[0]!.replace(/[^A-Za-z0-9]/gu, '_');
+  const lock = join(tmpdir(), `mongog-failpoint-${host}.lock`);
+  const deadline = Date.now() + FAIL_POINT_LOCK_TIMEOUT_MS;
+  for (;;) {
+    try {
+      await mkdir(lock);
+      break;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || Date.now() > deadline) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+  try {
+    return await run();
+  } finally {
+    await rm(lock, { recursive: true, force: true });
+  }
 }
 
 function databaseUri(rootUri: string, databaseName: string): string {

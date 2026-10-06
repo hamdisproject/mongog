@@ -15,7 +15,7 @@ import {
 import { CursorRegistry } from '../../../src/query-runtime/registry/cursors.js';
 import { parseEjson, serializeToEjson } from '../../../src/shared/ejson/index.js';
 import { isAppError } from '../../../src/shared/errors/index.js';
-import { useMongoIntegrationSuite } from '../fixtures/mongo.js';
+import { useMongoIntegrationSuite, withFailPointLock } from '../fixtures/mongo.js';
 
 const suite = useMongoIntegrationSuite('collection delete lifecycle');
 const DATABASE = suite.databaseName;
@@ -99,42 +99,44 @@ describe('collection browser operations', () => {
   });
 
   it('continues bulk deletes after one driver command error', async () => {
-    const appName = 'mongog-bulk-delete-driver-error';
-    const isolatedClient = new MongoClient(suite.standaloneUri, {
-      appName,
-      maxPoolSize: 1,
-      retryWrites: false,
-    });
-    await isolatedClient.connect();
-    const collection = isolatedClient.db(DATABASE).collection('bulk_delete_driver_error');
-    await collection.deleteMany({});
-    await collection.insertMany([{ slot: 1 }, { slot: 2 }, { slot: 3 }]);
-    const originals = await collection.find({}).sort({ slot: 1 }).toArray();
-    await client!.db('admin').command({
-      configureFailPoint: 'failCommand',
-      mode: { times: 1 },
-      data: {
-        failCommands: ['delete'],
+    await withFailPointLock(suite.standaloneUri, async () => {
+      const appName = 'mongog-bulk-delete-driver-error';
+      const isolatedClient = new MongoClient(suite.standaloneUri, {
         appName,
-        blockConnection: true,
-        blockTimeMS: 100,
-        errorCode: 121,
-      },
-    });
-    try {
-      const result = await bulkDeleteCollectionDocuments(isolatedClient, {
-        database: DATABASE,
-        collection: 'bulk_delete_driver_error',
-        originalDocumentsEjson: originals.map((document) => serializeToEjson(document).ejson),
+        maxPoolSize: 1,
+        retryWrites: false,
       });
-      expect(result).toMatchObject({ requestedCount: 3, deletedCount: 2, failedCount: 1 });
-      expect(result.items.filter((item) => item.status === 'error')).toHaveLength(1);
-      expect(result.items.filter((item) => item.status === 'success')).toHaveLength(2);
-      await expect(collection.countDocuments({})).resolves.toBe(1);
-    } finally {
-      await client!.db('admin').command({ configureFailPoint: 'failCommand', mode: 'off' });
-      await isolatedClient.close();
-    }
+      await isolatedClient.connect();
+      const collection = isolatedClient.db(DATABASE).collection('bulk_delete_driver_error');
+      await collection.deleteMany({});
+      await collection.insertMany([{ slot: 1 }, { slot: 2 }, { slot: 3 }]);
+      const originals = await collection.find({}).sort({ slot: 1 }).toArray();
+      await client!.db('admin').command({
+        configureFailPoint: 'failCommand',
+        mode: { times: 1 },
+        data: {
+          failCommands: ['delete'],
+          appName,
+          blockConnection: true,
+          blockTimeMS: 100,
+          errorCode: 121,
+        },
+      });
+      try {
+        const result = await bulkDeleteCollectionDocuments(isolatedClient, {
+          database: DATABASE,
+          collection: 'bulk_delete_driver_error',
+          originalDocumentsEjson: originals.map((document) => serializeToEjson(document).ejson),
+        });
+        expect(result).toMatchObject({ requestedCount: 3, deletedCount: 2, failedCount: 1 });
+        expect(result.items.filter((item) => item.status === 'error')).toHaveLength(1);
+        expect(result.items.filter((item) => item.status === 'success')).toHaveLength(2);
+        await expect(collection.countDocuments({})).resolves.toBe(1);
+      } finally {
+        await client!.db('admin').command({ configureFailPoint: 'failCommand', mode: 'off' });
+        await isolatedClient.close();
+      }
+    });
   });
 
   it('closes the previous cursor when the same tab refreshes', async () => {

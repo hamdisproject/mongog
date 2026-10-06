@@ -31,6 +31,8 @@ export interface CollectionFindOptions extends CollectionNamespace {
   sortEjson?: string;
   projectionEjson?: string;
   pageSize: number;
+  /** Documents to skip before this page (skip/limit paging, ADR-0014). */
+  skip?: number;
   /** Query timeout from Settings (CSOT); 0 = no limit. Omitted keeps the 30 s server cap. */
   timeoutMS?: number;
   signal?: AbortSignal;
@@ -82,21 +84,27 @@ export async function findCollectionDocuments(
     ? parseQueryDocumentExpression(options.projectionEjson, 'Projection')
     : undefined;
 
-  // One active browser cursor per tab. Re-applying a filter or refreshing
-  // releases retained pages and oversized full-value handles from the old one.
+  // One page handle per tab. Loading another page or re-applying a filter
+  // releases the previous page and its oversized full-value handles.
   await registry.closeAllForOwner(options.owner);
 
+  // ADR-0014: every page is an independent skip/limit query, so no server-side
+  // cursor outlives the request (no idle expiry, CSOT lifetime or reconnect loss).
+  const skip = Math.max(0, Math.trunc(options.skip ?? 0));
   const collection = client.db(options.database).collection(options.collection);
-  let cursor = collection.find(filter as Filter<Document>, {
+  const cursor = collection.find(filter as Filter<Document>, {
     ...(projection ? { projection } : {}),
     // Preserve deprecated-but-supported BSON values such as BSON Symbol.
     // Canonical EJSON serialization then carries every type to the renderer
     // without changing the normal driver behavior of user query scripts.
     promoteValues: false,
+    sort: stablePageSort(sort),
+    ...(skip > 0 ? { skip } : {}),
+    // One document beyond the page tells the registry whether another page exists.
+    limit: options.pageSize + 1,
     ...(options.timeoutMS === undefined ? { maxTimeMS: 30_000 } : { timeoutMS: options.timeoutMS }),
     ...(options.signal ? { signal: options.signal } : {}),
   });
-  if (sort && Object.keys(sort).length > 0) cursor = cursor.sort(sort as Sort);
 
   const cursorId = registry.register(
     cursor,
@@ -106,11 +114,31 @@ export async function findCollectionDocuments(
   options.onCursorRegistered?.(cursorId);
   try {
     const page = await registry.fetchNext(cursorId, options.pageSize);
-    return { ...page, cursorId, pageSize: options.pageSize };
+    // Keep only the serialized page (full values, current-page export).
+    await registry.release(cursorId);
+    return {
+      ...page,
+      pageIndex: Math.floor(skip / options.pageSize),
+      cursorId,
+      pageSize: options.pageSize,
+      skip,
+    };
   } catch (error) {
     await registry.close(cursorId);
     throw error;
   }
+}
+
+/**
+ * Skip/limit pages need a total order: MongoDB does not guarantee the order of
+ * equal sort keys, or of an unsorted find, between two queries. `_id` breaks
+ * ties (and is the default order); `$natural` cannot be combined with it.
+ */
+export function stablePageSort(sort: Document | undefined): Sort {
+  const fields = sort ? Object.keys(sort) : [];
+  if (fields.length === 0) return { _id: 1 };
+  if (fields.includes('_id') || fields.includes('$natural')) return sort as Sort;
+  return { ...sort, _id: 1 } as Sort;
 }
 
 export async function countCollectionDocuments(

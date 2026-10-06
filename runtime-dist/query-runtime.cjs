@@ -251963,6 +251963,16 @@ const DEFAULT_PAGE_BUDGET = {
   maxPageBytes: 8 * 1024 * 1024
   // whole-page IPC cap
 };
+function usePerPageTimeout(cursor) {
+  if (!(cursor instanceof libExports.AbstractCursor)) return false;
+  const state2 = cursor;
+  const options = state2.cursorOptions;
+  if (state2.initialized || !options || options.tailable) return false;
+  if (!options.timeoutMS || options.timeoutMode !== libExports.CursorTimeoutMode.LIFETIME) return false;
+  options.timeoutMode = libExports.CursorTimeoutMode.ITERATION;
+  options.omitMaxTimeMS = true;
+  return true;
+}
 const EMPTY = /* @__PURE__ */ Symbol("mongog.empty");
 const DEFAULTS = {
   idleTimeoutMS: 10 * 60 * 1e3,
@@ -251999,6 +252009,7 @@ class CursorRegistry {
     return this.cursors.size;
   }
   register(cursor, owner, namespace) {
+    usePerPageTimeout(cursor);
     const cursorId = node_crypto.randomUUID();
     this.cursors.set(cursorId, {
       cursorId,
@@ -252013,9 +252024,21 @@ class CursorRegistry {
       fullValues: /* @__PURE__ */ new Map(),
       fullValueBytes: 0,
       closed: false,
+      released: false,
       pending: EMPTY
     });
     return cursorId;
+  }
+  /**
+   * Close the live driver cursor but keep the retained page as a handle for
+   * full values and current-page export. The handle still expires after the
+   * idle timeout; it can no longer page (skip/limit callers query again).
+   */
+  async release(cursorId) {
+    const entry = this.getOpen(cursorId);
+    entry.released = true;
+    entry.pending = EMPTY;
+    if (!entry.cursor.closed) await entry.cursor.close().catch(() => void 0);
   }
   registerStream(stream2, owner) {
     const streamId = node_crypto.randomUUID();
@@ -252062,6 +252085,12 @@ class CursorRegistry {
   async fetchNext(cursorId, pageSize) {
     const entry = this.getOpen(cursorId);
     entry.lastTouchedAt = this.now();
+    if (entry.released) {
+      throw appError("CursorNotFound", "This result page is no longer pageable.", {
+        name: "CursorNotFound",
+        hint: "Request the next page again."
+      });
+    }
     if (entry.currentPageIndex < entry.pages.length - 1) {
       entry.currentPageIndex += 1;
       const retained = entry.pages[entry.currentPageIndex];
@@ -252496,17 +252525,21 @@ async function findCollectionDocuments(client2, registry2, options) {
   const sort2 = options.sortEjson ? parseQueryDocumentExpression(options.sortEjson, "Sort") : void 0;
   const projection = options.projectionEjson ? parseQueryDocumentExpression(options.projectionEjson, "Projection") : void 0;
   await registry2.closeAllForOwner(options.owner);
+  const skip = Math.max(0, Math.trunc(options.skip ?? 0));
   const collection2 = client2.db(options.database).collection(options.collection);
-  let cursor = collection2.find(filter2, {
+  const cursor = collection2.find(filter2, {
     ...projection ? { projection } : {},
     // Preserve deprecated-but-supported BSON values such as BSON Symbol.
     // Canonical EJSON serialization then carries every type to the renderer
     // without changing the normal driver behavior of user query scripts.
     promoteValues: false,
+    sort: stablePageSort(sort2),
+    ...skip > 0 ? { skip } : {},
+    // One document beyond the page tells the registry whether another page exists.
+    limit: options.pageSize + 1,
     ...options.timeoutMS === void 0 ? { maxTimeMS: 3e4 } : { timeoutMS: options.timeoutMS },
     ...options.signal ? { signal: options.signal } : {}
   });
-  if (sort2 && Object.keys(sort2).length > 0) cursor = cursor.sort(sort2);
   const cursorId = registry2.register(
     cursor,
     options.owner,
@@ -252515,11 +252548,24 @@ async function findCollectionDocuments(client2, registry2, options) {
   options.onCursorRegistered?.(cursorId);
   try {
     const page = await registry2.fetchNext(cursorId, options.pageSize);
-    return { ...page, cursorId, pageSize: options.pageSize };
+    await registry2.release(cursorId);
+    return {
+      ...page,
+      pageIndex: Math.floor(skip / options.pageSize),
+      cursorId,
+      pageSize: options.pageSize,
+      skip
+    };
   } catch (error2) {
     await registry2.close(cursorId);
     throw error2;
   }
+}
+function stablePageSort(sort2) {
+  const fields = sort2 ? Object.keys(sort2) : [];
+  if (fields.length === 0) return { _id: 1 };
+  if (fields.includes("_id") || fields.includes("$natural")) return sort2;
+  return { ...sort2, _id: 1 };
 }
 async function countCollectionDocuments(client2, options) {
   const filter2 = parseQueryDocumentExpression(options.filterEjson, "Filter");
@@ -328122,6 +328168,7 @@ async function handle(req) {
           ...req.sortEjson ? { sortEjson: req.sortEjson } : {},
           ...req.projectionEjson ? { projectionEjson: req.projectionEjson } : {},
           pageSize: req.pageSize,
+          ...req.skip !== void 0 ? { skip: req.skip } : {},
           ...req.timeoutMS !== void 0 ? { timeoutMS: req.timeoutMS } : {},
           signal,
           onCursorRegistered: (cursorId) => {

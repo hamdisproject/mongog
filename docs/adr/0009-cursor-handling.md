@@ -1,6 +1,6 @@
 # ADR-0009: Cursor handling — runtime-side registry, handle-only over IPC
 
-- Status: Accepted (validated by S4: 2500 docs paged; TTL; owner cleanup)
+- Status: Accepted (validated by S4: 2500 docs paged; TTL; owner cleanup). Narrowed by ADR-0014: the Documents browser pages with skip/limit, and CSOT cursors page with a per-page budget.
 - Context: Never transmit live cursors; never auto-`toArray()` unbounded cursors; page navigation; memory discipline.
 - Decision: **CursorRegistry in the query runtime** (`src/query-runtime/registry/cursors.ts`):
   - First page pulled with `cursor.next()` loop (pageSize default 50); docs serialized as they arrive; **one-document lookahead buffer** so a page byte-budget cut never drops a document.

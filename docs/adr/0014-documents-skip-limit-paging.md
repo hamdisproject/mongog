@@ -1,0 +1,14 @@
+# ADR-0014: Documents view pages with skip/limit; cursors page with a per-page CSOT budget
+
+- Status: Accepted (2026-10-06). Narrows ADR-0009 for the Documents browser; ADR-0009 still governs query-editor results.
+- Context:
+  - With a CSOT `timeoutMS` (client default 30 s, or the Query timeout from Settings), the driver defaults non-tailable cursors to `timeoutMode: 'cursorLifetime'`: one deadline for the whole cursor plus a cumulative server `maxTimeMS`. A result paged later than the budget failed with `MongoOperationTimeoutError` on its first getMore (reproduced: page 3 after 30 s).
+  - Live browser cursors also expire after 10 min idle (BUG-005), disappear on runtime idle eviction or reconnect, cannot jump to a page, and re-reaching page N after an edit walked the cursor from page 1.
+- Decision:
+  - **Documents view** (`findCollectionDocuments`): every page is an independent query `find(filter).sort(stable).skip(skip).limit(pageSize + 1)`. `stablePageSort` appends `_id: 1` as a tiebreaker (default order `_id: 1`; `$natural` left unchanged) because MongoDB does not guarantee the order of ties between queries. After serialization the driver cursor is closed (`CursorRegistry.release`); the retained page stays as a page-only handle for oversized full values and current-page export, under the normal idle TTL. The renderer tracks `skip` (next page starts at `skip + documents.length`, since byte-budget cuts make pages short), keeps a history of page starts for Previous, offers "Go to page" and "of N" once the total count is known, and reloads the same page after edits. An expired page handle reloads the page and asks the user to retry.
+  - **Query editor**: results stay live cursors (scripts may return arbitrary aggregations, `$out`, or streams that cannot be re-run safely). `CursorRegistry.register` switches not-yet-started, non-tailable CSOT cursors to `timeoutMode: 'iteration'` (`src/query-runtime/registry/cursor-timeout.ts`), matching the driver's own configuration for that mode, so each page fetch gets the full budget.
+- Consequences:
+  - Documents paging survives idle time, timeouts, runtime restarts and reconnects; page jumps and same-page reloads are one query.
+  - Deep pages cost `O(skip)` on the server; concurrent writes can shift documents between pages; an unindexed sort is re-evaluated per page. These match common GUI expectations; use a filter for very deep navigation. `skip` is bounded by `MAX_COLLECTION_SKIP` in IPC validation.
+  - `cursor-timeout.ts` relies on driver internals (`cursorOptions.timeoutMode`, `omitMaxTimeMS`, `initialized`); `tests/unit/query-runtime/cursor-timeout.test.ts` and `tests/integration/engine/cursor-timeout.test.ts` pin that behavior across driver upgrades.
+- Rollback: restore cursor-based `findCollectionDocuments` (drop `skip`/`release`) and the renderer's fetchNext/fetchPrev paging; remove the `usePerPageTimeout` call.

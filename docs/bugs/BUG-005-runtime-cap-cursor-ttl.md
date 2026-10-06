@@ -1,7 +1,9 @@
 # BUG-005 — Runtime cap (10) + cursor idle TTL (10m) cause surprise evictions
 
 - **ID:** BUG-005
-- **Status:** active
+- **Status:** active — narrowed by ADR-0014 (2026-10-06): the Documents browser
+  no longer holds live cursors (skip/limit pages), so items 1–2 now affect only
+  query-editor results; CSOT cursors no longer die when the query timeout elapses.
 - **Priority:** medium
 - **Area:** main / runtime-supervisor + query-runtime / cursor-registry + UX
 - **Found:** 2026-09-06 (code inspection)

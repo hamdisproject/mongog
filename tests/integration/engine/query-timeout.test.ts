@@ -12,7 +12,7 @@ import { EJSON } from 'bson';
 import type { MongoClient } from 'mongodb';
 import { ExecutionEngine } from '../../../src/query-runtime/engine/execute.js';
 import { CursorRegistry } from '../../../src/query-runtime/registry/cursors.js';
-import { useMongoIntegrationSuite } from '../fixtures/mongo.js';
+import { useMongoIntegrationSuite, withFailPointLock } from '../fixtures/mongo.js';
 import { executeAndCollect } from './helpers/execution.js';
 
 const suite = useMongoIntegrationSuite('query-timeout');
@@ -51,30 +51,34 @@ describe('query timeout', () => {
   });
 
   it('fails at the shorter client CSOT when a script bypasses db (baseline)', async () => {
-    await blockNextFind();
-    const run = await executeAndCollect(
-      engine, client, registry, DATABASE,
-      `client.db(${JSON.stringify(DATABASE)}).collection("slow").findOne({});`,
-      { timeoutMS: 0 },
-    );
-    expect(run.finished?.status).toBe('failed');
-    expect(run.errors[0]?.category).toBe('NetworkTimeout');
+    await withFailPointLock(suite.replicaSetUri, async () => {
+      await blockNextFind();
+      const run = await executeAndCollect(
+        engine, client, registry, DATABASE,
+        `client.db(${JSON.stringify(DATABASE)}).collection("slow").findOne({});`,
+        { timeoutMS: 0 },
+      );
+      expect(run.finished?.status).toBe('failed');
+      expect(run.errors[0]?.category).toBe('NetworkTimeout');
+    });
   }, 10_000);
 
   it.each([
     ['No limit', 0],
     ['a longer finite timeout', 5_000],
   ])('waits past the client CSOT with %s', async (_label, timeoutMS) => {
-    await blockNextFind();
-    const run = await executeAndCollect(
-      engine, client, registry, DATABASE,
-      'db.collection("slow").findOne({});',
-      { timeoutMS },
-    );
-    expect(run.errors).toEqual([]);
-    expect(run.finished?.status).toBe('completed');
-    expect(run.finished?.durationMs).toBeGreaterThanOrEqual(BLOCK_MS - 50);
-    expect(run.results).toHaveLength(1);
+    await withFailPointLock(suite.replicaSetUri, async () => {
+      await blockNextFind();
+      const run = await executeAndCollect(
+        engine, client, registry, DATABASE,
+        'db.collection("slow").findOne({});',
+        { timeoutMS },
+      );
+      expect(run.errors).toEqual([]);
+      expect(run.finished?.status).toBe('completed');
+      expect(run.finished?.durationMs).toBeGreaterThanOrEqual(BLOCK_MS - 50);
+      expect(run.results).toHaveLength(1);
+    });
   }, 10_000);
 
   it.each([
@@ -82,25 +86,27 @@ describe('query timeout', () => {
     ['update', 'updateMany({}, { $inc: { n: 10 } })', { matchedCount: 1, modifiedCount: 1 }, [{ _id: 1, n: 11 }]],
     ['delete', 'deleteOne({ _id: 1 })', { deletedCount: 1 }, []],
   ] as const)('completes a blocked %s exactly once with No limit', async (command, call, counts, expected) => {
-    const name = `blocked_${command}`;
-    const collection = control.db(DATABASE).collection<{ _id: number; n: number }>(name);
-    await collection.insertOne({ _id: 1, n: 1 });
-    await control.db('admin').command({
-      configureFailPoint: 'failCommand',
-      mode: { times: 1 },
-      data: { appName: suite.appName, failCommands: [command], blockConnection: true, blockTimeMS: BLOCK_MS },
-    });
+    await withFailPointLock(suite.replicaSetUri, async () => {
+      const name = `blocked_${command}`;
+      const collection = control.db(DATABASE).collection<{ _id: number; n: number }>(name);
+      await collection.insertOne({ _id: 1, n: 1 });
+      await control.db('admin').command({
+        configureFailPoint: 'failCommand',
+        mode: { times: 1 },
+        data: { appName: suite.appName, failCommands: [command], blockConnection: true, blockTimeMS: BLOCK_MS },
+      });
 
-    const run = await executeAndCollect(
-      engine, client, registry, DATABASE,
-      `db.collection(${JSON.stringify(name)}).${call};`,
-      { timeoutMS: 0 },
-    );
-    expect(run.errors).toEqual([]);
-    expect(run.finished?.status).toBe('completed');
-    expect(run.finished?.durationMs).toBeGreaterThanOrEqual(BLOCK_MS - 50);
-    expect(run.results[0]?.result).toMatchObject({ kind: 'write', ...counts });
-    await expect(collection.find({}).sort({ _id: 1 }).toArray()).resolves.toEqual(expected);
+      const run = await executeAndCollect(
+        engine, client, registry, DATABASE,
+        `db.collection(${JSON.stringify(name)}).${call};`,
+        { timeoutMS: 0 },
+      );
+      expect(run.errors).toEqual([]);
+      expect(run.finished?.status).toBe('completed');
+      expect(run.finished?.durationMs).toBeGreaterThanOrEqual(BLOCK_MS - 50);
+      expect(run.results[0]?.result).toMatchObject({ kind: 'write', ...counts });
+      await expect(collection.find({}).sort({ _id: 1 }).toArray()).resolves.toEqual(expected);
+    });
   }, 10_000);
 
   it('applies the execution budget to use() and getSiblingDB() databases', async () => {

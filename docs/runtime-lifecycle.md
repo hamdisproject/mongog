@@ -39,6 +39,15 @@ defaults in `src/shared/domain/workspace.ts:176-200`.
 
 - `register(cursor, owner, namespace)` → `cursorId`. Owner cleanup closes all
   of an owner's cursors/streams (tab close, disconnect).
+- CSOT: `register()` switches not-yet-started, non-tailable cursors with a
+  `timeoutMS` from the driver default `cursorLifetime` to `iteration`
+  (`registry/cursor-timeout.ts`, ADR-0014) — each page fetch gets the full
+  budget instead of the cursor dying once the query timeout has elapsed.
+- Documents browser (ADR-0014): every page is a fresh `skip`/`limit` query;
+  after serialization `release(cursorId)` closes the driver cursor and keeps
+  only the retained page as a handle for full values and current-page export.
+  A released handle cannot `fetchNext` (`CursorNotFound`), expires with the
+  idle TTL, and the renderer re-queries the page.
 - Paging: `fetchNext(cursorId, pageSize)` pulls up to `pageSize` docs
   (default **50**, `execution.pageSize`) via `cursor.next()` — never `toArray()`.
   A page is cut short when it would exceed `maxPageBytes` (**8 MB**,

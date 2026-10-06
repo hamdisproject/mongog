@@ -15,6 +15,7 @@ import {
   type EjsonEnvelope,
 } from '../../shared/ejson/index.js';
 import { DEFAULT_PAGE_BUDGET, type PageBudget } from '../serialize/index.js';
+import { usePerPageTimeout } from './cursor-timeout.js';
 
 export interface CursorOwner {
   connectionId: string;
@@ -47,6 +48,11 @@ interface CursorEntry {
   fullValues: Map<string, FullValueRecord>;
   fullValueBytes: number;
   closed: boolean;
+  /**
+   * Page-only handle: the driver cursor is closed and only the retained page
+   * (full values, export snapshot) remains. Used by skip/limit Documents pages.
+   */
+  released: boolean;
   /** One-document lookahead: pulled but not sent (page byte budget). */
   pending: unknown | typeof EMPTY;
 }
@@ -129,6 +135,8 @@ export class CursorRegistry {
   }
 
   register(cursor: CursorLike, owner: CursorOwner, namespace: string): string {
+    // Pages may be fetched minutes later; each needs its own CSOT budget.
+    usePerPageTimeout(cursor);
     const cursorId = randomUUID();
     this.cursors.set(cursorId, {
       cursorId,
@@ -143,9 +151,22 @@ export class CursorRegistry {
       fullValues: new Map(),
       fullValueBytes: 0,
       closed: false,
+      released: false,
       pending: EMPTY,
     });
     return cursorId;
+  }
+
+  /**
+   * Close the live driver cursor but keep the retained page as a handle for
+   * full values and current-page export. The handle still expires after the
+   * idle timeout; it can no longer page (skip/limit callers query again).
+   */
+  async release(cursorId: string): Promise<void> {
+    const entry = this.getOpen(cursorId);
+    entry.released = true;
+    entry.pending = EMPTY;
+    if (!entry.cursor.closed) await entry.cursor.close().catch(() => undefined);
   }
 
   registerStream(stream: ChangeStreamLike, owner: CursorOwner): string {
@@ -195,6 +216,12 @@ export class CursorRegistry {
   async fetchNext(cursorId: string, pageSize: number): Promise<DocumentsPage> {
     const entry = this.getOpen(cursorId);
     entry.lastTouchedAt = this.now();
+    if (entry.released) {
+      throw appError('CursorNotFound', 'This result page is no longer pageable.', {
+        name: 'CursorNotFound',
+        hint: 'Request the next page again.',
+      });
+    }
 
     // After fetchPrev(), walk forward through the retained window before
     // advancing the live driver cursor. Otherwise a page is skipped.

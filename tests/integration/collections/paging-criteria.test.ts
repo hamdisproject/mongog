@@ -14,7 +14,7 @@ import {
 import { CursorRegistry } from '../../../src/query-runtime/registry/cursors.js';
 import { parseEjson } from '../../../src/shared/ejson/index.js';
 import { isAppError, MongoGCancellationError } from '../../../src/shared/errors/index.js';
-import { useMongoIntegrationSuite } from '../fixtures/mongo.js';
+import { useMongoIntegrationSuite, withFailPointLock } from '../fixtures/mongo.js';
 
 const suite = useMongoIntegrationSuite('collection paging criteria');
 const DATABASE = suite.databaseName;
@@ -48,55 +48,68 @@ describe('collection browser operations', () => {
     expect(first.hasMore).toBe(true);
     expect(parseEjson<{ n: Int32 }>(first.documents[0]!).n.valueOf()).toBe(0);
 
+    expect(first.skip).toBe(0);
+
+    // ADR-0014: each page is an independent skip/limit query.
     let count = first.documents.length;
-    let page = await registry!.fetchNext(first.cursorId, 25);
-    count += page.documents.length;
+    let page = first;
     while (page.hasMore) {
-      page = await registry!.fetchNext(first.cursorId, 25);
+      page = await findCollectionDocuments(client!, registry!, {
+        database: DATABASE,
+        collection: 'paging',
+        owner: { connectionId: 'phase3', tabId: 'paging-tab' },
+        filterEjson: '{}',
+        sortEjson: '{"n": 1}',
+        pageSize: 25,
+        skip: page.skip + page.documents.length,
+      });
       count += page.documents.length;
     }
     expect(count).toBe(125);
     expect(page.pageIndex).toBe(4);
+    expect(page.skip).toBe(100);
   });
 
   it('aborts a delayed find, closes its cursor, and keeps the client usable', async () => {
-    const collection = client!.db(DATABASE).collection('cancelled_find');
-    await collection.insertMany(Array.from({ length: 20 }, (_, n) => ({ n })));
-    const failPoint = await client!.db('admin').command({
-      configureFailPoint: 'failCommand',
-      mode: { times: 1 },
-      data: {
-        appName: suite.appName,
-        failCommands: ['find'],
-        blockConnection: true,
-        blockTimeMS: 10_000,
-      },
-    });
+    await withFailPointLock(suite.standaloneUri, async () => {
+      const collection = client!.db(DATABASE).collection('cancelled_find');
+      await collection.insertMany(Array.from({ length: 20 }, (_, n) => ({ n })));
+      const failPoint = await client!.db('admin').command({
+        configureFailPoint: 'failCommand',
+        mode: { times: 1 },
+        data: {
+          appName: suite.appName,
+          failCommands: ['find'],
+          blockConnection: true,
+          blockTimeMS: 10_000,
+        },
+      });
 
-    const controller = new AbortController();
-    let cursorId: string | null = null;
-    const pending = findCollectionDocuments(client!, registry!, {
-      database: DATABASE,
-      collection: 'cancelled_find',
-      owner: { connectionId: 'phase3', tabId: 'cancelled-find-tab' },
-      filterEjson: '{}',
-      pageSize: 10,
-      signal: controller.signal,
-      onCursorRegistered: (id) => { cursorId = id; },
-    });
+      const controller = new AbortController();
+      let cursorId: string | null = null;
+      const pending = findCollectionDocuments(client!, registry!, {
+        database: DATABASE,
+        collection: 'cancelled_find',
+        owner: { connectionId: 'phase3', tabId: 'cancelled-find-tab' },
+        filterEjson: '{}',
+        pageSize: 10,
+        signal: controller.signal,
+        onCursorRegistered: (id) => { cursorId = id; },
+      });
 
-    await client!.db('admin').command({
-      waitForFailPoint: 'failCommand',
-      timesEntered: Number(failPoint.count) + 1,
-      maxTimeMS: 5_000,
+      await client!.db('admin').command({
+        waitForFailPoint: 'failCommand',
+        timesEntered: Number(failPoint.count) + 1,
+        maxTimeMS: 5_000,
+      });
+      controller.abort(new MongoGCancellationError('Fetch cancelled'));
+      await expect(pending).rejects.toMatchObject({ name: 'MongoGCancelled' });
+      expect(cursorId).not.toBeNull();
+      await expect(registry!.fetchNext(cursorId!, 10)).rejects.toMatchObject({
+        category: 'CursorNotFound',
+      });
+      await expect(client!.db('admin').command({ ping: 1 })).resolves.toMatchObject({ ok: 1 });
     });
-    controller.abort(new MongoGCancellationError('Fetch cancelled'));
-    await expect(pending).rejects.toMatchObject({ name: 'MongoGCancelled' });
-    expect(cursorId).not.toBeNull();
-    await expect(registry!.fetchNext(cursorId!, 10)).rejects.toMatchObject({
-      category: 'CursorNotFound',
-    });
-    await expect(client!.db('admin').command({ ping: 1 })).resolves.toMatchObject({ ok: 1 });
   }, 20_000);
 
   it('applies safe object-literal filter, sort, and projection in the runtime', async () => {

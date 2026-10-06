@@ -6,7 +6,7 @@ MongoDB desktop IDE (Electron). **Phases 0–5.5 are COMPLETE and verified** —
 `docs/spikes/phase0-report.md`, `docs/phase1-report.md`,
 `docs/phase2-report.md`, `docs/phase3-report.md`, `docs/phase4-report.md`, and
 `docs/phase5-report.md` and `docs/phase5.5-report.md`. Phase 6 is next.
-Plan ADRs: `docs/adr/0001-0013`.
+Plan ADRs: `docs/adr/0001-0014`.
 
 ## Non-negotiable rules (from the product plan)
 
@@ -15,6 +15,8 @@ Plan ADRs: `docs/adr/0001-0013`.
 - No DB code or user scripts in the renderer. Ever.
 - No naive semicolon statement splitting — always `src/features/script-analysis`.
 - No auto `toArray()` on user cursors — page with `cursor.next()` via the registry.
+- The Documents browser pages with independent skip/limit queries (ADR-0014);
+  never reintroduce a live browser cursor or page it with fetchNext.
 - No secrets (passwords, credentialed URIs, certs, tokens) in plaintext anywhere:
   not in SQLite, logs, history, renderer state, or IPC. Use `shared/redaction`.
 - Preload exposes explicit typed methods only; every IPC payload is zod-validated

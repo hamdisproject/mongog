@@ -8,8 +8,8 @@ import type {
   CollectionBulkDeleteResult,
   CollectionBulkUpdateInput,
   CollectionBulkUpdateResult,
+  CollectionDocumentsPage,
   DocumentCriteriaText,
-  DocumentsPage,
   ExportFormat,
   ExportScope,
   WorkspaceTab,
@@ -60,6 +60,13 @@ import { useExportJobsStore } from '../../stores/exports.js';
 import { useDataTransferStore } from '../../stores/data-transfer.js';
 import { LoadingOverlay } from '../Common/LoadingOverlay.js';
 import { BulkFieldPathCombobox } from './BulkFieldPathCombobox.js';
+import {
+  nextPageStep,
+  pageNumberOf,
+  previousPageStep,
+  skipForPageNumber,
+  totalPagesOf,
+} from './document-paging.js';
 import {
   immutableDocumentIdError,
   prepareDocumentMutation,
@@ -226,6 +233,11 @@ const s: Record<string, React.CSSProperties> = {
     border: '1px solid var(--color-border-strong)', background: 'var(--color-input-soft)',
     color: 'var(--color-text)', fontSize: 11, outline: 'none', cursor: 'pointer',
   },
+  pageNumberInput: {
+    height: 23, width: 64, padding: '1px 6px', borderRadius: 3, boxSizing: 'border-box',
+    border: '1px solid var(--color-border-strong)', background: 'var(--color-input-soft)',
+    color: 'var(--color-text)', fontSize: 11, outline: 'none',
+  },
 };
 
 const EMPTY_FILTER = '{}';
@@ -258,7 +270,13 @@ interface BulkFailureState {
 
 interface LoadDocumentsOptions {
   pageSize?: number;
-  targetPageIndex?: number;
+  /** Documents to skip (page start); omitted loads the first page. */
+  skip?: number;
+  /** Page starts visited before `skip`, used by Previous. */
+  history?: number[];
+  label?: string;
+  /** Navigation keeps the visible page when the requested page fails. */
+  keepRowsOnError?: boolean;
   preserveDocumentIds?: Set<string>;
 }
 
@@ -364,7 +382,9 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const latestPageSize = useRef(effectivePageSize);
   const [cursorPageSize, setCursorPageSize] = useState(effectivePageSize);
   const [cursorId, setCursorId] = useState<string | null>(null);
-  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSkip, setPageSkip] = useState(0);
+  const pageHistoryRef = useRef<number[]>([]);
+  const [goToPageDraft, setGoToPageDraft] = useState('');
   const [hasMore, setHasMore] = useState(false);
   const [rows, setRows] = useState<DocumentRow[]>([]);
   const [selected, setSelected] = useState<DocumentRow | null>(null);
@@ -445,6 +465,8 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   const [countLoading, setCountLoading] = useState(false);
   const [countError, setCountError] = useState<string | null>(null);
   const countRequestGeneration = useRef(0);
+  const pageNumber = pageNumberOf(pageSkip, cursorPageSize);
+  const totalPages = totalPagesOf(totalCount, cursorPageSize);
   const loading = fetchState !== null;
   const selectedRows = useMemo(
     () => rows.filter((row) => selectedRowKeys.has(row.key)),
@@ -534,15 +556,14 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
   }, [displayMode, editorMode, selected]);
 
   const applyPage = useCallback((
-    page: DocumentsPage,
-    pageSize: number,
+    page: CollectionDocumentsPage,
     preserveDocumentIds?: Set<string>,
   ) => {
     const nextRows = page.documents.map((envelope, index) =>
-      createDocumentRow(envelope, page.pageIndex * pageSize + index),
+      createDocumentRow(envelope, page.skip + index),
     );
     setRows(nextRows);
-    setPageIndex(page.pageIndex);
+    setPageSkip(page.skip);
     setHasMore(page.hasMore);
     setSelected(null);
     setSelectedRowKeys(preserveDocumentIds
@@ -558,7 +579,9 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     setBulkEditor(null);
   }, []);
 
-  const loadInitial = useCallback(async (options: LoadDocumentsOptions = {}) => {
+  // ADR-0014: every page is an independent skip/limit query; no server cursor
+  // is kept between pages, so idle time, timeouts and reconnects cannot break paging.
+  const loadPage = useCallback(async (options: LoadDocumentsOptions = {}) => {
     if (!connectionId || !collection || !isConnected) {
       setCursorId(null);
       setHasMore(false);
@@ -575,54 +598,61 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
       void window.mongog.query.cancelFetch(connectionId, previous.operationId).catch(() => undefined);
     }
     activeFetchRef.current = operation;
-    setFetchState({ operationId: operation.operationId, label: 'Loading documents…', cancelling: false });
+    setFetchState({ operationId: operation.operationId, label: options.label ?? 'Loading documents…', cancelling: false });
     setError(null);
     setNotice(null);
+    const isCurrent = () => !operation.cancelled && activeFetchRef.current === operation;
     try {
       const pageSize = options.pageSize ?? latestPageSize.current;
-      let page = await window.mongog.query.collectionFind({
-        connectionId,
-        database,
-        collection,
-        tabId: documentsOwnerId,
-        operationId: operation.operationId,
-        filterEjson: criteria.filter || EMPTY_FILTER,
-        ...(criteria.sort ? { sortEjson: criteria.sort } : {}),
-        ...(criteria.projection ? { projectionEjson: criteria.projection } : {}),
-        pageSize,
-      });
-      if (operation.cancelled || activeFetchRef.current !== operation) {
+      const requestPage = async (skip: number) => {
+        const page = await window.mongog.query.collectionFind({
+          connectionId,
+          database,
+          collection,
+          tabId: documentsOwnerId,
+          operationId: operation.operationId,
+          filterEjson: criteria.filter || EMPTY_FILTER,
+          ...(criteria.sort ? { sortEjson: criteria.sort } : {}),
+          ...(criteria.projection ? { projectionEjson: criteria.projection } : {}),
+          pageSize,
+          skip,
+        });
+        operation.cursorId = page.cursorId;
+        return page;
+      };
+      const retryPage = (skip: number, label: string) => {
+        operation.operationId = crypto.randomUUID();
+        setFetchState({ operationId: operation.operationId, label, cancelling: false });
+        return requestPage(skip);
+      };
+
+      let history = options.history ?? [];
+      let page = await requestPage(Math.max(0, Math.trunc(options.skip ?? 0)));
+      // A reload after deletions can land past the last page: step back once,
+      // then fall back to the first page.
+      if (isCurrent() && page.documents.length === 0 && page.skip > 0) {
+        const previous = previousPageStep(page.skip, pageSize, history);
+        history = previous.history;
+        page = await retryPage(previous.skip, 'Loading previous page…');
+        if (isCurrent() && page.documents.length === 0 && page.skip > 0) {
+          history = [];
+          page = await retryPage(0, 'Loading first page…');
+        }
+      }
+      if (!isCurrent()) {
         await window.mongog.query.cursorClose(connectionId, page.cursorId).catch(() => undefined);
         return;
       }
-      operation.cursorId = page.cursorId;
-      const targetPageIndex = Math.max(0, Math.trunc(options.targetPageIndex ?? 0));
-      while (page.pageIndex < targetPageIndex && page.hasMore) {
-        operation.operationId = crypto.randomUUID();
-        setFetchState({
-          operationId: operation.operationId,
-          label: `Reloading page ${Math.min(targetPageIndex + 1, page.pageIndex + 2)}…`,
-          cancelling: false,
-        });
-        page = {
-          ...(await window.mongog.query.cursorFetchNext(
-            connectionId,
-            page.cursorId,
-            page.pageSize,
-            operation.operationId,
-          )),
-          cursorId: page.cursorId,
-          pageSize: page.pageSize,
-        };
-        if (operation.cancelled || activeFetchRef.current !== operation) return;
-      }
+      pageHistoryRef.current = history;
       setCursorId(page.cursorId);
       setCursorPageSize(page.pageSize);
-      applyPage(page, page.pageSize, options.preserveDocumentIds);
+      applyPage(page, options.preserveDocumentIds);
     } catch (caught) {
       if (!operation.cancelled && !isCancellationError(caught)) {
-        setRows([]);
-        setCursorId(null);
+        if (!options.keepRowsOnError) {
+          setRows([]);
+          setCursorId(null);
+        }
         setError(errorMessage(caught));
       }
     } finally {
@@ -633,27 +663,36 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     }
   }, [connectionId, database, collection, documentsOwnerId, criteria, applyPage, isConnected]);
 
-  const loadInitialRef = useRef(loadInitial);
+  const loadPageRef = useRef(loadPage);
   useEffect(() => {
-    loadInitialRef.current = loadInitial;
-  }, [loadInitial]);
+    loadPageRef.current = loadPage;
+  }, [loadPage]);
+
+  /** Re-query the visible page (after edits, Refresh, or an expired page handle). */
+  const reloadCurrentPage = (preserveDocumentIds?: Set<string>) => loadPage({
+    skip: pageSkip,
+    history: pageHistoryRef.current,
+    pageSize: cursorPageSize,
+    ...(preserveDocumentIds ? { preserveDocumentIds } : {}),
+  });
 
   const changePageSize = async (value: string) => {
     const nextOverride = value === 'default' ? undefined : Number(value);
     const nextPageSize = nextOverride ?? configuredPageSize;
     latestPageSize.current = nextPageSize;
     updateTab(tab.id, { documentsPageSizeOverride: nextOverride });
-    setPageIndex(0);
+    setPageSkip(0);
+    pageHistoryRef.current = [];
     setHasMore(false);
     setSelected(null);
     setEditorText('');
     setEditorMode('view');
     setBulkFailure(null);
-    await loadInitial({ pageSize: nextPageSize });
+    await loadPage({ pageSize: nextPageSize });
   };
 
   useEffect(() => {
-    void loadInitialRef.current();
+    void loadPageRef.current();
     return () => {
       const active = activeFetchRef.current;
       if (active) {
@@ -822,31 +861,46 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
 
   const fetchPage = async (direction: 'next' | 'previous') => {
     if (!cursorId || bulkEditor) return;
-    const operation: ActiveDocumentFetch = {
-      operationId: crypto.randomUUID(),
-      cursorId,
-      cancelled: false,
-    };
-    activeFetchRef.current = operation;
-    setFetchState({
-      operationId: operation.operationId,
+    const step = direction === 'next'
+      ? nextPageStep(pageSkip, rows.length, pageHistoryRef.current)
+      : previousPageStep(pageSkip, cursorPageSize, pageHistoryRef.current);
+    await loadPage({
+      skip: step.skip,
+      history: step.history,
+      pageSize: cursorPageSize,
       label: direction === 'next' ? 'Loading next page…' : 'Loading previous page…',
-      cancelling: false,
+      keepRowsOnError: true,
     });
-    setError(null);
+  };
+
+  const goToPage = async () => {
+    if (bulkEditor) return;
+    const pageNumber = Number(goToPageDraft);
+    const skip = skipForPageNumber(pageNumber, cursorPageSize, totalPages);
+    if (skip === null) {
+      setError(totalPages === null
+        ? 'Enter a page number of 1 or more.'
+        : `Enter a page number between 1 and ${totalPages.toLocaleString()}.`);
+      return;
+    }
+    setGoToPageDraft('');
+    await loadPage({
+      skip,
+      pageSize: cursorPageSize,
+      label: `Loading page ${pageNumber.toLocaleString()}…`,
+      keepRowsOnError: true,
+    });
+  };
+
+  /** Full values of oversized documents live on the page handle, which expires when idle. */
+  const fetchFullEnvelope = async (envelope: DocumentRow['envelope'], unavailableMessage: string) => {
+    if (!cursorId || !envelope.fullValueId) throw new Error(unavailableMessage);
     try {
-      const page = direction === 'next'
-        ? await window.mongog.query.cursorFetchNext(connectionId, cursorId, cursorPageSize, operation.operationId)
-        : await window.mongog.query.cursorFetchPrev(connectionId, cursorId, operation.operationId);
-      if (operation.cancelled || activeFetchRef.current !== operation) return;
-      applyPage(page, cursorPageSize);
+      return await window.mongog.query.cursorFetchFull(connectionId, cursorId, envelope.fullValueId);
     } catch (caught) {
-      if (!operation.cancelled && !isCancellationError(caught)) setError(errorMessage(caught));
-    } finally {
-      if (activeFetchRef.current === operation) {
-        activeFetchRef.current = null;
-        setFetchState(null);
-      }
+      if (!isExpiredPageError(caught)) throw caught;
+      void reloadCurrentPage();
+      throw new Error('This page was idle for too long and has been reloaded. Try again.');
     }
   };
 
@@ -885,13 +939,9 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     try {
       let envelope = row.envelope;
       if (envelope.truncated) {
-        if (!cursorId || !envelope.fullValueId) {
-          throw new Error('The complete document is too large and is no longer retained. Refresh to try again.');
-        }
-        envelope = await window.mongog.query.cursorFetchFull(
-          connectionId,
-          cursorId,
-          envelope.fullValueId,
+        envelope = await fetchFullEnvelope(
+          envelope,
+          'The complete document is too large and is no longer retained. Refresh to try again.',
         );
       }
       const complete = createDocumentRow(envelope, row.absoluteIndex);
@@ -928,13 +978,9 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     for (const row of selectedRows) {
       let envelope = row.envelope;
       if (envelope.truncated) {
-        if (!cursorId || !envelope.fullValueId) {
-          throw new Error('A selected document is too large and its full value is unavailable. Refresh or select fewer documents.');
-        }
-        envelope = await window.mongog.query.cursorFetchFull(
-          connectionId,
-          cursorId,
-          envelope.fullValueId,
+        envelope = await fetchFullEnvelope(
+          envelope,
+          'A selected document is too large and its full value is unavailable. Refresh or select fewer documents.',
         );
       }
       const complete = createDocumentRow(envelope, row.absoluteIndex);
@@ -1009,7 +1055,6 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
       : 'Replace full documents';
     if (!window.confirm(`${operationSummary} for ${bulkEditor.originals.length} selected document(s)?`)) return;
 
-    const targetPageIndex = pageIndex;
     setEditorBusy(true);
     setError(null);
     setNotice(null);
@@ -1035,7 +1080,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
         useSchemaCache.getState().invalidate(connectionId, database, collection);
       }
       setBulkEditor(null);
-      await loadInitial({ targetPageIndex, preserveDocumentIds: failedIds });
+      await reloadCurrentPage(failedIds);
       const summary = bulkUpdateSummary(result);
       setNotice(failedItems.length === 0 ? summary : null);
       setBulkFailure(failedItems.length > 0 ? {
@@ -1055,7 +1100,6 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
 
   const deleteSelectedDocuments = async () => {
     if (selectedRows.length === 0 || readOnly || projectionActive || !isConnected || busy || bulkEditor) return;
-    const targetPageIndex = pageIndex;
     setEditorBusy(true);
     setError(null);
     setNotice(null);
@@ -1087,7 +1131,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
       if (result.deletedCount > 0) {
         useSchemaCache.getState().invalidate(connectionId, database, collection);
       }
-      await loadInitial({ targetPageIndex, preserveDocumentIds: failedIds });
+      await reloadCurrentPage(failedIds);
       const summary = bulkDeleteSummary(result);
       setNotice(failedItems.length === 0 ? summary : null);
       setBulkFailure(failedItems.length > 0 ? {
@@ -1156,7 +1200,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
         successMessage = 'Document updated.';
       }
       useSchemaCache.getState().invalidate(connectionId, database, collection);
-      await loadInitial();
+      await reloadCurrentPage();
       setNotice(successMessage);
     } catch (caught) {
       setError(errorMessage(caught));
@@ -1180,7 +1224,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
         originalDocumentEjson: selected.envelope.ejson,
       });
       useSchemaCache.getState().invalidate(connectionId, database, collection);
-      await loadInitial();
+      await reloadCurrentPage();
       setNotice('Document deleted.');
     } catch (caught) {
       setError(errorMessage(caught));
@@ -1243,7 +1287,13 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
       useExportJobsStore.getState().register(connectionId, result);
       setExportOpen(false);
     } catch (caught) {
-      setError(errorMessage(caught));
+      if (scope === 'current-page' && isExpiredPageError(caught)) {
+        setExportOpen(false);
+        void reloadCurrentPage();
+        setError('This page was idle for too long and has been reloaded. Export it again.');
+      } else {
+        setError(errorMessage(caught));
+      }
     } finally {
       setExportBusy(false);
     }
@@ -1427,7 +1477,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
             <div role="group" aria-label="Criteria actions" style={s.criteriaActions}>
               <ToolbarButton secondary onClick={clearCriteria} disabled={busy || !!bulkEditor}>Clear</ToolbarButton>
               <ToolbarButton onClick={applyCriteria} disabled={busy || !!bulkEditor || invalidCriteria}>Apply</ToolbarButton>
-              <ToolbarButton secondary onClick={() => void loadInitial()} disabled={busy || !!bulkEditor}>Refresh</ToolbarButton>
+              <ToolbarButton secondary onClick={() => void reloadCurrentPage()} disabled={busy || !!bulkEditor}>Refresh</ToolbarButton>
             </div>
           </div>
           <CollectionCriteriaEditor
@@ -1850,7 +1900,23 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
           ? 'Working…'
           : `${rows.length} document(s) · ${selectedRows.length} selected`}</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span>Page {pageIndex + 1}</span>
+          <span>Page {pageNumber.toLocaleString()}</span>
+          {totalPages !== null && <span>of {totalPages.toLocaleString()}</span>}
+          <input
+            aria-label="Go to page"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            {...(totalPages !== null ? { max: totalPages } : {})}
+            placeholder="Go to"
+            value={goToPageDraft}
+            disabled={busy || !!bulkEditor || !cursorId}
+            onChange={(event) => setGoToPageDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && goToPageDraft.trim()) void goToPage();
+            }}
+            style={{ ...s.pageNumberInput, ...(busy || !!bulkEditor || !cursorId ? s.disabled : {}) }}
+          />
           <button
             type="button"
             aria-label="Calculate total document count"
@@ -1891,7 +1957,7 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
               ))}
             </select>
           </label>
-          <ToolbarButton secondary onClick={() => void fetchPage('previous')} disabled={busy || !!bulkEditor || pageIndex === 0}>Previous</ToolbarButton>
+          <ToolbarButton secondary onClick={() => void fetchPage('previous')} disabled={busy || !!bulkEditor || pageSkip === 0}>Previous</ToolbarButton>
           <ToolbarButton secondary onClick={() => void fetchPage('next')} disabled={busy || !!bulkEditor || !hasMore}>Next</ToolbarButton>
         </span>
       </div>
@@ -2142,4 +2208,10 @@ function errorMessage(error: unknown): string {
 function isCancellationError(error: unknown): boolean {
   return typeof error === 'object' && error !== null &&
     'category' in error && error.category === 'Cancellation';
+}
+
+/** A page handle (full values, current-page export) expired after the idle timeout. */
+function isExpiredPageError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null &&
+    'category' in error && error.category === 'CursorNotFound';
 }
