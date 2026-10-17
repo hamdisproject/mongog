@@ -9,7 +9,6 @@ import {
 import { useConnectionStore } from '../stores/connections.js';
 import { useEditorContext } from '../stores/editor-context.js';
 import { useSchemaCache } from '../stores/schema-cache.js';
-import { bsonConstructorSuggestions } from './criteria-completions.js';
 import { useSettingsStore } from '../stores/settings.js';
 import { orderCatalogEntries } from '../catalog-order.js';
 
@@ -77,20 +76,10 @@ export function registerSchemaCompletions(): monaco.IDisposable {
       const insideQuotedToken = precedingCharacter === '"' || precedingCharacter === "'";
 
       return {
-        suggestions: [
-          ...bsonConstructorSuggestions.map((suggestion) => ({
-            label: suggestion.label,
-            insertText: suggestion.insertText,
-            range,
-            kind: monaco.languages.CompletionItemKind.Constructor,
-            detail: suggestion.detail,
-            sortText: `z-${suggestion.label}`,
-            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-          } satisfies monaco.languages.CompletionItem)),
-          ...buildSemanticSuggestions(semanticContext, data).map((suggestion) =>
-            toMonacoSuggestion(suggestion, range, precedingCharacter, insideQuotedToken),
-          ),
-        ],
+        // BSON helpers come from the TypeScript service, filtered by query-completion-policy.
+        suggestions: buildSemanticSuggestions(semanticContext, data).map((suggestion) =>
+          toMonacoSuggestion(suggestion, range, precedingCharacter, insideQuotedToken),
+        ),
       };
     },
   });

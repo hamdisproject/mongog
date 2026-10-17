@@ -53,6 +53,9 @@ export class Database {
         fileMustExist: config.readonly ?? false,
       });
       db.pragma('journal_mode = WAL');
+      // better-sqlite3 builds with SQLITE_DEFAULT_WAL_SYNCHRONOUS=1; state it so
+      // main-thread commits never fsync if that build default ever changes.
+      db.pragma('synchronous = NORMAL');
       db.pragma('foreign_keys = ON');
       db.pragma('busy_timeout = 5000');
 

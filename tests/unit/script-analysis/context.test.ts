@@ -50,6 +50,38 @@ describe('detectCompletionContext', () => {
     }
   });
 
+  it.each([
+    ['db.collection("users").find({ name: O█ })', 'filter'],
+    ['db.collection("users").find({ tags: [O█] })', 'filter'],
+    ['db.collection("users").find({ age: { $gt: I█ } })', 'filter'],
+    ['db.collection("users").find({}).sort({ age: █ })', 'sort'],
+    ['db.collection("users").find({ _id: █, name: "a" })', 'filter'],
+    ['db.collection("users").insertOne({ createdAt: I█ })', 'document'],
+    ['db.collection("users").aggregate([{ $match: { _id: O█ } }])', 'filter'],
+  ] as const)('detects a document value position: %s', (fixture, docKind) => {
+    const [src, off] = at(fixture);
+    expect(detectCompletionContext(src, off)).toMatchObject({
+      kind: 'document-value',
+      docKind,
+      collection: 'users',
+    });
+  });
+
+  it.each([
+    'db.collection("users").find({ name: "a█" })',
+    'const id = O█',
+    'print(O█)',
+    'db.collection("users").aggregate([O█])',
+  ])('keeps non-document values as identifiers: %s', (fixture) => {
+    const [src, off] = at(fixture);
+    expect(detectCompletionContext(src, off)).toEqual({ kind: 'identifier' });
+  });
+
+  it('keeps the key position after a comma that follows an empty value', () => {
+    const [src, off] = at('db.collection("users").find({ age: , █ })');
+    expect(detectCompletionContext(src, off)).toMatchObject({ kind: 'document-key', docKind: 'filter' });
+  });
+
   it('detects operator position ($-prefixed key)', () => {
     const [src, off] = at('db.collection("users").find({ age: { $g█: 5 } })');
     const ctx = detectCompletionContext(src, off);

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import type * as Monaco from 'monaco-editor';
 import type { SqlTranslation } from '../../../features/sql-translator/index.js';
 import type { WorkspaceTab } from '../../../shared/domain/index.js';
@@ -105,14 +106,27 @@ export function SqlWorkspace({ contextLocked = false }: { contextLocked?: boolea
   const {
     activeTabId,
     tabs,
-    results,
     updateTab,
     prepareExecution,
     setExecutionId,
     failExecution,
     clearResults,
-  } = useWorkspaceStore();
-  const { connected, databases, profiles, loadDatabases, connect } = useConnectionStore();
+  } = useWorkspaceStore(useShallow((state) => ({
+    activeTabId: state.activeTabId,
+    tabs: state.tabs,
+    updateTab: state.updateTab,
+    prepareExecution: state.prepareExecution,
+    setExecutionId: state.setExecutionId,
+    failExecution: state.failExecution,
+    clearResults: state.clearResults,
+  })));
+  const { connected, databases, profiles, loadDatabases, connect } = useConnectionStore(useShallow((state) => ({
+    connected: state.connected,
+    databases: state.databases,
+    profiles: state.profiles,
+    loadDatabases: state.loadDatabases,
+    connect: state.connect,
+  })));
   const globalPageSize = useSettingsStore((state) => state.settings.execution.pageSize);
   const editorFontSize = useSettingsStore((state) => state.settings.editor.fontSize);
   const databaseOrder = useSettingsStore((state) => state.settings.catalog.databaseOrder);
@@ -132,11 +146,10 @@ export function SqlWorkspace({ contextLocked = false }: { contextLocked?: boolea
   const sqlSource = sqlTab?.[contentKey] ?? fallbackSql;
   const hasStoredContent = sqlTab?.[contentKey] !== undefined;
   const selectedConnId = sqlTab?.connectionId ?? null;
-  const selectedDb = sqlTab?.database ?? null;
   const orderedDatabases = selectedConnId
     ? orderCatalogEntries(databases[selectedConnId] ?? [], databaseOrder)
     : [];
-  const execution = sqlTab ? results[sqlTab.id] : undefined;
+  const execution = useWorkspaceStore((state) => (sqlTab ? state.results[sqlTab.id] : undefined));
   const isBusy = execution?.status === 'starting' ||
     execution?.status === 'running' ||
     execution?.status === 'cancelling';
@@ -272,6 +285,7 @@ export function SqlWorkspace({ contextLocked = false }: { contextLocked?: boolea
     setExecutionId,
     updateTab,
     failExecution,
+    clearResults,
   ]);
 
   const handleCancel = useCallback(async () => {

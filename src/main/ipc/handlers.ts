@@ -4,10 +4,6 @@ import { basename } from 'node:path';
 import { app, dialog, type BrowserWindow } from 'electron';
 import { registerChannel, type SenderValidator } from './registry.js';
 import {
-  cursorCloseSchema,
-  cursorFetchNextSchema,
-  executeRequestSchema,
-  executionCancelSchema,
   IpcChannels,
   createGroupSchema,
   updateGroupSchema,
@@ -83,7 +79,6 @@ import {
   updatesInstallSchema,
   updatesDismissSchema,
   type ExecuteResponse,
-  type PingRuntimeResponse,
   type QueryCancelResult,
   type SystemInfoResponse,
   type UpdateCheckResult,
@@ -126,8 +121,7 @@ import type { EjsonEnvelope } from '../../shared/ejson/index.js';
 import { appError } from '../../shared/errors/index.js';
 import { containsKnownSecretMaterial } from '../../shared/redaction/index.js';
 import { RuntimeSupervisor } from '../runtime/supervisor.js';
-import { queryRequestTimeoutMS, RuntimeClient } from '../runtime/runtime-client.js';
-import { resolveRuntimeEntry } from '../runtime/paths.js';
+import { queryRequestTimeoutMS } from '../runtime/runtime-client.js';
 import { ConnectionManager, type ConnectionSecretStore } from '../services/connection-manager.js';
 import { AuditService, type AuditContext } from '../services/audit-service.js';
 import type { Database } from '../storage/database.js';
@@ -140,7 +134,6 @@ import { SqlConfirmationStore } from '../services/sql-confirmations.js';
 export interface HandlerContext {
   supervisor: RuntimeSupervisor;
   getWindow: () => BrowserWindow | null;
-  getSpikeMongoUri: () => Promise<string | null>;
   getDb: () => Database;
   secretStore: ConnectionSecretStore;
   audit: AuditService;
@@ -150,7 +143,6 @@ export interface HandlerContext {
 }
 
 const emptySchema = z.object({}).strict();
-const SPIKE_CONNECTION_ID = 'spike';
 
 export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderValidator): void {
   const { supervisor } = ctx;
@@ -176,77 +168,6 @@ export function registerIpcHandlers(ctx: HandlerContext, validateSender: SenderV
       throw appError('ReadOnlyProtection', 'This connection is read-only; document changes are disabled.');
     }
   };
-
-  // ── S1: Spike ping runtime ──
-  registerChannel(
-    IpcChannels.spikePingRuntime,
-    emptySchema,
-    async (): Promise<PingRuntimeResponse> => {
-      const started = Date.now();
-      const client = new RuntimeClient({
-        entryPath: resolveRuntimeEntry(),
-        connectionId: 'spike-ping',
-      });
-      try {
-        await client.start();
-        const res = await client.request<{ pong: boolean; pid: number }>('ping');
-        return { pong: true, runtimePid: res.pid, roundTripMs: Date.now() - started };
-      } finally {
-        await client.kill();
-      }
-    },
-    validateSender,
-  );
-
-  registerChannel(IpcChannels.spikeMongoUri, emptySchema, async () => ctx.getSpikeMongoUri(), validateSender);
-
-  // ── S2/S3: Execute ──
-  registerChannel(
-    IpcChannels.spikeExecute,
-    executeRequestSchema,
-    async (payload): Promise<ExecuteResponse> => {
-      const uri = await ctx.getSpikeMongoUri();
-      if (!uri) {
-        throw appError('InvalidConnectionString', 'No spike MongoDB available. Start with MONGOG_SPIKE_MONGO=1.');
-      }
-      const client = await supervisor.ensure(SPIKE_CONNECTION_ID, uri);
-      return client.request<ExecuteResponse>('execute', { request: payload });
-    },
-    validateSender,
-  );
-
-  registerChannel(
-    IpcChannels.cursorFetchNext,
-    cursorFetchNextSchema,
-    async ({ cursorId, pageSize }): Promise<DocumentsPage> => {
-      const client = supervisor.get(SPIKE_CONNECTION_ID);
-      if (!client) throw appError('UtilityProcessCrash', 'Query runtime is not running.');
-      return client.request<DocumentsPage>('cursor-next', { cursorId, pageSize });
-    },
-    validateSender,
-  );
-
-  registerChannel(
-    IpcChannels.cursorClose,
-    cursorCloseSchema,
-    async ({ cursorId }): Promise<void> => {
-      const client = supervisor.get(SPIKE_CONNECTION_ID);
-      if (!client) return;
-      await client.request('cursor-close', { cursorId });
-    },
-    validateSender,
-  );
-
-  registerChannel(
-    IpcChannels.executionCancel,
-    executionCancelSchema,
-    async ({ executionId }): Promise<void> => {
-      const client = supervisor.get(SPIKE_CONNECTION_ID);
-      if (!client) return;
-      await client.request('cancel', { executionId });
-    },
-    validateSender,
-  );
 
   registerChannel(
     IpcChannels.systemInfo,

@@ -33,7 +33,7 @@ const LENGTH_COMPARISON_PATTERN = new RegExp(
 const COLUMN_FILTER_HELP = 'Use exact text, "" for an empty string, *wildcard*, <> value, 100..200, has *text*, len = 3, {field}: value, [{field}]: value, repeated nested selectors, and AND / OR.';
 const MAX_SELECTOR_STEPS = 32;
 
-interface CompiledFieldFilter {
+export interface CompiledFieldFilter {
   property: string;
   clause: string;
   /** True when this condition cannot be represented as a field property. */
@@ -124,6 +124,11 @@ export function compileColumnFilters(filters: ColumnFilterMap): CompiledColumnFi
       : `{\n  "$and": [\n${clauses.map((clause) => `    ${clause}`).join(',\n')}\n  ]\n}`,
     errors,
   };
+}
+
+/** Compile one column input exactly as compileColumnFilters does for that field. */
+export function compileColumnFilterClause(field: string, source: string): CompiledFieldFilter {
+  return compileFieldFilter(field, source.trim());
 }
 
 export function buildColumnFilterExpression(filters: ColumnFilterMap): string {

@@ -6,7 +6,9 @@ import {
 import {
   bsonConstructorSuggestions,
   buildCriteriaVirtualSource,
+  criteriaConstructorSuggestions,
   criteriaSuggestionInsertText,
+  type CriteriaKind,
 } from '../../../src/renderer/monaco/criteria-completions.js';
 
 describe('Documents criteria completions', () => {
@@ -77,11 +79,40 @@ describe('Documents criteria completions', () => {
     )).toBe('bisikletŞasi');
   });
 
-  it('offers safe BSON constructor snippets with literal arguments', () => {
+  it('suggests only the common BSON helpers, as snippets with literal arguments', () => {
     const suggestions = new Map(bsonConstructorSuggestions.map((item) => [item.label, item.insertText]));
+    expect([...suggestions.keys()]).toEqual(['ObjectId', 'ISODate', 'UUID']);
     expect(suggestions.get('ObjectId')).toContain('507f1f77bcf86cd799439011');
     expect(suggestions.get('ISODate')).toContain('2026-01-01T00:00:00.000Z');
-    expect(suggestions.get('Decimal128')).toContain('125.50');
-    expect(suggestions.get('Timestamp')).toContain('t:');
+    expect(suggestions.get('UUID')).toContain('00112233-4455-6677-8899-aabbccddeeff');
+  });
+
+  it.each([
+    '{ _id: O█ }',
+    '{ _id: █ }',
+    '{ tags: { $in: [U█] } }',
+  ])('offers BSON helpers in Filter value positions: %s', (fixture) => {
+    expect(constructorsAt('filter', fixture)).toEqual(['ObjectId', 'ISODate', 'UUID']);
+  });
+
+  it.each([
+    ['filter', '{ B█ }'],
+    ['filter', '{ age: { $█ } }'],
+    ['filter', '█'],
+    ['sort', '{ age: █ }'],
+    ['projection', '{ name: █ }'],
+  ] as const)('offers no BSON helpers in %s %s', (kind, fixture) => {
+    expect(constructorsAt(kind, fixture)).toEqual([]);
+  });
+
+  it('offers no BSON helpers inside quoted values', () => {
+    expect(constructorsAt('filter', '{ name: "O█" }', true)).toEqual([]);
   });
 });
+
+function constructorsAt(kind: CriteriaKind, fixture: string, insideQuotedToken = false): string[] {
+  const offset = fixture.indexOf('█');
+  const virtual = buildCriteriaVirtualSource(fixture.replace('█', ''), offset, { collection: 'bikes', kind });
+  const context = detectCompletionContext(virtual.source, virtual.offset, 'typescript');
+  return criteriaConstructorSuggestions(kind, context, insideQuotedToken).map((item) => item.label);
+}

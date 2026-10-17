@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import {
   bulkClosableTabIds,
   isTabRenameable,
@@ -116,7 +117,16 @@ export function TabBar() {
     reorderTab,
     setTabPinned,
     renameTab,
-  } = useWorkspaceStore();
+  } = useWorkspaceStore(useShallow((state) => ({
+    tabs: state.tabs,
+    activeTabId: state.activeTabId,
+    closeTabs: state.closeTabs,
+    openQuery: state.openQuery,
+    openSql: state.openSql,
+    reorderTab: state.reorderTab,
+    setTabPinned: state.setTabPinned,
+    renameTab: state.renameTab,
+  })));
   const openGlobalSearch = useCommandPaletteStore((state) => state.open);
   const openDataTransfer = useDataTransferStore((state) => state.open);
   const toolbar = useSettingsStore((state) => state.settings.toolbar);
@@ -492,7 +502,10 @@ function Tab({
   onDrop,
   onDragEnd,
 }: TabProps) {
-  const { setActiveTab, closeTab } = useWorkspaceStore();
+  const { setActiveTab, closeTab } = useWorkspaceStore(useShallow((state) => ({
+    setActiveTab: state.setActiveTab,
+    closeTab: state.closeTab,
+  })));
   const inputRef = useRef<HTMLInputElement>(null);
   const cancelledRef = useRef(false);
 

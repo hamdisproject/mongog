@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import type { CreateSavedItemInput, SavedItem } from '../../../shared/domain/index.js';
 import { savedFolderPath } from '../../saved-item-utils.js';
 import { useConnectionStore } from '../../stores/connections.js';
@@ -21,7 +22,12 @@ const fieldStyle: React.CSSProperties = {
 
 export function SaveItemDialog({ input, existingId, title, onClose, onSaved }: SaveItemDialogProps) {
   const profiles = useConnectionStore((state) => state.profiles);
-  const { folders, createFolder, createItem, updateItem } = useSavedLibraryStore();
+  const { folders, createFolder, createItem, updateItem } = useSavedLibraryStore(useShallow((state) => ({
+    folders: state.folders,
+    createFolder: state.createFolder,
+    createItem: state.createItem,
+    updateItem: state.updateItem,
+  })));
   const [name, setName] = useState(input.name);
   const [connectionId, setConnectionId] = useState<string | null>(input.connectionId);
   const [folderId, setFolderId] = useState<string | null>(input.folderId);

@@ -1,3 +1,4 @@
+import { APP_VERSION } from '../fixtures/app-version.js';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
@@ -31,7 +32,7 @@ import { inspectUpdateConfiguration, startUpdateFeed } from '../helpers/updates.
 test('update available is surfaced in the sidebar after consent is declined', async ({ mongog }) => {
   const harness = createE2EHarness(mongog);
   const { launch, closeApplication, mongoUri, userDataPath, databaseName } = harness;
-  let page = await launch({ MONGOG_UPDATE_E2E_VERSION: '9.9.9' });
+  const page = await launch({ MONGOG_UPDATE_E2E_VERSION: '9.9.9' });
   const websiteDelivery = process.platform === 'win32';
   // Decline the startup action; the update stays 'available' and the sidebar
   // badge + Updates tab remain reachable.
@@ -41,7 +42,7 @@ test('update available is surfaced in the sidebar after consent is declined', as
     name: 'Update 9.9.9 available',
   });
   await expect(updateButton).toBeVisible();
-  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.22');
+  await expect(page.getByTitle(/MongoG version /)).toContainText(`v${APP_VERSION}`);
 
   await updateButton.click();
   await expect(page.getByTestId('updates-view')).toBeVisible();
@@ -66,7 +67,7 @@ test('update available is surfaced in the sidebar after consent is declined', as
 test('update available exposes the platform delivery action', async ({ mongog }) => {
   const harness = createE2EHarness(mongog);
   const { launch, closeApplication, mongoUri, userDataPath, databaseName } = harness;
-  let page = await launch({ MONGOG_UPDATE_E2E_VERSION: '9.9.9' });
+  const page = await launch({ MONGOG_UPDATE_E2E_VERSION: '9.9.9' });
   const websiteDelivery = process.platform === 'win32';
   // If the startup consent prompt appears before we attach this handler,
   // Playwright auto-dismisses it (declare intent explicitly for clarity): that
@@ -195,8 +196,8 @@ for (const failure of ['checksum', 'http'] as const) {
 test('Updates tab is reachable from Settings and shows the neutral state without a badge', async ({ mongog }) => {
   const harness = createE2EHarness(mongog);
   const { launch, closeApplication, mongoUri, userDataPath, databaseName } = harness;
-  let page = await launch();
-  await expect(page.getByTitle(/MongoG version /)).toContainText('v1.2.22');
+  const page = await launch();
+  await expect(page.getByTitle(/MongoG version /)).toContainText(`v${APP_VERSION}`);
   await expect(page.getByRole('button', { name: /^Update .* available$/ })).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Open application settings' }).click();

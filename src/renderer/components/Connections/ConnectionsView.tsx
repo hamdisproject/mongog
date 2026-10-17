@@ -58,6 +58,8 @@ export function ConnectionsView({ tab }: { tab: WorkspaceTab }) {
     setFormMode('basic');
     if (mode === 'create') setForm(emptyConnectionDraft());
     else if (selected) setForm(draftFromProfile(selected));
+    // Reset the draft only when the selected profile itself changes, not on every list refresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, selected?.id, selected?.updatedAt]);
 
   const filteredProfiles = useMemo(() => {

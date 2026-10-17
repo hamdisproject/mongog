@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   AdminSection,
   GlobalSearchResult,
@@ -41,30 +41,39 @@ const ui: Record<string, React.CSSProperties> = {
 
 export function AdminView({ tab }: { tab: WorkspaceTab }) {
   const updateTab = useWorkspaceStore((state) => state.updateTab);
-  const connectionStore = useConnectionStore();
-  const connectedIds = Object.keys(connectionStore.connected);
   const connectionId = tab.connectionId ?? '';
   const database = tab.database ?? '';
   const collection = tab.collection ?? '';
   const section = tab.adminSection ?? 'indexes';
-  const profile = connectionStore.profiles.find((candidate) => candidate.id === connectionId);
+  const connected = useConnectionStore((state) => state.connected);
+  const profiles = useConnectionStore((state) => state.profiles);
+  const databaseEntries = useConnectionStore((state) => state.databases[connectionId]);
+  const collectionEntries = useConnectionStore((state) => state.collections[`${connectionId}:${database}`]);
+  const loadDatabases = useConnectionStore((state) => state.loadDatabases);
+  const loadCollections = useConnectionStore((state) => state.loadCollections);
+  const connectedIds = useMemo(() => Object.keys(connected), [connected]);
+  const firstConnectedId = connectedIds[0];
+  const profile = profiles.find((candidate) => candidate.id === connectionId);
   const databaseOrder = useSettingsStore((state) => state.settings.catalog.databaseOrder);
   const collectionOrder = useSettingsStore((state) => state.settings.catalog.collectionOrder);
-  const databases = orderCatalogEntries(connectionStore.databases[connectionId] ?? [], databaseOrder);
-  const collections = orderCatalogEntries(
-    connectionStore.collections[`${connectionId}:${database}`] ?? [],
-    collectionOrder,
+  const databases = useMemo(
+    () => orderCatalogEntries(databaseEntries ?? [], databaseOrder),
+    [databaseEntries, databaseOrder],
+  );
+  const collections = useMemo(
+    () => orderCatalogEntries(collectionEntries ?? [], collectionOrder),
+    [collectionEntries, collectionOrder],
   );
 
   useEffect(() => {
-    if (!connectionId && connectedIds[0]) {
-      updateTab(tab.id, { connectionId: connectedIds[0] });
+    if (!connectionId && firstConnectedId) {
+      updateTab(tab.id, { connectionId: firstConnectedId });
     }
-  }, [connectionId, connectedIds.join('|'), tab.id, updateTab]);
+  }, [connectionId, firstConnectedId, tab.id, updateTab]);
 
   useEffect(() => {
-    if (connectionId) void connectionStore.loadDatabases(connectionId);
-  }, [connectionId]);
+    if (connectionId) void loadDatabases(connectionId);
+  }, [connectionId, loadDatabases]);
 
   useEffect(() => {
     if (!connectionId || database || databases.length === 0) return;
@@ -74,8 +83,8 @@ export function AdminView({ tab }: { tab: WorkspaceTab }) {
   }, [connectionId, database, databases, profile?.defaultDatabase, tab.id, updateTab]);
 
   useEffect(() => {
-    if (connectionId && database) void connectionStore.loadCollections(connectionId, database);
-  }, [connectionId, database]);
+    if (connectionId && database) void loadCollections(connectionId, database);
+  }, [connectionId, database, loadCollections]);
 
   useEffect(() => {
     if (!collection && collections[0]) updateTab(tab.id, { collection: collections[0].name });
@@ -94,7 +103,7 @@ export function AdminView({ tab }: { tab: WorkspaceTab }) {
         <strong style={{ fontSize: 13 }}>Administration</strong>
         <select style={ui.input} value={connectionId} onChange={(event) => setConnection(event.target.value)}>
           <option value="">Select connection</option>
-          {connectedIds.map((id) => <option key={id} value={id}>{connectionStore.profiles.find((p) => p.id === id)?.name ?? id}</option>)}
+          {connectedIds.map((id) => <option key={id} value={id}>{profiles.find((p) => p.id === id)?.name ?? id}</option>)}
         </select>
         <select style={ui.input} value={database} disabled={!connectionId} onChange={(event) => setDatabase(event.target.value)}>
           <option value="">Select database</option>
@@ -366,6 +375,8 @@ function GridFsSection({ connectionId, database, readOnly }: Omit<CollectionCont
     catch (cause) { setError(errorMessage(cause)); }
     finally { setBusy(false); }
   }, [connectionId, database, bucketName]);
+  // Refresh when the location changes; typing a bucket name waits for an explicit refresh.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { void refresh(); }, [connectionId, database]);
   const upload = async () => {
     setBusy(true); setError(null);

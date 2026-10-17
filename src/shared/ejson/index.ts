@@ -66,7 +66,7 @@ export function serializeToEjsonWithFull(
   let ejson: string;
   try {
     ejson = EJSON.stringify(value, undefined, 2, { relaxed: false });
-  } catch (err) {
+  } catch {
     // Circular or otherwise non-serializable JS values (possible from
     // Trusted Script Mode): degrade to an inspect-style string.
     return {
@@ -102,7 +102,7 @@ function inspectFallback(value: unknown): string {
       value,
       (_k, v: unknown) => {
         if (typeof v === 'bigint') return `${v}n`;
-        if (typeof v === 'function') return `[Function ${(v as Function).name || 'anonymous'}]`;
+        if (typeof v === 'function') return `[Function ${(v as { name?: string }).name || 'anonymous'}]`;
         if (typeof v === 'object' && v !== null) {
           if (seen.has(v)) return '[Circular]';
           seen.add(v);

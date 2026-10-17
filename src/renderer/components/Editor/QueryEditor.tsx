@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import type * as Monaco from 'monaco-editor';
 import { bootMonaco } from '../../monaco/setup.js';
 import { attachQueryWheelZoom } from '../../monaco/query-wheel-zoom.js';
@@ -51,14 +52,27 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
   const {
     activeTabId,
     tabs,
-    results,
     updateTab,
     prepareExecution,
     setExecutionId,
     failExecution,
     clearResults,
-  } = useWorkspaceStore();
-  const { connected, databases, profiles, loadDatabases, connect } = useConnectionStore();
+  } = useWorkspaceStore(useShallow((state) => ({
+    activeTabId: state.activeTabId,
+    tabs: state.tabs,
+    updateTab: state.updateTab,
+    prepareExecution: state.prepareExecution,
+    setExecutionId: state.setExecutionId,
+    failExecution: state.failExecution,
+    clearResults: state.clearResults,
+  })));
+  const { connected, databases, profiles, loadDatabases, connect } = useConnectionStore(useShallow((state) => ({
+    connected: state.connected,
+    databases: state.databases,
+    profiles: state.profiles,
+    loadDatabases: state.loadDatabases,
+    connect: state.connect,
+  })));
   const globalPageSize = useSettingsStore((state) => state.settings.execution.pageSize);
   const editorFontSize = useSettingsStore((state) => state.settings.editor.fontSize);
   const databaseOrder = useSettingsStore((state) => state.settings.catalog.databaseOrder);
@@ -69,7 +83,7 @@ export function QueryEditor({ contextLocked = false }: { contextLocked?: boolean
   const orderedDatabases = selectedConnId
     ? orderCatalogEntries(databases[selectedConnId] ?? [], databaseOrder)
     : [];
-  const execution = activeTab ? results[activeTab.id] : undefined;
+  const execution = useWorkspaceStore((state) => (activeTab ? state.results[activeTab.id] : undefined));
   const querySurfaceActive = activeTab?.kind === 'query' || (
     activeTab?.kind === 'collection' && activeTab.collectionViewMode === 'query'
   );

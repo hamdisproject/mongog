@@ -92,6 +92,66 @@ export function parseDocumentArrayExpression(
   return { json: JSON.stringify(toCanonicalJsonData(documents)) };
 }
 
+export interface DocumentClause {
+  /** Top-level field or operator key. */
+  key: string;
+  /** Original `key: value` text, kept verbatim when a filter is rebuilt. */
+  propertySource: string;
+  /** Original value text. */
+  valueSource: string;
+  /** Canonical EJSON of `{ [key]: value }`. */
+  json: string;
+}
+
+/**
+ * Splits a filter object literal into its top-level conjunction: every
+ * property is one clause and non-empty `$and: [{…}, …]` arrays are flattened,
+ * which keeps the filter's meaning. Same safety rules as parseDocumentExpression.
+ */
+export function parseDocumentClauses(
+  source: string,
+  label = 'Expression',
+): DocumentClause[] {
+  const { sourceFile, root } = parseRootExpression(source, label, 'one object literal');
+  if (!ts.isObjectLiteralExpression(root)) {
+    throw expressionError(sourceFile, root, source.length, `${label} must be an object literal.`);
+  }
+  convertObject(sourceFile, root, source.length, label);
+
+  const clauses: DocumentClause[] = [];
+  const collect = (node: ts.ObjectLiteralExpression): void => {
+    for (const property of node.properties) {
+      if (!ts.isPropertyAssignment(property)) continue;
+      const key = propertyName(sourceFile, property.name, source.length, label);
+      const value = unwrapParentheses(property.initializer);
+      if (
+        key === '$and' &&
+        ts.isArrayLiteralExpression(value) &&
+        value.elements.length > 0 &&
+        value.elements.every((element) => ts.isObjectLiteralExpression(unwrapParentheses(element)))
+      ) {
+        for (const element of value.elements) collect(unwrapParentheses(element) as ts.ObjectLiteralExpression);
+        continue;
+      }
+      const document = Object.create(null) as Record<string, unknown>;
+      Object.defineProperty(document, key, {
+        value: convertValue(sourceFile, property.initializer, source.length, label),
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      });
+      clauses.push({
+        key,
+        propertySource: property.getText(sourceFile),
+        valueSource: property.initializer.getText(sourceFile),
+        json: JSON.stringify(toCanonicalJsonData(document)),
+      });
+    }
+  };
+  collect(root);
+  return clauses;
+}
+
 function parseRootExpression(
   source: string,
   label: string,

@@ -8,7 +8,8 @@ export default defineConfig({
     exclude: ['monaco-editor'],
   },
   build: {
-    sourcemap: true,
+    // Renderer maps were ~93 MB inside app.asar (3x the JS) and nothing consumes them.
+    sourcemap: false,
   },
   worker: {
     format: 'es',

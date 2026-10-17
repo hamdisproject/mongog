@@ -89,6 +89,8 @@ export function DataTransferView() {
       )]);
       setActiveCopyIndex(0);
     }
+    // Apply each launch request exactly once, when its version changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [launchVersion]);
 
   useEffect(() => {
@@ -112,6 +114,8 @@ export function DataTransferView() {
         : orderedNames[0] ?? '';
       setSourceDatabase(preferred);
     }).catch((cause) => setError(errorMessage(cause)));
+    // Reload databases only when the source connection changes; the launch hint is read once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceConnectionId]);
 
   useEffect(() => {

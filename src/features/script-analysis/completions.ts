@@ -134,6 +134,7 @@ export function buildSemanticSuggestions(
       );
     case 'aggregation-stage':
       return operatorSuggestions(AGGREGATION_STAGES, 'stage');
+    case 'document-value':
     case 'identifier':
       return [];
   }

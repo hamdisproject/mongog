@@ -34,6 +34,12 @@ export type CompletionContext =
     }
   | { kind: 'aggregation-stage'; collection?: string }
   | { kind: 'field-reference'; collection?: string }
+  | {
+      kind: 'document-value';
+      docKind: DocumentContextKind;
+      collection?: string;
+      method?: string;
+    }
   | { kind: 'identifier' };
 
 /** method name -> argument index -> document semantics */
@@ -101,9 +107,11 @@ export function detectCompletionContext(
   }
 
   // --- Key positions inside object literals ------------------------------
-  const keyInfo = keyPositionInfo(sf, node, offset);
-  if (!keyInfo) return { kind: 'identifier' };
+  const keyInfo = keyPositionInfo(sf, node);
+  if (!keyInfo) return documentValueContext(node) ?? { kind: 'identifier' };
   const { objectLiteral, typedPrefix } = keyInfo;
+  const emptyValue = emptyValueAt(sf, objectLiteral, offset);
+  if (emptyValue) return documentValueContext(emptyValue) ?? { kind: 'identifier' };
 
   const callCtx = enclosingDataCall(objectLiteral);
   if (!callCtx) return { kind: 'identifier' };
@@ -142,7 +150,6 @@ interface KeyPositionInfo {
 function keyPositionInfo(
   sf: ts.SourceFile,
   node: ts.Node,
-  offset: number,
 ): KeyPositionInfo | null {
   // Case A: node is (part of) a PropertyAssignment name.
   let cursor: ts.Node | undefined = node;
@@ -184,6 +191,44 @@ function keyPositionInfo(
   return null;
 }
 
+/** The missing value of `key: █` when only whitespace follows the colon. */
+function emptyValueAt(
+  sf: ts.SourceFile,
+  objectLiteral: ts.ObjectLiteralExpression,
+  offset: number,
+): ts.Expression | null {
+  for (const property of objectLiteral.properties) {
+    if (!ts.isPropertyAssignment(property) || property.initializer.getWidth(sf) > 0) continue;
+    const colon = property.getChildren(sf).find((child) => child.kind === ts.SyntaxKind.ColonToken);
+    if (colon && offset >= colon.getEnd() && !sf.text.slice(colon.getEnd(), offset).trim()) {
+      return property.initializer;
+    }
+  }
+  return null;
+}
+
+/** A property VALUE (or array element inside one) of a driver data-call document. */
+function documentValueContext(node: ts.Node): CompletionContext | null {
+  let cursor: ts.Node = node;
+  while (cursor.parent) {
+    const parent: ts.Node = cursor.parent;
+    if (ts.isPropertyAssignment(parent)) {
+      if (parent.initializer !== cursor || !ts.isObjectLiteralExpression(parent.parent)) return null;
+      const callCtx = enclosingDataCall(parent.parent);
+      if (!callCtx) return null;
+      return {
+        kind: 'document-value',
+        docKind: refinedDocKind(parent.parent, callCtx.docKind),
+        ...(callCtx.collection ? { collection: callCtx.collection } : {}),
+        ...(callCtx.method ? { method: callCtx.method } : {}),
+      };
+    }
+    if (!ts.isArrayLiteralExpression(parent) && !ts.isParenthesizedExpression(parent)) return null;
+    cursor = parent;
+  }
+  return null;
+}
+
 interface DataCallContext {
   docKind: DocumentContextKind;
   method?: string;
@@ -208,7 +253,7 @@ function enclosingDataCall(objectLiteral: ts.ObjectLiteralExpression): DataCallC
         const argIndex = parent.arguments.findIndex((a) => containsNode(a, objectLiteral));
         if (argIndex >= 0) {
           const kinds = METHOD_ARG_KINDS[method]!;
-          let docKind: DocumentContextKind = kinds[argIndex] ?? 'unknown';
+          const docKind: DocumentContextKind = kinds[argIndex] ?? 'unknown';
           // A pipeline array encountered while climbing overrides arg-kind
           // only for the stage objects themselves (handled by caller).
           if (docKind === 'pipeline' && pipelineArray) {

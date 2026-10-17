@@ -1,8 +1,5 @@
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { app } from 'electron';
-
-const here = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * The query runtime is built to `runtime-dist/query-runtime.cjs` (outside

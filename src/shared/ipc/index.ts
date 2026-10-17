@@ -87,12 +87,6 @@ import {
 } from '../domain/namespaces.js';
 
 export const IpcChannels = {
-  spikePingRuntime: 'mongog:spike:ping-runtime',
-  spikeMongoUri: 'mongog:spike:mongo-uri',
-  spikeExecute: 'mongog:spike:execute',
-  cursorFetchNext: 'mongog:cursor:fetch-next',
-  cursorClose: 'mongog:cursor:close',
-  executionCancel: 'mongog:execution:cancel',
   systemInfo: 'mongog:system:info',
   // ── Phase 1: Connection Management ──
   connListGroups: 'mongog:conn:list-groups',
@@ -220,14 +214,6 @@ export const executeRequestSchema = z.object({
   pageSize: z.number().int().min(1).max(500).optional(),
   timeoutMS: z.number().int().min(0).max(600_000).optional(),
 }) satisfies z.ZodType<ExecuteRequest>;
-
-export const cursorFetchNextSchema = z.object({
-  cursorId: z.string().min(1),
-  pageSize: z.number().int().min(1).max(500).optional(),
-});
-
-export const cursorCloseSchema = z.object({ cursorId: z.string().min(1) });
-export const executionCancelSchema = z.object({ executionId: z.string().min(1) });
 
 // ── Phase 1: Connection schemas ──
 
@@ -1025,12 +1011,6 @@ export const connGridFsDeleteSchema = z.object({
 
 // ── Response types ──
 
-export interface PingRuntimeResponse {
-  pong: true;
-  runtimePid: number;
-  roundTripMs: number;
-}
-
 export interface ExecuteResponse {
   executionId: string;
 }
@@ -1051,18 +1031,6 @@ export interface SystemInfoResponse {
 // ── Renderer API ──
 
 export interface MongoGDesktopApi {
-  spike: {
-    pingRuntime(): Promise<PingRuntimeResponse>;
-    mongoUri(): Promise<string | null>;
-    execute(req: ExecuteRequest): Promise<ExecuteResponse>;
-  };
-  cursors: {
-    fetchNext(cursorId: string, pageSize?: number): Promise<DocumentsPage>;
-    close(cursorId: string): Promise<void>;
-  };
-  executions: {
-    cancel(executionId: string): Promise<void>;
-  };
   system: {
     info(): Promise<SystemInfoResponse>;
   };

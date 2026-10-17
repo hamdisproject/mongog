@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useConnectionStore } from '../../stores/connections.js';
 import { useSettingsStore } from '../../stores/settings.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
@@ -92,13 +93,42 @@ type GroupAction = {
 function ExplorerTree({ compactHeader = false }: { compactHeader?: boolean }) {
   const {
     groups, profiles, connected, idleDisconnects, selectedProfileId, selectedGroupId,
-    expandedGroupIds, expandedProfileIds, expandedDatabaseIds,
+    expandedGroupIds, expandedProfileIds,
     databases, collections, loading,
-    selectGroup, selectProfile, toggleGroup, toggleProfile, toggleDatabase,
+    selectGroup, selectProfile, toggleGroup, toggleProfile,
     updateGroup, deleteGroup, connect, disconnect, loadDatabases, loadCollections,
     createGroup, moveProfileToGroup,
-  } = useConnectionStore();
-  const { openWelcome, openConnections, openSettings, openUpdates } = useWorkspaceStore();
+  } = useConnectionStore(useShallow((state) => ({
+    groups: state.groups,
+    profiles: state.profiles,
+    connected: state.connected,
+    idleDisconnects: state.idleDisconnects,
+    selectedProfileId: state.selectedProfileId,
+    selectedGroupId: state.selectedGroupId,
+    expandedGroupIds: state.expandedGroupIds,
+    expandedProfileIds: state.expandedProfileIds,
+    databases: state.databases,
+    collections: state.collections,
+    loading: state.loading,
+    selectGroup: state.selectGroup,
+    selectProfile: state.selectProfile,
+    toggleGroup: state.toggleGroup,
+    toggleProfile: state.toggleProfile,
+    updateGroup: state.updateGroup,
+    deleteGroup: state.deleteGroup,
+    connect: state.connect,
+    disconnect: state.disconnect,
+    loadDatabases: state.loadDatabases,
+    loadCollections: state.loadCollections,
+    createGroup: state.createGroup,
+    moveProfileToGroup: state.moveProfileToGroup,
+  })));
+  const { openWelcome, openConnections, openSettings, openUpdates } = useWorkspaceStore(useShallow((state) => ({
+    openWelcome: state.openWelcome,
+    openConnections: state.openConnections,
+    openSettings: state.openSettings,
+    openUpdates: state.openUpdates,
+  })));
   const updatePhase = useUpdatesStore((state) => state.phase);
   const updateVersion = useUpdatesStore((state) => state.availableVersion);
   const savedFolders = useSavedLibraryStore((state) => state.folders);
@@ -618,8 +648,26 @@ function ProfileNode({
     dropDatabase,
     createDatabase,
     startDatabaseRename,
-  } = useConnectionStore();
-  const { openCollection, openQuery, openSql, openAdmin, openChangeStream } = useWorkspaceStore();
+  } = useConnectionStore(useShallow((state) => ({
+    databases: state.databases,
+    expandedDatabaseIds: state.expandedDatabaseIds,
+    toggleDatabase: state.toggleDatabase,
+    collections: state.collections,
+    collectionsLoading: state.collectionsLoading,
+    refreshCollections: state.refreshCollections,
+    renameCollection: state.renameCollection,
+    dropCollection: state.dropCollection,
+    dropDatabase: state.dropDatabase,
+    createDatabase: state.createDatabase,
+    startDatabaseRename: state.startDatabaseRename,
+  })));
+  const { openCollection, openQuery, openSql, openAdmin, openChangeStream } = useWorkspaceStore(useShallow((state) => ({
+    openCollection: state.openCollection,
+    openQuery: state.openQuery,
+    openSql: state.openSql,
+    openAdmin: state.openAdmin,
+    openChangeStream: state.openChangeStream,
+  })));
   const openDataTransfer = useDataTransferStore((state) => state.open);
   const [connectionBusy, setConnectionBusy] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);

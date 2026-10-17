@@ -24,7 +24,6 @@ import {
   appError,
   classifyError,
   MongoGCancellationError,
-  type AppError,
 } from '../../shared/errors/index.js';
 import { serializeToEjson } from '../../shared/ejson/index.js';
 import { CursorRegistry, type CursorOwner } from '../registry/cursors.js';

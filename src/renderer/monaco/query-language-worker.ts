@@ -1,6 +1,7 @@
 /** Query-only virtual source. The editor model and saved source stay untouched. */
 import { TypeScriptWorker, initialize } from 'monaco-editor/language/typescript/ts.worker.js';
 import { buildAutoAwaitProjection, mapAutoAwaitResult, type AutoAwaitProjection } from '../../features/script-analysis/auto-await-projection.js';
+import { filterQueryCompletions, type QueryCompletionInfo } from './query-completion-policy.js';
 
 const positionMethods = new Set([
   'getCompletionsAtPosition', 'getCompletionEntryDetails', 'getSignatureHelpItems',
@@ -49,7 +50,8 @@ class QueryLanguageWorker extends TypeScriptWorker {
             const start = projection.toGenerated(span.start);
             args[1] = { start, length: projection.toGenerated(span.start + span.length) - start };
           }
-          const mapped = this.mapResult(Reflect.apply(member, target, args), fileName);
+          let mapped = this.mapResult(Reflect.apply(member, target, args), fileName);
+          if (method === 'getCompletionsAtPosition') mapped = filterQueryCompletions(mapped as QueryCompletionInfo | undefined);
           return mapped ?? (method === 'getRenameInfo' ? {canRename:false,localizedErrorMessage:'Generated code cannot be renamed'} : undefined);
         };
       },

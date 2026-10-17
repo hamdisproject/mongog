@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { createPortal } from 'react-dom';
 import { useConnectionStore } from '../../stores/connections.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
@@ -23,9 +24,27 @@ export function CommandPalette() {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { isOpen, close, toggle } = useCommandPaletteStore();
-  const { profiles, connected, databases, collections, loadDatabases, loadCollections } = useConnectionStore();
-  const { openQuery, openSql, openCollection, openAdmin, openConnections, openWelcome } = useWorkspaceStore();
+  const { isOpen, close, toggle } = useCommandPaletteStore(useShallow((state) => ({
+    isOpen: state.isOpen,
+    close: state.close,
+    toggle: state.toggle,
+  })));
+  const { profiles, connected, databases, collections, loadDatabases, loadCollections } = useConnectionStore(useShallow((state) => ({
+    profiles: state.profiles,
+    connected: state.connected,
+    databases: state.databases,
+    collections: state.collections,
+    loadDatabases: state.loadDatabases,
+    loadCollections: state.loadCollections,
+  })));
+  const { openQuery, openSql, openCollection, openAdmin, openConnections, openWelcome } = useWorkspaceStore(useShallow((state) => ({
+    openQuery: state.openQuery,
+    openSql: state.openSql,
+    openCollection: state.openCollection,
+    openAdmin: state.openAdmin,
+    openConnections: state.openConnections,
+    openWelcome: state.openWelcome,
+  })));
   const savedItems = useSavedLibraryStore((state) => state.items);
   const savedFolders = useSavedLibraryStore((state) => state.folders);
   const openSavedItem = useSavedLibraryStore((state) => state.openItem);

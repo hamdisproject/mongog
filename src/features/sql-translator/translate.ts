@@ -18,6 +18,7 @@
 import mysqlParser from 'node-sql-parser/build/mysql.js';
 import { MAX_SQL_SOURCE_BYTES, SqlTranslateError, type SqlTranslation } from './types.js';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- node-sql-parser's AST is untyped and walked dynamically.
 type AstNode = Record<string, any>;
 
 const { Parser } = mysqlParser;

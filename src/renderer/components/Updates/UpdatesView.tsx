@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useUpdatesStore } from '../../stores/updates.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
 import { theme } from '../../theme.js';
@@ -18,7 +19,18 @@ export function UpdatesView() {
     check,
     install,
     dismiss,
-  } = useUpdatesStore();
+  } = useUpdatesStore(useShallow((state) => ({
+    phase: state.phase,
+    delivery: state.delivery,
+    currentVersion: state.currentVersion,
+    availableVersion: state.availableVersion,
+    progress: state.progress,
+    error: state.error,
+    lastCheckedAt: state.lastCheckedAt,
+    check: state.check,
+    install: state.install,
+    dismiss: state.dismiss,
+  })));
   const openReleaseNotes = useWorkspaceStore((state) => state.openReleaseNotes);
   const [installedVersion, setInstalledVersion] = useState<string>(LATEST_RELEASE.version);
 

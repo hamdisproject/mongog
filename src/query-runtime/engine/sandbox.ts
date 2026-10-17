@@ -15,6 +15,7 @@ import type { ConsoleEntry } from '../../shared/domain/index.js';
 import { serializeToEjson } from '../../shared/ejson/index.js';
 import { appError } from '../../shared/errors/index.js';
 import { createAutoAwaitRuntime, type AutoAwaitHooks } from './auto-await.js';
+import { hardenFunctionConstructors } from './realm-hardening.js';
 import { createReadOnlyDriverGuard } from './read-only-guard.js';
 
 export interface SandboxOptions {
@@ -97,6 +98,7 @@ export function createSandbox(options: SandboxOptions): SandboxHandle {
   type ShellCompatibleDb = mongodb.Db & {
     getSiblingDB(databaseName: string): ShellCompatibleDb;
   };
+  hardenFunctionConstructors();
   const guarded = options.readOnly ? createReadOnlyDriverGuard(options.client) : null;
   const sandboxClient = guarded?.client ?? options.client;
   const sandboxMongoModule = guarded?.mongodb ?? mongodb;
@@ -212,7 +214,6 @@ export function createSandbox(options: SandboxOptions): SandboxHandle {
     sandbox[options.autoAwait.identifier] = runtime;
     runtime.install(vm.runInContext('Array', context) as ArrayConstructor, vm.runInContext('Promise', context) as PromiseConstructor);
   }
-  vm.createContext(sandbox, { name: 'x' }); // no-op guard against accidental double-context misuse
 
   return {
     context,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CreateSavedItemInput, SavedItem, SavedItemType, WorkspaceTab } from '../../../shared/domain/index.js';
 import { savedInputForTab } from '../../saved-item-utils.js';
 import { useSavedLibraryStore } from '../../stores/saved.js';
@@ -37,7 +37,7 @@ export function SavedActions({ tab, surface, getSelection }: SavedActionsProps) 
         : tab.collectionViewMode === 'query'
   );
 
-  const openCreate = (
+  const openCreate = useCallback((
     type: SavedItemType,
     options: { selection?: boolean; saveAs?: boolean } = {},
   ) => {
@@ -55,9 +55,9 @@ export function SavedActions({ tab, surface, getSelection }: SavedActionsProps) 
       linkTab: !options.selection,
       title: options.selection ? 'Save Selection as Query' : undefined,
     });
-  };
+  }, [existing, getSelection, tab]);
 
-  const savePrimary = async () => {
+  const savePrimary = useCallback(async () => {
     if (busy) return;
     if (!existing) {
       openCreate(defaultType);
@@ -74,7 +74,7 @@ export function SavedActions({ tab, surface, getSelection }: SavedActionsProps) 
     } finally {
       setBusy(false);
     }
-  };
+  }, [busy, defaultType, existing, openCreate, tab, updateItem, updateTab]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -85,7 +85,7 @@ export function SavedActions({ tab, surface, getSelection }: SavedActionsProps) 
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [activeSurface, existing, defaultType, tab, getSelection]);
+  }, [activeSurface, existing, defaultType, openCreate, savePrimary]);
 
   const menuItems = useMemo<ContextMenuItem[]>(() => {
     const result: ContextMenuItem[] = [];
@@ -109,7 +109,7 @@ export function SavedActions({ tab, surface, getSelection }: SavedActionsProps) 
       );
     } else result.push({ label: 'Save SQL Tab…', separatorBefore: result.length > 0, onSelect: () => openCreate('tab') });
     return result;
-  }, [existing, surface, getSelection, tab]);
+  }, [existing, surface, getSelection, openCreate]);
 
   const handleSaved = (item: SavedItem) => {
     if (dialog?.linkTab) updateTab(tab.id, { savedItemId: item.id, dirty: false });

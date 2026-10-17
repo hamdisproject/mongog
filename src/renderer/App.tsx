@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { Explorer } from './components/Sidebar/Explorer.js';
 import { TabBar } from './components/TabBar/TabBar.js';
 import { QueryWorkspace } from './components/Editor/QueryWorkspace.js';
@@ -29,13 +30,24 @@ import { useDataTransferStore } from './stores/data-transfer.js';
 import { useUpdatesStore } from './stores/updates.js';
 import { DatabaseRenameProgressOverlay } from './components/Database/DatabaseRenameProgressOverlay.js';
 import { useDatabaseRenameJobsStore } from './stores/database-renames.js';
-import { MONGOG_RELEASES_URL } from '../shared/ipc/index.js';
+import { MONGOG_RELEASES_URL, type MongoGDesktopApi } from '../shared/ipc/index.js';
+import { createFrameBatcher } from './engine-event-batcher.js';
+import { persistedWorkspaceFingerprint } from './workspace-persistence.js';
+
+type EngineEventPayload = Parameters<Parameters<MongoGDesktopApi['events']['onEngineEvent']>[0]>[0];
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let savedWorkspaceFingerprint: string | null = null;
 
 export default function App() {
-  const { activeTabId, tabs, sidebarWidth, restore } = useWorkspaceStore();
-  const { load } = useConnectionStore();
+  // Select only what App renders: engine events update `results` many times per run.
+  const { activeTabId, tabs, sidebarWidth, restore } = useWorkspaceStore(useShallow((state) => ({
+    activeTabId: state.activeTabId,
+    tabs: state.tabs,
+    sidebarWidth: state.sidebarWidth,
+    restore: state.restore,
+  })));
+  const load = useConnectionStore((state) => state.load);
   const loadSettings = useSettingsStore((state) => state.load);
   const engineSubRef = useRef<(() => void) | null>(null);
   const initializedRef = useRef(false);
@@ -49,7 +61,13 @@ export default function App() {
     saveTimer = null;
     const save = () => {
       const { tabs: t, activeTabId: a, sidebarWidth: width } = useWorkspaceStore.getState();
-      void window.mongog.workspace.save({ tabs: t, activeTabId: a, sidebarWidth: width });
+      const state = { tabs: t, activeTabId: a, sidebarWidth: width };
+      // Skip saves where only renderer-only fields changed (column order, page size…).
+      const fingerprint = persistedWorkspaceFingerprint(state);
+      if (fingerprint !== null && fingerprint === savedWorkspaceFingerprint) return;
+      void window.mongog.workspace.save(state)
+        .then(() => { savedWorkspaceFingerprint = fingerprint; })
+        .catch(() => undefined);
     };
     if (delayMs === 0) {
       save();
@@ -86,29 +104,35 @@ export default function App() {
       setStartupReady(true);
       persist(0);
     });
-  }, []);
+  }, [load, loadSettings, persist, restore]);
 
   // Subscribe to engine events.
   useEffect(() => {
-    engineSubRef.current = window.mongog.events.onEngineEvent((payload) => {
-      const store = useWorkspaceStore.getState();
-      const routedTabId = payload.tabId && store.results[payload.tabId]
-        ? payload.tabId
-        : Object.entries(store.results)
-          .find(([, result]) => result.executionId === payload.executionId)?.[0];
+    // Apply in order, but once per frame: React then renders a burst of
+    // console/result events in one commit instead of one commit per event.
+    const batcher = createFrameBatcher<EngineEventPayload>((payloads) => {
+      for (const payload of payloads) {
+        const store = useWorkspaceStore.getState();
+        const routedTabId = payload.tabId && store.results[payload.tabId]
+          ? payload.tabId
+          : Object.entries(store.results)
+            .find(([, result]) => result.executionId === payload.executionId)?.[0];
 
-      if (!routedTabId) return;
-      store.applyEngineEvent(
-        routedTabId,
-        payload.connectionId,
-        payload.executionId,
-        payload.runId,
-        payload.event,
-      );
+        if (!routedTabId) continue;
+        store.applyEngineEvent(
+          routedTabId,
+          payload.connectionId,
+          payload.executionId,
+          payload.runId,
+          payload.event,
+        );
+      }
     });
+    engineSubRef.current = window.mongog.events.onEngineEvent((payload) => batcher.push(payload));
 
     return () => {
       engineSubRef.current?.();
+      batcher.dispose();
     };
   }, []);
 
@@ -206,7 +230,7 @@ export default function App() {
     const metadataChanged = metadata !== workspaceMetadataRef.current;
     workspaceMetadataRef.current = metadata;
     persist(metadataChanged ? 0 : 500);
-  }, [tabs, activeTabId, sidebarWidth]);
+  }, [tabs, activeTabId, sidebarWidth, persist]);
 
   // Save on window close.
   useEffect(() => {

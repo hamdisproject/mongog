@@ -4,7 +4,6 @@ import {
   IpcEvents,
   type MongoGDesktopApi,
 } from '../shared/ipc/index.js';
-import type { ExecuteRequest } from '../shared/domain/index.js';
 
 const ALLOWED_EVENTS = new Set<string>(Object.values(IpcEvents));
 
@@ -31,19 +30,6 @@ function subscribe<T>(channel: string, cb: (payload: T) => void): () => void {
 }
 
 const api: MongoGDesktopApi = {
-  spike: {
-    pingRuntime: () => invoke(IpcChannels.spikePingRuntime),
-    mongoUri: () => invoke(IpcChannels.spikeMongoUri),
-    execute: (req: ExecuteRequest) => invoke(IpcChannels.spikeExecute, req),
-  },
-  cursors: {
-    fetchNext: (cursorId: string, pageSize?: number) =>
-      invoke(IpcChannels.cursorFetchNext, { cursorId, pageSize }),
-    close: (cursorId: string) => invoke(IpcChannels.cursorClose, { cursorId }),
-  },
-  executions: {
-    cancel: (executionId: string) => invoke(IpcChannels.executionCancel, { executionId }),
-  },
   system: {
     info: () => invoke(IpcChannels.systemInfo),
   },

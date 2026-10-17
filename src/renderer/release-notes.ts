@@ -19,6 +19,38 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
+    version: '1.2.26',
+    releasedAt: '2026-10-17',
+    title: 'Synchronized filters and a smoother workspace',
+    summary: 'Documents filters stay in sync, query suggestions are more focused, and the workspace runs more smoothly with stronger script and renderer protections.',
+    sections: [
+      {
+        kind: 'added',
+        items: [
+          'Documents column filters and the Filter editor now stay in sync, including supported comparisons, ranges and wildcard conditions.',
+        ],
+      },
+      {
+        kind: 'improved',
+        items: [
+          'Query suggestions prioritize MongoDB shell helpers and core JavaScript, while Filter suggestions offer ObjectId, ISODate and UUID where a value is expected.',
+          'Reduced unnecessary workspace redraws and saves, keeping the interface more responsive during query results and bursts of console output.',
+          'Packaged applications are smaller because unused renderer source maps and development-only type dependencies no longer ship.',
+          'Strengthened script execution protections, renderer content restrictions and IPC origin validation.',
+        ],
+      },
+      {
+        kind: 'fixed',
+        items: [
+          'Editing a column filter preserves advanced Filter conditions, and an invalid Filter must be corrected before column edits can replace it.',
+          'Restored Documents tabs load their first page after the connection is re-established.',
+          'Concurrent connection requests share one query runtime instead of starting duplicate background processes.',
+          'MongoDB URI redaction now fully masks credentials containing raw @ characters.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.2.25',
     releasedAt: '2026-10-06',
     title: 'Reliable Documents paging',

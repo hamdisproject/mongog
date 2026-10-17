@@ -9,9 +9,9 @@ const URI_SCHEME = /^(mongodb(?:\+srv)?):\/\//i;
 /** Replace userinfo in a MongoDB URI with a fixed mask. */
 export function redactUri(uri: string): string {
   if (!URI_SCHEME.test(uri)) return redactSecretPatterns(uri);
-  // Greedy match up to the LAST '@' before the host/path, so passwords
-  // containing raw '@' characters are also fully masked.
-  const replaced = uri.replace(/^(mongodb(?:\+srv)?:\/\/)[^/@]*@/i, '$1<redacted>@');
+  // Greedy match up to the LAST '@' before the path/query/fragment, so
+  // passwords containing raw '@' characters are also fully masked.
+  const replaced = uri.replace(/^(mongodb(?:\+srv)?:\/\/)[^/?#]*@/i, '$1<redacted>@');
   return redactSecretPatterns(replaced);
 }
 

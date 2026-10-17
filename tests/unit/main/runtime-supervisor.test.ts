@@ -190,6 +190,42 @@ describe('runtime supervisor idle lifecycle', () => {
       });
   });
 
+  it('single-flights concurrent connects so only one utility process is born', async () => {
+    const supervisor = new RuntimeSupervisor();
+    const connecting = vi.fn();
+    supervisor.on('runtime-connecting', connecting);
+
+    const [first, second] = await Promise.all([
+      supervisor.ensure('conn-1', 'mongodb://localhost/app'),
+      supervisor.ensure('conn-1', 'mongodb://localhost/app'),
+    ]);
+
+    expect(first).toBe(second);
+    expect(connecting).toHaveBeenCalledTimes(1);
+    expect(supervisor.size).toBe(1);
+  });
+
+  it('kills a runtime when Disconnect arrives while it is still starting', async () => {
+    const supervisor = new RuntimeSupervisor();
+    const connecting = supervisor.ensure('conn-1', 'mongodb://localhost/app');
+    await supervisor.dispose('conn-1');
+
+    expect((await connecting).isAlive).toBe(false);
+    expect(supervisor.size).toBe(0);
+    expect(supervisor.get('conn-1')).toBeNull();
+  });
+
+  it('counts runtimes that are still starting toward the runtime cap', async () => {
+    const supervisor = new RuntimeSupervisor({ maxRuntimes: 1 });
+    const results = await Promise.allSettled([
+      supervisor.ensure('conn-1', 'mongodb://localhost/a'),
+      supervisor.ensure('conn-2', 'mongodb://localhost/b'),
+    ]);
+
+    expect(results.map((result) => result.status)).toEqual(['fulfilled', 'rejected']);
+    expect(supervisor.size).toBe(1);
+  });
+
   it('tracks the renderer context while an execution is active', async () => {
     const supervisor = new RuntimeSupervisor();
     const client = await supervisor.ensure('conn-1', 'mongodb://localhost');

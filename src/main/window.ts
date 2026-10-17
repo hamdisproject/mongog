@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { app, BrowserWindow, protocol, screen, shell } from 'electron';
+import { isAllowedRendererUrl, PRODUCTION_CSP } from './renderer-security.js';
 import type { WindowState } from './window-state.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -58,8 +59,12 @@ export function installRendererProtocol(): void {
 
     try {
       const body = await readFile(target);
+      const type = contentType(target);
       return new Response(new Uint8Array(body), {
-        headers: { 'content-type': contentType(target) },
+        headers: {
+          'content-type': type,
+          ...(type.startsWith('text/html') ? { 'content-security-policy': PRODUCTION_CSP } : {}),
+        },
       });
     } catch {
       return new Response('Not found', { status: 404 });
@@ -110,7 +115,7 @@ export function createMainWindow(options?: CreateWindowOptions): BrowserWindow {
   win.once('ready-to-show', () => win.show());
 
   win.webContents.on('will-navigate', (event, url) => {
-    if (!allowedRendererOrigins().some((o) => url.startsWith(o))) {
+    if (!isAllowedRendererUrl(url, allowedRendererOrigins())) {
       event.preventDefault();
     }
   });

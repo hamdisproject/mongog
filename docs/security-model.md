@@ -66,5 +66,10 @@ persistence/`safeStorage` access) — not an OS sandbox.
   consent UX. Copy must stay: "equivalent to running trusted local code;
   **not a sandbox**". `vm` escape CVEs are mitigated by keeping Electron
   current, not by claiming isolation.
+- Both modes: `engine/realm-hardening.ts` swaps the inherited `constructor` of
+  every function kind for a proxy that refuses to compile, closing
+  `x.constructor.constructor("return process")()`. Electron's utilityProcess
+  ignores `--disallow-code-generation-from-strings`, so a V8 flag cannot do
+  this. It raises the bar; Query Mode is still **not a sandbox**.
 - Policy scans inspect the ORIGINAL AST; automatic-await is not a security
   boundary (`docs/query-scripts.md`).

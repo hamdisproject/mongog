@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DocumentExpressionError,
   parseDocumentArrayExpression,
+  parseDocumentClauses,
   parseDocumentExpression,
   parseValueExpression,
 } from '../../../src/features/script-analysis/index.js';
@@ -148,5 +149,38 @@ describe('safe document expressions', () => {
       expect(error).toBeInstanceOf(DocumentExpressionError);
       expect(error).toMatchObject({ start: 19, end: 24 });
     }
+  });
+});
+
+describe('document filter clauses', () => {
+  it('flattens top-level properties and nested $and arrays while keeping source text', () => {
+    const clauses = parseDocumentClauses(`{
+      name: 'Ada', // who
+      $and: [{ qty: { $gt: 4 } }, { $and: [{ "a.b": 1, tags: ObjectId("507f1f77bcf86cd799439011") }] }],
+    }`, 'Filter');
+
+    expect(clauses.map((clause) => clause.key)).toEqual(['name', 'qty', 'a.b', 'tags']);
+    expect(clauses[0]).toMatchObject({ propertySource: "name: 'Ada'", valueSource: "'Ada'" });
+    expect(clauses[1]).toMatchObject({ propertySource: 'qty: { $gt: 4 }', valueSource: '{ $gt: 4 }' });
+    expect(JSON.parse(clauses[0]!.json)).toEqual({ name: 'Ada' });
+    expect(JSON.parse(clauses[3]!.json)).toEqual({ tags: { $oid: '507f1f77bcf86cd799439011' } });
+  });
+
+  it('keeps $or and non-array $and as single clauses', () => {
+    const clauses = parseDocumentClauses('{ $or: [{ a: 1 }, { b: 2 }], $and: "x" }', 'Filter');
+    expect(clauses.map((clause) => clause.key)).toEqual(['$or', '$and']);
+    expect(JSON.parse(clauses[0]!.json)).toEqual({ $or: [{ a: 1 }, { b: 2 }] });
+  });
+
+  it('returns no clauses for an empty filter', () => {
+    expect(parseDocumentClauses('{}', 'Filter')).toEqual([]);
+  });
+
+  it.each([
+    '{ $and: [{ $where: "true" }] }',
+    '[{ a: 1 }]',
+    '{ a: run() }',
+  ])('applies the same safety rules as parseDocumentExpression: %s', (source) => {
+    expect(() => parseDocumentClauses(source, 'Filter')).toThrow(DocumentExpressionError);
   });
 });

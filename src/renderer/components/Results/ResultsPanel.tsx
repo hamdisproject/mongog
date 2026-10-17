@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import {
   flexRender,
   getCoreRowModel,
@@ -9,7 +10,6 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   parseEjson,
-  renderBson,
   type BsonDisplayMode,
   type EjsonEnvelope,
 } from '../../../shared/ejson/index.js';
@@ -120,11 +120,13 @@ interface ActiveResultFetch {
 }
 
 export function ResultsPanel() {
-  const { activeTabId, results, tabs } = useWorkspaceStore();
+  const activeTabId = useWorkspaceStore((state) => state.activeTabId);
+  const execution = useWorkspaceStore((state) => (state.activeTabId ? state.results[state.activeTabId] : undefined));
+  const database = useWorkspaceStore((state) => (
+    state.tabs.find((tab) => tab.id === state.activeTabId)?.database ?? 'admin'
+  ));
   const displayMode = useSettingsStore((state) => state.settings.ejson.defaultMode);
   const tableColumnOrder = useSettingsStore((state) => state.settings.table.columnOrder);
-  const execution = activeTabId ? results[activeTabId] : undefined;
-  const database = tabs.find((tab) => tab.id === activeTabId)?.database ?? 'admin';
 
   if (!activeTabId || !execution) {
     return <div style={s.panel}><div style={s.empty}>Open a query tab to see results</div></div>;
@@ -401,7 +403,10 @@ function DocumentsResult({
   displayMode: BsonDisplayMode;
   tableColumnOrder: TableColumnOrder;
 }) {
-  const { updateDocumentPage, markCursorClosed } = useWorkspaceStore();
+  const { updateDocumentPage, markCursorClosed } = useWorkspaceStore(useShallow((state) => ({
+    updateDocumentPage: state.updateDocumentPage,
+    markCursorClosed: state.markCursorClosed,
+  })));
   const [pageFetchState, setPageFetchState] = useState<{
     operationId: string;
     direction: 'next' | 'prev';

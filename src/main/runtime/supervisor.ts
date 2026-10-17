@@ -48,6 +48,7 @@ const DEFAULTS = { maxRuntimes: 10, idleTimeoutMS: DEFAULT_CONNECTION_IDLE_TIMEO
 export class RuntimeSupervisor extends EventEmitter {
   private runtimes = new Map<string, ManagedRuntime>();
   private restarts = new Map<string, Promise<RuntimeClient | null>>();
+  private starting = new Map<string, Promise<RuntimeClient>>();
   private readonly maxRuntimes: number;
   private idleTimeoutMS: number;
   private readonly now: () => number;
@@ -93,9 +94,30 @@ export class RuntimeSupervisor extends EventEmitter {
       existing.lastUsedAt = this.now();
       return existing.client;
     }
-    if (existing) await this.dispose(connectionId);
 
-    if (this.runtimes.size >= this.maxRuntimes) {
+    // Concurrent connects share one spawn; otherwise the later runtime would
+    // overwrite the map entry and orphan the earlier utility process.
+    const pending = this.starting.get(connectionId);
+    if (pending) return pending;
+    const operation = this.spawn(connectionId, uri, options);
+    this.starting.set(connectionId, operation);
+    try {
+      return await operation;
+    } finally {
+      if (this.starting.get(connectionId) === operation) this.starting.delete(connectionId);
+    }
+  }
+
+  private async spawn(
+    connectionId: string,
+    uri: string,
+    options: Record<string, unknown>,
+  ): Promise<RuntimeClient> {
+    if (this.runtimes.has(connectionId)) await this.dispose(connectionId);
+
+    // Other connections that are still starting already hold a slot.
+    const startingElsewhere = [...this.starting.keys()].filter((id) => id !== connectionId).length;
+    if (this.runtimes.size + startingElsewhere >= this.maxRuntimes) {
       throw appError(
         'Unknown',
         `Maximum active runtimes (${this.maxRuntimes}) reached. Disconnect a connection first.`,
@@ -187,6 +209,9 @@ export class RuntimeSupervisor extends EventEmitter {
   }
 
   async dispose(connectionId: string): Promise<void> {
+    // A runtime that is still starting is not in the map yet; let it finish, then kill it.
+    const pending = this.starting.get(connectionId);
+    if (pending) await pending.catch(() => undefined);
     const rt = this.runtimes.get(connectionId);
     this.runtimes.delete(connectionId);
     if (rt) await rt.client.kill();

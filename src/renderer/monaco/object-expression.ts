@@ -7,7 +7,7 @@ import {
 import { useSchemaCache } from '../stores/schema-cache.js';
 import {
   buildCriteriaVirtualSource,
-  bsonConstructorSuggestions,
+  criteriaConstructorSuggestions,
   criteriaSuggestionInsertText,
   type CriteriaKind,
 } from './criteria-completions.js';
@@ -102,17 +102,8 @@ export function registerObjectExpressionLanguage(): monaco.IDisposable {
         const precedingCharacter = line.charAt(Math.max(0, word.startColumn - 2));
         const insideQuotedToken = precedingCharacter === '"' || precedingCharacter === "'";
 
-        const constructorItems = bsonConstructorSuggestions.map((suggestion) => ({
-          label: suggestion.label,
-          insertText: suggestion.insertText,
-          range,
-          kind: monaco.languages.CompletionItemKind.Constructor,
-          detail: suggestion.detail,
-          sortText: `z-${suggestion.label}`,
-          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-        } satisfies monaco.languages.CompletionItem));
         const criteriaContext = modelContexts.get(model.uri.toString());
-        if (!criteriaContext) return { suggestions: constructorItems };
+        if (!criteriaContext) return { suggestions: [] };
 
         const source = model.getValue();
         const sourceOffset = model.getOffsetAt(position);
@@ -122,6 +113,19 @@ export function registerObjectExpressionLanguage(): monaco.IDisposable {
           virtual.offset,
           'typescript',
         );
+        const constructorItems = criteriaConstructorSuggestions(
+          criteriaContext.kind,
+          semanticContext,
+          insideQuotedToken,
+        ).map((suggestion) => ({
+          label: suggestion.label,
+          insertText: suggestion.insertText,
+          range,
+          kind: monaco.languages.CompletionItemKind.Constructor,
+          detail: suggestion.detail,
+          sortText: `z-${suggestion.label}`,
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+        } satisfies monaco.languages.CompletionItem));
         const cached = useSchemaCache.getState().getSchema(
           criteriaContext.connectionId,
           criteriaContext.database,

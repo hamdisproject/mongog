@@ -94,6 +94,13 @@ describe('concurrent safety', () => {
     db.close();
   });
 
+  it('uses synchronous=NORMAL so WAL commits do not fsync on the main thread', () => {
+    const db = Database.openOrCreate(context.path);
+    const row = db.prepare('PRAGMA synchronous').get() as { synchronous: number };
+    expect(row.synchronous).toBe(1);
+    db.close();
+  });
+
   it('has foreign keys enabled', () => {
     const db = Database.openOrCreate(context.path);
     const row = db.prepare('PRAGMA foreign_keys').get() as { foreign_keys: number };

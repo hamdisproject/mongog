@@ -9,3 +9,4 @@ release-artifacts/
 .DS_Store
 src/renderer/generated/
 .cache/
+runtime-dist/

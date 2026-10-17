@@ -40,7 +40,7 @@ export async function runWorkspacePersistence(
   const queryTab = page.locator('[data-tab-kind="query"]').first();
   const collectionTab = page.locator('[data-tab-kind="collection"]').first();
   const queryTabId = await queryTab.getAttribute('data-tab-id');
-  let collectionTabId = await collectionTab.getAttribute('data-tab-id');
+  const collectionTabId = await collectionTab.getAttribute('data-tab-id');
   if (!queryTabId || !collectionTabId) throw new Error('Expected query and collection tab ids');
 
   await expect(queryTab).not.toHaveAttribute('draggable', 'true');

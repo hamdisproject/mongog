@@ -63,6 +63,18 @@ const z = 3;
     expect(c.errors[0]!.category).toBe('ModuleNotAllowed');
   });
 
+  it.each([
+    'client.constructor.constructor("return process")().pid;',
+    'globalThis.constructor.constructor("return process")().pid;',
+    'print.constructor("return process")().pid;',
+    '(await client.connect.constructor("return process")()).pid;',
+    'try { ObjectId("not-an-object-id"); } catch (error) { error.constructor.constructor("return process")().pid; }',
+  ])('blocks the outer-realm Function escape in Query Mode: %s', async (source) => {
+    const c = await run(source);
+    expect(c.finished?.status).toBe('failed');
+    expect(c.errors[0]?.message).toMatch(/code generation from strings/i);
+  });
+
   it('blocks writes when the connection is read-only', async () => {
     const c = await run('await db.collection("users").insertOne({ evil: true });', { readOnly: true });
     expect(c.finished?.status).toBe('failed');

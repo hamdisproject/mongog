@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   parseDocumentArrayExpression,
   parseDocumentExpression,
@@ -38,6 +38,11 @@ import {
   compileColumnFilters,
   reorderColumns,
 } from '../../collection-column-filter.js';
+import {
+  deriveColumnFilters,
+  rebuildFilterFromColumns,
+  type OwnedColumnClauses,
+} from '../../column-filter-sync.js';
 import {
   cycleColumnSort,
   readColumnSortIndicators,
@@ -292,7 +297,10 @@ interface DocumentFetchState {
   cancelling: boolean;
 }
 
-export function CollectionView({ tab, active }: { tab: WorkspaceTab; active: boolean }) {
+/** Every activated collection tab stays mounted; only the tab whose props changed re-renders. */
+export const CollectionView = memo(CollectionTabView);
+
+function CollectionTabView({ tab, active }: { tab: WorkspaceTab; active: boolean }) {
   const setCollectionView = useWorkspaceStore((state) => state.setCollectionView);
   const view = tab.collectionViewMode ?? 'documents';
   const namespace = `${tab.database ?? 'admin'}.${tab.collection ?? ''}`;
@@ -444,13 +452,27 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     ),
     [requiredSortColumns, rows, tableColumnOrder],
   );
-  const columnOrder = tab.documentsColumnOrder ?? [];
+  // A fresh [] every render would re-run the column memo and sync effect on every render.
+  const columnOrder = useMemo(() => tab.documentsColumnOrder ?? [], [tab.documentsColumnOrder]);
   const columnsManuallyReordered = tab.documentsColumnOrderManual ?? false;
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
   const [columnFilterErrors, setColumnFilterErrors] = useState<Record<string, string>>({});
   const [columnFilterHelpOpen, setColumnFilterHelpOpen] = useState(false);
   const [columnFilterExamplesOpen, setColumnFilterExamplesOpen] = useState(false);
+  const ownedColumnClausesRef = useRef<OwnedColumnClauses>({});
+  const syncedFilterRef = useRef<string | null>(null);
+  // The Filter is the source of truth and the column inputs mirror the clauses
+  // they can reproduce. Skip the text the columns just wrote so raw input survives.
+  useEffect(() => {
+    if (draftFilter === syncedFilterRef.current) return;
+    syncedFilterRef.current = draftFilter;
+    const derived = deriveColumnFilters(draftFilter);
+    if (!derived) return;
+    ownedColumnClausesRef.current = derived.owned;
+    setColumnFilters(derived.columns);
+    setColumnFilterErrors({});
+  }, [draftFilter]);
   const [documentPanelHeight, setDocumentPanelHeight] = useState<number | null>(null);
   const collectionContainerRef = useRef<HTMLDivElement>(null);
   const documentsRegionRef = useRef<HTMLDivElement>(null);
@@ -709,6 +731,8 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     criteria.filter,
     criteria.sort,
     criteria.projection,
+    // A restored tab mounts offline; load its first page once Connect succeeds.
+    isConnected,
   ]);
 
   const applyCriteria = () => {
@@ -746,12 +770,20 @@ function CollectionBrowser({ tab }: { tab: WorkspaceTab }) {
     const next = { ...columnFilters, [column]: value };
     if (!value) delete next[column];
     setColumnFilters(next);
-    const compiled = compileColumnFilters(next);
-    setColumnFilterErrors(compiled.errors);
-    if (Object.keys(compiled.errors).length === 0) {
-      setDraftCriteria({ filter: compiled.expression });
-      setCriteriaErrors((current) => ({ ...current, filter: null }));
+    const rebuilt = rebuildFilterFromColumns(draftFilter, ownedColumnClausesRef.current, next);
+    if (rebuilt.kind === 'invalid-filter') {
+      setColumnFilterErrors({ [column]: rebuilt.message });
+      return;
     }
+    if (rebuilt.kind === 'column-errors') {
+      setColumnFilterErrors(rebuilt.errors);
+      return;
+    }
+    setColumnFilterErrors({});
+    ownedColumnClausesRef.current = rebuilt.owned;
+    syncedFilterRef.current = rebuilt.filter;
+    setDraftCriteria({ filter: rebuilt.filter });
+    setCriteriaErrors((current) => ({ ...current, filter: null }));
   };
 
   const beginDocumentPanelResize = (event: React.PointerEvent<HTMLDivElement>) => {

@@ -52,7 +52,7 @@ import {
   startChangeStream,
   uploadGridFsFile,
 } from './admin/operations.js';
-import { appError, classifyError, serializeError, type AppError } from '../shared/errors/index.js';
+import { appError, serializeError, type AppError } from '../shared/errors/index.js';
 import { SqlTranslateError, translateSql } from '../features/sql-translator/index.js';
 import { redactUri } from '../shared/redaction/index.js';
 import type { ExecuteRequest, ExplainVerbosity } from '../shared/domain/index.js';

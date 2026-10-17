@@ -189,9 +189,17 @@ export async function runDocumentsAndSavedLibrary(
   const initialFilterHeight = await page.getByTestId('criteria-editor-filter').evaluate(
     (element) => element.getBoundingClientRect().height,
   );
+  const suggestions = page.locator('.suggest-widget.visible');
   await setMonacoValue(page, 'Collection filter', '{ ');
   await page.keyboard.press('Control+Space');
-  await expect(page.locator('.suggest-widget.visible')).toContainText('sku', { timeout: 15_000 });
+  await expect(suggestions).toContainText('sku', { timeout: 15_000 });
+  await expect(suggestions).not.toContainText('ObjectId');
+  await page.keyboard.press('Escape');
+  // BSON helpers appear only where a value is typed, and only the common ones.
+  await setMonacoValue(page, 'Collection filter', '{ _id: ');
+  await page.keyboard.press('Control+Space');
+  await expect(suggestions).toContainText('ObjectId', { timeout: 15_000 });
+  await expect(suggestions).not.toContainText('BinData');
   await page.keyboard.press('Escape');
   // Monaco auto-closes the leading brace, matching normal user typing.
   await setMonacoValue(page, 'Collection filter', "{\n  sku: 'alpha',\n");
@@ -217,6 +225,10 @@ export async function runDocumentsAndSavedLibrary(
     .toHaveText('Total count: 1');
 
   const quantityColumn = page.getByLabel('Filter quantity column');
+  // The manual Filter is mirrored in its column; clear it so only quantity applies.
+  const skuColumn = page.getByLabel('Filter sku column');
+  await expect(skuColumn).toHaveValue('alpha');
+  await skuColumn.fill('');
   await quantityColumn.fill('> 4');
   await expect(page.getByRole('button', { name: /^Criteria.*edited/ })).toBeVisible();
   await page.getByRole('button', { name: 'Apply', exact: true }).click();

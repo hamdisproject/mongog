@@ -27,6 +27,15 @@ describe('redaction', () => {
     expect(r).toContain('host:27017');
   });
 
+  it('masks every part of a password that contains raw @ characters', () => {
+    expect(redactUri('mongodb://user:p@ss@host:27017/db')).toBe('mongodb://<redacted>@host:27017/db');
+    expect(redactUri('mongodb+srv://u:a@b@c@cluster.example.net/?authSource=admin')).toBe(
+      'mongodb+srv://<redacted>@cluster.example.net/?authSource=admin',
+    );
+    expect(redactUri('mongodb://user:pw@host?appName=a@b')).toBe('mongodb://<redacted>@host?appName=a@b');
+    expect(redactUri('mongodb://host/db?appName=a@b')).toBe('mongodb://host/db?appName=a@b');
+  });
+
   it('leaves credential-free URIs untouched', () => {
     const uri = 'mongodb://localhost:27017/mydb?directConnection=true';
     expect(redactUri(uri)).toBe(uri);

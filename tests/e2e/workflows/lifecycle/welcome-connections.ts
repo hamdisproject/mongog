@@ -1,3 +1,4 @@
+import { APP_VERSION } from '../../fixtures/app-version.js';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
@@ -21,12 +22,12 @@ export async function runWelcomeReleaseAndSettings(context: LifecycleContext): P
   await expect(page.getByTestId('sidebar-mongog-brand').locator('img'))
     .toHaveAttribute('src', /mongog-icon.*\.png/);
   await expect(page.locator('[title^="welcome: Welcome"]')).toHaveCount(1);
-  await page.getByRole('button', { name: 'What’s New in 1.2.22' }).click();
+  await page.getByRole('button', { name: `What’s New in ${APP_VERSION}` }).click();
   const releaseNotesTab = page.locator('[data-tab-kind="release-notes"]');
   await expect(page.getByTestId('release-notes-view')).toBeVisible();
   await expect(page.getByTestId('release-notes-mongog-brand')).toHaveAccessibleName('MongoG');
-  await expect(page.getByText('Installed v1.2.22')).toBeVisible();
-  await expect(page.locator('[data-release-version="1.2.22"]')).toContainText('Latest');
+  await expect(page.getByText(`Installed v${APP_VERSION}`)).toBeVisible();
+  await expect(page.locator(`[data-release-version="${APP_VERSION}"]`)).toContainText('Latest');
   await expect(page.locator('[data-release-version="1.0.0"]')).toBeVisible();
   await expectViewportLocked(page);
   await releaseNotesTab.click({ button: 'right' });
@@ -39,7 +40,7 @@ export async function runWelcomeReleaseAndSettings(context: LifecycleContext): P
   await page.getByTitle('Close Release Notes').click();
   await expect(releaseNotesTab).toHaveCount(0);
   await page.locator('[title^="welcome: Welcome"]').click();
-  await page.getByRole('button', { name: 'What’s New in 1.2.22' }).click();
+  await page.getByRole('button', { name: `What’s New in ${APP_VERSION}` }).click();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
   await expect(page.getByTitle('New query tab')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open global search' })).toBeVisible();
@@ -97,7 +98,7 @@ export async function runWelcomeReleaseAndSettings(context: LifecycleContext): P
   await expect(page.getByRole('switch', { name: 'Run default collection query automatically' }))
     .toBeDisabled();
   await expect(page.getByLabel('Global page size')).toHaveValue('50');
-  await expect(page.getByTestId('about-updates-settings')).toContainText('MongoG 1.2.22');
+  await expect(page.getByTestId('about-updates-settings')).toContainText(`MongoG ${APP_VERSION}`);
   await page.getByRole('button', { name: 'Open Release Notes' }).click();
   await expect(page.getByTestId('release-notes-view')).toBeVisible();
   await expect(page.locator('[data-tab-kind="release-notes"]')).toHaveCount(1);
@@ -128,7 +129,7 @@ export async function runConnectionManagement(
   await page.getByRole('button', { name: 'basic' }).click();
   await page.getByRole('button', { name: 'Test, Save & Connect' }).click();
   await expect(page.getByText('Connection tested, saved, and connected.')).toBeVisible({ timeout: 30_000 });
-  let explorer = page.getByRole('navigation', { name: 'Connection explorer' });
+  const explorer = page.getByRole('navigation', { name: 'Connection explorer' });
   await expect(explorer.getByRole('button', { name: 'Disconnect', exact: true })).toBeVisible();
   await expect(explorer.getByRole('button', { name: 'Connection settings for E2E Local' })).toBeVisible();
 
@@ -173,7 +174,8 @@ export async function runGroupManagement(state: LifecycleState): Promise<void> {
   await page.getByPlaceholder('Group name').press('Enter');
   const groupNode = explorer.getByRole('treeitem', { name: 'Group E2E Group' });
   const initialProfileNode = explorer.getByRole('treeitem', { name: 'Connection E2E Local' });
-  await initialProfileNode.dragTo(groupNode);
+  // Give Chromium intermediate pointer moves to enter the drop target before release.
+  await initialProfileNode.dragTo(groupNode, { steps: 8 });
   await expect(groupNode.locator('..').getByRole('treeitem', { name: 'Connection E2E Local' })).toBeVisible();
   await explorer.getByRole('button', { name: 'Collapse group E2E Group' }).click();
   await expect(groupNode.locator('..').getByRole('treeitem', { name: 'Connection E2E Local' })).toHaveCount(0);

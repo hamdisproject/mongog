@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useSettingsStore } from '../../stores/settings.js';
 import { useWorkspaceStore } from '../../stores/workspace.js';
 import type { BsonDisplayMode } from '../../../shared/ejson/index.js';
@@ -172,7 +173,27 @@ export function SettingsView() {
     setPageSize,
     setQueryTimeout,
     setAuditSettings,
-  } = useSettingsStore();
+  } = useSettingsStore(useShallow((state) => ({
+    settings: state.settings,
+    loaded: state.loaded,
+    saving: state.saving,
+    error: state.error,
+    setTheme: state.setTheme,
+    setEditorFontSize: state.setEditorFontSize,
+    setEditorMouseWheelZoom: state.setEditorMouseWheelZoom,
+    setCriteriaOpenByDefault: state.setCriteriaOpenByDefault,
+    setBsonDisplayMode: state.setBsonDisplayMode,
+    setCollectionDefaults: state.setCollectionDefaults,
+    setExplorerCollectionOpenBehavior: state.setExplorerCollectionOpenBehavior,
+    setTableColumnOrder: state.setTableColumnOrder,
+    setDatabaseOrder: state.setDatabaseOrder,
+    setCollectionOrder: state.setCollectionOrder,
+    setToolbarActionVisible: state.setToolbarActionVisible,
+    setConnectionIdleTimeout: state.setConnectionIdleTimeout,
+    setPageSize: state.setPageSize,
+    setQueryTimeout: state.setQueryTimeout,
+    setAuditSettings: state.setAuditSettings,
+  })));
   const openActivityLog = useWorkspaceStore((state) => state.openActivityLog);
   const openReleaseNotes = useWorkspaceStore((state) => state.openReleaseNotes);
   const openUpdates = useWorkspaceStore((state) => state.openUpdates);

@@ -114,7 +114,10 @@ test('Query font zoom and Documents Criteria defaults are scoped and persistent'
     await expect(firstCriteria).toHaveAttribute('aria-expanded', 'true');
     await setMonacoValue(page, 'Collection filter', '{ sku: "alpha" }');
     await page.getByRole('button', { name: 'Apply', exact: true }).click();
-    await expect(page.getByRole('row', { name: /alpha/ })).toBeVisible();
+    const alphaRow = page.getByTestId('collection-documents-table').locator('tbody')
+      .getByRole('row', { name: /alpha/ });
+    await expect(alphaRow).toBeVisible();
+    await expect(page.getByLabel('Filter sku column')).toHaveValue('alpha');
 
     await openSettings();
     await page.getByRole('switch', { name: 'Open Documents criteria by default' }).click();
@@ -133,7 +136,7 @@ test('Query font zoom and Documents Criteria defaults are scoped and persistent'
     await firstCriteria.click();
     await expect(page.getByTestId('criteria-editor-filter').locator('.view-lines')).toHaveCSS('font-size', '12px');
     await expect(page.getByTestId('criteria-editor-filter')).toContainText('alpha');
-    await expect(page.getByRole('row', { name: /alpha/ })).toBeVisible();
+    await expect(alphaRow).toBeVisible();
 
     await collection.click();
     const secondTabId = await page.locator('[data-tab-kind="collection"][data-tab-active="true"]').getAttribute('data-tab-id');

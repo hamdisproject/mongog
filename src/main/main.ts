@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { rmSync } from 'node:fs';
 import { app, BrowserWindow, nativeImage, type IpcMainInvokeEvent } from 'electron';
 import { createMainWindow, allowedRendererOrigins, applicationIconPath, installRendererProtocol } from './window.js';
+import { isAllowedRendererUrl } from './renderer-security.js';
 import { registerIpcHandlers } from './ipc/handlers.js';
 import { RuntimeSupervisor, type RuntimeRestartInfo } from './runtime/supervisor.js';
 import { Database } from './storage/database.js';
@@ -47,7 +48,7 @@ function getDb(): Database {
 function validateSender(event: IpcMainInvokeEvent): boolean {
   const url = event.senderFrame?.url ?? '';
   if (!url) return false;
-  return allowedRendererOrigins().some((origin) => url.startsWith(origin));
+  return isAllowedRendererUrl(url, allowedRendererOrigins());
 }
 
 async function getSpikeMongoUri(): Promise<string | null> {
@@ -124,7 +125,6 @@ void app.whenReady().then(async () => {
     {
       supervisor,
       getWindow: () => BrowserWindow.getAllWindows()[0] ?? null,
-      getSpikeMongoUri,
       getDb,
       secretStore: secretVault,
       audit,

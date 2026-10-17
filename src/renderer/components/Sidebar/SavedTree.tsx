@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import type {
   CreateSavedItemInput,
   SavedFolder,
@@ -55,7 +56,21 @@ export function SavedTree({
     openItem,
     error: storeError,
     clearError,
-  } = useSavedLibraryStore();
+  } = useSavedLibraryStore(useShallow((state) => ({
+    folders: state.folders,
+    items: state.items,
+    expandedNodeIds: state.expandedNodeIds,
+    toggleNode: state.toggleNode,
+    setNodeExpanded: state.setNodeExpanded,
+    createFolder: state.createFolder,
+    updateFolder: state.updateFolder,
+    deleteFolder: state.deleteFolder,
+    updateItem: state.updateItem,
+    deleteItem: state.deleteItem,
+    openItem: state.openItem,
+    error: state.error,
+    clearError: state.clearError,
+  })));
   const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
   const [folderAction, setFolderAction] = useState<FolderAction | null>(null);
   const [itemAction, setItemAction] = useState<ItemAction | null>(null);
@@ -386,7 +401,10 @@ export function SavedTree({
 
 function MoveFolderDialog({ folder, onClose }: { folder: SavedFolder; onClose: () => void }) {
   const profiles = useConnectionStore((state) => state.profiles);
-  const { folders, updateFolder } = useSavedLibraryStore();
+  const { folders, updateFolder } = useSavedLibraryStore(useShallow((state) => ({
+    folders: state.folders,
+    updateFolder: state.updateFolder,
+  })));
   const [connectionId, setConnectionId] = useState<string | null>(folder.connectionId);
   const [parentId, setParentId] = useState<string | null>(folder.parentId);
   const [busy, setBusy] = useState(false);
