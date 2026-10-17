@@ -19,6 +19,7 @@ manual checks. Shared CLI parsing + release naming live in `release-utils.mjs`
 | `run-packaged-smoke.mjs` | `npm run smoke:packaged -- …` | Boots the packaged app headless (`MONGOG_PACKAGED_EXECUTABLE` override supported) |
 | `make-windows-nsis.mjs` | `npm run make:windows:nsis` | Unsigned Windows x64 NSIS installer — must run ON Windows x64, throws elsewhere |
 | `make-macos-dmg.mjs` | release flow | macOS DMG assembly |
+| `retry-apple-network.mjs` | release flow (macOS) | Runs packaging/stapler commands with up to three delayed retries only for Apple CloudKit ticket lookup error 68 with network error -1005; preserves every final failure |
 | `collect-release-artifacts.mjs` | `npm run collect:release` | Gathers the six platform packages for the draft release |
 | `verify-release-assets.mjs` | `npm run verify:release` | Six artifacts + naming (`UNSIGNED` Windows) + completeness |
 | `generate-update-manifests.mjs` | `npm run generate:update-manifests` | `latest-mac.yml` / `latest.yml` / `latest-linux.yml` from actual package SHA-512s |

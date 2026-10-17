@@ -42,6 +42,12 @@ runner'larda paralel üretilir. Her production paketi yalnız bir kez oluşturul
 ZIP, DMG, NSIS ve RPM adımları mevcut paketi tekrar kullanır. npm, Electron ve
 electron-builder download cache'leri platform ve mimariye göre ayrılır.
 
+Apple CloudKit bilet sorgusunda `NSURLErrorDomain Code=-1005` ile birlikte
+`stapler` hata 68 dönerse paketleme ve bilet doğrulama komutları 15, 30 ve 60
+saniye bekleyerek en fazla üç kez yeniden denenir. Diğer imza/noter hataları ve
+son denemede kalan ağ hatası yayını durdurur; başarısız paketleme yeniden
+denenebilir, başarıyla üretilen paket ZIP/DMG adımları arasında paylaşılır.
+
 Aşağıdaki örnekteki `1.0.0` değerini yayınlanacak sürümle değiştir:
 
 ```bash

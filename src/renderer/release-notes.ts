@@ -19,8 +19,8 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES = [
   {
-    version: '1.2.26',
-    releasedAt: '2026-10-17',
+    version: '1.2.27',
+    releasedAt: '2026-10-18',
     title: 'Synchronized filters and a smoother workspace',
     summary: 'Documents filters stay in sync, query suggestions are more focused, and the workspace runs more smoothly with stronger script and renderer protections.',
     sections: [
@@ -37,6 +37,7 @@ export const RELEASE_NOTES = [
           'Reduced unnecessary workspace redraws and saves, keeping the interface more responsive during query results and bursts of console output.',
           'Packaged applications are smaller because unused renderer source maps and development-only type dependencies no longer ship.',
           'Strengthened script execution protections, renderer content restrictions and IPC origin validation.',
+          'macOS release packaging now retries temporary Apple ticket-service disconnects while still requiring successful signing, notarization and validation.',
         ],
       },
       {
